@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle } from 'lucide-react';
@@ -14,21 +14,42 @@ const SUGGESTIONS = [
   "Düşündüren bir film istiyorum",
 ];
 
+const LOADING_PHRASES = [
+  "Üstad arşivi tarıyor...",
+  "Ruh halin analiz ediliyor...",
+  "Bu geceye özel seçiliyor...",
+  "Binlerce film arasında...",
+  "Üstad karar veriyor...",
+  "Neredeyse hazır...",
+];
+
 export default function KafanMiKarisik() {
   const navigate = useNavigate();
   const { selectMood } = useMood();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState('');
+  const [phraseIdx, setPhraseIdx] = useState(0);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const inputRef = useRef(null);
+  const phraseTimer = useRef(null);
+
+  useEffect(() => {
+    if (loading) {
+      setPhraseIdx(0);
+      phraseTimer.current = setInterval(() => {
+        setPhraseIdx(p => (p + 1) % LOADING_PHRASES.length);
+      }, 1200);
+    } else {
+      clearInterval(phraseTimer.current);
+    }
+    return () => clearInterval(phraseTimer.current);
+  }, [loading]);
 
   const analyze = async (inputText) => {
     const txt = inputText || text;
     if (!txt.trim()) return;
     setLoading(true);
-    setLoadingMsg('Üstad bu geceyi tartıyor...');
     setError(null);
     setResult(null);
     try {
@@ -150,14 +171,35 @@ export default function KafanMiKarisik() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-20 gap-6"
+            className="flex flex-col items-center justify-center py-20 gap-8"
           >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-              className="w-16 h-16 rounded-full border-2 border-amber/40 border-t-[#ffbf00] shadow-[0_0_30px_rgba(255,191,0,0.15)]"
-            />
-            <p className="text-xl font-serif italic text-amber-200/70 animate-pulse font-medium">{loadingMsg}</p>
+            <div className="relative w-20 h-20">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-[#ffbf00] shadow-[0_0_30px_rgba(255,191,0,0.15)]"
+              />
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-3 rounded-full border border-amber/10 border-b-amber/50"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Brain size={20} className="text-amber/40" />
+              </div>
+            </div>
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={phraseIdx}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.35 }}
+                className="text-lg font-serif italic text-amber-200/70 font-medium text-center"
+              >
+                {LOADING_PHRASES[phraseIdx]}
+              </motion.p>
+            </AnimatePresence>
           </motion.div>
         )}
 
