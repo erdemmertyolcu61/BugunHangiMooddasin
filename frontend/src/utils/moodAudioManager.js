@@ -7,22 +7,22 @@ let targetVolume = 0.35;
 const fadeDurationMs = 600; // Faster, snappier fade
 const preloadedAudios = new Map();
 
-// Doğrudan CDN URL'leri — backend proxy gereksiz, browser direkt çalar
+// Vercel CDN'den serve edilen statik ses dosyaları — frontend/public/audio/
 const MOOD_AUDIO_DIRECT = {
-  "battaniye":    "https://cdn.pixabay.com/audio/2024/09/10/audio_6e5d7d1db1.mp3",
-  "yolculuk":     "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3",
-  "gece":         "https://cdn.pixabay.com/audio/2023/07/07/audio_34cea2adf1.mp3",
-  "kahkaha":      "https://cdn.pixabay.com/audio/2024/09/24/audio_8e1f0ab42a.mp3",
-  "gozyasi":      "https://cdn.pixabay.com/audio/2023/10/02/audio_3bbf037e6a.mp3",
-  "adrenalin":    "https://cdn.pixabay.com/audio/2022/10/09/audio_39e0e70bca.mp3",
-  "askbahcesi":   "https://cdn.pixabay.com/audio/2023/09/06/audio_13fae70fd0.mp3",
-  "zamanyolcusu": "https://cdn.pixabay.com/audio/2022/02/22/audio_d1718ab41b.mp3",
-  "sessiz":       "https://cdn.pixabay.com/audio/2022/10/25/audio_1e6d7b7e42.mp3",
-  "zihin":        "https://cdn.pixabay.com/audio/2022/03/09/audio_65a70e1ef3.mp3",
-  "kalp":         "https://cdn.pixabay.com/audio/2023/06/12/audio_ba5e3a3f59.mp3",
-  "karmakar":     "https://cdn.pixabay.com/audio/2022/08/02/audio_8c8b08c8c4.mp3",
-  "retro":        "https://cdn.pixabay.com/audio/2022/11/22/audio_8ceabc8b8e.mp3",
-  "deep-chills":  "https://cdn.pixabay.com/audio/2023/07/07/audio_34cea2adf1.mp3",
+  "battaniye":    "/audio/battaniye.mp3",
+  "yolculuk":     "/audio/yolculuk.mp3",
+  "gece":         "/audio/gece.mp3",
+  "kahkaha":      "/audio/kahkaha.mp3",
+  "gozyasi":      "/audio/gozyasi.mp3",
+  "adrenalin":    "/audio/adrenalin.mp3",
+  "askbahcesi":   "/audio/askbahcesi.mp3",
+  "zamanyolcusu": "/audio/zamanyolcusu.mp3",
+  "sessiz":       "/audio/sessiz.mp3",
+  "zihin":        "/audio/zihin.mp3",
+  "kalp":         "/audio/kalp.mp3",
+  "karmakar":     "/audio/karmakar.mp3",
+  "retro":        "/audio/retro.mp3",
+  "deep-chills":  "/audio/deep-chills.mp3",
 };
 
 /**
