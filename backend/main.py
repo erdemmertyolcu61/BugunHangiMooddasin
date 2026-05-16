@@ -1779,7 +1779,10 @@ async def post_confused_recommendation(req: ConfusedRequest):
     ustad_line = ""
 
     try:
-        intent = await confusion_service.extract_user_intent(text)
+        intent = await asyncio.wait_for(
+            confusion_service.extract_user_intent(text),
+            timeout=8.0  # Kredi bittiyse 3 retry × 10s = 30s bekler; hemen keselim
+        )
         if intent and intent.get("mood_mix"):
             mood_mix = intent["mood_mix"]
             message = intent.get("user_intent_summary", "")
@@ -1877,7 +1880,10 @@ async def post_confused_recommendation(req: ConfusedRequest):
 
     if intent and top_candidates:
         try:
-            rerank_result = await confusion_service.rerank_movies(text, intent, top_candidates)
+            rerank_result = await asyncio.wait_for(
+                confusion_service.rerank_movies(text, intent, top_candidates),
+                timeout=8.0
+            )
             if rerank_result and rerank_result.get("recommendations"):
                 mode = "claude_reranked"
                 if rerank_result.get("ustad_line"):
