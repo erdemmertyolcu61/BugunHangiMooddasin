@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: film-connoisseur-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_PATH
+        value: movie_cache.db
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      # Secrets below must be set manually in Render Dashboard → Environment
+      # TMDB_API_KEY, OMDB_API_KEY, ANTHROPIC_API_KEY,
+      # ALLOWED_ORIGINS, BETA_PASSWORD, ADMIN_PASSWORD, JWT_SECRET

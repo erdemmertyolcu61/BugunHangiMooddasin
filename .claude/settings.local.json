@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:pixabay.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(Get-ChildItem -Path \"D:\\\\film eleştirmen\" -Recurse -Force)",
+      "Bash(Select-Object -First 100 FullName)",
+      "Bash(ConvertTo-Json)",
+      "Bash(python -m py_compile backend/services/claude_service.py)",
+      "Bash(python -m py_compile backend/main.py)",
+      "Bash(python -c \"from backend.services.claude_service import claude_service, confusion_service; print\\('claude_service OK'\\)\")",
+      "Bash(curl -s http://127.0.0.1:8001/health)"
+    ]
+  }
+}

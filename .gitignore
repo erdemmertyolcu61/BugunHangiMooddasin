@@ -1,0 +1,75 @@
+# ============================================
+# Environment & Secrets
+# ============================================
+.env
+.env.*
+!.env.example
+!.env.production
+!frontend/.env.production
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+.Python
+venv/
+env/
+.venv/
+
+# ============================================
+# Node / Frontend
+# ============================================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.cache/
+
+# ============================================
+# Database files
+# ============================================
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+# Exception: include the pre-seeded movie repository (47MB, needed for deployment)
+!movie_cache.db
+
+# ============================================
+# IDE & OS
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+dns_debug.log
+
+# ============================================
+# Cache & Generated
+# ============================================
+image_cache/
+.cache/
+*.tmp
+
+# ============================================
+# Audio files (large, not for git)
+# ============================================
+audio_files/
