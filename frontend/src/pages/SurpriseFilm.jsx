@@ -1,69 +1,108 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Shuffle, Sparkles, Star, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Shuffle, RefreshCw, X, Star, BookOpen, Sparkles, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { proxyImageUrl } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
 
-const IMG_BASE = 'https://image.tmdb.org/t/p/w780';
+const LOADING_PHRASES = [
+  "Kader zarları atılıyor...",
+  "Bu gecenin filmi aranıyor...",
+  "Sinema ruhu konuşuyor...",
+  "Arşiv derinlikleri taranıyor...",
+  "Üstad düşünüyor...",
+];
 
 export default function SurpriseFilm() {
   const navigate = useNavigate();
   const [movie, setMovie] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [spinning, setSpinning] = useState(false);
+  const [error, setError] = useState(null);
   const [seenIds, setSeenIds] = useState([]);
   const [ustadLine, setUstadLine] = useState('');
+  const [phraseIdx, setPhraseIdx] = useState(0);
+
+  // Film detay state
+  const [showDetail, setShowDetail] = useState(false);
+  const [analysisData, setAnalysisData] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const phraseTimer = useRef(null);
+
+  const startPhraseRotation = () => {
+    setPhraseIdx(0);
+    phraseTimer.current = setInterval(() => {
+      setPhraseIdx(p => (p + 1) % LOADING_PHRASES.length);
+    }, 900);
+  };
+
+  const stopPhraseRotation = () => {
+    if (phraseTimer.current) clearInterval(phraseTimer.current);
+  };
 
   const fetchSurprise = async () => {
-    setLoading(true);
     setSpinning(true);
     setError(null);
     setMovie(null);
+    setShowDetail(false);
+    setAnalysisData(null);
+    startPhraseRotation();
     try {
       const res = await fetch(getApiUrl(`/api/recommend/surprise?exclude_ids=${seenIds.join(',')}`));
       const data = await res.json();
       if (!res.ok || data.source === 'error' || data.source === 'empty') {
         setError(data.message || 'Sürpriz film alınamadı');
+        stopPhraseRotation();
+        setSpinning(false);
       } else {
         setTimeout(() => {
           setMovie(data.movie);
           setUstadLine(data.ustad_line || '');
-          setSeenIds(prev => [...prev, data.movie.id || data.movie.tmdb_id]);
+          setSeenIds(prev => [...prev, data.movie?.id || data.movie?.tmdb_id]);
+          stopPhraseRotation();
           setSpinning(false);
-          setLoading(false);
         }, 2000);
       }
     } catch (err) {
       setError(err.message || 'Sürpriz alınamadı');
+      stopPhraseRotation();
       setSpinning(false);
-      setLoading(false);
     }
   };
 
-  useEffect(() => { fetchSurprise(); }, []);
+  useEffect(() => { fetchSurprise(); return () => stopPhraseRotation(); }, []);
+
+  const handleInspect = async () => {
+    if (!movie) return;
+    const movieId = movie.id || movie.tmdb_id;
+    setLoadingDetail(true);
+    setShowDetail(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/movies/${movieId}/analyze`));
+      if (!res.ok) throw new Error('Analiz alınamadı');
+      const data = await res.json();
+      setAnalysisData(data);
+    } catch (err) {
+      setAnalysisData({ error: err.message });
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-black text-ivory font-sans relative overflow-hidden flex flex-col">
-      {/* Vibrant colorful gradient background */}
+    <div className="min-h-screen bg-black text-white font-sans relative overflow-hidden flex flex-col">
+      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#1a0533] via-[#2d1b69] to-[#1a0a2e]">
-        <div className="absolute inset-0 bg-gradient-to-t from-[#ff6b35]/10 via-[#ffbf00]/5 to-[#00d4ff]/10" />
-        <div className="absolute top-0 left-0 w-full h-full opacity-30"
-          style={{
-            backgroundImage: `
-              radial-gradient(ellipse at 20% 20%, #ff6b35 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 30%, #00d4ff 0%, transparent 50%),
-              radial-gradient(ellipse at 50% 80%, #ffbf00 0%, transparent 50%),
-              radial-gradient(ellipse at 30% 60%, #ff006e 0%, transparent 40%)
-            `
-          }}
-        />
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: `
+            radial-gradient(ellipse at 20% 20%, #ff6b35 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 30%, #00d4ff 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 80%, #ffbf00 0%, transparent 50%),
+            radial-gradient(ellipse at 30% 60%, #ff006e 0%, transparent 40%)
+          `
+        }} />
       </div>
-      {/* Texture overlay */}
-      <div className="absolute inset-0 opacity-[0.05] mix-blend-overlay pointer-events-none"
-        style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/black-scales.png')" }} />
-      <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay pointer-events-none"
+      <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/stardust.png')" }} />
 
       <header className="relative z-10 p-6 flex items-center">
@@ -74,109 +113,96 @@ export default function SurpriseFilm() {
       </header>
 
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
-        {/* Initial / Retry state */}
-        {!movie && !spinning && !error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-6">
-            <button onClick={fetchSurprise}
-              className="px-10 py-5 bg-gradient-to-r from-[#ff6b35] via-[#ffbf00] to-[#00d4ff] text-black font-bold text-lg uppercase tracking-[0.3em] rounded-full hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,107,53,0.4)]">
-              <Shuffle size={20} className="inline mr-3" /> Sürpriz Çek
-            </button>
-          </motion.div>
-        )}
 
-        {/* Spinning / Loading */}
+        {/* Loading */}
         {spinning && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex flex-col items-center gap-10">
-            <motion.div
-              animate={{ rotateY: 360 }}
-              transition={{ duration: 0.6, repeat: Infinity, ease: "linear" }}
-              className="w-40 h-56 bg-white/10 rounded-3xl border-2 border-[#ffbf00]/50 shadow-[0_0_50px_rgba(255,191,0,0.3)]"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,107,53,0.2), rgba(0,212,255,0.2))',
-              }}
-            />
-            <div className="text-center space-y-3">
-              <motion.p
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="text-2xl font-serif italic text-[#ffbf00] drop-shadow-[0_0_10px_rgba(255,191,0,0.3)]"
-              >
-                Perde açılıyor...
-              </motion.p>
+            {/* Animated film reel */}
+            <div className="relative w-36 h-36">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="w-36 h-36 rounded-full border-2 border-[#ffbf00]/30 border-t-[#ffbf00]"
+              />
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-4 rounded-full border border-[#00d4ff]/20 border-b-[#00d4ff]/60"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles size={28} className="text-[#ffbf00]/60" />
+              </div>
             </div>
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={phraseIdx}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.4 }}
+                className="text-xl font-serif italic text-[#ffbf00]/80 tracking-wide"
+              >
+                {LOADING_PHRASES[phraseIdx]}
+              </motion.p>
+            </AnimatePresence>
           </motion.div>
         )}
 
         {/* Error */}
         {error && !spinning && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center gap-8 text-center">
-            <p className="text-2xl font-serif italic text-[#ff6b35] max-w-xl">{error}</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="flex flex-col items-center gap-6 text-center">
+            <p className="text-xl font-serif italic text-[#ff6b35] max-w-md">{error}</p>
             <button onClick={fetchSurprise}
-              className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center gap-3 transition-all">
-              <RefreshCw size={20} /> <span className="tracking-widest uppercase text-sm font-bold">Tekrar Dene</span>
+              className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center gap-3 transition-all text-sm font-bold uppercase tracking-widest">
+              <RefreshCw size={16} /> Tekrar Dene
             </button>
           </motion.div>
         )}
 
-        {/* Movie Reveal */}
+        {/* Movie card */}
         <AnimatePresence>
           {movie && !spinning && (
             <motion.div
               key={movie.id}
-              initial={{ scale: 0.7, opacity: 0, y: 60 }}
+              initial={{ scale: 0.8, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              transition={{ type: "spring", bounce: 0.5, duration: 1.2 }}
-              className="relative w-full max-w-2xl"
+              transition={{ type: "spring", bounce: 0.4, duration: 1 }}
+              className="relative w-full max-w-lg"
             >
-              {/* Multi-color glow badges */}
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 flex gap-3 z-20 flex-wrap justify-center">
-                <span className="bg-[#ff6b35] text-white px-5 py-2 rounded-full font-bold uppercase tracking-widest text-xs shadow-lg shadow-[#ff6b35]/40">
-                  Sürpriz
-                </span>
-                <span className="bg-[#00d4ff] text-black px-5 py-2 rounded-full font-bold uppercase tracking-widest text-xs shadow-lg shadow-[#00d4ff]/40">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 flex-wrap justify-center">
+                <span className="bg-[#ff6b35] text-white px-4 py-1.5 rounded-full font-bold uppercase tracking-widest text-[10px] shadow-lg">Sürpriz</span>
+                <span className="bg-[#00d4ff] text-black px-4 py-1.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-lg">
                   {movie.vote_average?.toFixed(1) || '?'} ★
                 </span>
-                <span className="bg-[#ffbf00] text-black px-5 py-2 rounded-full font-bold uppercase tracking-widest text-xs shadow-lg shadow-[#ffbf00]/40">
+                <span className="bg-[#ffbf00] text-black px-4 py-1.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-lg">
                   {movie.release_date?.split('-')[0] || '?'}
                 </span>
               </div>
 
-              {/* Film card */}
-              <div className="w-full bg-black/70 backdrop-blur-2xl rounded-[3rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(255,107,53,0.15)]">
-                <div className="aspect-[16/9] md:aspect-[2/3] relative">
-                  <img
-                    src={proxyImageUrl(movie.poster_url) || `${IMG_BASE}/placeholder`}
-                    className="w-full h-full object-cover"
-                    alt={movie.title}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12">
-                    <h2 className="text-5xl md:text-7xl font-serif font-bold text-white tracking-tighter leading-tight drop-shadow-xl">
+              <div className="bg-black/70 backdrop-blur-2xl rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(255,107,53,0.15)]">
+                <div className="relative aspect-[2/3] max-h-[420px]">
+                  <img src={proxyImageUrl(movie.poster_url)} className="w-full h-full object-cover" alt={movie.title} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <h2 className="text-3xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl">
                       {movie.title}
                     </h2>
-                    {movie.overview && (
-                      <p className="mt-4 text-base md:text-lg text-white/60 line-clamp-2 max-w-xl">
-                        {movie.overview}
-                      </p>
-                    )}
                     {ustadLine && (
-                      <p className="mt-3 text-sm md:text-base text-[#ffbf00]/70 font-serif italic">
-                        "{ustadLine}"
-                      </p>
+                      <p className="mt-2 text-sm text-[#ffbf00]/70 font-serif italic line-clamp-2">"{ustadLine}"</p>
                     )}
                   </div>
                 </div>
 
-                <div className="p-8 md:p-12 bg-white/5 flex flex-wrap gap-4 justify-center">
+                <div className="p-6 flex gap-3 justify-center">
                   <button onClick={fetchSurprise}
-                    className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#ff6b35] to-[#ffbf00] text-black rounded-full font-bold uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-[0_0_25px_rgba(255,107,53,0.3)]">
-                    <Shuffle size={16} /> Yeni Sürpriz
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ff6b35] to-[#ffbf00] text-black rounded-full font-bold uppercase tracking-widest text-xs hover:scale-105 transition-all">
+                    <Shuffle size={14} /> Yeni Sürpriz
                   </button>
-                  <button onClick={() => navigate(`/discover?analyze=${movie.id || movie.tmdb_id}`)}
-                    className="px-8 py-4 bg-white/10 text-white rounded-full font-bold uppercase tracking-widest text-xs hover:bg-white/20 transition-all">
-                    Filmi İncele
+                  <button onClick={handleInspect}
+                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold uppercase tracking-widest text-xs transition-all border border-white/20">
+                    <BookOpen size={14} /> Filmi İncele
                   </button>
                 </div>
               </div>
@@ -184,6 +210,111 @@ export default function SurpriseFilm() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Film Detail Modal */}
+      <AnimatePresence>
+        {showDetail && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowDetail(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0.3 }}
+              className="w-full max-w-xl bg-[#1a1410] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="relative">
+                {movie?.poster_url && (
+                  <img src={proxyImageUrl(movie.poster_url)} className="w-full h-52 object-cover" alt={movie.title} />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#1a1410] via-[#1a1410]/50 to-transparent" />
+                <button onClick={() => setShowDetail(false)}
+                  className="absolute top-4 right-4 w-9 h-9 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-all border border-white/20">
+                  <X size={16} />
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <h2 className="text-2xl font-serif font-bold text-white">{movie?.title}</h2>
+                  <div className="flex items-center gap-3 mt-1">
+                    {movie?.vote_average && (
+                      <span className="flex items-center gap-1 text-[#ffbf00] text-sm font-bold">
+                        <Star size={12} fill="currentColor" /> {movie.vote_average.toFixed(1)}
+                      </span>
+                    )}
+                    {movie?.release_date && (
+                      <span className="text-white/40 text-xs">{movie.release_date.split('-')[0]}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {loadingDetail ? (
+                  <div className="flex flex-col items-center gap-4 py-8">
+                    <div className="w-8 h-8 rounded-full border-2 border-[#ffbf00]/30 border-t-[#ffbf00] animate-spin" />
+                    <p className="text-white/40 text-sm font-serif italic">Üstad inceliyor...</p>
+                  </div>
+                ) : analysisData?.error ? (
+                  <p className="text-red-400 text-sm text-center py-4">{analysisData.error}</p>
+                ) : analysisData ? (
+                  <>
+                    {/* Özet */}
+                    {(analysisData.overview || movie?.overview) && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Özet</p>
+                        <p className="text-white/70 text-sm leading-relaxed font-serif">
+                          {analysisData.overview || movie.overview}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Üstadın Notu */}
+                    {analysisData.ai_analysis?.mood_note && (
+                      <div className="bg-[#ffbf00]/5 border border-[#ffbf00]/20 rounded-2xl p-4">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-[#ffbf00]/50 mb-2 flex items-center gap-1">
+                          <Sparkles size={8} /> Üstadın Notu
+                        </p>
+                        <p className="text-[#ffbf00]/80 text-sm font-serif italic leading-relaxed">
+                          "{analysisData.ai_analysis.mood_note}"
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Puanlar */}
+                    {analysisData.ratings?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Puanlar</p>
+                        <div className="flex flex-wrap gap-2">
+                          {analysisData.ratings.map((r, i) => (
+                            <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-white/60">
+                              {r.source}: <span className="text-white font-bold">{r.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cast */}
+                    {analysisData.cast?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Oyuncular</p>
+                        <p className="text-white/50 text-sm">
+                          {analysisData.cast.slice(0, 4).map(c => c.name).join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
