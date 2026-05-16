@@ -22,15 +22,14 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html, body {
-    /* Hiçbir ekranda yatay kaydırma olmasın */
-    overflow-x: hidden;
-    max-width: 100%;
-  }
-
   body {
     @apply bg-bg text-ivory antialiased selection:bg-amber selection:text-bg;
     font-family: var(--font-sans);
+    /* overflow-x: clip yatay kaydırmayı engeller ama
+       overflow-x: hidden'ın aksine yeni scroll container oluşturmaz —
+       html üzerinde hidden koymak window scroll'u kırar */
+    overflow-x: clip;
+    max-width: 100%;
     overscroll-behavior-y: none;
   }
 
