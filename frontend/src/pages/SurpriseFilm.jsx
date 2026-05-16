@@ -181,7 +181,7 @@ export default function SurpriseFilm() {
                 </span>
               </div>
 
-              <div className="bg-black/70 backdrop-blur-2xl rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(255,107,53,0.15)]">
+              <div className="bg-black/70 backdrop-blur-md rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(255,107,53,0.15)]">
                 <div className="relative w-full h-[420px]">
                   <img src={proxyImageUrl(movie.poster_url)} className="w-full h-full object-cover object-center" alt={movie.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />

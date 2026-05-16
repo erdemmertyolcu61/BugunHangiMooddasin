@@ -83,7 +83,7 @@ export default function KafanMiKarisik() {
         style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }}
       />
 
-      <header className="sticky top-0 z-50 bg-[#120d0b]/80 backdrop-blur-3xl border-b border-white/5 pt-safe">
+      <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-6">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
@@ -284,7 +284,9 @@ export default function KafanMiKarisik() {
                           <img
                             src={proxyImageUrl(movie.poster_url)}
                             alt={movie.title}
-                            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                           <div className="absolute bottom-4 left-4 right-4">

@@ -343,7 +343,7 @@ export default function Discover() {
               initial={{ scale: 0.9, y: 20, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
+              className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
             >
               <button onClick={() => { setSelectedMovie(null); navigate(-1); }} className="absolute top-4 right-4 sm:top-10 sm:right-10 z-[110] w-11 h-11 flex items-center justify-center rounded-full bg-black/50 sm:bg-transparent text-ivory/50 sm:text-ivory/20 hover:text-amber transition-colors">
                 <X size={26} />
@@ -518,7 +518,7 @@ export default function Discover() {
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-      <header className="sticky top-0 z-[60] bg-[#120d0b]/95 backdrop-blur-xl border-b border-white/5 shadow-lg pt-safe">
+      <header className="sticky top-0 z-[60] bg-[#120d0b]/98 border-b border-white/5 shadow-lg pt-safe">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3 sm:gap-6">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
@@ -623,7 +623,7 @@ export default function Discover() {
                 </button>
 
                 {sortOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-2xl shadow-2xl shadow-black/50">
+                  <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-md shadow-2xl shadow-black/50">
                     {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -665,8 +665,9 @@ export default function Discover() {
                       {movie.poster_url || movie.poster_path
                         ? <img
                             src={proxyImageUrl(movie.poster_url || `${IMG_BASE}${movie.poster_path}`)}
-                            className="w-full h-full object-cover transition-all duration-[2s] group-hover:scale-110 grayscale-[0.2] group-hover:grayscale-0"
+                            className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
                             loading="lazy"
+                            decoding="async"
                           />
                         : <div className={`artistic-fallback w-full h-full p-12`}>
                             <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>
@@ -728,7 +729,7 @@ export default function Discover() {
                 initial={{ scale: 0.9, y: 20, opacity: 0 }}
                 animate={{ scale: 1, y: 0, opacity: 1 }}
                 exit={{ scale: 0.9, y: 20, opacity: 0 }}
-                className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
+                className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
             >
               {selectedMood && <div className={`absolute top-0 right-0 w-80 h-80 bg-gradient-to-br ${selectedMood.color} opacity-10 blur-[100px] pointer-events-none`} />}
 
@@ -882,7 +883,7 @@ export default function Discover() {
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeQuiz} />
             <motion.div initial={{ scale: 0.92, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.92, y: 20, opacity: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#1a1816]/95 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl">
+              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#1a1816]/95 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl">
               <button onClick={closeQuiz} className="absolute top-6 right-6 text-ivory/20 hover:text-amber transition-colors z-10"><X size={22} /></button>
 
               {quizStep === 0 ? null : quizStep <= QUESTIONS.length ? (

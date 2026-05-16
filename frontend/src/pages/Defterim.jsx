@@ -98,7 +98,7 @@ export default function Defterim() {
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay" 
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-      <header className="sticky top-0 z-50 bg-[#120d0b]/80 backdrop-blur-3xl border-b border-white/5 pt-safe">
+      <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-10 flex items-center justify-between flex-wrap gap-4 sm:gap-6">
           <div className="flex items-center gap-3 sm:gap-8">
             <button onClick={() => navigate('/')} className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
@@ -239,7 +239,9 @@ export default function Defterim() {
                 <div className="w-full md:w-80 lg:w-96 aspect-[16/10] sm:aspect-[2/3] md:aspect-auto relative overflow-hidden">
                     <img 
                         src={proxyImageUrl(movie.poster_url) || 'https://via.placeholder.com/500x750'}
-                        className="w-full h-full object-cover grayscale-[0.4] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-[2s]" 
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface/40" />
                 </div>
