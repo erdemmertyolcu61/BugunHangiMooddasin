@@ -470,7 +470,7 @@ export default function Discover() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] relative overflow-hidden font-sans mood-${selectedMood.id}`}
+      className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] relative font-sans mood-${selectedMood.id}`}
     >
       <div className="vignette vignette-active" />
 

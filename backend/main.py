@@ -1778,8 +1778,8 @@ async def post_confused_recommendation(req: ConfusedRequest):
     message = ""
     ustad_line = ""
 
-    # Production'da veya Anthropic kredisi yoksa Claude'a gitme — kural tabanlı kullan
-    claude_available = bool(ANTHROPIC_API_KEY) and not IS_PRODUCTION
+    # API key varsa Claude'u kullan (hem dev hem production)
+    claude_available = bool(ANTHROPIC_API_KEY)
     if claude_available:
         try:
             intent = await asyncio.wait_for(
