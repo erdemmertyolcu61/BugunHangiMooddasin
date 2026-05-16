@@ -1612,6 +1612,7 @@ class ConfusedRequest(BaseModel):
     limit: int = 6
     min_vote: float = 5.0
     min_mood_score: float = 0.0
+    exclude_ids: list = []  # Session-based anti-repetition
 
 class RandomRecommendRequest(BaseModel):
     mood_id: str = None
@@ -1772,208 +1773,28 @@ async def post_random_recommendation(req: RandomRecommendRequest):
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
-    Kafan mı karışık? - AI destekli serbest metin analizi (2 fazlı Claude akışı).
-    Faz 1: Intent çıkarımı. Faz 2: Film sıralama.
+    Kafan mı karışık? — Smart Chat Engine v2.
+    Intent detection → movie/person/similar search → mood analysis → Claude reranking.
     """
-    import random as rnd
     from backend.services.claude_service import confusion_service
-    from backend.mood_scoring import calculate_mood_scores
+    from backend.services.tmdb_service import tmdb_service
+    from backend.services.chat_engine import ChatEngine
 
     text = req.text.strip()
     limit = max(3, min(req.limit, 12))
     min_vote = max(4.0, min(req.min_vote, 10.0))
+    exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
 
-    # --- Faz 1: Intent çıkarımı ---
-    intent = {}
-    mood_mix = []
-    message = ""
-    ustad_line = ""
+    engine = ChatEngine(db=cache, tmdb_service=tmdb_service, confusion_service=confusion_service)
 
-    # API key varsa Claude'u kullan (hem dev hem production)
-    claude_available = bool(ANTHROPIC_API_KEY)
-    if claude_available:
-        try:
-            intent = await asyncio.wait_for(
-                confusion_service.extract_user_intent(text),
-                timeout=15.0
-            )
-            if intent and intent.get("mood_mix"):
-                mood_mix = intent["mood_mix"]
-                message = intent.get("user_intent_summary", "")
-                ustad_line = intent.get("ustad_line", "")
-        except Exception as e:
-            logger.warning(f"Confused intent extraction failed: {e}")
+    result = await engine.process(
+        text=text,
+        limit=limit,
+        min_vote=min_vote,
+        exclude_ids=exclude_ids,
+    )
 
-    # Kural tabanlı fallback
-    if not mood_mix:
-        fallback = _rule_based_confused_analysis(text)
-        mood_mix = fallback["mood_mix"]
-        message = fallback["message"]
-        intent = {}
-
-    # --- Faz 2: Aday film toplama (40-80 film) ---
-    seen_ids: set = set()
-    candidates: list = []
-    CANDIDATE_TARGET = 60
-
-    for mix_item in mood_mix:
-        mood_id = mix_item.get("mood_id")
-        pct = mix_item.get("percentage", 50)
-        if not mood_id:
-            continue
-        count = max(4, round(CANDIDATE_TARGET * pct / 100))
-        try:
-            result = await cache.get_all_repository_movies_by_mood(mood_id, min_vote=min_vote)
-            scored = []
-            for m in result:
-                if m["id"] in seen_ids:
-                    continue
-                genre_ids = m.get("genre_ids", [])
-                scores = calculate_mood_scores(
-                    genre_ids, m.get("vote_average"),
-                    overview=m.get("overview"),
-                    release_date=m.get("release_date"),
-                )
-                ms = scores.get(mood_id, 0)
-                if ms >= req.min_mood_score:
-                    m_copy = dict(m)
-                    m_copy["mood_score"] = round(ms, 1)
-                    m_copy["matched_mood"] = mood_id
-                    m_copy["mood_scores"] = {k: round(v, 1) for k, v in scores.items()}
-                    scored.append(m_copy)
-            scored.sort(key=lambda x: (-x["mood_score"], -x.get("vote_average", 0)))
-            for m in scored[:count]:
-                if m["id"] not in seen_ids:
-                    seen_ids.add(m["id"])
-                    candidates.append(m)
-        except Exception:
-            continue
-
-    # --- Ön filtreleme (intent'teki avoid/prefer/energy/pace/darkness) ---
-    if intent and candidates:
-        energy = intent.get("energy_level", "medium")
-        pace = intent.get("pace", "medium")
-        darkness = intent.get("darkness_level", "neutral")
-        avoid_tags = intent.get("avoid", [])
-
-        # Enerji düşükse yüksek enerji moodlarını arka plana at
-        HIGH_ENERGY_MOODS = {"adrenalin", "kahkaha"}
-        LOW_ENERGY_MOODS = {"sessiz", "kalp", "battaniye", "gozyasi"}
-        DARK_MOODS = {"gece", "deep-chills", "zihin", "karmakar"}
-        LIGHT_MOODS = {"battaniye", "kahkaha", "askbahcesi", "yolculuk"}
-
-        def _prefilter_score(m: dict) -> float:
-            base = m.get("mood_score", 0)
-            matched = m.get("matched_mood", "")
-            bonus = 0.0
-            if energy == "low" and matched in LOW_ENERGY_MOODS:
-                bonus += 5
-            if energy == "high" and matched in HIGH_ENERGY_MOODS:
-                bonus += 5
-            if darkness in ("light",) and matched in LIGHT_MOODS:
-                bonus += 3
-            if darkness in ("dark", "very_dark") and matched in DARK_MOODS:
-                bonus += 3
-            # avoid penalty
-            for tag in avoid_tags:
-                if tag == "empty_comedy" and matched == "kahkaha":
-                    bonus -= 10
-                if tag == "heavy_tragedy" and matched == "gozyasi":
-                    bonus -= 10
-            return base + bonus
-
-        candidates.sort(key=lambda x: -_prefilter_score(x))
-
-    # En fazla 80 aday
-    candidates = candidates[:80]
-
-    # --- Faz 2: Claude ile yeniden sıralama (en iyi 25 adayı gönder) ---
-    top_candidates = candidates[:25]
-    rerank_result = {}
-    mode = "rule_based"
-
-    if claude_available and intent and top_candidates:
-        try:
-            rerank_result = await asyncio.wait_for(
-                confusion_service.rerank_movies(text, intent, top_candidates),
-                timeout=15.0
-            )
-            if rerank_result and rerank_result.get("recommendations"):
-                mode = "claude_reranked"
-                if rerank_result.get("ustad_line"):
-                    ustad_line = rerank_result["ustad_line"]
-        except Exception as e:
-            logger.warning(f"Confused rerank failed: {e}")
-
-    # --- Film listesini oluştur ---
-    movies = []
-
-    if mode == "claude_reranked":
-        # Claude'un sıralama ve açıklamalarını kullan
-        recs = rerank_result.get("recommendations", [])
-        recs.sort(key=lambda x: x.get("rank", 99))
-
-        # tmdb_id → candidate eşleme
-        id_to_candidate = {m["id"]: m for m in candidates}
-
-        for rec in recs[:limit]:
-            tid = rec.get("tmdb_id")
-            m = id_to_candidate.get(tid)
-            if not m:
-                # id uyuşmazlığına karşı title bazlı ara
-                for cand in candidates:
-                    if cand.get("id") == tid:
-                        m = cand
-                        break
-            if not m:
-                continue
-            movies.append({
-                "id": m["id"],
-                "title": m.get("title"),
-                "poster_url": m.get("poster_url"),
-                "vote_average": m.get("vote_average"),
-                "mood_score": round(rec.get("fit_score", m.get("mood_score", 0)), 1),
-                "reason": rec.get("reason_turkish", REASON_MAP.get(m.get("matched_mood"), "Bu ruh haline uygun.")),
-                "matched_moods": rec.get("mood_match", [m.get("matched_mood", "")]),
-                # Geriye uyumluluk için ek alanlar
-                "genre_ids": m.get("genre_ids"),
-                "overview": m.get("overview"),
-                "release_date": m.get("release_date"),
-            })
-    else:
-        # Kural tabanlı fallback: mood_score'a göre sırala
-        seen_in_final: set = set()
-        for mix_item in mood_mix:
-            mood_id = mix_item.get("mood_id")
-            pct = mix_item.get("percentage", 50)
-            count = max(1, round(limit * pct / 100))
-            mood_cands = [c for c in candidates if c.get("matched_mood") == mood_id and c["id"] not in seen_in_final]
-            mood_cands.sort(key=lambda x: (-x.get("mood_score", 0), -x.get("vote_average", 0)))
-            for m in mood_cands[:count]:
-                if m["id"] not in seen_in_final:
-                    seen_in_final.add(m["id"])
-                    movies.append({
-                        "id": m["id"],
-                        "title": m.get("title"),
-                        "poster_url": m.get("poster_url"),
-                        "vote_average": m.get("vote_average"),
-                        "mood_score": m.get("mood_score", 0),
-                        "reason": REASON_MAP.get(mood_id, "Bu atmosfere uygun olduğu için seçildi."),
-                        "matched_moods": [mood_id],
-                        "genre_ids": m.get("genre_ids"),
-                        "overview": m.get("overview"),
-                        "release_date": m.get("release_date"),
-                    })
-
-        movies = movies[:limit]
-
-    return {
-        "mode": mode,
-        "ustad_line": ustad_line,
-        "message": message,
-        "mood_mix": mood_mix,
-        "movies": movies,
-    }
+    return result
 
 
 # --- Movie Pool Expander ---

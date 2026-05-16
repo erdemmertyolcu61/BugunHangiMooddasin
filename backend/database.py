@@ -408,6 +408,105 @@ class MovieCache:
                 })
             return movies
 
+    async def search_repository_by_title(self, query: str, limit: int = 20) -> list:
+        """Fuzzy search movies in repository by title. Uses LIKE with normalized queries."""
+        if not query or len(query.strip()) < 2:
+            return []
+
+        q = query.strip().lower()
+        async with aiosqlite.connect(self.db_path) as db:
+            # Try exact-ish match first, then progressively fuzzier
+            results = []
+            seen_ids = set()
+
+            # 1. Exact title match (case-insensitive)
+            cursor = await db.execute(
+                """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                          vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
+                   FROM movie_repository
+                   WHERE LOWER(title) = ?
+                   ORDER BY vote_average DESC LIMIT ?""",
+                (q, limit)
+            )
+            for r in await cursor.fetchall():
+                if r[0] not in seen_ids:
+                    seen_ids.add(r[0])
+                    results.append(self._row_to_movie(r))
+
+            # 2. Title starts with query
+            if len(results) < limit:
+                cursor = await db.execute(
+                    """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                              vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
+                       FROM movie_repository
+                       WHERE LOWER(title) LIKE ? AND tmdb_id NOT IN ({})
+                       ORDER BY vote_average DESC LIMIT ?""".format(
+                           ','.join(str(i) for i in seen_ids) if seen_ids else '0'
+                       ),
+                    (f"{q}%", limit - len(results))
+                )
+                for r in await cursor.fetchall():
+                    if r[0] not in seen_ids:
+                        seen_ids.add(r[0])
+                        results.append(self._row_to_movie(r))
+
+            # 3. Title contains query
+            if len(results) < limit:
+                cursor = await db.execute(
+                    """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                              vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
+                       FROM movie_repository
+                       WHERE LOWER(title) LIKE ? AND tmdb_id NOT IN ({})
+                       ORDER BY vote_average DESC LIMIT ?""".format(
+                           ','.join(str(i) for i in seen_ids) if seen_ids else '0'
+                       ),
+                    (f"%{q}%", limit - len(results))
+                )
+                for r in await cursor.fetchall():
+                    if r[0] not in seen_ids:
+                        seen_ids.add(r[0])
+                        results.append(self._row_to_movie(r))
+
+            # 4. Try each word separately for multi-word queries
+            if len(results) < limit and ' ' in q:
+                words = [w for w in q.split() if len(w) >= 3]
+                for word in words[:3]:
+                    cursor = await db.execute(
+                        """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                                  vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
+                           FROM movie_repository
+                           WHERE LOWER(title) LIKE ? AND tmdb_id NOT IN ({})
+                           ORDER BY vote_average DESC LIMIT ?""".format(
+                               ','.join(str(i) for i in seen_ids) if seen_ids else '0'
+                           ),
+                        (f"%{word}%", limit - len(results))
+                    )
+                    for r in await cursor.fetchall():
+                        if r[0] not in seen_ids:
+                            seen_ids.add(r[0])
+                            results.append(self._row_to_movie(r))
+                    if len(results) >= limit:
+                        break
+
+            return results[:limit]
+
+    def _row_to_movie(self, r) -> dict:
+        """Convert a DB row tuple to movie dict. Expects 12 columns including mood_id."""
+        return {
+            "id": r[0],
+            "title": r[1],
+            "poster_url": r[2],
+            "overview": r[3],
+            "release_date": r[4],
+            "vote_average": r[5],
+            "genre_ids": json.loads(r[6]) if r[6] else [],
+            "backdrop_url": r[7],
+            "vote_count": r[8] if len(r) > 8 else 0,
+            "original_language": r[9] if len(r) > 9 else "",
+            "popularity": r[10] if len(r) > 10 else 0,
+            "mood_id": r[11] if len(r) > 11 else None,
+        }
+
     async def get_random_repository_movie(self) -> dict:
         """Tum repository'den rastgele bir film dondurur (puan/mood filtresi YOK)."""
         async with aiosqlite.connect(self.db_path) as db:

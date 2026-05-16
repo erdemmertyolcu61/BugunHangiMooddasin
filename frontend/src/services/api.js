@@ -235,11 +235,11 @@ export async function getTasteMap() {
   return res.json();
 }
 
-export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0) {
+export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0, excludeIds = []) {
   const res = await fetch(`${BASE}/recommend/confused`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0 })
+    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0, exclude_ids: excludeIds })
   });
   if (!res.ok) throw new Error(`Öneri alınamadı (${res.status})`);
   return res.json();

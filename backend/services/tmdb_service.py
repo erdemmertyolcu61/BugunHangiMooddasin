@@ -329,6 +329,65 @@ class TMDBService:
                 movies.extend(r)
         return movies
 
+    # ──────────────── person search ────────────────
+
+    async def search_person(self, query: str) -> list:
+        """Search for actors/directors by name."""
+        try:
+            data = await self._get(f"{self.base_url}/search/person", {
+                "api_key": self.api_key, "query": query,
+                "language": "tr-TR", "page": 1, "include_adult": False,
+            })
+            persons = []
+            for p in data.get("results", [])[:5]:
+                persons.append({
+                    "id": p["id"],
+                    "name": p.get("name", ""),
+                    "known_for_department": p.get("known_for_department", ""),
+                    "popularity": p.get("popularity", 0),
+                    "profile_path": (
+                        f"{self.image_base}/w185{p['profile_path']}"
+                        if p.get("profile_path") else None
+                    ),
+                    "known_for": [
+                        {
+                            "id": kf.get("id"),
+                            "title": kf.get("title") or kf.get("name", ""),
+                            "media_type": kf.get("media_type", "movie"),
+                        }
+                        for kf in p.get("known_for", []) if kf.get("media_type") == "movie"
+                    ],
+                })
+            return persons
+        except Exception as e:
+            print(f"Error searching person '{query}': {e}")
+            return []
+
+    async def get_person_movie_credits(self, person_id: int) -> list:
+        """Get movie credits for a person (as cast or crew/director)."""
+        try:
+            data = await self._get(f"{self.base_url}/person/{person_id}/movie_credits", {
+                "api_key": self.api_key, "language": "tr-TR",
+            })
+            movies = []
+            seen_ids = set()
+            # Cast roles
+            for m in data.get("cast", []):
+                if m.get("id") not in seen_ids and m.get("vote_count", 0) >= 20:
+                    seen_ids.add(m["id"])
+                    movies.append(self._format_movie(m))
+            # Directed movies
+            for m in data.get("crew", []):
+                if m.get("job") == "Director" and m.get("id") not in seen_ids and m.get("vote_count", 0) >= 20:
+                    seen_ids.add(m["id"])
+                    movies.append(self._format_movie(m))
+            # Sort by popularity
+            movies.sort(key=lambda x: -(x.get("popularity", 0)))
+            return movies[:30]
+        except Exception as e:
+            print(f"Error fetching person credits for {person_id}: {e}")
+            return []
+
     # ──────────────── search ────────────────
 
     async def search_movies(self, query: str, page: int = 1) -> list:
