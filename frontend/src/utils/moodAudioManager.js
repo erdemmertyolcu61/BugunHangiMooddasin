@@ -168,6 +168,13 @@ export function setMoodAudioVolume(volume) {
   targetVolume = Math.max(0, Math.min(volume, 1));
   if (currentAudio) {
     currentAudio.volume = targetVolume;
+    // Ses sıfırlandığında gerçekten durdur — sadece sessizleştirme değil
+    if (targetVolume === 0 && !currentAudio.paused) {
+      currentAudio.pause();
+    } else if (targetVolume > 0 && currentAudio.paused && currentMoodId) {
+      // Ses tekrar açılınca devam ettir
+      currentAudio.play().catch(() => {});
+    }
   }
 }
 
