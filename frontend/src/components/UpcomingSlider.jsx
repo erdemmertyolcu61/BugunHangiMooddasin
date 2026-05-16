@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Calendar } from 'lucide-react';
 import { proxyImageUrl } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
 
 export default function UpcomingSlider() {
   const [upcoming, setUpcoming] = useState([]);
-  const scrollRef = useRef(null);
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const scrollLeft = useRef(0);
-  const hasDragged = useRef(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 = ileri, -1 = geri
+
+  // Drag / swipe state
+  const dragStartX = useRef(null);
+  const autoTimer = useRef(null);
 
   useEffect(() => {
     fetch(getApiUrl('/api/movies/upcoming'))
@@ -18,95 +20,136 @@ export default function UpcomingSlider() {
       .catch(console.error);
   }, []);
 
-  /* ── Mouse drag handlers ── */
-  const onMouseDown = (e) => {
-    isDragging.current = true;
-    hasDragged.current = false;
-    startX.current = e.pageX - scrollRef.current.offsetLeft;
-    scrollLeft.current = scrollRef.current.scrollLeft;
-    scrollRef.current.style.cursor = 'grabbing';
+  const goTo = (idx, dir) => {
+    setDirection(dir);
+    setCurrentIndex(idx);
   };
 
-  const onMouseMove = (e) => {
-    if (!isDragging.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.4;
-    if (Math.abs(walk) > 4) hasDragged.current = true;
-    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  const next = () => {
+    if (upcoming.length === 0) return;
+    goTo((currentIndex + 1) % upcoming.length, 1);
   };
 
-  const onMouseUp = () => {
-    isDragging.current = false;
-    if (scrollRef.current) scrollRef.current.style.cursor = 'grab';
+  const prev = () => {
+    if (upcoming.length === 0) return;
+    goTo((currentIndex - 1 + upcoming.length) % upcoming.length, -1);
+  };
+
+  /* ── Auto-rotate ── */
+  const resetTimer = () => {
+    clearInterval(autoTimer.current);
+    autoTimer.current = setInterval(next, 5000);
+  };
+
+  useEffect(() => {
+    if (upcoming.length === 0) return;
+    autoTimer.current = setInterval(next, 5000);
+    return () => clearInterval(autoTimer.current);
+  }, [upcoming, currentIndex]);
+
+  /* ── Mouse drag ── */
+  const onMouseDown = (e) => { dragStartX.current = e.clientX; };
+  const onMouseUp = (e) => {
+    if (dragStartX.current === null) return;
+    const delta = dragStartX.current - e.clientX;
+    if (Math.abs(delta) > 40) {
+      delta > 0 ? next() : prev();
+      resetTimer();
+    }
+    dragStartX.current = null;
+  };
+
+  /* ── Touch swipe ── */
+  const onTouchStart = (e) => { dragStartX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (dragStartX.current === null) return;
+    const delta = dragStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(delta) > 40) {
+      delta > 0 ? next() : prev();
+      resetTimer();
+    }
+    dragStartX.current = null;
   };
 
   if (upcoming.length === 0) return null;
 
+  const film = upcoming[currentIndex];
+
+  const variants = {
+    enter: (dir) => ({ opacity: 0, x: dir > 0 ? 60 : -60 }),
+    center: { opacity: 1, x: 0 },
+    exit: (dir) => ({ opacity: 0, x: dir > 0 ? -60 : 60 }),
+  };
+
   return (
-    <div className="relative">
-      {/* Gradient fade edges */}
-      <div className="absolute left-0 top-0 bottom-2 w-8 bg-gradient-to-r from-[#120d0b] to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-2 w-12 bg-gradient-to-l from-[#120d0b] to-transparent z-10 pointer-events-none" />
-
-      <div
-        ref={scrollRef}
-        className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 select-none"
-        style={{ cursor: 'grab', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-      >
-        {upcoming.map((film) => (
+    <section
+      className="relative w-full h-[180px] rounded-[2rem] overflow-hidden gurme-border bg-black/40 group cursor-grab active:cursor-grabbing select-none"
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <AnimatePresence mode="wait" custom={direction}>
+        <motion.div
+          key={film.id}
+          custom={direction}
+          variants={variants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0 flex flex-col md:flex-row items-center"
+        >
+          {/* Background blur */}
           <div
-            key={film.id}
-            className="shrink-0 w-[120px] sm:w-[140px] md:w-[160px]"
-            style={{ scrollSnapAlign: 'start' }}
-          >
-            <div className="aspect-[2/3] rounded-[1.25rem] overflow-hidden bg-white/5 border border-white/10 relative group">
-              {film.poster_url
-                ? <img
-                    src={proxyImageUrl(film.poster_url)}
-                    alt={film.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    draggable={false}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                : <div className="w-full h-full flex items-center justify-center bg-white/5">
-                    <span className="text-amber/30 text-3xl">🎬</span>
-                  </div>
-              }
+            className="absolute inset-0 opacity-20 blur-3xl scale-110"
+            style={{
+              backgroundImage: `url(${proxyImageUrl(film.poster_url)})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
 
-              {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-
-              {/* Badge */}
-              <div className="absolute top-2 left-2 z-10">
-                <span className="px-2 py-0.5 bg-amber/20 border border-amber/40 text-amber text-[8px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
-                  <Sparkles size={6} /> Yakında
-                </span>
-              </div>
-
-              {/* Info at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
-                <h3 className="text-[11px] sm:text-xs font-serif font-bold text-white leading-tight line-clamp-2 mb-1">
-                  {film.title}
-                </h3>
-                {film.release_date && (
-                  <p className="text-[8px] text-white/40 flex items-center gap-1">
-                    <Calendar size={6} /> {film.release_date}
-                  </p>
-                )}
-              </div>
-            </div>
+          <div className="relative z-10 w-full md:w-1/3 h-full p-4 flex items-center justify-center">
+            <img
+              src={proxyImageUrl(film.poster_url)}
+              alt={film.title}
+              className="h-[140px] rounded-xl shadow-xl transform group-hover:scale-105 transition-transform duration-1000"
+              draggable={false}
+            />
           </div>
-        ))}
 
-        {/* Spacer at end so last card doesn't hide behind fade */}
-        <div className="shrink-0 w-4" />
+          <div className="relative z-10 flex-1 p-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-amber/20 border border-amber/40 text-amber text-[9px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
+                <Sparkles size={8} /> Yakında
+              </span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-ivory/30 flex items-center gap-1">
+                <Calendar size={8} /> {film.release_date}
+              </span>
+            </div>
+            <h2 className="text-2xl font-serif font-bold tracking-tighter leading-none">
+              {film.title}
+            </h2>
+            <p className="text-sm font-serif italic text-ivory/40 max-w-xl">
+              Çok yakında...
+            </p>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Pagination dots */}
+      <div className="absolute bottom-4 right-6 flex gap-1.5 z-20">
+        {upcoming.map((_, i) => (
+          <button
+            key={i}
+            onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
+            className={`h-1 transition-all duration-500 rounded-full ${
+              i === currentIndex ? 'w-8 bg-amber' : 'w-2 bg-white/10'
+            }`}
+          />
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
