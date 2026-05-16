@@ -139,14 +139,18 @@ export default function UpcomingSlider() {
       </AnimatePresence>
 
       {/* Pagination dots */}
-      <div className="absolute bottom-4 right-6 flex gap-1.5 z-20">
+      <div className="absolute bottom-3 right-5 flex items-center gap-2 z-20">
         {upcoming.map((_, i) => (
           <button
             key={i}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
-            className={`h-1 transition-all duration-500 rounded-full ${
-              i === currentIndex ? 'w-8 bg-amber' : 'w-2 bg-white/10'
-            }`}
+            className={`relative flex items-center justify-center transition-all duration-400 rounded-full
+              ${i === currentIndex
+                ? 'w-7 h-3 bg-amber shadow-[0_0_8px_rgba(255,191,0,0.6)]'
+                : 'w-3 h-3 bg-white/20 hover:bg-white/50'
+              }`}
           />
         ))}
       </div>
