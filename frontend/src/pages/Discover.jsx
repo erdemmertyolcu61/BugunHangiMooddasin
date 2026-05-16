@@ -73,6 +73,7 @@ export default function Discover() {
   const searchTimeout = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const autoAnalyzeTriggered = useRef(false);
+  const filmSectionRef = useRef(null);
 
   // Quick-action state (card overlay buttons — no modal needed)
   const [quickSavedIds, setQuickSavedIds] = useState(new Set());
@@ -213,6 +214,13 @@ export default function Discover() {
         
         setMovies(enriched);
         setTotalPages(moviesData.total_pages || 1);
+
+        // Perdede başlığına scroll — filmleri üstten görmeye başlar
+        if (currentPage === 1) {
+          requestAnimationFrame(() => {
+            filmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }
       } catch (err) {
         if (requestId !== lastRequestId.current) return;
         console.error("[MoodSelection] Error loading movies:", err);
@@ -633,7 +641,7 @@ export default function Discover() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+          <div ref={filmSectionRef} className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tighter">
               {searchResults !== null
                 ? (searchLoading ? 'Üstad arşivde bakınıyor...' : `"${searchQuery}" Seçkisi`)

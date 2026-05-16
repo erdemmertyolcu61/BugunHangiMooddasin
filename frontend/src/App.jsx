@@ -18,7 +18,18 @@ import { useEffect } from 'react';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [pathname]);
+  useEffect(() => {
+    // Tarayıcının kendi scroll restore'unu kapat — aksi halde scrollTo'yu eziyor
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    // rAF: tarayıcı restore'u sonrasına at ki kazansın
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+  }, [pathname]);
   return null;
 }
 
