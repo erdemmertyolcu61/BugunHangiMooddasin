@@ -349,7 +349,7 @@ export default function Discover() {
                 <X size={26} />
               </button>
               <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[220px] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
                     className="w-full h-full object-cover"
@@ -739,7 +739,7 @@ export default function Discover() {
               </button>
 
               <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[220px] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
                     className="w-full h-full object-cover"
