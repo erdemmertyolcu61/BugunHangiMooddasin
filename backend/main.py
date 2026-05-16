@@ -1778,17 +1778,20 @@ async def post_confused_recommendation(req: ConfusedRequest):
     message = ""
     ustad_line = ""
 
-    try:
-        intent = await asyncio.wait_for(
-            confusion_service.extract_user_intent(text),
-            timeout=8.0  # Kredi bittiyse 3 retry × 10s = 30s bekler; hemen keselim
-        )
-        if intent and intent.get("mood_mix"):
-            mood_mix = intent["mood_mix"]
-            message = intent.get("user_intent_summary", "")
-            ustad_line = intent.get("ustad_line", "")
-    except Exception as e:
-        logger.warning(f"Confused intent extraction failed: {e}")
+    # Production'da veya Anthropic kredisi yoksa Claude'a gitme — kural tabanlı kullan
+    claude_available = bool(ANTHROPIC_API_KEY) and not IS_PRODUCTION
+    if claude_available:
+        try:
+            intent = await asyncio.wait_for(
+                confusion_service.extract_user_intent(text),
+                timeout=8.0
+            )
+            if intent and intent.get("mood_mix"):
+                mood_mix = intent["mood_mix"]
+                message = intent.get("user_intent_summary", "")
+                ustad_line = intent.get("ustad_line", "")
+        except Exception as e:
+            logger.warning(f"Confused intent extraction failed: {e}")
 
     # Kural tabanlı fallback
     if not mood_mix:
@@ -1878,7 +1881,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
     rerank_result = {}
     mode = "rule_based"
 
-    if intent and top_candidates:
+    if claude_available and intent and top_candidates:
         try:
             rerank_result = await asyncio.wait_for(
                 confusion_service.rerank_movies(text, intent, top_candidates),
