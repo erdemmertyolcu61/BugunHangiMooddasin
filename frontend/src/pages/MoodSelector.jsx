@@ -105,25 +105,25 @@ export default function MoodSelector() {
       </AnimatePresence>
 
       {/* ═══ İçerik ═══ */}
-      <div className="relative z-20 container mx-auto px-6 py-10 flex flex-col items-center min-h-screen">
+      <div className="relative z-20 container mx-auto px-4 sm:px-6 py-8 sm:py-10 flex flex-col items-center min-h-screen pb-nav">
 
         {/* Header */}
         <motion.header
           initial={{ filter: 'blur(10px)', opacity: 0, y: -20 }}
           animate={{ filter: 'blur(0px)', opacity: 1, y: 0 }}
           transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-14 max-w-3xl"
+          className="text-center mb-10 sm:mb-14 max-w-3xl"
         >
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="h-px w-20 bg-gradient-to-r from-transparent to-amber/30" />
-            <span className="text-[9px] font-bold uppercase tracking-[0.6em] text-rose/50">Film Eleştirmeni — Üstad'ın Arşivi</span>
-            <div className="h-px w-20 bg-gradient-to-l from-transparent to-amber/30" />
+          <div className="flex items-center justify-center gap-3 sm:gap-4 mb-5 sm:mb-6">
+            <div className="h-px w-10 sm:w-20 bg-gradient-to-r from-transparent to-amber/30" />
+            <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-rose/50 text-center">Film Eleştirmeni — Üstad'ın Arşivi</span>
+            <div className="h-px w-10 sm:w-20 bg-gradient-to-l from-transparent to-amber/30" />
           </div>
-          <h1 className="text-6xl md:text-8xl font-serif font-normal tracking-tight mb-4 leading-[0.9]">
+          <h1 className="text-[2.6rem] sm:text-6xl md:text-8xl font-serif font-normal tracking-tight mb-4 leading-[0.95] sm:leading-[0.9]">
             Bugün Hangi<br />
             <span className="italic text-amber font-semibold">Mooddasın?</span>
           </h1>
-          <p className="text-base md:text-lg text-rose/60 font-serif italic leading-relaxed max-w-xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-rose/60 font-serif italic leading-relaxed max-w-xl mx-auto px-2">
             Ruh halini seç ve bizimle yolculuğa çıkmaya hazırlan.
           </p>
         </motion.header>
@@ -131,7 +131,7 @@ export default function MoodSelector() {
         {/* ═══ Grid: Mood Kartları + Quiz Widget ═══ */}
         <div className="flex flex-col lg:flex-row gap-6 max-w-7xl w-full mb-10">
           {/* Mood kartları grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 flex-1">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
             {moodList.map((mood, i) => {
               const isHovered = hoveredMood === mood.id;
               return (
@@ -149,7 +149,7 @@ export default function MoodSelector() {
                     <div className={`absolute inset-0 bg-gradient-to-br ${mood.color} transition-opacity duration-1000 ${isHovered ? 'opacity-30' : 'opacity-[0.06]'}`} />
                     <div className="absolute inset-0 transition-opacity duration-1000"
                       style={{ background: `radial-gradient(ellipse at 50% 100%, ${mood.accentHex}15, transparent 70%)`, opacity: isHovered ? 1 : 0 }} />
-                    <div className="relative p-6 md:p-7 flex flex-col min-h-[240px] md:min-h-[280px]">
+                    <div className="relative p-5 sm:p-6 md:p-7 flex flex-col min-h-[200px] sm:min-h-[240px] md:min-h-[280px]">
                       <div className="mb-auto">
                         <motion.span className="w-12 h-12 block mb-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
                           style={{ color: isHovered ? mood.accentHex : '#a1a1aa' }}
@@ -205,7 +205,7 @@ export default function MoodSelector() {
               <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Bugünkü Ruh Halim</span>
             </button>
             <button onClick={() => navigate('/defterim')}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-rose/40 hover:text-amber/70 transition-colors duration-500">
+              className="hidden md:flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-rose/40 hover:text-amber/70 transition-colors duration-500">
               <Book size={14} /> Defterim
             </button>
           </div>

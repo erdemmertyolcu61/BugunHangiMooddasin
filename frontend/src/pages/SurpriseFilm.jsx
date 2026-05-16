@@ -105,14 +105,14 @@ export default function SurpriseFilm() {
       <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/stardust.png')" }} />
 
-      <header className="relative z-10 p-6 flex items-center">
+      <header className="relative z-10 p-4 sm:p-6 pt-safe flex items-center">
         <button onClick={() => navigate('/')}
-          className="w-14 h-14 flex items-center justify-center hover:bg-white/10 rounded-full border border-white/20 transition-all text-white/70 hover:text-white">
+          className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-white/10 rounded-full border border-white/20 transition-all text-white/70 hover:text-white">
           <ChevronLeft size={24} />
         </button>
       </header>
 
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-20">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-5 sm:px-6 pb-nav md:pb-20">
 
         {/* Loading */}
         {spinning && (

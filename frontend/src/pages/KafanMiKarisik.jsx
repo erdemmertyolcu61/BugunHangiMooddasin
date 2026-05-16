@@ -83,21 +83,21 @@ export default function KafanMiKarisik() {
         style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }}
       />
 
-      <header className="sticky top-0 z-50 bg-[#120d0b]/80 backdrop-blur-3xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <button onClick={() => navigate('/')} className="p-3 hover:bg-white/5 rounded-full transition-all">
+      <header className="sticky top-0 z-50 bg-[#120d0b]/80 backdrop-blur-3xl border-b border-white/5 pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
               <ChevronLeft size={24} />
             </button>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.6em] text-amber/60">AKILLI SİNEMA DOSTU</p>
-              <h1 className="font-serif text-3xl font-bold tracking-tight">Kafan mı Karışık?</h1>
+              <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-amber/60">AKILLI SİNEMA DOSTU</p>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight">Kafan mı Karışık?</h1>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-12 space-y-10">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10 pb-nav">
         {/* Input area — show when no result and not loading */}
         {!result && !loading && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">

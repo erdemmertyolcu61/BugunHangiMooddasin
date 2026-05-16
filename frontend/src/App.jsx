@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { MoodProvider, useMood } from './context/MoodContext';
 import BetaGate from './components/BetaGate';
 import AudioPlayer from './components/AudioPlayer';
+import BottomNav from './components/BottomNav';
 import AuraBackground from './components/AuraBackground.jsx';
 import MoodSelector from './pages/MoodSelector';
 import Discover from './pages/Discover';
@@ -45,6 +46,7 @@ function AppContent() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <BottomNav />
     </>
   );
 }

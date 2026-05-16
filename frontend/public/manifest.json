@@ -1,0 +1,21 @@
+{
+  "name": "Film Eleştirmeni — Bugün Hangi Mooddasın?",
+  "short_name": "Film Eleştirmeni",
+  "description": "Ruh haline göre yapay zeka destekli film keşif platformu.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#120d0b",
+  "theme_color": "#120d0b",
+  "lang": "tr",
+  "categories": ["entertainment", "lifestyle"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

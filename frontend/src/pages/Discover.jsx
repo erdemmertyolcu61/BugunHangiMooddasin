@@ -337,68 +337,68 @@ export default function Discover() {
       <div className="min-h-screen bg-[#120d0b] text-[#f5f2eb] relative">
         {/* Film Detay Modal — mood'suz */}
         <AnimatePresence>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 md:p-12">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setSelectedMovie(null); navigate('/'); }} />
             <motion.div
               initial={{ scale: 0.9, y: 20, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              className="relative w-full max-w-6xl h-fit max-h-[90vh] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/10 rounded-[3rem] p-12 md:p-16 shadow-2xl overflow-y-auto no-scrollbar"
+              className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
             >
-              <button onClick={() => { setSelectedMovie(null); navigate(-1); }} className="absolute top-10 right-10 z-[110] text-ivory/20 hover:text-amber transition-colors">
-                <X size={32} />
+              <button onClick={() => { setSelectedMovie(null); navigate(-1); }} className="absolute top-4 right-4 sm:top-10 sm:right-10 z-[110] w-11 h-11 flex items-center justify-center rounded-full bg-black/50 sm:bg-transparent text-ivory/50 sm:text-ivory/20 hover:text-amber transition-colors">
+                <X size={26} />
               </button>
-              <div className="flex flex-col md:flex-row gap-16 relative z-10">
-                <div className="w-full md:w-[35%] aspect-[2/3] relative rounded-[2rem] overflow-hidden shadow-2xl">
+              <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
+                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
                     className="w-full h-full object-cover"
                     alt={selectedMovie.title}
                   />
                 </div>
-                <div className="flex-1 space-y-12">
-                  <header className="space-y-6">
-                    <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-amber/40">FİLM ÖZETİ</p>
-                    <h2 className="text-7xl lg:text-8xl font-serif font-bold tracking-tighter leading-[0.8]">{selectedMovie.title}</h2>
-                    <div className="flex items-center gap-6 pt-4">
-                      <span className="text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
+                <div className="flex-1 min-w-0 space-y-6 sm:space-y-12">
+                  <header className="space-y-4 sm:space-y-6">
+                    <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.5em] sm:tracking-[0.8em] text-amber/40">FİLM ÖZETİ</p>
+                    <h2 className="text-3xl sm:text-6xl lg:text-8xl font-serif font-bold tracking-tighter leading-[0.95] sm:leading-[0.8] break-words">{selectedMovie.title}</h2>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-6 pt-2 sm:pt-4">
+                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
                       <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-xl font-serif italic text-ivory/30">{selectedMovie.runtime || '90+'} Dakika</span>
+                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.runtime || '90+'} Dakika</span>
                       <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-xl font-serif italic text-ivory/30">{selectedMovie.genres?.join(', ') || 'Sinema'}</span>
+                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.genres?.join(', ') || 'Sinema'}</span>
                     </div>
                   </header>
                   <div className="space-y-8">
-                    <p className="text-2xl font-serif leading-relaxed text-ivory/80 italic">
+                    <p className="text-base sm:text-2xl font-serif leading-relaxed text-ivory/80 italic">
                       {selectedMovie.overview || "Bu yapıt hakkında henüz bir özet bulunmuyor..."}
                     </p>
                   </div>
-                  <div className="p-16 rounded-[4rem] bg-black/40 border border-white/5 relative shadow-inner">
+                  <div className="p-6 sm:p-16 rounded-[1.5rem] sm:rounded-[4rem] bg-black/40 border border-white/5 relative shadow-inner">
                     {isAnalyzing
-                      ? <div className="flex flex-col items-center gap-8 py-10">
+                      ? <div className="flex flex-col items-center gap-6 sm:gap-8 py-8 sm:py-10">
                           <SkeletonGurme />
-                          <p className="text-2xl font-serif italic text-ivory/40 animate-pulse">Üstad notlarını hazırlıyor...</p>
+                          <p className="text-lg sm:text-2xl font-serif italic text-ivory/40 animate-pulse">Üstad notlarını hazırlıyor...</p>
                         </div>
                       : <>
-                                                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-6">Üstadın Notu</p>
-                          <p className="text-4xl font-serif italic leading-[1.2] text-ivory tracking-tight first-letter:text-7xl first-letter:float-left first-letter:mr-4 first-letter:font-bold first-letter:text-amber">
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-4 sm:mb-6">Üstadın Notu</p>
+                          <p className="text-lg sm:text-4xl font-serif italic leading-relaxed sm:leading-[1.2] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-7xl first-letter:float-left first-letter:mr-3 sm:first-letter:mr-4 first-letter:font-bold first-letter:text-amber">
                             {selectedMovie.ai_analysis || "Üstad bu başyapıt için notlarını hazırlıyor... Birazdan burada olacak."}
                           </p>
                         </>
                     }
                   </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-12 border-t border-white/5 pt-8 sm:pt-16">
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Üstat</p>
-                      <p className="text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Bilinmiyor'}</p>
+                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Bilinmiyor'}</p>
                     </div>
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Zamanın Ruhu</p>
-                      <p className="text-2xl font-serif text-ivory/80">{selectedMovie.genres?.slice(0, 2).join(', ')}</p>
+                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.genres?.slice(0, 2).join(', ')}</p>
                     </div>
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel yankı</p>
-                      <p className="text-3xl font-serif font-bold text-amber">★ {selectedMovie.imdb_rating || selectedMovie.vote_average?.toFixed(1)}</p>
+                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {selectedMovie.imdb_rating || selectedMovie.vote_average?.toFixed(1)}</p>
                     </div>
                   </div>
                   <div className="flex gap-6 pt-4">
@@ -415,7 +415,7 @@ export default function Discover() {
                     </button>
                     <button
                       onClick={() => { setSelectedMovie(null); navigate(-1); }}
-                      className="px-12 py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
+                      className="px-8 sm:px-12 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
                     >
                       Geri Dön
                     </button>
@@ -518,38 +518,39 @@ export default function Discover() {
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-      <header className="sticky top-0 z-[60] bg-[#120d0b]/95 backdrop-blur-xl border-b border-white/5 shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <button onClick={() => navigate('/')} className="p-3 hover:bg-white/5 rounded-full transition-all">
+      <header className="sticky top-0 z-[60] bg-[#120d0b]/95 backdrop-blur-xl border-b border-white/5 shadow-lg pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
               <ChevronLeft size={24} />
             </button>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.6em] text-[#e8d3d3]/30 mb-1">ŞU ANKİ MODUN</p>
-              <h1 className="font-serif text-xl font-bold flex items-center gap-3">
-                <span className="text-amber-500">{selectedMood.icon && <selectedMood.icon size={28} strokeWidth={1.5} />}</span> {selectedMood.title}
+            <div className="min-w-0">
+              <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-[#e8d3d3]/30 mb-0.5 sm:mb-1">ŞU ANKİ MODUN</p>
+              <h1 className="font-serif text-lg sm:text-xl font-bold flex items-center gap-2 sm:gap-3 truncate">
+                <span className="text-amber-500 shrink-0">{selectedMood.icon && <selectedMood.icon size={24} strokeWidth={1.5} />}</span>
+                <span className="truncate">{selectedMood.title}</span>
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="relative">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="relative flex-1 md:flex-none">
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     placeholder="Arşivde ara..."
-                    className="px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 w-64 transition-all focus:w-80"
+                    className="w-full md:w-64 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 transition-all md:focus:w-80"
                 />
             </div>
-            <button onClick={() => navigate('/kafan-mi-karisik')} className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+            <button onClick={() => navigate('/kafan-mi-karisik')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
               <span className="text-[10px] font-bold uppercase tracking-widest text-bg">Kafan mı Karışık?</span>
             </button>
             <button onClick={() => { setQuizOpen(true); setQuizStep(1); setQuizAnswers([]); setQuizResult(null); }}
-              className="flex items-center gap-2 px-5 py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+              className="flex items-center gap-2 px-4 md:px-5 py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
               <Brain size={16} className="text-bg/80" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Bugünkü Ruh Halim</span>
+              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest">Bugünkü Ruh Halim</span>
             </button>
-            <button onClick={() => navigate('/defterim')} className="flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
+            <button onClick={() => navigate('/defterim')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
               <Book size={16} className="text-amber group-hover:scale-110 transition-transform" />
               <span className="text-[10px] font-bold uppercase tracking-widest">Defterim</span>
             </button>
@@ -557,7 +558,7 @@ export default function Discover() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 space-y-24 pb-32">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-14 sm:space-y-24 pb-nav md:pb-32">
         {/* Gelecek Program Slider */}
         {searchResults === null && currentPage === 1 && (
             <motion.section 
@@ -577,19 +578,19 @@ export default function Discover() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
         >
-          <div className="p-16 rounded-[4rem] bg-surface/40 backdrop-blur-md border border-white/10 relative overflow-hidden group gurme-border shadow-2xl">
+          <div className="p-7 sm:p-12 md:p-16 rounded-[2rem] sm:rounded-[4rem] bg-surface/40 backdrop-blur-md border border-white/10 relative overflow-hidden group gurme-border shadow-2xl">
             <div className={`absolute inset-0 bg-gradient-to-r ${selectedMood.color} opacity-20 transition-opacity duration-1000 group-hover:opacity-30`} />
             <div className="relative z-10 max-w-4xl">
-              <p className="text-4xl font-serif italic leading-relaxed tracking-tight text-ivory/90 mb-8">"{selectedMood.intro}"</p>
+              <p className="text-xl sm:text-3xl md:text-4xl font-serif italic leading-relaxed tracking-tight text-ivory/90 mb-6 sm:mb-8">"{selectedMood.intro}"</p>
               
               {/* Gurme Notu - Yukarıdan süzülerek gelir */}
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.8 }}
-                className="border-l-2 border-amber-500/50 pl-6"
+                className="border-l-2 border-amber-500/50 pl-4 sm:pl-6"
               >
-                <p className="text-xl md:text-2xl font-serif text-amber-500/90 italic tracking-wide">
+                <p className="text-base sm:text-xl md:text-2xl font-serif text-amber-500/90 italic tracking-wide">
                   {selectedMood.gurmeNote}
                 </p>
               </motion.div>
@@ -603,8 +604,8 @@ export default function Discover() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <h2 className="text-5xl font-serif font-bold tracking-tighter">
+          <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tighter">
               {searchResults !== null
                 ? (searchLoading ? 'Üstad arşivde bakınıyor...' : `"${searchQuery}" Seçkisi`)
                 : 'Vizyondakiler'}
@@ -641,7 +642,7 @@ export default function Discover() {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-10 gap-y-16">
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-10 gap-y-8 sm:gap-y-16">
             {loading && searchResults === null
               ? [...Array(10)].map((_, i) => <div key={i} className="aspect-[2/3] bg-white/5 rounded-[2.5rem] animate-pulse" />)
               : displayMovies.length === 0
@@ -672,15 +673,15 @@ export default function Discover() {
                           </div>}
                           
                         {/* Mood Uyum Overlay */}
-                        <div className="absolute top-6 left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500 transform -translate-x-4 group-hover:translate-x-0">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-2">
-                                <Sparkles size={10} /> Mood'a Uyum: %{movie.mood_score || movie.match}
+                        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
+                                <Sparkles size={10} /> %{movie.mood_score || movie.match}
                             </p>
                         </div>
                     </div>
-                    <div className="mt-8 space-y-2 px-4">
-                      <h3 className="text-2xl font-serif font-bold tracking-tight line-clamp-1 group-hover:text-amber transition-colors duration-500">{movie.title}</h3>
-                      <div className="flex items-center justify-between opacity-30 group-hover:opacity-60 transition-opacity duration-500">
+                    <div className="mt-3 sm:mt-8 space-y-1.5 sm:space-y-2 px-1 sm:px-4">
+                      <h3 className="text-base sm:text-2xl font-serif font-bold tracking-tight line-clamp-1 group-hover:text-amber transition-colors duration-500">{movie.title}</h3>
+                      <div className="flex items-center justify-between opacity-50 sm:opacity-30 group-hover:opacity-60 transition-opacity duration-500">
                         <span className="text-[10px] font-bold uppercase tracking-widest">{movie.release_date?.split('-')[0]}</span>
                         <div className="flex items-center gap-1.5">
                             <Star size={10} className="fill-amber text-amber" />
@@ -721,22 +722,22 @@ export default function Discover() {
       {/* Film Detay Modal - Master Overlay Edition */}
       <AnimatePresence>
         {selectedMovie && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 md:p-12">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedMovie(null)} />
-            <motion.div 
-                initial={{ scale: 0.9, y: 20, opacity: 0 }} 
-                animate={{ scale: 1, y: 0, opacity: 1 }} 
-                exit={{ scale: 0.9, y: 20, opacity: 0 }} 
-                className="relative w-full max-w-6xl h-fit max-h-[90vh] bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/10 rounded-[3rem] p-12 md:p-16 shadow-2xl overflow-y-auto no-scrollbar"
+            <motion.div
+                initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.9, y: 20, opacity: 0 }}
+                className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-2xl border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
             >
               {selectedMood && <div className={`absolute top-0 right-0 w-80 h-80 bg-gradient-to-br ${selectedMood.color} opacity-10 blur-[100px] pointer-events-none`} />}
-              
-              <button onClick={() => setSelectedMovie(null)} className="absolute top-10 right-10 z-[110] text-ivory/20 hover:text-amber transition-colors">
-                <X size={32} />
+
+              <button onClick={() => setSelectedMovie(null)} className="absolute top-4 right-4 sm:top-10 sm:right-10 z-[110] w-11 h-11 flex items-center justify-center rounded-full bg-black/50 sm:bg-transparent text-ivory/50 sm:text-ivory/20 hover:text-amber transition-colors">
+                <X size={26} />
               </button>
 
-              <div className="flex flex-col md:flex-row gap-16 relative z-10">
-                <div className="w-full md:w-[35%] aspect-[2/3] relative rounded-[2rem] overflow-hidden shadow-2xl">
+              <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
+                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                     <img
                         src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
                         className="w-full h-full object-cover"
@@ -744,54 +745,54 @@ export default function Discover() {
                     />
                 </div>
 
-                <div className="flex-1 space-y-12">
+                <div className="flex-1 min-w-0 space-y-6 sm:space-y-12">
                 <div className="noise-overlay" />
-                
-                <header className="space-y-6 relative">
-                  <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-amber/40">FİLM ÖZETİ</p>
-                  <h2 className="text-7xl lg:text-8xl font-serif font-bold tracking-tighter leading-[0.8]">{selectedMovie.title}</h2>
-                  <div className="flex items-center gap-6 pt-4">
-                      <span className="text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
+
+                <header className="space-y-4 sm:space-y-6 relative">
+                  <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.5em] sm:tracking-[0.8em] text-amber/40">FİLM ÖZETİ</p>
+                  <h2 className="text-3xl sm:text-6xl lg:text-8xl font-serif font-bold tracking-tighter leading-[0.95] sm:leading-[0.8] break-words">{selectedMovie.title}</h2>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-6 pt-2 sm:pt-4">
+                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
                       <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-xl font-serif italic text-ivory/30">{selectedMovie.runtime || '90+'} Dakika</span>
+                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.runtime || '90+'} Dakika</span>
                       <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-xl font-serif italic text-ivory/30">{selectedMovie.genres?.join(', ') || 'Sinema'}</span>
+                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.genres?.join(', ') || 'Sinema'}</span>
                   </div>
                 </header>
 
                 <div className="space-y-8">
-                    <p className="text-2xl font-serif leading-relaxed text-ivory/80 italic">
+                    <p className="text-base sm:text-2xl font-serif leading-relaxed text-ivory/80 italic">
                         {selectedMovie.overview || "Bu yapıt hakkında henüz bir özet bulunmuyor..."}
                     </p>
                 </div>
 
-                <div className="p-16 rounded-[4rem] bg-black/40 border border-white/5 relative shadow-inner group">
+                <div className="p-6 sm:p-16 rounded-[1.5rem] sm:rounded-[4rem] bg-black/40 border border-white/5 relative shadow-inner group">
                   {isAnalyzing
-                    ? <div className="flex flex-col items-center gap-8 py-10">
+                    ? <div className="flex flex-col items-center gap-6 sm:gap-8 py-8 sm:py-10">
                         <SkeletonGurme />
-                        <p className="text-2xl font-serif italic text-ivory/40 animate-pulse">Üstad notlarını hazırlıyor...</p>
+                        <p className="text-lg sm:text-2xl font-serif italic text-ivory/40 animate-pulse">Üstad notlarını hazırlıyor...</p>
                       </div>
                     : <>
-                                                <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-6">Üstadın Notu</p>
-                        <p className="text-4xl font-serif italic leading-[1.2] text-ivory tracking-tight first-letter:text-7xl first-letter:float-left first-letter:mr-4 first-letter:font-bold first-letter:text-amber">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-4 sm:mb-6">Üstadın Notu</p>
+                        <p className="text-lg sm:text-4xl font-serif italic leading-relaxed sm:leading-[1.2] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-7xl first-letter:float-left first-letter:mr-3 sm:first-letter:mr-4 first-letter:font-bold first-letter:text-amber">
                             {selectedMovie.ai_analysis || "Üstad bu başyapıt için notlarını hazırlıyor... Birazdan burada olacak."}
                         </p>
                       </>
                   }
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-12 border-t border-white/5 pt-8 sm:pt-16">
                   <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Üstat</p>
-                      <p className="text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Bilinmiyor'}</p>
+                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Bilinmiyor'}</p>
                   </div>
                   <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Zamanın Ruhu</p>
-                      <p className="text-2xl font-serif text-ivory/80">{selectedMovie.genres?.slice(0, 2).join(', ')}</p>
+                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.genres?.slice(0, 2).join(', ')}</p>
                   </div>
                   <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel yankı</p>
-                      <p className="text-3xl font-serif font-bold text-amber">★ {selectedMovie.imdb_rating || selectedMovie.vote_average?.toFixed(1)}</p>
+                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {selectedMovie.imdb_rating || selectedMovie.vote_average?.toFixed(1)}</p>
                   </div>
                 </div>
 
@@ -847,11 +848,11 @@ export default function Discover() {
                   </div>
                 )}
 
-                <div className="flex gap-6 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 pt-4">
                   <button
                     onClick={handleSaveToJournal}
                     disabled={savedIds.has(selectedMovie.id)}
-                    className={`flex-1 py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.4em] transition-all duration-700 flex items-center justify-center gap-4 ${
+                    className={`flex-1 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] transition-all duration-700 flex items-center justify-center gap-3 sm:gap-4 ${
                       savedIds.has(selectedMovie.id)
                         ? 'bg-amber/10 text-amber border border-amber/30 cursor-default'
                         : 'bg-amber text-bg hover:scale-[1.02] shadow-[0_20px_50px_-10px_rgba(255,191,0,0.3)]'
@@ -861,7 +862,7 @@ export default function Discover() {
                   </button>
                   <button 
                     onClick={() => setSelectedMovie(null)}
-                    className="px-12 py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
+                    className="px-8 sm:px-12 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
                   >
                     Kapat
                   </button>

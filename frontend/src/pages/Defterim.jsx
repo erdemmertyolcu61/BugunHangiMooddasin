@@ -98,50 +98,50 @@ export default function Defterim() {
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay" 
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-      <header className="sticky top-0 z-50 bg-[#120d0b]/80 backdrop-blur-3xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-10 flex items-center justify-between flex-wrap gap-6">
-          <div className="flex items-center gap-8">
-            <button onClick={() => navigate('/')} className="w-14 h-14 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
-              <ChevronLeft size={24} />
+      <header className="sticky top-0 z-50 bg-[#120d0b]/80 backdrop-blur-3xl border-b border-white/5 pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-10 flex items-center justify-between flex-wrap gap-4 sm:gap-6">
+          <div className="flex items-center gap-3 sm:gap-8">
+            <button onClick={() => navigate('/')} className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
+              <ChevronLeft size={22} />
             </button>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.8em] text-amber/40 mb-1">KİŞİSEL ARŞİV</p>
-              <h1 className="font-serif text-6xl font-bold tracking-tighter">Defterim<span className="text-amber">.</span></h1>
+              <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.5em] sm:tracking-[0.8em] text-amber/40 mb-1">KİŞİSEL ARŞİV</p>
+              <h1 className="font-serif text-3xl sm:text-6xl font-bold tracking-tighter">Defterim<span className="text-amber">.</span></h1>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={() => navigate('/kafan-mi-karisik')} 
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 rounded-full hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] animate-pulse"
+          <div className="flex items-center gap-4 sm:gap-6">
+            <button
+              onClick={() => navigate('/kafan-mi-karisik')}
+              className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 rounded-full hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] animate-pulse"
             >
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-bg">Kafan mı Karışık?</span>
             </button>
-            <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.4em] opacity-40">
-              <Book size={16} className="text-amber" /> {savedMovies.length} KAYITLI YAPIT
+            <div className="flex items-center gap-3 sm:gap-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] opacity-40">
+              <Book size={16} className="text-amber" /> {savedMovies.length} KAYITLI
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-16">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-16 pb-nav">
         {loading ? (
             <div className="flex flex-col items-center justify-center py-40 gap-6">
                 <Book className="text-amber animate-pulse" size={48} />
                 <p className="text-xl font-serif italic text-ivory/20">Defterin sayfaları çevriliyor...</p>
             </div>
         ) : savedMovies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-40 space-y-10">
-             <div className="w-40 h-40 rounded-full border border-white/5 flex items-center justify-center opacity-10 bg-white/5"><Book size={60} /></div>
+          <div className="flex flex-col items-center justify-center py-24 sm:py-40 space-y-8 sm:space-y-10 px-4">
+             <div className="w-28 h-28 sm:w-40 sm:h-40 rounded-full border border-white/5 flex items-center justify-center opacity-10 bg-white/5"><Book size={48} /></div>
              <div className="text-center space-y-6">
-                <h2 className="text-5xl font-serif italic text-ivory/20 tracking-tight">Henüz bir not düşülmemiş...</h2>
-                <button onClick={() => navigate('/')} className="px-12 py-5 bg-amber text-bg font-bold uppercase text-[10px] tracking-[0.3em] rounded-full hover:scale-105 transition-transform shadow-xl shadow-amber/10">Keşfe Çık →</button>
+                <h2 className="text-3xl sm:text-5xl font-serif italic text-ivory/20 tracking-tight">Henüz bir not düşülmemiş...</h2>
+                <button onClick={() => navigate('/')} className="px-10 sm:px-12 py-5 bg-amber text-bg font-bold uppercase text-[10px] tracking-[0.3em] rounded-full hover:scale-105 transition-transform shadow-xl shadow-amber/10">Keşfe Çık →</button>
              </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-16">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-16 rounded-[4rem] bg-white/5 border border-white/5 relative overflow-hidden gurme-border">
+          <div className="grid grid-cols-1 gap-8 sm:gap-16">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-7 sm:p-16 rounded-[2rem] sm:rounded-[4rem] bg-white/5 border border-white/5 relative overflow-hidden gurme-border">
                 <div className="absolute inset-0 bg-gradient-to-r from-amber/5 to-transparent opacity-40" />
-                <p className="text-3xl font-serif italic leading-relaxed relative z-10 max-w-4xl text-ivory/60">
+                <p className="text-lg sm:text-3xl font-serif italic leading-relaxed relative z-10 max-w-4xl text-ivory/60">
                     "Bu sayfalarda sadece filmler değil, o filmlerin ruhunda bıraktığı izler saklı. Her bir kare, bir anı; her bir not, bir duygu..."
                 </p>
             </motion.div>
@@ -233,10 +233,10 @@ export default function Defterim() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="bg-surface rounded-[4rem] border border-white/5 overflow-hidden flex flex-col md:flex-row shadow-2xl group relative"
+                className="bg-surface rounded-[2rem] sm:rounded-[4rem] border border-white/5 overflow-hidden flex flex-col md:flex-row shadow-2xl group relative"
               >
                 <div className="noise-overlay" />
-                <div className="w-full md:w-96 aspect-[2/3] md:aspect-auto relative overflow-hidden">
+                <div className="w-full md:w-80 lg:w-96 aspect-[16/10] sm:aspect-[2/3] md:aspect-auto relative overflow-hidden">
                     <img 
                         src={proxyImageUrl(movie.poster_url) || 'https://via.placeholder.com/500x750'}
                         className="w-full h-full object-cover grayscale-[0.4] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-[2s]" 
@@ -244,18 +244,18 @@ export default function Defterim() {
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface/40" />
                 </div>
                 
-                <div className="flex-1 p-16 lg:p-20 flex flex-col justify-between space-y-12">
-                  <div className="space-y-8">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-2">
-                            <h3 className="text-6xl font-serif font-bold tracking-tighter leading-none group-hover:text-amber transition-colors duration-500">{movie.title}</h3>
+                <div className="flex-1 p-6 sm:p-12 lg:p-20 flex flex-col justify-between space-y-8 sm:space-y-12">
+                  <div className="space-y-6 sm:space-y-8">
+                    <div className="flex justify-between items-start gap-4">
+                        <div className="space-y-2 min-w-0">
+                            <h3 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tighter leading-tight sm:leading-none group-hover:text-amber transition-colors duration-500 break-words">{movie.title}</h3>
                             <div className="flex items-center gap-4 opacity-30">
-                                <span className="text-xs font-bold uppercase tracking-widest">{movie.added_at?.split(' ')[0]} Tarihinde eklendi</span>
+                                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest">{movie.added_at?.split(' ')[0]} Tarihinde eklendi</span>
                             </div>
                         </div>
-                        <button 
-                            onClick={() => handleRemove(movie.tmdb_id)} 
-                            className="w-14 h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/20 hover:text-red-500 hover:border-red-500/30 transition-all duration-500"
+                        <button
+                            onClick={() => handleRemove(movie.tmdb_id)}
+                            className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full border border-white/10 text-ivory/20 hover:text-red-500 hover:border-red-500/30 transition-all duration-500"
                         >
                             <Trash2 size={20} />
                         </button>
@@ -278,12 +278,12 @@ export default function Defterim() {
                         <AnimatePresence mode="wait">
                             {editingId === movie.tmdb_id ? (
                                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-                                    <textarea 
+                                    <textarea
                                         autoFocus
-                                        value={noteDraft} 
-                                        onChange={(e) => setNoteDraft(e.target.value)} 
-                                        placeholder="Bu başyapıt sende nasıl bir iz bıraktı?" 
-                                        className="w-full h-40 bg-black/40 border border-white/10 rounded-[2rem] p-8 text-2xl font-serif italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all" 
+                                        value={noteDraft}
+                                        onChange={(e) => setNoteDraft(e.target.value)}
+                                        placeholder="Bu başyapıt sende nasıl bir iz bıraktı?"
+                                        className="w-full h-36 sm:h-40 bg-black/40 border border-white/10 rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 text-base sm:text-2xl font-serif italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all"
                                     />
                                     <div className="flex gap-4">
                                         <button onClick={() => handleSaveNote(movie.tmdb_id)} className="px-10 py-4 bg-amber text-bg font-bold uppercase text-[10px] tracking-[0.2em] rounded-full flex items-center gap-3">
@@ -295,7 +295,7 @@ export default function Defterim() {
                                     </div>
                                 </motion.div>
                             ) : (
-                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-4xl font-serif italic leading-snug tracking-tight ${movie.personal_note ? 'text-ivory' : 'text-ivory/10'}`}>
+                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-xl sm:text-4xl font-serif italic leading-snug tracking-tight ${movie.personal_note ? 'text-ivory' : 'text-ivory/10'}`}>
                                     {movie.personal_note || "Henüz bir not düşülmemiş..." }
                                 </motion.p>
                             )}
@@ -303,8 +303,8 @@ export default function Defterim() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between pt-8 border-t border-white/5">
-                     <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap pt-6 sm:pt-8 border-t border-white/5">
+                     <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-amber/60">
                            <Check size={14} /> Arşivlendi
                         </div>
