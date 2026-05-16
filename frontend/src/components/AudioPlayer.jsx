@@ -23,8 +23,12 @@ export default function AudioPlayer() {
   // Desktop: hover ile panel açılır
   // Mobil: vinyl butona dokunulunca panel açılır
   const [hovered, setHovered] = useState(false);
+  const [isTouchOnly] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
+  );
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
   const [panelOpen, setPanelOpen] = useState(false);
-  const showPanel = hovered || panelOpen;
+  const showPanel = isTouchOnly ? panelOpen : (hovered || panelOpen);
 
   const closeTimer = useRef(null);
 
@@ -99,7 +103,7 @@ export default function AudioPlayer() {
 
   return (
     <div
-      className="fixed bottom-24 right-4 md:bottom-6 md:right-6 z-[95] flex items-end gap-3 mb-safe md:mb-0"
+      className="fixed bottom-28 right-4 md:bottom-6 md:right-6 z-[95] flex items-end gap-3 mb-safe md:mb-0"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -142,6 +146,12 @@ export default function AudioPlayer() {
             <span className="text-[9px] font-bold text-amber-500/40 uppercase tracking-widest shrink-0 w-6 text-right">
               {muted ? '0' : Math.round(volume * 100)}
             </span>
+
+            {isIOS && (
+              <span className="text-[7px] text-amber-500/30 uppercase tracking-wider whitespace-nowrap">
+                iOS: hw tuşları
+              </span>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

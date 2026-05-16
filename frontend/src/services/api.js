@@ -1,4 +1,8 @@
 import { getApiUrl } from '../utils/apiConfig';
+import {
+  localGetWatchlist, localAddToWatchlist, localRemoveFromWatchlist,
+  localToggleWatched, localSaveNote, localGetNote, localSaveWatchlist,
+} from '../utils/localStore';
 const BASE = getApiUrl('/api');
 
 // Simple in-memory cache for Turkish movies
@@ -78,58 +82,100 @@ export async function searchMovies(query) {
   return res.json();
 }
 
-// --- Watchlist (Defterim) API ---
+// --- Watchlist (Defterim) API — localStorage primary, backend best-effort ---
 
 export async function getWatchlist() {
-  const res = await fetch(`${BASE}/watchlist`);
-  if (!res.ok) throw new Error(`Defterim yüklenemedi`);
-  return res.json();
+  // localStorage'dan anında döndür
+  const local = localGetWatchlist();
+
+  // Arka planda backend ile senkronize et (sessizce)
+  try {
+    const res = await fetch(`${BASE}/watchlist`);
+    if (res.ok) {
+      const data = await res.json();
+      const backendMovies = data.movies || [];
+      if (backendMovies.length > 0) {
+        // Backend'deki filmleri localStore'a merge et (yeni olanları ekle)
+        const localIds = new Set(local.map(m => m.tmdb_id));
+        const toAdd = backendMovies.filter(m => !localIds.has(m.tmdb_id));
+        if (toAdd.length > 0) {
+          const merged = [...local, ...toAdd];
+          localSaveWatchlist(merged);
+          return { movies: merged };
+        }
+      }
+    }
+  } catch {}
+
+  return { movies: local };
 }
 
 export async function addToWatchlist(movie) {
-  const res = await fetch(`${BASE}/watchlist`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      tmdb_id: movie.id,
-      title: movie.title,
-      poster_url: movie.poster_url || (movie.poster_path ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}` : null)
-    })
-  });
-  if (!res.ok) throw new Error(`Deftere eklenemedi`);
-  return res.json();
+  // localStorage'a hemen ekle
+  const updated = localAddToWatchlist(movie);
+  // Backend'e de gönder (başarısız olsa sorun değil)
+  try {
+    await fetch(`${BASE}/watchlist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tmdb_id: movie.id || movie.tmdb_id,
+        title: movie.title,
+        poster_url: movie.poster_url || (movie.poster_path ? `https://image.tmdb.org/t/p/w1280${movie.poster_path}` : null)
+      })
+    });
+  } catch {}
+  return { success: true };
 }
 
 export async function removeFromWatchlist(movieId) {
-  const res = await fetch(`${BASE}/watchlist/${movieId}`, {
-    method: 'DELETE'
-  });
-  if (!res.ok) throw new Error(`Defterden çıkarılamadı`);
-  return res.json();
+  // localStorage'dan hemen sil
+  localRemoveFromWatchlist(movieId);
+  // Backend'den de sil (başarısız olsa sorun değil)
+  try { await fetch(`${BASE}/watchlist/${movieId}`, { method: 'DELETE' }); } catch {}
+  return { success: true };
 }
 
 export async function toggleWatched(tmdbId) {
-  const res = await fetch(`${BASE}/watchlist/${tmdbId}/toggle-watched`, { method: 'POST' });
-  if (!res.ok) throw new Error('İzlendi durumu değiştirilemedi');
-  return res.json();
+  // localStorage'da toggle et
+  localToggleWatched(tmdbId);
+  // Backend'e bildir
+  try {
+    await fetch(`${BASE}/watchlist/${tmdbId}/toggle-watched`, { method: 'POST' });
+  } catch {}
+  return { success: true };
 }
 
 // --- Notes API ---
 
 export async function saveNote(movieId, content) {
-  const res = await fetch(`${BASE}/movies/${movieId}/notes`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content })
-  });
-  if (!res.ok) throw new Error(`Not kaydedilemedi`);
-  return res.json();
+  // localStorage'a hemen kaydet
+  localSaveNote(movieId, content);
+  // Backend'e de gönder
+  try {
+    await fetch(`${BASE}/movies/${movieId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+  } catch {}
+  return { success: true };
 }
 
 export async function getNote(movieId) {
-  const res = await fetch(`${BASE}/movies/${movieId}/notes`);
-  if (!res.ok) throw new Error(`Not yüklenemedi`);
-  return res.json();
+  // Önce localStorage'dan al
+  const local = localGetNote(movieId);
+  if (local) return { note: local };
+  // Yoksa backend'den dene
+  try {
+    const res = await fetch(`${BASE}/movies/${movieId}/notes`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.note) localSaveNote(movieId, data.note);
+      return data;
+    }
+  } catch {}
+  return { note: '' };
 }
 
 // --- Future Plans API (Gelecek Planları) ---

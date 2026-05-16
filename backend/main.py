@@ -1795,7 +1795,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
         try:
             intent = await asyncio.wait_for(
                 confusion_service.extract_user_intent(text),
-                timeout=8.0
+                timeout=15.0
             )
             if intent and intent.get("mood_mix"):
                 mood_mix = intent["mood_mix"]
@@ -1896,7 +1896,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
         try:
             rerank_result = await asyncio.wait_for(
                 confusion_service.rerank_movies(text, intent, top_candidates),
-                timeout=8.0
+                timeout=15.0
             )
             if rerank_result and rerank_result.get("recommendations"):
                 mode = "claude_reranked"
