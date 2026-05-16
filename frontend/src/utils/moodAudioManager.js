@@ -35,6 +35,7 @@ export function preloadMoodAudio(moodId) {
   audio.preload = "auto";
   audio.src = getMoodAudioUrl(normalized);
   audio.volume = 0;
+  // crossOrigin yok — Pixabay CORS header dönmüyor
   preloadedAudios.set(normalized, audio);
   console.log("[MoodAudioPreload] Preloading:", normalized);
 }
@@ -111,7 +112,8 @@ export async function playMoodAudio(moodId) {
   audio.volume = 0;
   audio.muted = false;
   audio.preload = "auto";
-  audio.crossOrigin = "anonymous";
+  // crossOrigin "anonymous" kaldırıldı — Pixabay CDN CORS header dönmüyor,
+  // anonymous mode ile audio bloklanıyordu.
 
   currentAudio = audio;
   currentMoodId = normalizedMoodId;
