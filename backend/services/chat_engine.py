@@ -800,10 +800,40 @@ class ChatEngine:
                     self.confusion.extract_user_intent(text),
                     timeout=15.0
                 )
-                if claude_intent and claude_intent.get("mood_mix"):
-                    mood_mix = claude_intent["mood_mix"]
-                    message = claude_intent.get("user_intent_summary", "")
-                    ustad_line = claude_intent.get("ustad_line", "")
+                if claude_intent:
+                    # Re-classification: if Claude detected film/person entities, reroute
+                    entities = claude_intent.get("detected_entities", {})
+                    film_titles = entities.get("film_titles", [])
+                    person_names = entities.get("person_names", [])
+                    intent_hint = entities.get("intent_hint", "none")
+
+                    if film_titles and intent_hint in ("similar", "lookup"):
+                        ref_title = film_titles[0]
+                        alias_check = _normalize(ref_title)
+                        if alias_check in TURKISH_TITLE_ALIASES:
+                            ref_title = TURKISH_TITLE_ALIASES[alias_check]
+                        if intent_hint == "similar":
+                            new_intent = Intent("similar_to_movie", reference_title=ref_title, original_text=text)
+                            logger.info(f"[ChatEngine] Re-classified to similar_to_movie via Claude entity: '{ref_title}'")
+                            return await self._handle_similar(new_intent, text, limit, min_vote, exclude_ids)
+                        else:
+                            new_intent = Intent("exact_movie_search", reference_title=ref_title, original_text=text)
+                            logger.info(f"[ChatEngine] Re-classified to exact_movie_search via Claude entity: '{ref_title}'")
+                            return await self._handle_movie_search(new_intent, text, limit, min_vote, exclude_ids)
+
+                    elif person_names and intent_hint in ("similar", "lookup"):
+                        person = person_names[0]
+                        p_type = person.get("type", "actor")
+                        intent_type = "director_recommendation" if p_type == "director" else "actor_recommendation"
+                        new_intent = Intent(intent_type, person_name=person["name"],
+                                            person_type=p_type, original_text=text)
+                        logger.info(f"[ChatEngine] Re-classified to {intent_type} via Claude entity: '{person['name']}'")
+                        return await self._handle_person(new_intent, text, limit, min_vote, exclude_ids)
+
+                    if claude_intent.get("mood_mix"):
+                        mood_mix = claude_intent["mood_mix"]
+                        message = claude_intent.get("user_intent_summary", "")
+                        ustad_line = claude_intent.get("ustad_line", "")
             except Exception as e:
                 logger.warning(f"[ChatEngine] Claude intent extraction failed: {e}")
 

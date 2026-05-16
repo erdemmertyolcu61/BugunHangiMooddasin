@@ -298,6 +298,18 @@ FİLM ÖZEL TAHMİN KURALLARI:
 - Mevsim/hava durumu ipuçları: "yağmurlu" → battaniye/sessiz/gozyasi, "sıcak yaz gecesi" → gece/adrenalin, "kar yağıyor" → battaniye/zamanyolcusu.
 - Kullanıcı spesifik bir sahne/his tarif ediyorsa (örn. "arabada müzik dinleyerek yolda gitmek") → bunu en iyi karşılayan mood'u birincil yap.
 
+VARLIK ÇIKARIMI (Entity Extraction):
+Kullanıcının metninde geçen film adları ve kişi adlarını tespit et:
+- Film adları: Türkçe veya İngilizce, ek almış olabilir ("Inception'daki", "interstellar tadında", "Başlangıç'taki"). Ekleri temizle, saf film adını yaz.
+- Kişi adları: Oyuncu veya yönetmen, Türkçe iyelik/hal ekleriyle olabilir ("Nolan'ın", "Al Pacino'nun", "brad pitt'in"). Ekleri temizle, saf ismi yaz.
+- Niyet ipucu (intent_hint): Kullanıcı bu referansla ne yapmak istiyor?
+  - "similar": benzer film istiyor ("gibi", "tarzında", "tadında", "benzeri", "o havada", "o tarz")
+  - "lookup": filmi bulmak/bilgi almak istiyor
+  - "mood_inspired": referansı sadece atmosfer/ruh hali için kullanıyor, spesifik benzer film beklemiyor
+  - "none": hiçbir film/kişi tespit edilemedi
+
+Eğer film veya kişi tespit edemezsen, listeler boş olsun ve intent_hint "none" olsun.
+
 SADECE geçerli JSON döndür (başka hiçbir şey yazma):
 {{
   "user_intent_summary": "Kullanıcının ne istediğini kısaca özetleyen Türkçe cümle",
@@ -318,12 +330,17 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
     {{"mood_id": "kalp", "title": "Kalbimin Sesi", "percentage": 50}},
     {{"mood_id": "sessiz", "title": "Sessiz Yolculuk", "percentage": 30}},
     {{"mood_id": "battaniye", "title": "Battaniye Modu", "percentage": 20}}
-  ]
+  ],
+  "detected_entities": {{
+    "film_titles": ["Film Adı (ek olmadan)"],
+    "person_names": [{{"name": "Kişi Adı", "type": "actor|director|unknown"}}],
+    "intent_hint": "similar|lookup|mood_inspired|none"
+  }}
 }}"""
 
         try:
             message = await self.client.messages.create(
-                model=self.model, max_tokens=600,
+                model=self.model, max_tokens=750,
                 messages=[{"role": "user", "content": prompt}],
             )
 
