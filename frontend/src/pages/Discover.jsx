@@ -349,18 +349,11 @@ export default function Discover() {
                 <X size={26} />
               </button>
               <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl bg-black/60">
-                  {/* Blur backdrop */}
+                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
-                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-35 pointer-events-none"
-                    aria-hidden="true"
-                    alt=""
-                  />
-                  {/* Full poster — object-contain so nothing is cropped */}
-                  <img
-                    src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
-                    className="relative w-full h-full object-contain z-10"
+                    className="w-full h-full object-cover"
+                    style={{ filter: 'blur(1.5px)' }}
                     alt={selectedMovie.title}
                   />
                 </div>
@@ -746,18 +739,11 @@ export default function Discover() {
               </button>
 
               <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl bg-black/60">
-                  {/* Blur backdrop */}
+                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[42vh] sm:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
-                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-35 pointer-events-none"
-                    aria-hidden="true"
-                    alt=""
-                  />
-                  {/* Full poster — object-contain so nothing is cropped */}
-                  <img
-                    src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
-                    className="relative w-full h-full object-contain z-10"
+                    className="w-full h-full object-cover"
+                    style={{ filter: 'blur(1.5px)' }}
                     alt={selectedMovie.title}
                   />
                 </div>

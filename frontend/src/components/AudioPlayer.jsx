@@ -28,11 +28,11 @@ export default function AudioPlayer() {
 
   const closeTimer = useRef(null);
 
-  // Panel mobilde 4 saniye sonra otomatik kapanır
+  // Panel mobilde 2.5 saniye sonra otomatik kapanır (slider dokunulmadan)
   useEffect(() => {
     if (panelOpen) {
       clearTimeout(closeTimer.current);
-      closeTimer.current = setTimeout(() => setPanelOpen(false), 4000);
+      closeTimer.current = setTimeout(() => setPanelOpen(false), 2500);
     }
     return () => clearTimeout(closeTimer.current);
   }, [panelOpen]);
@@ -76,9 +76,10 @@ export default function AudioPlayer() {
     if (v === 0) setMuted(true);
     else if (muted) setMuted(false);
     // Panel açıksa kapanma timer'ını uzat
+    // Slider bırakılınca 1.5 saniye sonra kapat
     if (panelOpen) {
       clearTimeout(closeTimer.current);
-      closeTimer.current = setTimeout(() => setPanelOpen(false), 4000);
+      closeTimer.current = setTimeout(() => setPanelOpen(false), 1500);
     }
   };
 
@@ -130,7 +131,12 @@ export default function AudioPlayer() {
               value={muted ? 0 : volume}
               onChange={handleVolume}
               onPointerDown={(e) => e.stopPropagation()}
-              className="w-28 sm:w-32 accent-amber-500 h-1 rounded-full appearance-none outline-none cursor-pointer"
+              onPointerUp={() => {
+                // Parmak/mouse bırakılınca 1.2s sonra kapat
+                clearTimeout(closeTimer.current);
+                closeTimer.current = setTimeout(() => setPanelOpen(false), 1200);
+              }}
+              className="w-24 accent-amber-500 h-1 rounded-full appearance-none outline-none cursor-pointer"
             />
 
             <span className="text-[9px] font-bold text-amber-500/40 uppercase tracking-widest shrink-0 w-6 text-right">
