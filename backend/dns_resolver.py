@@ -87,8 +87,10 @@ def apply_dns_patch_sync():
         socket.getaddrinfo = _patched_getaddrinfo
         print("[DNS] socket.getaddrinfo yaması uygulandı")
 
-# Yamayı modül yüklendiği an hemen (senkron) uygula!
-apply_dns_patch_sync()
+# Yamayı sadece development ortamında uygula (production'da DNS çalışır)
+import os as _os
+if _os.getenv("ENVIRONMENT", "development") != "production":
+    apply_dns_patch_sync()
 
 # Geriye dönük uyumluluk (main.py lifespan içinde hata vermemesi için boş async fonksiyon)
 async def setup_dns_bypass():
