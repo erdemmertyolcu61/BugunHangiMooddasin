@@ -1223,6 +1223,17 @@ async def analyze_movie(movie_id: int = Path(..., ge=1)):
     if cached_data:
         cached_data["in_watchlist"] = in_watchlist
         cached_data["personal_note"] = personal_note
+
+        # Türkçe özet garantisi: cache İngilizce olabilir, her seferinde tr-TR dene
+        try:
+            tr_details = await asyncio.wait_for(
+                tmdb_service.get_movie_details(movie_id), timeout=4.0
+            )
+            if tr_details.get("overview"):
+                cached_data["overview"] = tr_details["overview"]
+        except Exception:
+            pass  # cache'deki overview'u koru
+
         # Add/refresh watch providers for cached movies
         if "watch_providers" not in cached_data:
             try:

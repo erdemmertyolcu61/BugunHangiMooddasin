@@ -263,24 +263,24 @@ export default function SurpriseFilm() {
                   <p className="text-red-400 text-sm text-center py-4">{analysisData.error}</p>
                 ) : analysisData ? (
                   <>
+                    {/* Üstadın Notu — ai_analysis bir string */}
+                    {analysisData.ai_analysis && (
+                      <div className="bg-[#ffbf00]/5 border border-[#ffbf00]/20 rounded-2xl p-4">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-[#ffbf00]/50 mb-2 flex items-center gap-1">
+                          <Sparkles size={8} /> Üstadın Notu
+                        </p>
+                        <p className="text-[#ffbf00]/80 text-sm font-serif italic leading-relaxed">
+                          "{analysisData.ai_analysis}"
+                        </p>
+                      </div>
+                    )}
+
                     {/* Özet */}
                     {(analysisData.overview || movie?.overview) && (
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Özet</p>
                         <p className="text-white/70 text-sm leading-relaxed font-serif">
                           {analysisData.overview || movie.overview}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Üstadın Notu */}
-                    {analysisData.ai_analysis?.mood_note && (
-                      <div className="bg-[#ffbf00]/5 border border-[#ffbf00]/20 rounded-2xl p-4">
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-[#ffbf00]/50 mb-2 flex items-center gap-1">
-                          <Sparkles size={8} /> Üstadın Notu
-                        </p>
-                        <p className="text-[#ffbf00]/80 text-sm font-serif italic leading-relaxed">
-                          "{analysisData.ai_analysis.mood_note}"
                         </p>
                       </div>
                     )}
