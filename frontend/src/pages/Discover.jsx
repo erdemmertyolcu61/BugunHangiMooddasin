@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, searchMovies, repositoryMovies, proxyImageUrl } from '../services/api';
+import { addToWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl } from '../services/api';
 import { checkBackendHealth } from '../utils/apiConfig';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
 import UpcomingSlider from '../components/UpcomingSlider';
@@ -73,6 +73,10 @@ export default function Discover() {
   const searchTimeout = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const autoAnalyzeTriggered = useRef(false);
+
+  // Quick-action state (card overlay buttons — no modal needed)
+  const [quickSavedIds, setQuickSavedIds] = useState(new Set());
+  const [quickWatchedIds, setQuickWatchedIds] = useState(new Set());
 
   // KafanMıKarisik'tan gelen ?analyze=<movieId> parametresini oku
   useEffect(() => {
@@ -286,6 +290,30 @@ export default function Discover() {
     } catch (err) {
         console.error('Deftere eklenemedi:', err);
     }
+  };
+
+  // Quick actions — card overlay, no modal
+  const handleQuickSave = async (e, movie) => {
+    e.stopPropagation();
+    if (quickSavedIds.has(movie.id)) return;
+    setQuickSavedIds(prev => new Set([...prev, movie.id]));
+    try { await addToWatchlist(movie); } catch (err) { console.error('Quick save hatası:', err); }
+  };
+
+  const handleQuickWatched = async (e, movie) => {
+    e.stopPropagation();
+    const nowWatched = !quickWatchedIds.has(movie.id);
+    setQuickWatchedIds(prev => {
+      const next = new Set(prev);
+      if (nowWatched) next.add(movie.id); else next.delete(movie.id);
+      return next;
+    });
+    // Also ensure it's in watchlist
+    if (!quickSavedIds.has(movie.id)) {
+      setQuickSavedIds(prev => new Set([...prev, movie.id]));
+      try { await addToWatchlist(movie); } catch {}
+    }
+    try { await toggleWatched(movie.id); } catch (err) { console.error('Quick watched hatası:', err); }
   };
 
 
@@ -609,7 +637,7 @@ export default function Discover() {
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tighter">
               {searchResults !== null
                 ? (searchLoading ? 'Üstad arşivde bakınıyor...' : `"${searchQuery}" Seçkisi`)
-                : 'Vizyondakiler'}
+                : 'Perdede'}
             </h2>
             {/* Sort controls - custom dropdown */}
             {searchResults === null && (
@@ -679,6 +707,38 @@ export default function Discover() {
                             <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
                                 <Sparkles size={10} /> %{movie.mood_score || movie.match}
                             </p>
+                        </div>
+
+                        {/* Hızlı Eylem Butonları */}
+                        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                          <button
+                            onClick={(e) => handleQuickSave(e, movie)}
+                            title="Deftere Ekle"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
+                              ${quickSavedIds.has(movie.id)
+                                ? 'bg-amber/90 border-amber/60 text-black'
+                                : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
+                              }`}
+                          >
+                            {quickSavedIds.has(movie.id)
+                              ? <><Check size={10} /> Eklendi</>
+                              : <><BookmarkPlus size={10} /> Deftere</>
+                            }
+                          </button>
+                          <button
+                            onClick={(e) => handleQuickWatched(e, movie)}
+                            title="İzledim"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
+                              ${quickWatchedIds.has(movie.id)
+                                ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+                                : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
+                              }`}
+                          >
+                            {quickWatchedIds.has(movie.id)
+                              ? <><Check size={10} /> İzledim</>
+                              : <><Eye size={10} /> İzledim</>
+                            }
+                          </button>
                         </div>
                     </div>
                     <div className="mt-3 sm:mt-8 space-y-1.5 sm:space-y-2 px-1 sm:px-4">
