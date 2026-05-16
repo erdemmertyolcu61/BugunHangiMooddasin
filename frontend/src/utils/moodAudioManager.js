@@ -1,5 +1,3 @@
-import { API_BASE_URL } from './apiConfig';
-
 let currentAudio = null;
 let currentMoodId = null;
 let transitionId = 0;
@@ -9,19 +7,35 @@ let targetVolume = 0.35;
 const fadeDurationMs = 600; // Faster, snappier fade
 const preloadedAudios = new Map();
 
+// Doğrudan CDN URL'leri — backend proxy gereksiz, browser direkt çalar
+const MOOD_AUDIO_DIRECT = {
+  "battaniye":    "https://cdn.pixabay.com/audio/2024/09/10/audio_6e5d7d1db1.mp3",
+  "yolculuk":     "https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3",
+  "gece":         "https://cdn.pixabay.com/audio/2023/07/07/audio_34cea2adf1.mp3",
+  "kahkaha":      "https://cdn.pixabay.com/audio/2024/09/24/audio_8e1f0ab42a.mp3",
+  "gozyasi":      "https://cdn.pixabay.com/audio/2023/10/02/audio_3bbf037e6a.mp3",
+  "adrenalin":    "https://cdn.pixabay.com/audio/2022/10/09/audio_39e0e70bca.mp3",
+  "askbahcesi":   "https://cdn.pixabay.com/audio/2023/09/06/audio_13fae70fd0.mp3",
+  "zamanyolcusu": "https://cdn.pixabay.com/audio/2022/02/22/audio_d1718ab41b.mp3",
+  "sessiz":       "https://cdn.pixabay.com/audio/2022/10/25/audio_1e6d7b7e42.mp3",
+  "zihin":        "https://cdn.pixabay.com/audio/2022/03/09/audio_65a70e1ef3.mp3",
+  "kalp":         "https://cdn.pixabay.com/audio/2023/06/12/audio_ba5e3a3f59.mp3",
+  "karmakar":     "https://cdn.pixabay.com/audio/2022/08/02/audio_8c8b08c8c4.mp3",
+  "retro":        "https://cdn.pixabay.com/audio/2022/11/22/audio_8ceabc8b8e.mp3",
+  "deep-chills":  "https://cdn.pixabay.com/audio/2023/07/07/audio_34cea2adf1.mp3",
+};
+
 /**
- * Normalizes mood ID for backend compatibility.
+ * Normalizes mood ID for audio lookup.
  */
 function normalizeMoodId(moodId) {
   if (!moodId) return "";
-  const m = moodId.trim();
-  if (m.toLowerCase() === "retro") return "Retro";
-  return m.toLowerCase();
+  return moodId.trim().toLowerCase();
 }
 
 function getMoodAudioUrl(moodId) {
   const normalized = normalizeMoodId(moodId);
-  return `${API_BASE_URL}/api/audio/${encodeURIComponent(normalized)}`;
+  return MOOD_AUDIO_DIRECT[normalized] || null;
 }
 
 /**
@@ -29,13 +43,13 @@ function getMoodAudioUrl(moodId) {
  */
 export function preloadMoodAudio(moodId) {
   const normalized = normalizeMoodId(moodId);
-  if (!normalized || preloadedAudios.has(normalized)) return;
+  const url = getMoodAudioUrl(normalized);
+  if (!normalized || !url || preloadedAudios.has(normalized)) return;
 
   const audio = new Audio();
   audio.preload = "auto";
-  audio.src = getMoodAudioUrl(normalized);
+  audio.src = url;
   audio.volume = 0;
-  // crossOrigin yok — Pixabay CORS header dönmüyor
   preloadedAudios.set(normalized, audio);
   console.log("[MoodAudioPreload] Preloading:", normalized);
 }
@@ -76,7 +90,7 @@ function fadeAudio(audio, from, to, durationMs, token) {
  */
 export async function playMoodAudio(moodId) {
   const normalizedMoodId = normalizeMoodId(moodId);
-  if (!normalizedMoodId) return;
+  if (!normalizedMoodId || !getMoodAudioUrl(normalizedMoodId)) return;
 
   if (currentAudio && currentMoodId === normalizedMoodId && !currentAudio.paused) {
     return;
@@ -105,7 +119,7 @@ export async function playMoodAudio(moodId) {
     preloadedAudios.delete(normalizedMoodId); // Move out of preloaded cache
   } else {
     audio = new Audio();
-    audio.src = getMoodAudioUrl(normalizedMoodId);
+    audio.src = getMoodAudioUrl(normalizedMoodId) || '';
   }
 
   audio.loop = true;
