@@ -139,7 +139,9 @@ async def lifespan(app: FastAPI):
             logger.error(f"[Audio] İndirme hatası: {e}")
 
     import asyncio
-    asyncio.create_task(download_audio())
+    # Production'da ses indirme atla — Render ephemeral disk, dosyalar kalmaz
+    if not IS_PRODUCTION:
+        asyncio.create_task(download_audio())
     logger.info("[Perf] Persistent TMDB client aktif (connection pooling + retry).")
 
     # Target: her mood'da mumkun oldugunca fazla film
@@ -302,7 +304,9 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"[Keywords] Hata: {e}")
 
-        asyncio.create_task(_deferred_enrichment())
+        # Production'da enrichment atla — pre-seeded DB yeterli, TMDB yükü gereksiz
+        if not IS_PRODUCTION:
+            asyncio.create_task(_deferred_enrichment())
 
         # Phase 5: Mood score pre-computation — SKIPPED if scores already exist
         # (Scores persist in DB from previous runs)
