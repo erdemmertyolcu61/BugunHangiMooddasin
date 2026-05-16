@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import { proxyImageUrl } from '../services/api';
+import { getApiUrl } from '../utils/apiConfig';
 
 // --- CONFIG ---
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
@@ -208,7 +209,7 @@ const Home = () => {
       setLoading(true);
       try {
         const genres = activeWorld.genres.join(',');
-        const res = await fetch(`/api/movies/discover?genres=${genres}&page=1&sort_by=popularity.desc`);
+        const res = await fetch(getApiUrl(`/api/movies/discover?genres=${genres}&page=1&sort_by=popularity.desc`));
         const data = await res.json();
         const results = data.movies || [];
         

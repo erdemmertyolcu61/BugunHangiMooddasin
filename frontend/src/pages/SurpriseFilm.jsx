@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Shuffle, Sparkles, Star, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { proxyImageUrl } from '../services/api';
+import { getApiUrl } from '../utils/apiConfig';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w780';
 
@@ -21,7 +22,7 @@ export default function SurpriseFilm() {
     setError(null);
     setMovie(null);
     try {
-      const res = await fetch(`/api/recommend/surprise?exclude_ids=${seenIds.join(',')}`);
+      const res = await fetch(getApiUrl(`/api/recommend/surprise?exclude_ids=${seenIds.join(',')}`));
       const data = await res.json();
       if (!res.ok || data.source === 'error' || data.source === 'empty') {
         setError(data.message || 'Sürpriz film alınamadı');

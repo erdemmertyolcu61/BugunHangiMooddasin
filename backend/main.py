@@ -2530,23 +2530,10 @@ async def stream_audio(mood_id: str):
         logger.warning(f"[MoodAudio] play failed: No URL for {normalized}")
         raise HTTPException(status_code=404, detail=f"'{normalized}' için ses dosyası bulunamadı")
 
-    logger.info(f"[MoodAudio] falling back to URL: {url}")
-    import httpx as hx
-    try:
-        async with hx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://pixabay.com/"})
-            resp.raise_for_status()
-            from fastapi.responses import StreamingResponse
-            return StreamingResponse(
-                iter([resp.content]), media_type="audio/mpeg",
-                headers={
-                    "Cache-Control": "public, max-age=86400", 
-                    "Accept-Ranges": "bytes"
-                },
-            )
-    except hx.HTTPError as e:
-        logger.error(f"[Audio] Proxy error for {normalized}: {e}")
-        raise HTTPException(status_code=502, detail="Ses dosyası yüklenemedi.")
+    # Browser redirect — tarayıcı Pixabay'a doğrudan bağlanır (server proxy'si 403 alıyordu)
+    logger.info(f"[MoodAudio] redirecting to URL: {url}")
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=url, status_code=302)
 
 # NOT: Modern tarayıcılar etkileşim olmadan ses çalmayı engelleyebilir.
 # Frontend'de Audio.play() çağrısı bir tıklama aksiyonu içerisinde yapılmalıdır.

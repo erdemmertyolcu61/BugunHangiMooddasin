@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Calendar } from 'lucide-react';
 import { proxyImageUrl } from '../services/api';
+import { getApiUrl } from '../utils/apiConfig';
 
 export default function UpcomingSlider() {
   const [upcoming, setUpcoming] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    fetch('/api/movies/upcoming')
+    fetch(getApiUrl('/api/movies/upcoming'))
       .then(r => r.json())
       .then(data => setUpcoming(data.movies || []))
       .catch(console.error);
