@@ -13,6 +13,7 @@ import Defterim from './pages/Defterim';
 import KafanMiKarisik from './pages/KafanMiKarisik';
 import SurpriseFilm from './pages/SurpriseFilm';
 import Listeler from './pages/Listeler';
+import Profil from './pages/Profil';
 import DesignPreview from './pages/DesignPreview';
 import Home from './pages/Home';
 import { useLocation } from 'react-router-dom';
@@ -60,6 +61,7 @@ function AppContent() {
         <Route path="/surprise" element={<SurpriseFilm />} />
         <Route path="/listeler" element={<Listeler />} />
         <Route path="/listeler/:slug" element={<Listeler />} />
+        <Route path="/profil" element={<Profil />} />
 
         {/* Design Preview & Legacy */}
         <Route path="/preview" element={<DesignPreview />} />

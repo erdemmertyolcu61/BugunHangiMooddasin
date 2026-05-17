@@ -187,6 +187,20 @@ class MovieCache:
                     PRIMARY KEY (tmdb_id, region)
                 )
             """)
+            # Topluluk önerileri — bir kullanıcı bir filmi topluluğa önerdiğinde
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS community_recommendations (
+                    tmdb_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    username TEXT,
+                    avatar TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (tmdb_id, user_id)
+                )
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_community_movie ON community_recommendations(tmdb_id)
+            """)
             await db.commit()
 
     async def get_movie(self, tmdb_id: int) -> Optional[dict]:

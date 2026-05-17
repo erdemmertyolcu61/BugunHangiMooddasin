@@ -20,7 +20,7 @@ from backend.config import (
 )
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
@@ -513,12 +513,13 @@ async def google_login(request: Request):
             ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name, picture=excluded.picture
         """, (google_id, email, name, picture))
         await db.commit()
-        async with db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,)) as cur:
+        async with db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,)) as cur:
             row = await cur.fetchone()
             user_id = row[0] if row else 0
+            created_at = row[1] if row and len(row) > 1 else None
 
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=720)
-    return {"token": token, "user": {"id": user_id, "email": email, "name": name, "picture": picture}}
+    return {"token": token, "user": {"id": user_id, "email": email, "name": name, "picture": picture, "created_at": created_at}}
 
 
 @app.get("/api/auth/verify")
@@ -530,6 +531,59 @@ async def verify_token_endpoint(request: Request):
     token = auth.replace("Bearer ", "")
     payload = _verify_token(token)
     return {"valid": True, "type": payload.get("type"), "exp": payload.get("exp")}
+
+
+def verify_user(request: Request) -> dict:
+    """Bearer token'dan giriş yapmış kullanıcıyı çözer (type='user')."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Giriş gerekli")
+    payload = _verify_token(auth.replace("Bearer ", ""))
+    if payload.get("type") != "user":
+        raise HTTPException(status_code=403, detail="Bu işlem için hesabınla giriş yapmalısın")
+    return payload
+
+
+# ─── Topluluk Önerileri (Community Sharing) ───
+
+@app.post("/api/community/recommend")
+async def community_recommend(request: Request, user=Depends(verify_user)):
+    """Giriş yapmış kullanıcı bir filmi topluluğa önerir."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz istek gövdesi")
+    tmdb_id = body.get("tmdb_id")
+    if not tmdb_id:
+        raise HTTPException(status_code=400, detail="tmdb_id gerekli")
+    user_id = user.get("user_id", 0)
+
+    async with aiosqlite.connect(cache.db_path) as db:
+        async with db.execute("SELECT name, picture FROM users WHERE id = ?", (user_id,)) as cur:
+            row = await cur.fetchone()
+        username = (row[0] if row and row[0] else user.get("email", "Sinemasever"))
+        avatar = (row[1] if row and len(row) > 1 else "") or ""
+        await db.execute("""
+            INSERT INTO community_recommendations (tmdb_id, user_id, username, avatar)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(tmdb_id, user_id) DO UPDATE SET username=excluded.username,
+                avatar=excluded.avatar, created_at=CURRENT_TIMESTAMP
+        """, (int(tmdb_id), user_id, username, avatar))
+        await db.commit()
+    return {"success": True, "shared_by": {"uid": user_id, "username": username, "avatar": avatar}}
+
+
+@app.get("/api/community/recommendations/{tmdb_id}")
+async def community_recommendations(tmdb_id: int = Path(..., ge=1)):
+    """Bir filmi topluluğa öneren kullanıcıları döndürür (en yeniler önce)."""
+    async with aiosqlite.connect(cache.db_path) as db:
+        async with db.execute("""
+            SELECT user_id, username, avatar FROM community_recommendations
+            WHERE tmdb_id = ? ORDER BY created_at DESC LIMIT 10
+        """, (tmdb_id,)) as cur:
+            rows = await cur.fetchall()
+    recommenders = [{"uid": r[0], "username": r[1], "avatar": r[2]} for r in rows]
+    return {"count": len(recommenders), "recommenders": recommenders}
 
 
 @app.get("/api/perf-test", dependencies=[Depends(verify_admin)])
@@ -1443,6 +1497,11 @@ async def image_proxy(url: str = Query(...)):
     except Exception:
         raise HTTPException(status_code=502, detail="Görsel yüklenemedi.")
 
+
+@app.get("/", response_class=RedirectResponse)
+async def root_redirect():
+    """Backend root → frontend'e yönlendir."""
+    return RedirectResponse(url="https://film-elestirmeni.vercel.app", status_code=302)
 
 @app.get("/health")
 @app.get("/api/health")
