@@ -168,10 +168,6 @@ export default function MoodSelector() {
                         <h3 className="text-lg md:text-xl font-serif font-semibold tracking-tight text-ivory/95 group-hover:text-ivory transition-colors duration-500 [text-shadow:0_1px_3px_rgba(0,0,0,0.25)] drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
                           {mood.title}
                         </h3>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] mt-1 transition-colors duration-500"
-                          style={{ color: isHovered ? mood.accentHex : 'rgba(245,242,235,0.6)' }}>
-                          {mood.subtitle}
-                        </p>
                       </div>
                       <p className="text-ivory/65 group-hover:text-ivory/85 font-serif italic text-[13px] md:text-[14px] leading-relaxed line-clamp-3 transition-colors duration-700 [text-shadow:0_1px_3px_rgba(0,0,0,0.4)]">
                         {mood.intro}

@@ -261,6 +261,31 @@ export async function getConfusedRecommendation(mood = null) {
   return res.json();
 }
 
+// --- Topluluk Önerileri (Community Sharing) ---
+
+export async function recommendToCommunity(tmdbId) {
+  const res = await fetch(`${BASE}/community/recommend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ tmdb_id: tmdbId }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Öneri kaydedilemedi');
+  }
+  return res.json();
+}
+
+export async function getCommunityRecommendations(tmdbId) {
+  try {
+    const res = await fetch(`${BASE}/community/recommendations/${tmdbId}`);
+    if (!res.ok) return { count: 0, recommenders: [] };
+    return res.json();
+  } catch {
+    return { count: 0, recommenders: [] };
+  }
+}
+
 export async function getSurpriseMovie() {
   const res = await fetch(`${BASE}/recommend/surprise`);
   if (!res.ok) throw new Error('Sürpriz film alınamadı');

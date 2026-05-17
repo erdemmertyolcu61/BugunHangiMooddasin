@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
 import UpcomingSlider from '../components/UpcomingSlider';
 import { getApiUrl } from '../utils/apiConfig';
+import StreamingConsentModal from '../components/StreamingConsentModal';
+import { isPlatformLinked, linkPlatform, getPlatformInfo, buildWatchUrl } from '../utils/streamingMemory';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
 const IMG_BASE_LG = 'https://image.tmdb.org/t/p/original';  // Modal detail poster (tam kalite)
@@ -63,6 +66,7 @@ const MovieCardSkeleton = () => (
 
 export default function Discover() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { selectedMood, selectMood, fetchMoodMovies } = useMood();
   console.log("[Discover] Render, selectedMood:", selectedMood?.id);
   const [movies, setMovies] = useState([]);
@@ -315,6 +319,70 @@ export default function Discover() {
     } catch (err) {
         console.error('Deftere eklenemedi:', err);
     }
+  };
+
+  // Topluluk önerileri (Community Sharing)
+  const [recommenders, setRecommenders] = useState([]);
+  const [recommending, setRecommending] = useState(false);
+
+  useEffect(() => {
+    if (!selectedMovie?.id) { setRecommenders([]); return; }
+    let active = true;
+    getCommunityRecommendations(selectedMovie.id).then((d) => {
+      if (active) setRecommenders(d.recommenders || []);
+    });
+    return () => { active = false; };
+  }, [selectedMovie?.id]);
+
+  const alreadyRecommended = recommenders.some((r) => user && r.uid === user.id);
+
+  const handleRecommendToCommunity = async () => {
+    if (!selectedMovie || recommending) return;
+    setRecommending(true);
+    try {
+      const res = await recommendToCommunity(selectedMovie.id);
+      setRecommenders((prev) => {
+        const without = prev.filter((r) => r.uid !== res.shared_by.uid);
+        return [res.shared_by, ...without];
+      });
+    } catch (err) {
+      console.error('Topluluğa önerilemedi:', err);
+    } finally {
+      setRecommending(false);
+    }
+  };
+
+  // Akıllı yayın platformu erişimi (Streaming Memory Engine)
+  const [consentTarget, setConsentTarget] = useState(null); // { providerId, info }
+
+  const openWatchUrl = (providerId) => {
+    const url = buildWatchUrl(providerId, selectedMovie?.title, selectedMovie?.watch_providers?.link);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleProviderClick = (e, provider) => {
+    e.preventDefault();
+    const info = getPlatformInfo(provider.provider_id);
+    if (!info) {
+      // Eşleşmeyen platform — TMDB toplu linkine düş
+      const fallback = selectedMovie?.watch_providers?.link;
+      if (fallback) window.open(fallback, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (isPlatformLinked(provider.provider_id)) {
+      // İkinci ve sonraki tıklamalar: soru sorulmadan doğrudan geç
+      openWatchUrl(provider.provider_id);
+    } else {
+      // İlk tıklama: onay modalı
+      setConsentTarget({ providerId: provider.provider_id, info });
+    }
+  };
+
+  const confirmConsent = () => {
+    if (!consentTarget) return;
+    linkPlatform(consentTarget.providerId);
+    openWatchUrl(consentTarget.providerId);
+    setConsentTarget(null);
   };
 
   const [shareCopied, setShareCopied] = useState(false);
@@ -893,6 +961,25 @@ export default function Discover() {
                   </div>
                 </header>
 
+                {/* Topluluk önerisi rozeti */}
+                {recommenders.length > 0 && (
+                  <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber/20 w-fit">
+                    <div className="flex -space-x-2">
+                      {recommenders.slice(0, 3).map((r) => (
+                        <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-[#1a1a1a] bg-amber/15 flex items-center justify-center">
+                          {r.avatar
+                            ? <img src={r.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            : <span className="font-serif text-[11px] font-bold text-amber">{(r.username || '?').slice(0, 1).toUpperCase()}</span>}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="font-sans text-[12px] sm:text-sm text-ivory/70">
+                      <span className="font-bold text-amber">Gurme {recommenders[0].username}</span>
+                      {recommenders.length > 1 && <span className="text-ivory/40"> ve {recommenders.length - 1} kişi daha</span>} önerdi
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-8">
                     <p className="text-base sm:text-2xl font-serif leading-relaxed text-ivory/80 italic">
                         {selectedMovie.overview || "Bu yapıt hakkında henüz bir özet bulunmuyor..."}
@@ -960,38 +1047,26 @@ export default function Discover() {
                           seen.add(p.provider_id);
                           return true;
                         });
-                        const providerUrls = {
-                          8: 'https://www.netflix.com/',          // Netflix
-                          337: 'https://www.disneyplus.com/',     // Disney+
-                          119: 'https://www.primevideo.com/',     // Amazon Prime Video
-                          350: 'https://tv.apple.com/',           // Apple TV+
-                          2: 'https://tv.apple.com/',             // Apple TV
-                          3: 'https://play.google.com/store/movies', // Google Play Movies
-                          10: 'https://www.amazon.com/gp/video',  // Amazon Video
-                          188: 'https://www.youtube.com/movies',  // YouTube Premium
-                          192: 'https://www.youtube.com/movies',  // YouTube
-                          341: 'https://www.blutv.com/',          // BluTV
-                          1899: 'https://www.mubi.com/',          // MUBI
-                          531: 'https://www.paramountplus.com/',  // Paramount+
-                          1796: 'https://puhutv.com/',            // puhuTV
-                          1898: 'https://www.gain.tv/',           // Gain
-                        };
-                        return unique.slice(0, 6).map((p) => (
-                          <a key={p.provider_id}
-                             href={providerUrls[p.provider_id] || wp.link || '#'}
-                             target="_blank" rel="noopener noreferrer"
-                             title={`${p.provider_name} (${p.tag})`}
-                             className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-                            {p.logo_url ? (
-                              <img src={p.logo_url} alt={p.provider_name}
-                                   className="w-6 h-6 rounded object-contain" />
-                            ) : null}
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/60 group-hover:text-amber transition-colors">
-                              {p.provider_name}
-                            </span>
-                            <span className="text-[8px] uppercase tracking-widest text-ivory/20">{p.tag}</span>
-                          </a>
-                        ));
+                        return unique.slice(0, 6).map((p) => {
+                          const linked = isPlatformLinked(p.provider_id);
+                          return (
+                            <button key={p.provider_id}
+                               onClick={(e) => handleProviderClick(e, p)}
+                               title={linked ? `${p.provider_name} — eşleşti, tek tıkla aç` : `${p.provider_name} (${p.tag})`}
+                               className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all group">
+                              {p.logo_url ? (
+                                <img src={p.logo_url} alt={p.provider_name}
+                                     className="w-6 h-6 rounded object-contain" />
+                              ) : null}
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/60 group-hover:text-amber transition-colors">
+                                {p.provider_name}
+                              </span>
+                              {linked
+                                ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" title="Eşleşti" />
+                                : <span className="text-[8px] uppercase tracking-widest text-ivory/20">{p.tag}</span>}
+                            </button>
+                          );
+                        });
                       })()}
                     </div>
                   </div>
@@ -1015,6 +1090,20 @@ export default function Discover() {
                   >
                     {shareCopied ? <><Copy size={14} /> Kopyalandı</> : <><Share2 size={14} /> Paylaş</>}
                   </button>
+                  {user && (
+                    <button
+                      onClick={handleRecommendToCommunity}
+                      disabled={recommending || alreadyRecommended}
+                      title={alreadyRecommended ? 'Bu filmi zaten topluluğa önerdin' : 'Topluluğa öner'}
+                      className={`px-6 sm:px-10 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] transition-all flex items-center justify-center gap-2 ${
+                        alreadyRecommended
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 cursor-default'
+                          : 'border border-amber/30 text-amber hover:bg-amber/10'
+                      }`}
+                    >
+                      {alreadyRecommended ? <><Check size={14} /> Önerdin</> : <><Users size={14} /> Topluluğa Öner</>}
+                    </button>
+                  )}
                   <button
                     onClick={() => setSelectedMovie(null)}
                     className="px-8 sm:px-12 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
@@ -1028,6 +1117,15 @@ export default function Discover() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ═══ AKILLI YAYIN PLATFORMU ONAY MODALI ═══ */}
+      <StreamingConsentModal
+        open={!!consentTarget}
+        platform={consentTarget?.info}
+        movieTitle={selectedMovie?.title}
+        onConfirm={confirmConsent}
+        onClose={() => setConsentTarget(null)}
+      />
 
       {/* ═══ QUIZ MODAL ═══ */}
       <AnimatePresence>

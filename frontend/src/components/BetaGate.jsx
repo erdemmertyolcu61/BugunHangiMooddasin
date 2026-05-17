@@ -96,26 +96,34 @@ export default function BetaGate({ children }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    // Girdi sterilizasyonu: kontrol/HTML karakterlerini ayıkla (injection/XSS koruması)
+    const clean = password.replace(/[<>{}$`]/g, '').trim();
+    if (!clean) {
+      setError('Evlat, boş bir anahtarla kapı açılmaz. Şifreni bir yaz bakalım.');
+      return;
+    }
+    if (clean.length > 128) {
+      setError('Bu anahtar fazla uzun evlat — kapının kilidi bu kadarını kaldırmaz.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       const res = await fetch(getApiUrl('/api/auth/beta'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: password.trim() }),
+        body: JSON.stringify({ password: clean }),
       });
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem(BETA_TOKEN_KEY, data.token);
         setAuthenticated(true);
       } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.detail || 'Yanlis sifre. Tekrar deneyin.');
+        setError('Evlat, anahtar deliğe uymadı. Şifreni mi unuttun, yoksa tozlu raflarda kayıp mı oldun?');
         setPassword('');
       }
     } catch {
-      setError('Sunucuya ulasilamiyor. Daha sonra tekrar deneyin.');
+      setError('Üstad şu an kapıda değil evlat — sunucuya ulaşılamıyor. Biraz sonra yine çal kapıyı.');
     } finally {
       setLoading(false);
     }
