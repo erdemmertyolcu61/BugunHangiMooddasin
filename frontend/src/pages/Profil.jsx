@@ -11,6 +11,8 @@ import { ChevronLeft, LogOut, Film, Eye, Sparkles, CalendarDays, Mail, User } fr
 import { useAuth } from '../context/AuthContext';
 import { getWatchlist, getTasteMap } from '../services/api';
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
 // XSS'e karşı: ekrana basılan kullanıcı kaynaklı metinleri sterilize et
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
@@ -34,7 +36,15 @@ function StatCard({ icon: Icon, label, value, accent }) {
 
 export default function Profil() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
+
+  // Google Sign-In callback
+  useEffect(() => {
+    window.handleGoogleCallback = async (response) => {
+      if (response?.credential) await login(response.credential);
+    };
+    return () => { delete window.handleGoogleCallback; };
+  }, [login]);
   const [savedCount, setSavedCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
   const [topMoods, setTopMoods] = useState([]);
@@ -74,7 +84,7 @@ export default function Profil() {
       >
         <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 sm:py-8 flex items-center justify-between">
-            <button onClick={() => navigate('/defterim')}
+            <button onClick={() => navigate(-1)}
               className="w-12 h-12 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
               <ChevronLeft size={22} />
             </button>
@@ -82,21 +92,57 @@ export default function Profil() {
             <div className="w-12 h-12" />
           </div>
         </header>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-nav text-center gap-6">
-          <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center">
-            <User size={32} className="text-amber/50" />
-          </div>
-          <div>
-            <h2 className="font-serif text-3xl font-bold text-ivory mb-3">Kimsin sen evlat?</h2>
-            <p className="font-sans text-sm text-ivory/40 max-w-xs leading-relaxed">
-              Google hesabınla giriş yaparsan profilin, izleme istatistiklerin ve kayıtların her cihazda seninle gelir.
-            </p>
-          </div>
-          <p className="font-sans text-xs text-ivory/20 mt-2">Beta ekranından Google ile giriş yap.</p>
-          <button onClick={() => navigate('/defterim')}
-            className="mt-2 px-6 py-3 rounded-full border border-white/10 text-ivory/50 hover:text-ivory hover:border-white/20 font-sans text-sm transition-all">
-            Deftere Dön
-          </button>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-nav">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full max-w-sm text-center space-y-8"
+          >
+            <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center mx-auto">
+              <User size={30} className="text-amber/50" />
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="font-serif text-3xl font-bold text-ivory tracking-tight">
+                Kimsin sen, evlat?
+              </h2>
+              <p className="font-sans text-sm text-ivory/45 leading-relaxed">
+                Giriş yaparsan izleme geçmişin, notların ve kayıtların
+                her cihazda seni bekler. Veriler yalnızca sana aittir.
+              </p>
+            </div>
+
+            {GOOGLE_CLIENT_ID ? (
+              <div className="space-y-4">
+                <div
+                  id="g_id_onload"
+                  data-client_id={GOOGLE_CLIENT_ID}
+                  data-callback="handleGoogleCallback"
+                  data-auto_prompt="false"
+                />
+                <div
+                  className="g_id_signin flex justify-center"
+                  data-type="standard"
+                  data-theme="filled_black"
+                  data-text="signin_with"
+                  data-shape="pill"
+                  data-locale="tr"
+                  data-width="280"
+                />
+              </div>
+            ) : (
+              <p className="font-sans text-xs text-ivory/20">
+                Google girişi henüz yapılandırılmamış.
+              </p>
+            )}
+
+            <button onClick={() => navigate(-1)}
+              className="font-sans text-xs text-ivory/25 hover:text-ivory/50 transition-colors underline underline-offset-4">
+              Şimdi değil
+            </button>
+          </motion.div>
         </div>
       </motion.div>
     );
