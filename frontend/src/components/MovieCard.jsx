@@ -45,16 +45,15 @@ export default function MovieCard({ movie, onClick, width = 220 }) {
 
       <div className="px-0.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate font-mono text-[13px] font-semibold tracking-[-0.2px] text-ink">
+          <span className="truncate text-sm font-semibold tracking-tight text-ink leading-snug">
             {movie.title}
           </span>
           {movie.vote_average != null && (
-            <span className="whitespace-nowrap font-mono text-[11px] text-accent">★ {movie.vote_average.toFixed(1)}</span>
+            <span className="whitespace-nowrap text-xs font-medium text-accent">★ {movie.vote_average.toFixed(1)}</span>
           )}
         </div>
-        <div className="mt-1 flex items-center gap-1.5 font-mono text-[10.5px] text-ink-mute">
+        <div className="mt-0.5 text-[11px] text-ink-mute">
           <span>{movie.release_date?.slice(0, 4) || '—'}</span>
-          {movie.director && <><span>·</span><span className="truncate">{movie.director}</span></>}
         </div>
       </div>
     </button>

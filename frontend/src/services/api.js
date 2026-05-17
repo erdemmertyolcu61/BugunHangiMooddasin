@@ -2,6 +2,7 @@ import { getApiUrl } from '../utils/apiConfig';
 import {
   localGetWatchlist, localAddToWatchlist, localRemoveFromWatchlist,
   localToggleWatched, localSaveNote, localGetNote, localSaveWatchlist,
+  localGetDeletedIds,
 } from '../utils/localStore';
 const BASE = getApiUrl('/api');
 
@@ -96,8 +97,10 @@ export async function getWatchlist() {
       const backendMovies = data.movies || [];
       if (backendMovies.length > 0) {
         // Backend'deki filmleri localStore'a merge et (yeni olanları ekle)
+        // Kullanıcının sildiği filmler tekrar eklenmesini engelle
         const localIds = new Set(local.map(m => m.tmdb_id));
-        const toAdd = backendMovies.filter(m => !localIds.has(m.tmdb_id));
+        const deletedIds = new Set(localGetDeletedIds());
+        const toAdd = backendMovies.filter(m => !localIds.has(m.tmdb_id) && !deletedIds.has(m.tmdb_id));
         if (toAdd.length > 0) {
           const merged = [...local, ...toAdd];
           localSaveWatchlist(merged);

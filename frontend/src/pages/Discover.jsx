@@ -717,8 +717,8 @@ export default function Discover() {
                             </p>
                         </div>
 
-                        {/* Hızlı Eylem Butonları */}
-                        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                        {/* Hızlı Eylem Butonları — mobilde her zaman görünür */}
+                        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
                           <button
                             onClick={(e) => handleQuickSave(e, movie)}
                             title="Deftere Ekle"
@@ -749,9 +749,8 @@ export default function Discover() {
                           </button>
                         </div>
                     </div>
-                    <div className="mt-3 sm:mt-8 space-y-1.5 sm:space-y-2 px-1 sm:px-4">
-                      <h3 className="text-base sm:text-2xl font-serif font-bold tracking-tight line-clamp-1 group-hover:text-amber transition-colors duration-500">{movie.title}</h3>
-                      <div className="flex items-center justify-between opacity-50 sm:opacity-30 group-hover:opacity-60 transition-opacity duration-500">
+                    <div className="mt-3 sm:mt-8 px-1 sm:px-4">
+                      <div className="flex items-center justify-between opacity-60 sm:opacity-30 group-hover:opacity-60 transition-opacity duration-500">
                         <span className="text-[10px] font-bold uppercase tracking-widest">{movie.release_date?.split('-')[0]}</span>
                         <div className="flex items-center gap-1.5">
                             <Star size={10} className="fill-amber text-amber" />
@@ -898,9 +897,25 @@ export default function Discover() {
                           seen.add(p.provider_id);
                           return true;
                         });
+                        const providerUrls = {
+                          8: 'https://www.netflix.com/',          // Netflix
+                          337: 'https://www.disneyplus.com/',     // Disney+
+                          119: 'https://www.primevideo.com/',     // Amazon Prime Video
+                          350: 'https://tv.apple.com/',           // Apple TV+
+                          2: 'https://tv.apple.com/',             // Apple TV
+                          3: 'https://play.google.com/store/movies', // Google Play Movies
+                          10: 'https://www.amazon.com/gp/video',  // Amazon Video
+                          188: 'https://www.youtube.com/movies',  // YouTube Premium
+                          192: 'https://www.youtube.com/movies',  // YouTube
+                          341: 'https://www.blutv.com/',          // BluTV
+                          1899: 'https://www.mubi.com/',          // MUBI
+                          531: 'https://www.paramountplus.com/',  // Paramount+
+                          1796: 'https://puhutv.com/',            // puhuTV
+                          1898: 'https://www.gain.tv/',           // Gain
+                        };
                         return unique.slice(0, 6).map((p) => (
                           <a key={p.provider_id}
-                             href={wp.link || '#'}
+                             href={providerUrls[p.provider_id] || wp.link || '#'}
                              target="_blank" rel="noopener noreferrer"
                              title={`${p.provider_name} (${p.tag})`}
                              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all group">

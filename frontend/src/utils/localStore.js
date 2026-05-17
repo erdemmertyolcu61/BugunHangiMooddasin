@@ -3,6 +3,27 @@
 
 const WL_KEY = 'fc_watchlist_v2';
 const NOTES_KEY = 'fc_notes_v2';
+const DELETED_KEY = 'fc_watchlist_deleted';
+
+// ─── Deleted IDs (prevents re-merge from backend) ───────────────────────────
+
+export function localGetDeletedIds() {
+  try { return JSON.parse(localStorage.getItem(DELETED_KEY) || '[]'); }
+  catch { return []; }
+}
+
+export function localAddDeletedId(tmdbId) {
+  const ids = localGetDeletedIds();
+  if (!ids.includes(tmdbId)) {
+    ids.push(tmdbId);
+    try { localStorage.setItem(DELETED_KEY, JSON.stringify(ids)); } catch {}
+  }
+}
+
+export function localClearDeletedId(tmdbId) {
+  const ids = localGetDeletedIds().filter(id => id !== tmdbId);
+  try { localStorage.setItem(DELETED_KEY, JSON.stringify(ids)); } catch {}
+}
 
 // ─── Watchlist ───────────────────────────────────────────────────────────────
 
@@ -17,9 +38,12 @@ export function localSaveWatchlist(items) {
 
 export function localAddToWatchlist(movie) {
   const list = localGetWatchlist();
-  if (list.find(m => m.tmdb_id === (movie.tmdb_id || movie.id))) return list; // zaten var
+  const id = movie.tmdb_id || movie.id;
+  if (list.find(m => m.tmdb_id === id)) return list; // zaten var
+  // Daha önce silinmiş olabilir — deleted listesinden çıkar
+  localClearDeletedId(id);
   const item = {
-    tmdb_id: movie.tmdb_id || movie.id,
+    tmdb_id: id,
     title: movie.title,
     poster_url: movie.poster_url || null,
     watched: false,
@@ -34,6 +58,8 @@ export function localAddToWatchlist(movie) {
 export function localRemoveFromWatchlist(tmdbId) {
   const updated = localGetWatchlist().filter(m => m.tmdb_id !== tmdbId);
   localSaveWatchlist(updated);
+  // Silinen ID'yi kaydet — backend sync'te geri gelmesini engeller
+  localAddDeletedId(tmdbId);
   return updated;
 }
 
