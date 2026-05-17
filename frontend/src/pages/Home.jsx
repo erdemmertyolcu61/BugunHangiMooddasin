@@ -252,19 +252,28 @@ const Home = () => {
       {/* Background World Effects (CSS Animations) */}
       <div className={`fixed inset-0 pointer-events-none z-0 ${activeWorld.theme.animation}`}></div>
 
-      {/* Sidebar - Minimalist Shelf */}
-      <aside className={`w-64 border-r border-black/5 h-screen fixed flex flex-col p-12 z-20 bg-white/5 backdrop-blur-3xl`}>
+      {/* Sidebar - Cinely Branding */}
+      <aside className={`w-64 border-r border-amber/10 h-screen fixed flex flex-col p-12 z-20 glass-card`}>
         <div className="mb-20">
-          <h1 className={`text-2xl font-bold tracking-tighter leading-none ${activeWorld.theme.text}`}>ÜSTADIN<br/>ARŞİVİ</h1>
-          <p className={`text-[8px] font-bold uppercase tracking-[0.5em] mt-4 opacity-40 ${activeWorld.theme.text}`}>25 Yıllık Tecrübe</p>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full border-2 border-amber flex items-center justify-center">
+              <Play size={14} className="fill-amber text-amber" />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-amber">Cinely</h1>
+          </div>
+          <p className={`text-[8px] font-bold uppercase tracking-[0.5em] mt-4 opacity-40 text-ivory`}>Sinematik Keşif</p>
         </div>
 
-        <div className="flex flex-col gap-8 -ml-8">
+        <div className="flex flex-col gap-4 -ml-8">
             {Object.values(ATMOSPHERIC_WORLDS).map(w => (
                 <button 
                     key={w.id}
                     onClick={() => setActiveWorld(w)}
-                    className={`flex items-center gap-4 px-8 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${activeWorld.id === w.id ? activeWorld.theme.text : 'opacity-20 hover:opacity-100'}`}
+                    className={`flex items-center gap-4 px-8 py-3 text-[10px] font-bold uppercase tracking-widest transition-all rounded-lg ${
+                      activeWorld.id === w.id 
+                        ? 'bg-amber/10 text-amber border border-amber/30' 
+                        : 'text-ivory/40 hover:text-ivory/70 hover:bg-white/5'
+                    }`}
                 >
                     {w.icon} {w.title}
                 </button>
@@ -282,39 +291,47 @@ const Home = () => {
       {/* Main Content Area */}
       <main className="ml-64 flex-1 p-20 min-h-screen relative z-10">
         
-        {/* World Header */}
-        <header className="mb-24 mt-10">
+        {/* Cinely Hero Header */}
+        <header className="mb-24 mt-10 relative">
             <div className="flex items-center gap-6 mb-8">
                 <span className="text-7xl animate-bounce">{activeWorld.icon}</span>
-                <div className="h-px w-32 bg-current opacity-20"></div>
+                <div className="h-px w-32 bg-gradient-to-r from-amber to-transparent opacity-50"></div>
             </div>
-            <h2 className={`text-9xl font-bold tracking-tighter leading-none mb-8 ${activeWorld.theme.text}`}>{activeWorld.title}.</h2>
-            <p className={`text-3xl font-serif italic max-w-4xl opacity-70 leading-relaxed ${activeWorld.theme.text}`}>
+            <h2 className="text-9xl font-bold tracking-tighter leading-none mb-8 bg-gradient-to-r from-amber via-amber to-ivory bg-clip-text text-transparent">
+                {activeWorld.title}.
+            </h2>
+            <p className="text-2xl font-serif italic max-w-4xl opacity-70 leading-relaxed text-ivory">
                 "{activeWorld.intro}"
             </p>
+            <div className="absolute -bottom-8 left-0 h-px w-48 bg-gradient-to-r from-amber/50 to-transparent"></div>
         </header>
 
         {/* Movie Discovery Shelf */}
         {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16">
-                {[...Array(4)].map((_, i) => <div key={i} className="aspect-[2/3] bg-black/5 rounded-[3rem] animate-pulse"></div>)}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mt-20">
+                {[...Array(4)].map((_, i) => <div key={i} className="aspect-[2/3] glass-card animate-pulse"></div>)}
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mt-20">
                 {movies.map((movie, idx) => (
                     <div 
                         key={movie.id} 
-                        className={`group relative cursor-pointer transition-all duration-1000 transform hover:-translate-y-6`}
+                        className="group relative cursor-pointer transition-all duration-1000 transform hover:-translate-y-6"
                         onClick={() => setSelectedMovie(movie)}
                     >
-                        <div className={`aspect-[2/3] overflow-hidden shadow-2xl transition-all duration-700 ${activeWorld.theme.card}`}>
+                        <div className="aspect-[2/3] overflow-hidden glass-card-hover shadow-2xl transition-all duration-700">
                             <img src={movie.poster_path ? proxyImageUrl(`${IMG_BASE}${movie.poster_path}`) : 'https://via.placeholder.com/500x750'} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-end p-4">
+                              <button className="w-full bg-gradient-to-r from-amber to-amber/80 text-bg py-2 rounded-lg font-bold text-sm hover:from-amber/90 hover:to-amber/70 transition-all duration-300">
+                                İzle
+                              </button>
+                            </div>
                         </div>
-                        <div className="mt-8 px-2">
-                            <h3 className={`text-2xl font-bold tracking-tight mb-2 ${activeWorld.theme.text}`}>{movie.title}</h3>
-                            <div className="flex items-center justify-between opacity-40">
-                                <span className={`text-xs font-bold ${activeWorld.theme.text}`}>{movie.year}</span>
-                                <Star size={14} className={activeWorld.theme.text} />
+                        <div className="mt-6 px-2">
+                            <h3 className="text-lg font-bold tracking-tight mb-2 text-ivory">{movie.title}</h3>
+                            <div className="flex items-center justify-between opacity-50">
+                                <span className="text-xs font-bold text-ivory/70">{movie.year}</span>
+                                <Star size={14} className="text-amber" />
                             </div>
                         </div>
                     </div>
