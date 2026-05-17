@@ -157,42 +157,97 @@ export default function MoodSelector() {
                   initial={{ opacity: 0, y: 25 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  whileHover={{ y: -6, scale: 1.015 }} whileTap={{ scale: 0.98 }}
+                  whileHover={{ y: -5 }} whileTap={{ scale: 0.98 }}
                   onClick={() => handleMoodClick(mood)}
                   onMouseEnter={() => handleHover(mood)} onMouseLeave={handleHoverEnd}
                   className="relative group cursor-pointer"
                 >
-                  <div className={`relative overflow-hidden rounded-2xl bg-surface/80 backdrop-blur-md border transition-all duration-700 border-white/[0.04] hover:border-white/[0.1]`}
-                    style={isHovered ? { boxShadow: `0 0 40px 0px ${mood.accentHex}80` } : {}}>
-                    <div className={`absolute inset-0 bg-gradient-to-br ${mood.color} transition-opacity duration-1000 ${isHovered ? 'opacity-30' : 'opacity-[0.06]'}`} />
-                    <div className="absolute inset-0 transition-opacity duration-1000"
-                      style={{ background: `radial-gradient(ellipse at 50% 100%, ${mood.accentHex}15, transparent 70%)`, opacity: isHovered ? 1 : 0 }} />
-                    <div className="relative p-5 sm:p-6 md:p-7 flex flex-col min-h-[200px] sm:min-h-[240px] md:min-h-[280px]">
-                      <div className="mb-auto">
-                        <motion.span className="w-12 h-12 block mb-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
-                          style={{ color: isHovered ? mood.accentHex : '#a1a1aa' }}
-                          animate={isHovered
-                            ? mood.iconType === 'coffee' ? { rotate: [-5, 5, -5, 5, 0] }
-                            : mood.iconType === 'zap' ? { scale: [1, 1.3, 1], filter: 'brightness(1.5)' }
-                            : mood.iconType === 'smile' ? { y: [-5, 0, -5, 0] }
-                            : mood.iconType === 'moon' ? { rotate: [0, 15, 0] }
-                            : mood.iconType === 'droplets' ? { y: [0, 5, 0], opacity: [1, 0.5, 1] }
-                            : { scale: 1.15 }
-                            : { scale: 1, x: 0, y: 0, rotate: 0 }
-                          }
-                          transition={{ duration: mood.iconType === 'coffee' ? 0.4 : 0.6, repeat: isHovered ? Infinity : 0 }}>
-                          {mood.icon && <mood.icon size={36} strokeWidth={1.5} />}
-                        </motion.span>
-                        <h3 className="text-lg md:text-xl font-serif font-semibold tracking-tight text-ivory/95 group-hover:text-ivory transition-colors duration-500 [text-shadow:0_1px_3px_rgba(0,0,0,0.25)] drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
-                          {mood.title}
-                        </h3>
+                  <div
+                    className="relative overflow-hidden rounded-[1.75rem] bg-[#0d0b0a] border transition-all duration-500"
+                    style={{
+                      borderColor: isHovered ? `${mood.accentHex}35` : 'rgba(255,255,255,0.05)',
+                      boxShadow: isHovered ? `0 16px 60px -12px ${mood.accentHex}50, inset 0 1px 0 ${mood.accentHex}15` : '0 2px 20px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    {/* Gradient fill */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${mood.color} transition-opacity duration-700`}
+                      style={{ opacity: isHovered ? 0.22 : 0.05 }} />
+
+                    {/* Radial glow top-left */}
+                    <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full blur-3xl transition-opacity duration-700 pointer-events-none"
+                      style={{ background: mood.accentHex, opacity: isHovered ? 0.18 : 0.04 }} />
+
+                    {/* Noise texture */}
+                    <div className="absolute inset-0 opacity-[0.025] mix-blend-overlay pointer-events-none"
+                      style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
+
+                    <div className="relative p-6 sm:p-7 flex flex-col min-h-[260px] sm:min-h-[310px] md:min-h-[340px]">
+
+                      {/* Icon box */}
+                      <div className="mb-5 sm:mb-6">
+                        <motion.div
+                          className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors duration-500"
+                          style={{ background: isHovered ? `${mood.accentHex}22` : 'rgba(255,255,255,0.05)', border: `1px solid ${isHovered ? mood.accentHex + '40' : 'rgba(255,255,255,0.07)'}` }}
+                          animate={isHovered ? { scale: 1.08 } : { scale: 1 }}
+                          transition={{ duration: 0.4 }}
+                        >
+                          <motion.span
+                            style={{ color: isHovered ? mood.accentHex : '#52525b' }}
+                            animate={isHovered
+                              ? mood.iconType === 'coffee' ? { rotate: [-8, 8, -8, 8, 0] }
+                              : mood.iconType === 'zap' ? { scale: [1, 1.25, 1] }
+                              : mood.iconType === 'smile' ? { y: [-3, 0, -3, 0] }
+                              : mood.iconType === 'moon' ? { rotate: [0, 12, 0] }
+                              : mood.iconType === 'droplets' ? { y: [0, 4, 0], opacity: [1, 0.6, 1] }
+                              : { scale: 1.12 }
+                              : { scale: 1, x: 0, y: 0, rotate: 0 }
+                            }
+                            transition={{ duration: 0.6, repeat: isHovered ? Infinity : 0 }}
+                          >
+                            {mood.icon && <mood.icon size={22} strokeWidth={1.5} />}
+                          </motion.span>
+                        </motion.div>
                       </div>
-                      <p className="text-ivory/65 group-hover:text-ivory/85 font-serif italic text-[13px] md:text-[14px] leading-relaxed line-clamp-3 transition-colors duration-700 [text-shadow:0_1px_3px_rgba(0,0,0,0.4)]">
+
+                      {/* Title */}
+                      <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-tight leading-tight text-ivory/90 group-hover:text-ivory transition-colors duration-400 mb-3">
+                        {mood.title}
+                      </h3>
+
+                      {/* Accent separator */}
+                      <motion.div
+                        className="h-px mb-4 rounded-full"
+                        animate={{ width: isHovered ? 36 : 20, opacity: isHovered ? 0.9 : 0.2 }}
+                        transition={{ duration: 0.4 }}
+                        style={{ background: mood.accentHex }}
+                      />
+
+                      {/* Intro */}
+                      <p className="font-sans text-[12.5px] sm:text-[13px] leading-relaxed text-ivory/40 group-hover:text-ivory/65 transition-colors duration-500 line-clamp-3 flex-1">
                         {mood.intro}
                       </p>
+
+                      {/* Footer row */}
+                      <div className="mt-5 flex items-center justify-between">
+                        <span
+                          className="font-sans text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.35em] transition-colors duration-400"
+                          style={{ color: isHovered ? mood.accentHex : 'rgba(255,255,255,0.18)' }}
+                        >
+                          Keşfet
+                        </span>
+                        <motion.span
+                          animate={{ x: isHovered ? 3 : 0, opacity: isHovered ? 1 : 0.25 }}
+                          transition={{ duration: 0.3 }}
+                          style={{ color: mood.accentHex }}
+                        >
+                          <ChevronRight size={14} />
+                        </motion.span>
+                      </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-[2px] transition-opacity duration-700"
-                      style={{ background: `linear-gradient(90deg, transparent, ${mood.accentHex}, transparent)`, opacity: isHovered ? 0.5 : 0 }} />
+
+                    {/* Bottom shimmer line */}
+                    <div className="absolute bottom-0 left-0 right-0 h-px transition-opacity duration-500"
+                      style={{ background: `linear-gradient(90deg, transparent, ${mood.accentHex}90, transparent)`, opacity: isHovered ? 1 : 0 }} />
                   </div>
                 </motion.div>
               );
