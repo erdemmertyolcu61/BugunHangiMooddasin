@@ -265,11 +265,11 @@ export default function SurpriseFilm() {
                   <>
                     {/* Üstadın Notu — ai_analysis bir string */}
                     {analysisData.ai_analysis && (
-                      <div className="bg-[#ffbf00]/[0.07] border border-[#ffbf00]/25 rounded-2xl p-5">
-                        <p className="text-[11px] uppercase tracking-[0.3em] text-[#ffbf00] mb-3 flex items-center gap-1.5 font-bold">
-                          <Sparkles size={10} /> Üstadın Notu
+                      <div className="bg-black/50 border border-[#ffbf00]/30 rounded-2xl p-5">
+                        <p className="text-[12px] uppercase tracking-[0.3em] text-[#ffbf00] mb-3 flex items-center gap-1.5 font-bold">
+                          <Sparkles size={11} /> Üstadın Notu
                         </p>
-                        <p className="text-[#fdf3d8] text-[15px] sm:text-base font-serif leading-relaxed">
+                        <p className="text-[#fff8e8] text-base sm:text-lg font-serif leading-[1.75]">
                           "{analysisData.ai_analysis}"
                         </p>
                       </div>
@@ -278,8 +278,8 @@ export default function SurpriseFilm() {
                     {/* Özet */}
                     {(analysisData.overview || movie?.overview) && (
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-2 font-bold">Özet</p>
-                        <p className="text-white/90 text-[15px] sm:text-base leading-relaxed font-serif">
+                        <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Özet</p>
+                        <p className="text-white text-base sm:text-lg leading-[1.7] font-serif">
                           {analysisData.overview || movie.overview}
                         </p>
                       </div>
@@ -288,11 +288,11 @@ export default function SurpriseFilm() {
                     {/* Puanlar */}
                     {analysisData.ratings?.length > 0 && (
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-2 font-bold">Puanlar</p>
+                        <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Puanlar</p>
                         <div className="flex flex-wrap gap-2">
                           {analysisData.ratings.map((r, i) => (
-                            <span key={i} className="px-3 py-1.5 bg-white/8 border border-white/15 rounded-full text-[13px] text-white/80">
-                              {r.source}: <span className="text-white font-bold">{r.value}</span>
+                            <span key={i} className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-full text-sm text-white">
+                              {r.source}: <span className="text-amber font-bold">{r.value}</span>
                             </span>
                           ))}
                         </div>
@@ -302,8 +302,8 @@ export default function SurpriseFilm() {
                     {/* Cast */}
                     {analysisData.cast?.length > 0 && (
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-2 font-bold">Oyuncular</p>
-                        <p className="text-white/80 text-[15px] sm:text-base">
+                        <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Oyuncular</p>
+                        <p className="text-white text-base sm:text-lg">
                           {analysisData.cast.slice(0, 4).map(c => c.name).join(', ')}
                         </p>
                       </div>
