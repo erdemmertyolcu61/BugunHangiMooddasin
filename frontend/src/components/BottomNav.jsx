@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clapperboard, Shuffle, Sparkles, BookMarked } from 'lucide-react';
+import { Clapperboard, Shuffle, Sparkles, BookMarked, BookOpen } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
-  { label: 'Sürpriz', icon: Shuffle, path: '/surprise', match: (p) => p === '/surprise' },
+  { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
   { label: 'Kafan mı?', icon: Sparkles, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];

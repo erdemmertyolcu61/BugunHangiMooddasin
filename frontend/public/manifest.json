@@ -15,7 +15,19 @@
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "screenshots": [],
+  "share_target": {
+    "action": "/kafan-mi-karisik",
+    "method": "GET",
+    "params": { "text": "text" }
+  }
 }

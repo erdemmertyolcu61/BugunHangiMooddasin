@@ -68,6 +68,23 @@ class MovieCache:
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # Users (Google OAuth)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    google_id TEXT UNIQUE NOT NULL,
+                    email TEXT,
+                    name TEXT,
+                    picture TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # Migrate existing tables to support user_id (safe — no-op if column exists)
+            for tbl in ("watchlist", "movie_notes", "future_plans"):
+                try:
+                    await db.execute(f"ALTER TABLE {tbl} ADD COLUMN user_id INTEGER DEFAULT 0")
+                except Exception:
+                    pass  # column already exists
             # OMDb Ratings Cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS omdb_cache (

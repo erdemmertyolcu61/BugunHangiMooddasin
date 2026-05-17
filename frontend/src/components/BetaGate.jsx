@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, Film } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
+import { useAuth } from '../context/AuthContext';
 
 const BETA_TOKEN_KEY = 'beta_token';
 
@@ -39,12 +40,31 @@ export function getBetaToken() {
  * BetaGate wraps the app. If beta auth is required and user hasn't
  * authenticated, shows a password screen. Otherwise renders children.
  */
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
 export default function BetaGate({ children }) {
   const [authenticated, setAuthenticated] = useState(null); // null = checking
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { login: googleLogin, user: googleUser } = useAuth();
+
+  // If Google login succeeds, mark authenticated
+  useEffect(() => {
+    if (googleUser) setAuthenticated(true);
+  }, [googleUser]);
+
+  // Register Google callback on window so GSI script can call it
+  useEffect(() => {
+    window.handleGoogleCallback = async (response) => {
+      if (response?.credential) {
+        await googleLogin(response.credential);
+        setAuthenticated(true);
+      }
+    };
+    return () => { delete window.handleGoogleCallback; };
+  }, [googleLogin]);
 
   useEffect(() => {
     // Check if beta gate is needed
@@ -174,6 +194,31 @@ export default function BetaGate({ children }) {
             {loading ? 'Dogrulaniyor...' : 'Giris Yap'}
           </button>
         </form>
+
+        {GOOGLE_CLIENT_ID && (
+          <div className="mt-6">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-[10px] uppercase tracking-widest text-[#f5f2eb]/20">veya</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+            <div
+              id="g_id_onload"
+              data-client_id={GOOGLE_CLIENT_ID}
+              data-callback="handleGoogleCallback"
+              data-auto_prompt="false"
+            />
+            <div
+              className="g_id_signin flex justify-center"
+              data-type="standard"
+              data-theme="filled_black"
+              data-text="signin_with"
+              data-shape="pill"
+              data-locale="tr"
+              data-width="300"
+            />
+          </div>
+        )}
 
         <p className="text-center text-[#f5f2eb]/15 text-[10px] mt-12 uppercase tracking-[0.3em]">
           Davetiye Gereklidir

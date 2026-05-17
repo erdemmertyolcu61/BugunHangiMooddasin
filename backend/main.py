@@ -16,11 +16,11 @@ from backend.dns_resolver import setup_dns_bypass, refresh_dns
 from backend.config import (
     ALLOWED_ORIGINS, BETA_PASSWORD, ADMIN_PASSWORD, JWT_SECRET,
     IS_PRODUCTION, ENVIRONMENT, RATE_LIMIT_GENERAL, RATE_LIMIT_AI,
-    TMDB_API_KEY, ANTHROPIC_API_KEY,
+    TMDB_API_KEY, ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID,
 )
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
@@ -477,6 +477,49 @@ async def admin_login(request: Request):
     if password == ADMIN_PASSWORD:
         return {"token": _create_token({"type": "admin"}, expires_hours=4), "expires_in": 14400}
     raise HTTPException(status_code=401, detail="Invalid admin password")
+
+@app.post("/api/auth/google")
+async def google_login(request: Request):
+    """Google OAuth login — verify ID token, upsert user, return JWT."""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google OAuth yapılandırılmamış")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz istek gövdesi")
+
+    credential = body.get("credential", "")
+    if not credential:
+        raise HTTPException(status_code=400, detail="Google credential eksik")
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as grequests
+        idinfo = id_token.verify_oauth2_token(credential, grequests.Request(), GOOGLE_CLIENT_ID)
+    except Exception as e:
+        logger.warning(f"[GoogleAuth] Token doğrulama hatası: {e}")
+        raise HTTPException(status_code=401, detail="Geçersiz Google token")
+
+    google_id = idinfo.get("sub")
+    email = idinfo.get("email", "")
+    name = idinfo.get("name", "")
+    picture = idinfo.get("picture", "")
+
+    # Upsert user
+    async with aiosqlite.connect(cache.db_path) as db:
+        await db.execute("""
+            INSERT INTO users (google_id, email, name, picture)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name, picture=excluded.picture
+        """, (google_id, email, name, picture))
+        await db.commit()
+        async with db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,)) as cur:
+            row = await cur.fetchone()
+            user_id = row[0] if row else 0
+
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=720)
+    return {"token": token, "user": {"id": user_id, "email": email, "name": name, "picture": picture}}
+
 
 @app.get("/api/auth/verify")
 async def verify_token_endpoint(request: Request):
@@ -2378,6 +2421,139 @@ async def stream_audio(mood_id: str):
 
 # NOT: Modern tarayıcılar etkileşim olmadan ses çalmayı engelleyebilir.
 # Frontend'de Audio.play() çağrısı bir tıklama aksiyonu içerisinde yapılmalıdır.
+
+# ─────────────────────────────────────────────────────────────
+# FILM LİSTELERİ — Küratöryel koleksiyonlar
+# ─────────────────────────────────────────────────────────────
+
+_LISTS_DATA = None
+
+def _load_lists():
+    global _LISTS_DATA
+    if _LISTS_DATA is None:
+        lists_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "lists.json")
+        import json
+        with open(lists_path, encoding="utf-8") as f:
+            _LISTS_DATA = json.load(f)
+    return _LISTS_DATA
+
+
+@app.get("/api/lists")
+async def get_all_lists():
+    """Tüm küratöryel listeleri döndür (filmler olmadan)."""
+    lists = _load_lists()
+    return [
+        {k: v for k, v in lst.items() if k != "tmdb_ids"}
+        for lst in lists
+    ]
+
+
+@app.get("/api/lists/{slug}")
+async def get_list_detail(slug: str):
+    """Tek bir listenin detayı + filmlerin TMDB ID'leri."""
+    lists = _load_lists()
+    lst = next((l for l in lists if l["slug"] == slug), None)
+    if not lst:
+        raise HTTPException(status_code=404, detail="Liste bulunamadı")
+
+    # Her film için cache'den temel bilgi çek
+    movies = []
+    for tmdb_id in lst["tmdb_ids"]:
+        try:
+            cached = await cache.get_movie(tmdb_id)
+            if cached:
+                movies.append({
+                    "id": cached.get("id", tmdb_id),
+                    "title": cached.get("title", ""),
+                    "poster_url": cached.get("poster_url"),
+                    "release_date": cached.get("release_date", ""),
+                    "vote_average": cached.get("vote_average"),
+                    "mood": cached.get("mood"),
+                    "ai_analysis": cached.get("ai_analysis"),
+                    "director": cached.get("director"),
+                })
+            else:
+                # Cache'de yoksa TMDB'den minimal bilgi al
+                try:
+                    details = await asyncio.wait_for(
+                        tmdb_service.get_movie_details(tmdb_id), timeout=5.0
+                    )
+                    movies.append({
+                        "id": tmdb_id,
+                        "title": details.get("title", ""),
+                        "poster_url": details.get("poster_url") or (
+                            f"https://image.tmdb.org/t/p/w500{details['poster_path']}"
+                            if details.get("poster_path") else None
+                        ),
+                        "release_date": details.get("release_date", ""),
+                        "vote_average": details.get("vote_average"),
+                        "mood": None,
+                        "ai_analysis": None,
+                    })
+                except Exception:
+                    movies.append({"id": tmdb_id, "title": "—", "poster_url": None})
+        except Exception:
+            movies.append({"id": tmdb_id, "title": "—", "poster_url": None})
+
+    return {**lst, "movies": movies}
+
+
+# ─────────────────────────────────────────────────────────────
+# FİLM PAYLAŞIM SAYFASI — OG meta tag'lı HTML
+# ─────────────────────────────────────────────────────────────
+
+@app.get("/share/{movie_id}", response_class=HTMLResponse)
+async def share_movie_page(movie_id: int):
+    """Film paylaşım sayfası — OG meta tag'larıyla önizleme."""
+    title = "Film Eleştirmeni"
+    description = "Ruh haline göre yapay zeka destekli film keşif platformu."
+    poster = "https://film-elestirmeni.com/favicon.svg"
+    app_url = "https://film-elestirmeni.com"
+
+    try:
+        cached = await cache.get_movie(movie_id)
+        if cached:
+            title = f"{cached.get('title', 'Film')} — Üstad Öneriyor"
+            raw_analysis = cached.get("ai_analysis") or ""
+            clean = raw_analysis.replace("Üstadın Notu:", "").strip()
+            description = clean[:160] if clean else description
+            poster = cached.get("poster_url") or poster
+    except Exception:
+        pass
+
+    redirect_url = f"{app_url}/?film={movie_id}"
+
+    html = f"""<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <meta name="description" content="{description}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{title}">
+  <meta property="og:description" content="{description}">
+  <meta property="og:image" content="{poster}">
+  <meta property="og:url" content="{redirect_url}">
+  <meta property="og:site_name" content="Film Eleştirmeni">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{title}">
+  <meta name="twitter:description" content="{description}">
+  <meta name="twitter:image" content="{poster}">
+  <meta http-equiv="refresh" content="0;url={redirect_url}">
+  <style>
+    body {{ background: #120d0b; color: #f5f0e8; font-family: serif; display: flex;
+            align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+    p {{ opacity: 0.5; font-style: italic; }}
+  </style>
+</head>
+<body>
+  <p>Yönlendiriliyorsunuz...</p>
+  <script>window.location.replace("{redirect_url}")</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
 
 @app.get("/health")
 async def health_check():

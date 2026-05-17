@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+const FilmDNA = lazy(() => import('../components/FilmDNA'));
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -225,6 +226,15 @@ export default function Defterim() {
                 </div>
               </div>
             </motion.div>
+
+            {/* ═══ Film DNA ═══ */}
+            {tasteMap && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+                <Suspense fallback={null}>
+                  <FilmDNA tasteMap={tasteMap} />
+                </Suspense>
+              </motion.div>
+            )}
 
             {savedMovies.map((movie, i) => (
               <motion.div 

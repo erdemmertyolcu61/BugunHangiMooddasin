@@ -6,6 +6,12 @@ import {
 } from '../utils/localStore';
 const BASE = getApiUrl('/api');
 
+// Auth header helper — picks up Google user token if available
+function authHeaders() {
+  const token = window.__fc_user_token || localStorage.getItem('fc_user_token') || localStorage.getItem('beta_token') || '';
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 // Simple in-memory cache for Turkish movies
 let TURKISH_CACHE = {};
 

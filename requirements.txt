@@ -5,3 +5,4 @@ anthropic==0.42.0
 python-dotenv==1.0.1
 aiosqlite==0.20.0
 PyJWT[crypto]>=2.10.1
+google-auth>=2.37.0

@@ -2,6 +2,7 @@ import React from 'react';
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MoodProvider, useMood } from './context/MoodContext';
+import { AuthProvider } from './context/AuthContext';
 import BetaGate from './components/BetaGate';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
@@ -11,6 +12,7 @@ import Discover from './pages/Discover';
 import Defterim from './pages/Defterim';
 import KafanMiKarisik from './pages/KafanMiKarisik';
 import SurpriseFilm from './pages/SurpriseFilm';
+import Listeler from './pages/Listeler';
 import DesignPreview from './pages/DesignPreview';
 import Home from './pages/Home';
 import { useLocation } from 'react-router-dom';
@@ -56,6 +58,8 @@ function AppContent() {
         <Route path="/defterim" element={<Defterim />} />
         <Route path="/kafan-mi-karisik" element={<KafanMiKarisik />} />
         <Route path="/surprise" element={<SurpriseFilm />} />
+        <Route path="/listeler" element={<Listeler />} />
+        <Route path="/listeler/:slug" element={<Listeler />} />
 
         {/* Design Preview & Legacy */}
         <Route path="/preview" element={<DesignPreview />} />
@@ -72,11 +76,13 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <BetaGate>
-        <MoodProvider>
-          <AppContent />
-        </MoodProvider>
-      </BetaGate>
+      <AuthProvider>
+        <BetaGate>
+          <MoodProvider>
+            <AppContent />
+          </MoodProvider>
+        </BetaGate>
+      </AuthProvider>
     </Router>
   );
 }

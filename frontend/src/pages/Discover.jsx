@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl } from '../services/api';
 import { checkBackendHealth } from '../utils/apiConfig';
@@ -297,6 +297,34 @@ export default function Discover() {
         setSavedIds(prev => new Set([...prev, selectedMovie.id]));
     } catch (err) {
         console.error('Deftere eklenemedi:', err);
+    }
+  };
+
+  const [shareCopied, setShareCopied] = useState(false);
+  const handleShare = async () => {
+    if (!selectedMovie) return;
+    const BACKEND = getApiUrl('').replace('/api', '');
+    const shareUrl = `${BACKEND}/share/${selectedMovie.id}`;
+    const analysis = selectedMovie.ai_analysis?.replace('Üstadın Notu:', '').trim() || '';
+    const shareData = {
+      title: `${selectedMovie.title} — Film Eleştirmeni`,
+      text: analysis ? `"${analysis.slice(0, 120)}..."` : 'Film Eleştirmeni\'nde izle.',
+      url: shareUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        await navigator.clipboard.writeText(shareUrl).catch(() => {});
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      }
     }
   };
 
@@ -946,7 +974,13 @@ export default function Discover() {
                   >
                     {savedIds.has(selectedMovie.id) ? <><Check size={16} /> DEFTERE EKLENDİ</> : <><Plus size={16} /> DEFTERİME KAYDET</>}
                   </button>
-                  <button 
+                  <button
+                    onClick={handleShare}
+                    className="px-6 sm:px-10 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                  >
+                    {shareCopied ? <><Copy size={14} /> Kopyalandı</> : <><Share2 size={14} /> Paylaş</>}
+                  </button>
+                  <button
                     onClick={() => setSelectedMovie(null)}
                     className="px-8 sm:px-12 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
                   >
