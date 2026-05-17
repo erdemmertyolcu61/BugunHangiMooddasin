@@ -20,7 +20,7 @@ from backend.config import (
 )
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
@@ -1497,6 +1497,11 @@ async def image_proxy(url: str = Query(...)):
     except Exception:
         raise HTTPException(status_code=502, detail="Görsel yüklenemedi.")
 
+
+@app.get("/", response_class=RedirectResponse)
+async def root_redirect():
+    """Backend root → frontend'e yönlendir."""
+    return RedirectResponse(url="https://film-elestirmeni.vercel.app", status_code=302)
 
 @app.get("/health")
 @app.get("/api/health")
