@@ -42,7 +42,7 @@ export default function Profil() {
 
   useEffect(() => {
     if (!user) {
-      navigate('/defterim');
+      setLoading(false);
       return;
     }
     (async () => {
@@ -61,11 +61,46 @@ export default function Profil() {
     })();
   }, [user, navigate]);
 
-  if (!user) return null;
-
-  const displayName = sanitize(user.name) || sanitize(user.email) || 'Sinemasever';
-  const avatar = user.picture || '';
+  const displayName = user ? (sanitize(user.name) || sanitize(user.email) || 'Sinemasever') : '';
+  const avatar = user?.picture || '';
   const initials = displayName.slice(0, 1).toUpperCase();
+
+  if (!user) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen bg-[#120d0b] text-ivory font-sans relative flex flex-col"
+      >
+        <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 sm:py-8 flex items-center justify-between">
+            <button onClick={() => navigate('/defterim')}
+              className="w-12 h-12 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
+              <ChevronLeft size={22} />
+            </button>
+            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.5em] text-amber/40">Profil</p>
+            <div className="w-12 h-12" />
+          </div>
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-nav text-center gap-6">
+          <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center">
+            <User size={32} className="text-amber/50" />
+          </div>
+          <div>
+            <h2 className="font-serif text-3xl font-bold text-ivory mb-3">Kimsin sen evlat?</h2>
+            <p className="font-sans text-sm text-ivory/40 max-w-xs leading-relaxed">
+              Google hesabınla giriş yaparsan profilin, izleme istatistiklerin ve kayıtların her cihazda seninle gelir.
+            </p>
+          </div>
+          <p className="font-sans text-xs text-ivory/20 mt-2">Beta ekranından Google ile giriş yap.</p>
+          <button onClick={() => navigate('/defterim')}
+            className="mt-2 px-6 py-3 rounded-full border border-white/10 text-ivory/50 hover:text-ivory hover:border-white/20 font-sans text-sm transition-all">
+            Deftere Dön
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
