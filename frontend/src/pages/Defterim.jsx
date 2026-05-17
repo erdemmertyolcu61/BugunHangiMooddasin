@@ -1,9 +1,9 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-const FilmDNA = lazy(() => import('../components/FilmDNA'));
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched } from '../services/api';
+import { getApiUrl } from '../utils/apiConfig';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
 
@@ -76,6 +76,33 @@ export default function Defterim() {
         setEditingId(null);
     } catch (err) {
         console.error('Not kaydedilemedi:', err);
+    }
+  };
+
+  const [shareCopiedId, setShareCopiedId] = useState(null);
+  const handleShare = async (movie) => {
+    const BACKEND = getApiUrl('').replace('/api', '');
+    const shareUrl = `${BACKEND}/share/${movie.tmdb_id}`;
+    const note = (movie.personal_note || '').trim();
+    const shareData = {
+      title: `${movie.title} — Film Eleştirmeni`,
+      text: note ? `"${note.slice(0, 140)}"` : `${movie.title} — Film Eleştirmeni defterimden.`,
+      url: shareUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareCopiedId(movie.tmdb_id);
+        setTimeout(() => setShareCopiedId(null), 2000);
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        await navigator.clipboard.writeText(shareUrl).catch(() => {});
+        setShareCopiedId(movie.tmdb_id);
+        setTimeout(() => setShareCopiedId(null), 2000);
+      }
     }
   };
 
@@ -227,15 +254,6 @@ export default function Defterim() {
               </div>
             </motion.div>
 
-            {/* ═══ Film DNA ═══ */}
-            {tasteMap && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-                <Suspense fallback={null}>
-                  <FilmDNA tasteMap={tasteMap} />
-                </Suspense>
-              </motion.div>
-            )}
-
             {savedMovies.map((movie, i) => (
               <motion.div 
                 layout 
@@ -265,12 +283,21 @@ export default function Defterim() {
                                 <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest">{movie.added_at?.split(' ')[0]} Tarihinde eklendi</span>
                             </div>
                         </div>
-                        <button
-                            onClick={() => handleRemove(movie.tmdb_id)}
-                            className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full border border-white/10 text-ivory/20 hover:text-red-500 hover:border-red-500/30 transition-all duration-500"
-                        >
-                            <Trash2 size={20} />
-                        </button>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                              onClick={() => handleShare(movie)}
+                              title="Paylaş"
+                              className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/30 hover:text-amber hover:border-amber/40 transition-all duration-500"
+                          >
+                              {shareCopiedId === movie.tmdb_id ? <Copy size={20} /> : <Share2 size={20} />}
+                          </button>
+                          <button
+                              onClick={() => handleRemove(movie.tmdb_id)}
+                              className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/20 hover:text-red-500 hover:border-red-500/30 transition-all duration-500"
+                          >
+                              <Trash2 size={20} />
+                          </button>
+                        </div>
                     </div>
                     
                     <div className="h-px bg-white/5 w-full" />

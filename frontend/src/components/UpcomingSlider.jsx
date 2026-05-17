@@ -71,6 +71,14 @@ export default function UpcomingSlider() {
     dragStartX.current = null;
   };
 
+  const formatDate = (d) => {
+    if (!d) return '';
+    const parts = d.split('-'); // YYYY-MM-DD
+    if (parts.length !== 3) return d;
+    const [y, m, day] = parts;
+    return `${day}.${m}.${y}`;
+  };
+
   if (upcoming.length === 0) return null;
 
   const film = upcoming[currentIndex];
@@ -125,14 +133,14 @@ export default function UpcomingSlider() {
                 <Sparkles size={8} /> Yakında
               </span>
               <span className="text-[9px] font-bold uppercase tracking-widest text-ivory/30 flex items-center gap-1">
-                <Calendar size={8} /> {film.release_date}
+                <Calendar size={8} /> {formatDate(film.release_date)}
               </span>
             </div>
             <h2 className="text-2xl font-serif font-bold tracking-tighter leading-none">
               {film.title}
             </h2>
-            <p className="text-sm font-serif italic text-ivory/40 max-w-xl">
-              Çok yakında...
+            <p className="text-sm font-serif italic text-amber/60 max-w-xl">
+              Yakında bizlerle.
             </p>
           </div>
         </motion.div>

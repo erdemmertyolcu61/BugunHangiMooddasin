@@ -45,12 +45,16 @@ export default function MovieCard({ movie, onClick, width = 220 }) {
 
       <div className="px-0.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-semibold tracking-tight text-ink leading-snug">
+          <span className="truncate text-[15px] font-sans font-semibold tracking-tight text-ink leading-snug">
             {movie.title}
           </span>
-          {movie.vote_average != null && (
-            <span className="whitespace-nowrap text-xs font-medium text-accent">★ {movie.vote_average.toFixed(1)}</span>
-          )}
+          {(() => {
+            const avg = movie.vote_average;
+            if (avg == null || avg <= 0) return null;
+            const count = movie.vote_count;
+            const ok = count != null ? count >= 50 : avg <= 9.0;
+            return ok ? <span className="whitespace-nowrap text-xs font-medium text-accent">★ {avg.toFixed(1)}</span> : null;
+          })()}
         </div>
         <div className="mt-0.5 text-[11px] text-ink-mute">
           <span>{movie.release_date?.slice(0, 4) || '—'}</span>

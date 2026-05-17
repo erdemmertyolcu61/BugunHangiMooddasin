@@ -9,8 +9,8 @@ import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '..
 import UpcomingSlider from '../components/UpcomingSlider';
 import { getApiUrl } from '../utils/apiConfig';
 
-const IMG_BASE = 'https://image.tmdb.org/t/p/w500';        // Grid posters (küçük, hızlı)
-const IMG_BASE_LG = 'https://image.tmdb.org/t/p/w780';    // Modal detail poster (büyük)
+const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
+const IMG_BASE_LG = 'https://image.tmdb.org/t/p/original';  // Modal detail poster (tam kalite)
 
 // Caching logic using localStorage (V3 as per Master Prompt)
 const getCachedAnalysis = (id) => {
@@ -19,6 +19,23 @@ const getCachedAnalysis = (id) => {
 };
 const setCachedAnalysis = (id, data) => {
   localStorage.setItem(`analysis_v3_${id}`, JSON.stringify(data));
+};
+
+// TMDB vote_average az oyda şişer (2 oy → 10.0). Güvenilir puanı seç:
+// IMDb varsa onu, yoksa yeterli oy sayısı olan TMDB ortalamasını göster.
+const reliableRating = (movie) => {
+  if (movie.imdb_rating) {
+    const n = parseFloat(movie.imdb_rating);
+    if (!isNaN(n) && n > 0) return n.toFixed(1);
+  }
+  const avg = movie.vote_average;
+  if (avg == null || avg <= 0) return null;
+  const count = movie.vote_count;
+  if (count != null) {
+    return count >= 50 ? avg.toFixed(1) : null;
+  }
+  // Oy sayısı bilinmiyorsa: 9.0 üzeri ortalamalar genelde az oydan gelir, güvenme
+  return avg <= 9.0 ? avg.toFixed(1) : null;
 };
 
 const SkeletonGurme = () => (
@@ -428,18 +445,17 @@ export default function Discover() {
                 <X size={26} />
               </button>
               <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[220px] sm:max-h-[340px] md:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className="w-[60%] sm:w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
                     className="w-full h-full object-cover"
-                    style={{ filter: 'blur(1.5px)' }}
                     alt={selectedMovie.title}
                   />
                 </div>
                 <div className="flex-1 min-w-0 space-y-6 sm:space-y-12">
                   <header className="space-y-4 sm:space-y-6">
-                    <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.5em] sm:tracking-[0.8em] text-amber/40">FİLM ÖZETİ</p>
-                    <h2 className="text-3xl sm:text-6xl lg:text-8xl font-serif font-bold tracking-tighter leading-[0.95] sm:leading-[0.8] break-words">{selectedMovie.title}</h2>
+                    <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-amber/40">FİLM ÖZETİ</p>
+                    <h2 className="text-[28px] sm:text-5xl lg:text-7xl font-serif font-bold tracking-tight leading-[1.1] sm:leading-[1.05] break-words">{selectedMovie.title}</h2>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-6 pt-2 sm:pt-4">
                       <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
                       <div className="h-1 w-1 bg-white/20 rounded-full" />
@@ -478,7 +494,7 @@ export default function Discover() {
                     </div>
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel yankı</p>
-                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {selectedMovie.imdb_rating || selectedMovie.vote_average?.toFixed(1)}</p>
+                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(selectedMovie) ?? '—'}</p>
                     </div>
                   </div>
                   <div className="flex gap-6 pt-4">
@@ -793,15 +809,17 @@ export default function Discover() {
                         </div>
                     </div>
                     <div className="mt-3 sm:mt-5 px-1 sm:px-4">
-                      <h3 className="text-sm sm:text-base font-serif font-semibold text-ivory leading-snug line-clamp-2 mb-1.5">
+                      <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
                         {movie.title}
                       </h3>
-                      <div className="flex items-center justify-between opacity-70 group-hover:opacity-100 transition-opacity duration-500">
+                      <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
-                        <div className="flex items-center gap-1.5">
-                            <Star size={10} className="fill-amber text-amber" />
-                            <span className="text-xs font-bold text-ivory/70">{movie.vote_average?.toFixed(1)}</span>
-                        </div>
+                        {reliableRating(movie) != null && (
+                          <div className="flex items-center gap-1.5">
+                              <Star size={10} className="fill-amber text-amber" />
+                              <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -852,11 +870,10 @@ export default function Discover() {
               </button>
 
               <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-[220px] sm:max-h-[340px] md:max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className="w-[60%] sm:w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-2xl">
                   <img
                     src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
                     className="w-full h-full object-cover"
-                    style={{ filter: 'blur(1.5px)' }}
                     alt={selectedMovie.title}
                   />
                 </div>
@@ -865,8 +882,8 @@ export default function Discover() {
                 <div className="noise-overlay" />
 
                 <header className="space-y-4 sm:space-y-6 relative">
-                  <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.5em] sm:tracking-[0.8em] text-amber/40">FİLM ÖZETİ</p>
-                  <h2 className="text-3xl sm:text-6xl lg:text-8xl font-serif font-bold tracking-tighter leading-[0.95] sm:leading-[0.8] break-words">{selectedMovie.title}</h2>
+                  <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-amber/40">FİLM ÖZETİ</p>
+                  <h2 className="text-[28px] sm:text-5xl lg:text-7xl font-serif font-bold tracking-tight leading-[1.1] sm:leading-[1.05] break-words">{selectedMovie.title}</h2>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-6 pt-2 sm:pt-4">
                       <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
                       <div className="h-1 w-1 bg-white/20 rounded-full" />
@@ -908,7 +925,7 @@ export default function Discover() {
                   </div>
                   <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel yankı</p>
-                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {selectedMovie.imdb_rating || selectedMovie.vote_average?.toFixed(1)}</p>
+                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(selectedMovie) ?? '—'}</p>
                   </div>
                 </div>
 

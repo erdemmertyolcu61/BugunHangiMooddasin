@@ -7,66 +7,66 @@
 const QUESTIONS = [
   {
     id: 1,
-    text: "Gözlerini kapat ve düşün: Bu gece nasıl bir sahne hayal ediyorsun?",
+    text: "Gözlerini kapatıp bu geceyi hayal etsen, nasıl bir sahne canlanır?",
     answers: [
       {
-        text: "Yağmurun altında nefes nefese bir kovalamaca",
+        text: "Yağmurun altında, nefes nefese bir kovalamaca",
         effects: { adrenalin: 3, gece: 2 },
       },
       {
-        text: "Şöminenin önünde sıcak bir battaniye",
+        text: "Şöminenin başında, sıcacık bir battaniyenin altında",
         effects: { battaniye: 3, sessiz: 1 },
       },
       {
-        text: "Yıldızların altında bilinmeyen bir yolda yürümek",
+        text: "Yıldızların altında, bilinmedik bir yolda yürürken",
         effects: { yolculuk: 3, karmakar: 1 },
       },
       {
-        text: "Trende pencereden dışarı bakıp eski anıları düşünmek",
+        text: "Trende, camdan dışarı bakıp eski günleri anarken",
         effects: { gozyasi: 3, kalp: 2 },
       },
       {
-        text: "Karanlık bir odada tahtaya bağlı ipuçlarını çözmek",
+        text: "Loş bir odada, duvardaki ipuçlarını birleştirirken",
         effects: { zihin: 3, gece: 1 },
       },
     ],
   },
   {
     id: 2,
-    text: "Şu an ruh haline en yakın şarkı hangisi olurdu?",
+    text: "Şu anki ruh halini en iyi hangi müzik anlatır?",
     answers: [
       {
-        text: "Hızlı, bas gitar ağırlıklı, enerji dolu",
+        text: "Hızlı tempolu, enerjik bir parça",
         effects: { adrenalin: 3, Retro: 2 },
       },
       {
-        text: "Yavaş piyano, hafif melankolik",
+        text: "Yavaş bir piyano, hafif hüzünlü bir melodi",
         effects: { gozyasi: 2, sessiz: 2, kalp: 1 },
       },
       {
-        text: "Neşeli, ritmik, dans ettiren",
+        text: "Neşeli, ritmik, insanı dans ettiren bir şarkı",
         effects: { kahkaha: 3, battaniye: 1 },
       },
       {
-        text: "Epik, orkestral, sinematik",
+        text: "Görkemli, orkestral, sinematik bir tema",
         effects: { zamanyolcusu: 2, yolculuk: 2, adrenalin: 1 },
       },
       {
-        text: "Elektronik, deneysel, sıradışı",
+        text: "Elektronik, deneysel, alışılmadık bir ses",
         effects: { karmakar: 3, "deep-chills": 1 },
       },
     ],
   },
   {
     id: 3,
-    text: "Bir film karakteri olsan, bu gece ne yapardın?",
+    text: "Bir film karakteri olsaydın bu gece ne yapardın?",
     answers: [
       {
-        text: "Gece yarısı karanlık sokaklarda birini takip ederdim",
+        text: "Gece yarısı, karanlık sokaklarda birinin izini sürerdim",
         effects: { gece: 3, "deep-chills": 2 },
       },
       {
-        text: "Evde kalıp eski fotoğraf albümlerine bakardım",
+        text: "Evde kalıp eski fotoğraf albümlerini karıştırırdım",
         effects: { battaniye: 2, zamanyolcusu: 2, gozyasi: 1 },
       },
       {
@@ -74,93 +74,93 @@ const QUESTIONS = [
         effects: { kahkaha: 3, battaniye: 1 },
       },
       {
-        text: "Birinin kapısının önüne gidip kalbimi açardım",
+        text: "Sevdiğimin kapısını çalıp içimi dökerdim",
         effects: { askbahcesi: 3, gozyasi: 1 },
       },
       {
-        text: "Haritada rastgele bir nokta seçip oraya giderdim",
+        text: "Haritadan rastgele bir yer seçip yola çıkardım",
         effects: { yolculuk: 3, kalp: 1 },
       },
     ],
   },
   {
     id: 4,
-    text: "Hangisi seni daha çok etkiler?",
+    text: "Bir filmde hangi an seni en çok etkiler?",
     answers: [
       {
-        text: "Beklenmedik bir son — her şeyi alt üst eden bir twist",
+        text: "Her şeyi değiştiren beklenmedik bir final",
         effects: { zihin: 3, karmakar: 2 },
       },
       {
-        text: "Sessiz bir veda sahnesi — kelimesiz ama yürek burkan",
+        text: "Tek kelime edilmeden yaşanan, içe işleyen bir veda",
         effects: { gozyasi: 3, sessiz: 2 },
       },
       {
-        text: "Epik bir savaş sahnesi — müzik tavan, adrenalin dorukta",
+        text: "Müziğin doruğa çıktığı görkemli bir aksiyon sahnesi",
         effects: { adrenalin: 3, yolculuk: 1 },
       },
       {
-        text: "İki kişinin ilk bakışması — zaman durur gibi",
+        text: "İki insanın ilk kez göz göze geldiği o an",
         effects: { askbahcesi: 3, kalp: 1 },
       },
       {
-        text: "Açıklanamayan tuhaf bir sahne — rüya mı gerçek mi belli değil",
+        text: "Rüya mı gerçek mi belli olmayan tuhaf bir sahne",
         effects: { karmakar: 2, "deep-chills": 2, zihin: 1 },
       },
     ],
   },
   {
     id: 5,
-    text: "Bu gece filmi hangi ortamda izlemek isterdin?",
+    text: "Bu gece filmi nerede izlemek isterdin?",
     answers: [
       {
-        text: "Eski, kadife koltukllu bir sinema salonunda",
+        text: "Kadife koltuklu, eski bir sinema salonunda",
         effects: { zamanyolcusu: 3, Retro: 1 },
       },
       {
-        text: "Yağmurlu bir gecede, pencere kenarında",
+        text: "Yağmurlu bir gecede, pencerenin kenarında",
         effects: { battaniye: 2, sessiz: 2, kalp: 1 },
       },
       {
-        text: "Dağ başında, yıldızların altında dev bir perdeyle",
+        text: "Dağ başında, yıldızların altında dev bir perdede",
         effects: { yolculuk: 3, adrenalin: 1 },
       },
       {
-        text: "Mumların aydınlattığı loş bir odada",
+        text: "Mum ışığıyla aydınlanan loş bir odada",
         effects: { "deep-chills": 2, gece: 2, askbahcesi: 1 },
       },
       {
-        text: "Arkadaşlarla dolu, gürültülü bir salonda",
+        text: "Kalabalık, kahkahalarla dolu bir salonda",
         effects: { kahkaha: 3, adrenalin: 1 },
       },
     ],
   },
   {
     id: 6,
-    text: "Film bitince nasıl hissetmek istersin?",
+    text: "Film bittiğinde kendini nasıl hissetmek istersin?",
     answers: [
       {
-        text: "Huzurlu ve mutlu — içim ısınsın",
+        text: "Huzurlu ve mutlu, içi ısınmış biri gibi",
         effects: { battaniye: 3, askbahcesi: 1 },
       },
       {
-        text: "Şaşkın — beynimden duman çıksın",
+        text: "Zihni hâlâ filmle meşgul, şaşkın ama keyifli",
         effects: { zihin: 3, karmakar: 2 },
       },
       {
-        text: "Ağlamış — ama rahatlamış olayım",
+        text: "Ağlamış ama içi rahatlamış biri gibi",
         effects: { gozyasi: 3, kalp: 1 },
       },
       {
-        text: "Gülmüş — yanaklarım ağrısın",
+        text: "Doyasıya gülmüş, keyfi yerinde biri gibi",
         effects: { kahkaha: 3 },
       },
       {
-        text: "Gergin — yatağa girince arkama bakayım",
+        text: "Gerilimden hâlâ tüyleri diken diken",
         effects: { "deep-chills": 3, gece: 2 },
       },
       {
-        text: "Ateş almış — koltuğumdan kalkmaya üşenmişim",
+        text: "Heyecandan yerinde duramayan biri gibi",
         effects: { adrenalin: 3, yolculuk: 1 },
       },
     ],
