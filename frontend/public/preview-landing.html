@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Film Eleştirmeni — Önizleme</title>
+<style>
+  :root {
+    --bg: #120d0b;
+    --surface: #1c1512;
+    --surface2: #231a16;
+    --amber: #ffbf00;
+    --amber-dim: rgba(255,191,0,0.12);
+    --ivory: #f5f2eb;
+    --rose: #e8d3d3;
+    --border: rgba(255,255,255,0.07);
+    --border-subtle: rgba(255,255,255,0.04);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ivory);
+    font-family: Georgia, 'Times New Roman', serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ─── FILM GRAIN ─── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
+
+  /* ─── NAVBAR ─── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(18, 13, 11, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0 5%;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .nav-logo {
+    font-family: Georgia, serif;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ivory);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-logo span { color: var(--amber); }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(245,242,235,0.45);
+    text-decoration: none;
+    transition: color 0.2s;
+    position: relative;
+  }
+  .nav-links a:hover { color: var(--ivory); }
+  .nav-links a.active { color: var(--ivory); }
+  .nav-links a.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0; right: 0;
+    height: 1px;
+    background: var(--amber);
+    border-radius: 2px;
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .search-wrap {
+    position: relative;
+  }
+  .search-wrap input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 9999px;
+    padding: 9px 18px 9px 38px;
+    font-family: system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--ivory);
+    outline: none;
+    width: 220px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .search-wrap input::placeholder { color: rgba(245,242,235,0.25); }
+  .search-wrap input:focus {
+    border-color: rgba(255,191,0,0.4);
+    background: rgba(255,255,255,0.07);
+  }
+  .search-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(245,242,235,0.25);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .btn-login {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(245,242,235,0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 9999px;
+    padding: 9px 22px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-login:hover {
+    color: var(--ivory);
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.05);
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(105deg, rgba(18,13,11,0.92) 0%, rgba(18,13,11,0.72) 50%, rgba(18,13,11,0.45) 100%),
+      url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920&fit=crop&q=80');
+    background-size: cover;
+    background-position: center 35%;
+    transform: scale(1.04);
+    animation: slowZoom 20s ease-out forwards;
+  }
+
+  @keyframes slowZoom {
+    from { transform: scale(1.04); }
+    to   { transform: scale(1.0); }
+  }
+
+  .hero-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 70% 50%, transparent 30%, rgba(18,13,11,0.6) 100%);
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 0 10% 6vh;
+    max-width: 780px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    animation: heroFadeIn 1.2s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  @keyframes heroFadeIn {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.05);
+    border-radius: 9999px;
+    padding: 8px 18px;
+    font-family: system-ui, sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--amber);
+    width: fit-content;
+    backdrop-filter: blur(8px);
+  }
+
+  .hero-title {
+    font-family: Georgia, serif;
+    font-size: clamp(52px, 6vw, 88px);
+    font-weight: 700;
+    line-height: 0.93;
+    letter-spacing: -0.025em;
+    color: var(--ivory);
+    animation: heroFadeIn 1.2s 0.15s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  .hero-title em {
+    font-style: italic;
+    color: var(--amber);
+  }
+
+  .hero-sub {
+    font-family: Georgia, serif;
+    font-size: 17px;
+    font-style: italic;
+    line-height: 1.65;
+    color: rgba(245,242,235,0.48);
+    max-width: 480px;
+    animation: heroFadeIn 1.2s 0.28s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  .hero-ctas {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    animation: heroFadeIn 1.2s 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  .btn-primary {
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    background: var(--amber);
+    color: #120d0b;
+    border: none;
+    border-radius: 9999px;
+    padding: 16px 36px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 0 40px rgba(255,191,0,0.25), 0 4px 20px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary:hover {
+    background: #ffd000;
+    transform: scale(1.04);
+    box-shadow: 0 0 60px rgba(255,191,0,0.35), 0 8px 30px rgba(0,0,0,0.5);
+  }
+
+  .btn-secondary {
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    background: transparent;
+    color: rgba(245,242,235,0.55);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 9999px;
+    padding: 16px 32px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .btn-secondary:hover {
+    color: var(--ivory);
+    border-color: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .hero-scroll {
+    position: absolute;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: rgba(245,242,235,0.2);
+    font-family: system-ui, sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    animation: scrollBounce 2.5s ease-in-out infinite;
+  }
+  @keyframes scrollBounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%       { transform: translateX(-50%) translateY(6px); }
+  }
+  .hero-scroll svg { opacity: 0.3; }
+
+  /* ─── SECTIONS WRAPPER ─── */
+  .sections {
+    padding: 0 5% 80px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-top: 72px;
+  }
+
+  .section-title {
+    font-family: Georgia, serif;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ivory);
+  }
+
+  .section-link {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--amber);
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  .section-link:hover { opacity: 1; }
+
+  /* ─── MOOD STRIP ─── */
+  .mood-strip {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 16px;
+    padding-right: 5%;
+    cursor: grab;
+  }
+  .mood-strip:active { cursor: grabbing; }
+  .mood-strip::-webkit-scrollbar { display: none; }
+  .mood-strip { scrollbar-width: none; }
+
+  .mood-card {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    width: 162px;
+    height: 228px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 22px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    position: relative;
+    overflow: hidden;
+  }
+  .mood-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.3s;
+    border-radius: inherit;
+  }
+  .mood-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(255,255,255,0.18);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .mood-card:hover::after { background: rgba(255,255,255,0.03); }
+
+  .mood-icon { font-size: 28px; line-height: 1; display: block; margin-bottom: 10px; }
+
+  .mood-name {
+    font-family: Georgia, serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ivory);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .mood-count {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    color: rgba(245,242,235,0.45);
+    margin-top: 5px;
+    letter-spacing: 0.05em;
+  }
+
+  .mood-arrow {
+    font-size: 13px;
+    color: rgba(245,242,235,0.3);
+    transition: color 0.2s, transform 0.2s;
+    display: block;
+    margin-top: 4px;
+  }
+  .mood-card:hover .mood-arrow { color: rgba(245,242,235,0.7); transform: translateX(4px); }
+
+  /* Mood card backgrounds */
+  .m-battaniye { background: linear-gradient(145deg, #431407 0%, #1c0a05 100%); }
+  .m-yolculuk  { background: linear-gradient(145deg, #064e3b 0%, #022c22 100%); }
+  .m-gece      { background: linear-gradient(145deg, #1e1b4b 0%, #0f0a2e 100%); }
+  .m-kahkaha   { background: linear-gradient(145deg, #713f12 0%, #361d04 100%); }
+  .m-gozyasi   { background: linear-gradient(145deg, #1e3a5f 0%, #0c1f36 100%); }
+  .m-adrenalin { background: linear-gradient(145deg, #7f1d1d 0%, #3b0a0a 100%); }
+  .m-ask       { background: linear-gradient(145deg, #881337 0%, #3d0619 100%); }
+  .m-zaman     { background: linear-gradient(145deg, #44312a 0%, #1f130e 100%); }
+  .m-sessiz    { background: linear-gradient(145deg, #27272a 0%, #111113 100%); }
+  .m-zihin     { background: linear-gradient(145deg, #4c1d95 0%, #20094a 100%); }
+  .m-kalp      { background: linear-gradient(145deg, #831843 0%, #3a0520 100%); }
+  .m-karmasak  { background: linear-gradient(145deg, #7c2d12 0%, #351108 100%); }
+  .m-retro     { background: linear-gradient(145deg, #164e63 0%, #072533 100%); }
+  .m-uperti    { background: linear-gradient(145deg, #1f2937 0%, #0d1117 100%); }
+
+  /* ─── FEATURE STRIP ─── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  .feature-card {
+    border-radius: 24px;
+    padding: 36px 32px;
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(255,255,255,0.16);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+  }
+
+  .feature-card-1 {
+    background: linear-gradient(135deg, rgba(245,158,11,0.18) 0%, rgba(139,92,246,0.18) 100%);
+    border-color: rgba(245,158,11,0.2);
+  }
+  .feature-card-1:hover { border-color: rgba(245,158,11,0.35); }
+
+  .feature-card-2, .feature-card-3 {
+    background: var(--surface);
+  }
+
+  .feature-icon {
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .feature-title {
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ivory);
+    line-height: 1.2;
+  }
+
+  .feature-desc {
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.65;
+    color: rgba(245,242,235,0.45);
+    flex: 1;
+  }
+
+  .feature-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--amber);
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    transition: gap 0.2s;
+  }
+  .feature-cta:hover { gap: 10px; }
+
+  .feature-card-2 .feature-cta,
+  .feature-card-3 .feature-cta {
+    color: rgba(245,242,235,0.5);
+  }
+  .feature-card-2:hover .feature-cta,
+  .feature-card-3:hover .feature-cta {
+    color: var(--ivory);
+  }
+
+  /* Decorative accent line on feature cards */
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,191,0,0.4), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover::before { opacity: 1; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid var(--border-subtle);
+    padding: 48px 5%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .footer-brand {
+    font-family: Georgia, serif;
+    font-size: 13px;
+    color: rgba(245,242,235,0.18);
+    letter-spacing: 0.08em;
+  }
+
+  .footer-quote {
+    font-family: Georgia, serif;
+    font-size: 12px;
+    font-style: italic;
+    color: rgba(245,242,235,0.1);
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── DRAG TO SCROLL ─── */
+</style>
+</head>
+<body>
+
+<!-- ═══ NAVBAR ═══ -->
+<nav>
+  <div class="nav-logo">Film Eleştirmeni<span>.</span></div>
+
+  <ul class="nav-links">
+    <li><a href="#" class="active">Ana Sayfa</a></li>
+    <li><a href="#">Keşfet</a></li>
+    <li><a href="#">Listeler</a></li>
+    <li><a href="#">Defterim</a></li>
+  </ul>
+
+  <div class="nav-right">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" placeholder="Film, dizi veya ruh hali ara...">
+    </div>
+    <button class="btn-login">Giriş Yap</button>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-vignette"></div>
+
+  <div class="hero-content">
+    <div class="hero-badge">✦&nbsp;&nbsp;Sana Özel Film Önerileri</div>
+
+    <h1 class="hero-title">
+      Ruh Haline<br>
+      Göre Film<br>
+      <em>Keşfet.</em>
+    </h1>
+
+    <p class="hero-sub">
+      Ne izlesem diye düşünme. Ruh halini seç,<br>
+      sana en uygun filmi birlikte bulalım.
+    </p>
+
+    <div class="hero-ctas">
+      <button class="btn-primary">Ruh Halini Seç &nbsp;→</button>
+      <button class="btn-secondary">Moodu Bilmiyorum</button>
+    </div>
+  </div>
+
+  <div class="hero-scroll">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 10.5L3 5.5h10L8 10.5z"/>
+    </svg>
+    <span>Keşfet</span>
+  </div>
+</section>
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<div class="sections">
+
+  <!-- MOOD STRIP -->
+  <div class="section-header">
+    <h2 class="section-title">Hangi Moodu Seçiyorsun?</h2>
+    <a href="#" class="section-link">Tümünü Gör →</a>
+  </div>
+
+  <div class="mood-strip" id="moodStrip">
+
+    <div class="mood-card m-battaniye">
+      <div>
+        <span class="mood-icon">☕</span>
+        <div class="mood-name">Battaniye Modu</div>
+        <div class="mood-count">150+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-yolculuk">
+      <div>
+        <span class="mood-icon">🗺️</span>
+        <div class="mood-name">Yolculuk Ruhu</div>
+        <div class="mood-count">180+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-gece">
+      <div>
+        <span class="mood-icon">🌙</span>
+        <div class="mood-name">Gece Kuşu</div>
+        <div class="mood-count">200+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-kahkaha">
+      <div>
+        <span class="mood-icon">😄</span>
+        <div class="mood-name">Kahkaha Molası</div>
+        <div class="mood-count">120+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-gozyasi">
+      <div>
+        <span class="mood-icon">💧</span>
+        <div class="mood-name">Gözyaşı Gecesi</div>
+        <div class="mood-count">130+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-adrenalin">
+      <div>
+        <span class="mood-icon">⚡</span>
+        <div class="mood-name">Adrenalin Patlaması</div>
+        <div class="mood-count">250+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-ask">
+      <div>
+        <span class="mood-icon">💗</span>
+        <div class="mood-name">Aşk Bahçesi</div>
+        <div class="mood-count">140+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-zaman">
+      <div>
+        <span class="mood-icon">🎞️</span>
+        <div class="mood-name">Zaman Yolcusu</div>
+        <div class="mood-count">110+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-sessiz">
+      <div>
+        <span class="mood-icon">🔇</span>
+        <div class="mood-name">Sessiz Yolculuk</div>
+        <div class="mood-count">90+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-zihin">
+      <div>
+        <span class="mood-icon">🧠</span>
+        <div class="mood-name">Zihin Savaşı</div>
+        <div class="mood-count">160+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-kalp">
+      <div>
+        <span class="mood-icon">✨</span>
+        <div class="mood-name">Kalbimin Sesi</div>
+        <div class="mood-count">100+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-karmasak">
+      <div>
+        <span class="mood-icon">🔥</span>
+        <div class="mood-name">Karmaşakar</div>
+        <div class="mood-count">95+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-retro">
+      <div>
+        <span class="mood-icon">👓</span>
+        <div class="mood-name">Retro Bakış</div>
+        <div class="mood-count">130+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+    <div class="mood-card m-uperti">
+      <div>
+        <span class="mood-icon">👻</span>
+        <div class="mood-name">Derin Ürperti</div>
+        <div class="mood-count">170+ film</div>
+      </div>
+      <span class="mood-arrow">→</span>
+    </div>
+
+  </div><!-- /mood-strip -->
+
+  <!-- FEATURE STRIP -->
+  <div class="section-header" style="padding-top: 80px;">
+    <h2 class="section-title">Keşfetmeye Devam Et</h2>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feature-card feature-card-1">
+      <div class="feature-icon">🎭</div>
+      <div class="feature-title">Kafan mı Karışık?</div>
+      <p class="feature-desc">Ne izlemek istediğini bilmiyorsan Üstad'a sor. Ruh halini anlat, o yönlendirir.</p>
+      <button class="feature-cta">Dene →</button>
+    </div>
+
+    <div class="feature-card feature-card-2">
+      <div class="feature-icon">🎲</div>
+      <div class="feature-title">Sürpriz Film</div>
+      <p class="feature-desc">Bugün ne izleyeceğine Üstad karar versin. Şansını dene, belki en iyi filmin budur.</p>
+      <button class="feature-cta">Şansını Dene →</button>
+    </div>
+
+    <div class="feature-card feature-card-3">
+      <div class="feature-icon">📚</div>
+      <div class="feature-title">Film Listeleri</div>
+      <p class="feature-desc">Üstad imzalı küratöryel koleksiyonlar. Nolan'dan Tarkovski'ye, her ruh haline bir liste.</p>
+      <button class="feature-cta">Listele →</button>
+    </div>
+  </div>
+
+</div><!-- /sections -->
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="footer-brand">Film Eleştirmeni — Üstad'ın Arşivi</div>
+  <div class="footer-quote">"sinema bir atmosferdir."</div>
+</footer>
+
+<script>
+  // Drag to scroll mood strip
+  const strip = document.getElementById('moodStrip');
+  let isDown = false, startX, scrollLeft;
+  strip.addEventListener('mousedown', e => {
+    isDown = true; strip.style.cursor = 'grabbing';
+    startX = e.pageX - strip.offsetLeft;
+    scrollLeft = strip.scrollLeft;
+  });
+  strip.addEventListener('mouseleave', () => { isDown = false; strip.style.cursor = 'grab'; });
+  strip.addEventListener('mouseup',   () => { isDown = false; strip.style.cursor = 'grab'; });
+  strip.addEventListener('mousemove', e => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - strip.offsetLeft;
+    strip.scrollLeft = scrollLeft - (x - startX) * 1.4;
+  });
+
+  // Staggered mood card entrance
+  const cards = document.querySelectorAll('.mood-card');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const idx = [...cards].indexOf(entry.target);
+        entry.target.style.animation = `moodIn 0.5s ${idx * 0.05}s cubic-bezier(0.16,1,0.3,1) both`;
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  const style = document.createElement('style');
+  style.textContent = `
+    .mood-card { opacity: 0; }
+    @keyframes moodIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+  cards.forEach(c => io.observe(c));
+</script>
+
+</body>
+</html>
