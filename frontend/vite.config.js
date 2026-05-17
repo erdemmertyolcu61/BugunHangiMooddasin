@@ -13,6 +13,11 @@ export default defineConfig({
       manifest: false, // public/manifest.json'u kullan
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/share/],
         runtimeCaching: [
           {
             urlPattern: /\/api\/repository\/movies\//,

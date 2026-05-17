@@ -459,9 +459,9 @@ async def beta_login(request: Request):
     password = body.get("password", "")
     if not BETA_PASSWORD:
         # No beta password configured — allow access
-        return {"token": _create_token({"type": "beta"}), "expires_in": 86400}
+        return {"token": _create_token({"type": "beta"}, expires_hours=720), "expires_in": 2592000}
     if password == BETA_PASSWORD:
-        return {"token": _create_token({"type": "beta"}), "expires_in": 86400}
+        return {"token": _create_token({"type": "beta"}, expires_hours=720), "expires_in": 2592000}
     raise HTTPException(status_code=401, detail="Invalid beta password")
 
 @app.post("/api/auth/admin")

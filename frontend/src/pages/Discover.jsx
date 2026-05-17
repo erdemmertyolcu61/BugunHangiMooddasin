@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl } from '../services/api';
 import { checkBackendHealth } from '../utils/apiConfig';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
 import UpcomingSlider from '../components/UpcomingSlider';
@@ -331,7 +331,22 @@ export default function Discover() {
   // Quick actions — card overlay, no modal
   const handleQuickSave = async (e, movie) => {
     e.stopPropagation();
-    if (quickSavedIds.has(movie.id)) return;
+    const isSaved = quickSavedIds.has(movie.id);
+    if (isSaved) {
+      // Tekrar basınca defterden çıkar (toggle)
+      setQuickSavedIds(prev => {
+        const next = new Set(prev);
+        next.delete(movie.id);
+        return next;
+      });
+      setQuickWatchedIds(prev => {
+        const next = new Set(prev);
+        next.delete(movie.id);
+        return next;
+      });
+      try { await removeFromWatchlist(movie.id); } catch (err) { console.error('Quick remove hatası:', err); }
+      return;
+    }
     setQuickSavedIds(prev => new Set([...prev, movie.id]));
     try { await addToWatchlist(movie); } catch (err) { console.error('Quick save hatası:', err); }
   };
@@ -612,8 +627,8 @@ export default function Discover() {
             </button>
             <button onClick={() => { setQuizOpen(true); setQuizStep(1); setQuizAnswers([]); setQuizResult(null); }}
               className="flex items-center gap-2 px-4 md:px-5 py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
-              <Brain size={16} className="text-bg/80" />
-              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest">Bugünkü Ruh Halim</span>
+              <Brain size={16} className="text-bg/80 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
             </button>
             <button onClick={() => navigate('/defterim')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
               <Book size={16} className="text-amber group-hover:scale-110 transition-transform" />
@@ -777,12 +792,15 @@ export default function Discover() {
                           </button>
                         </div>
                     </div>
-                    <div className="mt-3 sm:mt-8 px-1 sm:px-4">
-                      <div className="flex items-center justify-between opacity-60 sm:opacity-30 group-hover:opacity-60 transition-opacity duration-500">
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{movie.release_date?.split('-')[0]}</span>
+                    <div className="mt-3 sm:mt-5 px-1 sm:px-4">
+                      <h3 className="text-sm sm:text-base font-serif font-semibold text-ivory leading-snug line-clamp-2 mb-1.5">
+                        {movie.title}
+                      </h3>
+                      <div className="flex items-center justify-between opacity-70 group-hover:opacity-100 transition-opacity duration-500">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
                         <div className="flex items-center gap-1.5">
                             <Star size={10} className="fill-amber text-amber" />
-                            <span className="text-xs font-bold">{movie.vote_average?.toFixed(1)}</span>
+                            <span className="text-xs font-bold text-ivory/70">{movie.vote_average?.toFixed(1)}</span>
                         </div>
                       </div>
                     </div>
