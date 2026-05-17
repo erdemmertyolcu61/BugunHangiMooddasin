@@ -718,6 +718,20 @@ export default function Discover() {
               <Book size={16} className="text-amber group-hover:scale-110 transition-transform" />
               <span className="text-[10px] font-bold uppercase tracking-widest">Defterim</span>
             </button>
+            <button
+              onClick={() => navigate('/profil')}
+              title={user ? 'Profilim' : 'Giriş Yap'}
+              className="hidden md:flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
+            >
+              <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
+                {user?.picture
+                  ? <img src={user.picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  : <Users size={13} className="text-amber/60" />}
+              </span>
+              <span className="font-sans text-[11px] font-semibold text-ivory/60 max-w-[100px] truncate">
+                {user?.name || 'Giriş Yap'}
+              </span>
+            </button>
           </div>
         </div>
       </header>

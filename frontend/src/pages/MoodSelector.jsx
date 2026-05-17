@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart } from 'lucide-react';
+import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
@@ -12,6 +13,7 @@ const moodList = Object.values(MOODS);
 export default function MoodSelector() {
   const navigate = useNavigate();
   const { selectMood, prefetchMood } = useMood();
+  const { user } = useAuth();
   const [hoveredMood, setHoveredMood] = useState(null);
 
   // Quiz state
@@ -103,6 +105,22 @@ export default function MoodSelector() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Profil butonu — sağ üst */}
+      <button
+        onClick={() => navigate('/profil')}
+        title={user ? 'Profilim' : 'Giriş Yap'}
+        className="fixed top-4 right-4 z-50 flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
+      >
+        <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
+          {user?.picture
+            ? <img src={user.picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            : <User size={14} className="text-amber/60" />}
+        </span>
+        <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">
+          {user?.name || 'Giriş Yap'}
+        </span>
+      </button>
 
       {/* ═══ İçerik ═══ */}
       <div className="relative z-20 container mx-auto px-4 sm:px-6 py-8 sm:py-10 flex flex-col items-center min-h-screen pb-nav">
