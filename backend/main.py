@@ -1412,6 +1412,31 @@ async def analyze_movie(movie_id: int = Path(..., ge=1)):
     return enriched
 
 
+@app.get("/api/movies/{movie_id}/similar")
+async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
+    """
+    Bir filme benzer filmler — modal'daki "Bunları da sevebilirsin" bölümü.
+    Önce TMDB /similar, boşsa /recommendations fallback. En fazla 12 film.
+    """
+    try:
+        result = await tmdb_service.get_similar_movies(movie_id, page=1)
+        movies = result.get("movies", [])
+        if len(movies) < 6:
+            rec = await tmdb_service.get_recommendations(movie_id, page=1)
+            seen = {m["id"] for m in movies}
+            for m in rec.get("movies", []):
+                if m["id"] not in seen:
+                    movies.append(m)
+                    seen.add(m["id"])
+        # Posteri olanları, oy sayısına göre öne al
+        movies = [m for m in movies if m.get("poster_url")]
+        movies.sort(key=lambda m: m.get("vote_count", 0), reverse=True)
+        return {"movies": movies[:12]}
+    except Exception as e:
+        logger.warning(f"Similar movies unavailable for {movie_id}: {e}")
+        return {"movies": []}
+
+
 @app.get("/api/movies/{movie_id}/watch-providers")
 async def get_movie_watch_providers_endpoint(
     movie_id: int = Path(..., ge=1),

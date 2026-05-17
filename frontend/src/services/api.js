@@ -89,6 +89,16 @@ export async function searchMovies(query) {
   return res.json();
 }
 
+export async function getSimilarMovies(movieId) {
+  try {
+    const res = await fetch(`${BASE}/movies/${movieId}/similar`);
+    if (!res.ok) return { movies: [] };
+    return res.json();
+  } catch {
+    return { movies: [] };
+  }
+}
+
 // --- Watchlist (Defterim) API — localStorage primary, backend best-effort ---
 
 export async function getWatchlist() {

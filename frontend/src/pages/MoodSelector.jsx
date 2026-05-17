@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User } from 'lucide-react';
+import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
@@ -105,6 +105,16 @@ export default function MoodSelector() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Arama butonu — sol üst */}
+      <button
+        onClick={() => navigate('/search')}
+        title="Film Ara"
+        className="fixed top-4 left-4 z-50 flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
+      >
+        <Search size={15} className="text-amber/60" />
+        <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">Film Ara</span>
+      </button>
 
       {/* Profil butonu — sağ üst */}
       <button

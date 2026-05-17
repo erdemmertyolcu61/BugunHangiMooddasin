@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, ChevronRight, Star, Bookmark, Book, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
@@ -352,6 +352,43 @@ export default function Discover() {
     });
     return () => { active = false; };
   }, [selectedMovie?.id]);
+
+  // Benzer filmler — "Bunları da sevebilirsin"
+  const [similarMovies, setSimilarMovies] = useState([]);
+  useEffect(() => {
+    if (!selectedMovie?.id) { setSimilarMovies([]); return; }
+    let active = true;
+    setSimilarMovies([]);
+    getSimilarMovies(selectedMovie.id).then((d) => {
+      if (active) setSimilarMovies(d.movies || []);
+    });
+    return () => { active = false; };
+  }, [selectedMovie?.id]);
+
+  const openSimilarMovie = async (m) => {
+    const cached = getCachedAnalysis(m.id);
+    if (cached) {
+      setSelectedMovie({ id: m.id, ...cached });
+      document.querySelector('.no-scrollbar')?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setSelectedMovie({
+      id: m.id, title: m.title, poster_url: m.poster_url,
+      release_date: m.release_date, vote_average: m.vote_average,
+      overview: m.overview,
+    });
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/movies/${m.id}/analyze`));
+      if (res.ok) {
+        const data = await res.json();
+        setCachedAnalysis(m.id, data);
+        setSelectedMovie({ id: m.id, ...data });
+      }
+    } catch {} finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const alreadyRecommended = recommenders.some((r) => user && r.uid === user.id);
 
@@ -1100,6 +1137,38 @@ export default function Discover() {
                           );
                         });
                       })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Benzer Filmler — Bunları da sevebilirsin */}
+                {similarMovies.length > 0 && (
+                  <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
+                    <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+                      {similarMovies.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => openSimilarMovie(m)}
+                          className="group shrink-0 w-[100px] sm:w-[130px] text-left"
+                          title={m.title}
+                        >
+                          <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
+                            <img
+                              src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'}
+                              alt={m.title}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            />
+                          </div>
+                          <p className="mt-2 text-[11px] sm:text-xs font-sans font-semibold text-ivory/60 group-hover:text-amber transition-colors line-clamp-2 leading-tight">
+                            {m.title}
+                          </p>
+                          {m.release_date && (
+                            <p className="text-[10px] text-ivory/25 font-sans mt-0.5">{m.release_date.split('-')[0]}</p>
+                          )}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}

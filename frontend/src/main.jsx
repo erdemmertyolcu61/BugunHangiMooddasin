@@ -5,6 +5,17 @@ import './index.css'
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+// ─── Backend Cold-Start Warm-Up ───
+// Render free tier 15dk boştan sonra uyur; ilk istek ~30sn sürer.
+// React render'dan ÖNCE fire-and-forget ping → kullanıcı ana sayfayı
+// okurken backend arka planda uyanır, mood'a tıklayınca hazır olur.
+(() => {
+  try {
+    const base = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE_URL || '');
+    fetch(`${base}/api/health`, { method: 'GET', mode: 'cors', keepalive: true }).catch(() => {});
+  } catch { /* sessizce geç */ }
+})();
+
 // Eski deploy chunk'ı 404 verince (sekme uzun süre açık kalıp yeni deploy gelince)
 // sayfayı bir kez yenile — "Failed to fetch dynamically imported module" hatasını çözer.
 const RELOAD_FLAG = 'fc_chunk_reloaded';
