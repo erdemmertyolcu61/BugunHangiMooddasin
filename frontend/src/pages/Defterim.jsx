@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched } from '../services/api';
-import { getApiUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
@@ -83,8 +82,7 @@ export default function Defterim() {
 
   const [shareCopiedId, setShareCopiedId] = useState(null);
   const handleShare = async (movie) => {
-    const BACKEND = getApiUrl('').replace('/api', '');
-    const shareUrl = `${BACKEND}/share/${movie.tmdb_id}`;
+    const shareUrl = `${window.location.origin}/discover?film=${movie.tmdb_id}`;
     const note = (movie.personal_note || '').trim();
     const shareData = {
       title: `${movie.title} — Film Eleştirmeni`,

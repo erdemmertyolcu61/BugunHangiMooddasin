@@ -135,6 +135,25 @@ export default function Discover() {
     fetchAndAnalyze();
   }, [searchParams, setSearchParams]);
 
+  // Paylaşım linkinden gelen ?film=<movieId> — filmi direkt aç
+  useEffect(() => {
+    const filmId = searchParams.get('film');
+    if (!filmId) return;
+    searchParams.delete('film');
+    setSearchParams(searchParams, { replace: true });
+    const fetchAndOpen = async () => {
+      try {
+        const res = await fetch(getApiUrl(`/api/movies/${filmId}/analyze`));
+        if (!res.ok) return;
+        const data = await res.json();
+        const movieObj = { id: parseInt(filmId), ...data };
+        setCachedAnalysis(parseInt(filmId), data);
+        setSelectedMovie(movieObj);
+      } catch {}
+    };
+    fetchAndOpen();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Mood Match percentage calculation
   // Quiz handlers
   const handleQuizAnswer = (ansIdx) => {
