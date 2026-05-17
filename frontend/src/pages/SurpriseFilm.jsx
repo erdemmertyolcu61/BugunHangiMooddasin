@@ -190,7 +190,7 @@ export default function SurpriseFilm() {
                       {movie.title}
                     </h2>
                     {ustadLine && (
-                      <p className="mt-2 text-sm text-[#ffbf00]/70 font-serif italic line-clamp-2">"{ustadLine}"</p>
+                      <p className="mt-2 text-[15px] text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">"{ustadLine}"</p>
                     )}
                   </div>
                 </div>
@@ -265,11 +265,11 @@ export default function SurpriseFilm() {
                   <>
                     {/* Üstadın Notu — ai_analysis bir string */}
                     {analysisData.ai_analysis && (
-                      <div className="bg-[#ffbf00]/5 border border-[#ffbf00]/20 rounded-2xl p-4">
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-[#ffbf00]/50 mb-2 flex items-center gap-1">
-                          <Sparkles size={8} /> Üstadın Notu
+                      <div className="bg-[#ffbf00]/[0.07] border border-[#ffbf00]/25 rounded-2xl p-5">
+                        <p className="text-[11px] uppercase tracking-[0.3em] text-[#ffbf00] mb-3 flex items-center gap-1.5 font-bold">
+                          <Sparkles size={10} /> Üstadın Notu
                         </p>
-                        <p className="text-[#ffbf00]/80 text-sm font-serif italic leading-relaxed">
+                        <p className="text-[#fdf3d8] text-[15px] sm:text-base font-serif leading-relaxed">
                           "{analysisData.ai_analysis}"
                         </p>
                       </div>
@@ -278,8 +278,8 @@ export default function SurpriseFilm() {
                     {/* Özet */}
                     {(analysisData.overview || movie?.overview) && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Özet</p>
-                        <p className="text-white/70 text-sm leading-relaxed font-serif">
+                        <p className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-2 font-bold">Özet</p>
+                        <p className="text-white/90 text-[15px] sm:text-base leading-relaxed font-serif">
                           {analysisData.overview || movie.overview}
                         </p>
                       </div>
@@ -288,10 +288,10 @@ export default function SurpriseFilm() {
                     {/* Puanlar */}
                     {analysisData.ratings?.length > 0 && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Puanlar</p>
+                        <p className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-2 font-bold">Puanlar</p>
                         <div className="flex flex-wrap gap-2">
                           {analysisData.ratings.map((r, i) => (
-                            <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-white/60">
+                            <span key={i} className="px-3 py-1.5 bg-white/8 border border-white/15 rounded-full text-[13px] text-white/80">
                               {r.source}: <span className="text-white font-bold">{r.value}</span>
                             </span>
                           ))}
@@ -302,8 +302,8 @@ export default function SurpriseFilm() {
                     {/* Cast */}
                     {analysisData.cast?.length > 0 && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-white/30 mb-2">Oyuncular</p>
-                        <p className="text-white/50 text-sm">
+                        <p className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-2 font-bold">Oyuncular</p>
+                        <p className="text-white/80 text-[15px] sm:text-base">
                           {analysisData.cast.slice(0, 4).map(c => c.name).join(', ')}
                         </p>
                       </div>

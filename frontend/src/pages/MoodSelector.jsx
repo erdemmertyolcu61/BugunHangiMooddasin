@@ -106,16 +106,6 @@ export default function MoodSelector() {
         )}
       </AnimatePresence>
 
-      {/* Arama butonu — sol üst */}
-      <button
-        onClick={() => navigate('/search')}
-        title="Film Ara"
-        className="fixed top-4 left-4 z-50 flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
-      >
-        <Search size={15} className="text-amber/60" />
-        <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">Film Ara</span>
-      </button>
-
       {/* Profil butonu — sağ üst */}
       <button
         onClick={() => navigate('/profil')}
@@ -154,6 +144,17 @@ export default function MoodSelector() {
           <p className="text-sm sm:text-base md:text-lg text-rose/60 font-serif italic leading-relaxed max-w-xl mx-auto px-2">
             Ruh halini seç ve bizimle yolculuğa çıkmaya hazırlan.
           </p>
+
+          {/* Arama çubuğu */}
+          <button
+            onClick={() => navigate('/search')}
+            className="group mt-7 sm:mt-9 mx-auto flex items-center gap-3 w-full max-w-md px-5 py-3.5 sm:py-4 rounded-full bg-white/[0.06] border border-white/10 hover:border-amber/40 hover:bg-white/[0.09] transition-all duration-300"
+          >
+            <Search size={18} className="text-amber/70 group-hover:text-amber transition-colors shrink-0" />
+            <span className="font-sans text-sm text-ivory/40 group-hover:text-ivory/60 transition-colors">
+              Film ara — isim, konu, oyuncu...
+            </span>
+          </button>
         </motion.header>
 
         {/* ═══ Grid: Mood Kartları + Quiz Widget ═══ */}

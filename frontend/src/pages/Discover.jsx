@@ -255,10 +255,10 @@ export default function Discover() {
         setMovies(enriched);
         setTotalPages(moviesData.total_pages || 1);
 
-        // Perdede başlığına scroll — filmleri üstten görmeye başlar
+        // Sayfanın en üstünden başla — "Yakında" slider'ı ve Üstad notu görünsün
         if (currentPage === 1) {
           requestAnimationFrame(() => {
-            filmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           });
         }
       } catch (err) {
@@ -609,7 +609,7 @@ export default function Discover() {
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-12 border-t border-white/5 pt-8 sm:pt-16">
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Üstat</p>
-                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Bilinmiyor'}</p>
+                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Gizli'}</p>
                     </div>
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Zamanın Ruhu</p>
@@ -737,7 +737,7 @@ export default function Discover() {
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-      <header className="sticky top-0 z-[60] bg-[#120d0b]/98 border-b border-white/5 shadow-lg pt-safe">
+      <header className="relative md:sticky md:top-0 z-[60] bg-[#120d0b]/98 border-b border-white/5 shadow-lg pt-safe">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3 sm:gap-6">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
@@ -1073,7 +1073,7 @@ export default function Discover() {
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-12 border-t border-white/5 pt-8 sm:pt-16">
                   <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Üstat</p>
-                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Bilinmiyor'}</p>
+                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Gizli'}</p>
                   </div>
                   <div className="space-y-3">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Zamanın Ruhu</p>
