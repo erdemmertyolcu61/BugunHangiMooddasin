@@ -208,6 +208,80 @@ def _normalize(text: str) -> str:
     return t
 
 
+# ═══════════════════════════════════════════════════════════════
+# SIMILAR-MOVIE RELEVANCE FILTER
+# Bir referans filmin "benzerlerini" üretirken alakasız, obscure veya
+# düşük kaliteli filmleri elemek için ortak filtre.
+# ═══════════════════════════════════════════════════════════════
+def _filter_relevant_similar(
+    candidates: list,
+    primary_genres: list,
+    exclude_ids: set,
+    primary_id: int,
+    min_vote_count: int = 80,
+    min_vote_average: float = 6.0,
+    require_genre_overlap: bool = True,
+) -> list:
+    """
+    Referans filme tematik/türsel olarak yakın, yeterince bilinen ve kaliteli
+    filmleri süzer ve alaka skoruna göre sıralar.
+
+    Eleme kriterleri:
+      - Aynı film / zaten önerilmiş (exclude_ids) → çıkar
+      - Başlık yok veya placeholder ("—") → çıkar
+      - vote_count < min_vote_count → çıkar (obscure sahte 10.0 filmleri öldürür)
+      - vote_average < min_vote_average → çıkar (kalite tabanı)
+      - Yetişkin içerik (adult) → çıkar
+      - require_genre_overlap True ve referansla ortak tür yoksa → çıkar
+
+    Skor = ortak_tür_sayısı*12 + min(vote_count/400, 15) + vote_average
+           + küçük rastgelelik (her seferinde aynı liste gelmesin diye)
+    """
+    primary_genre_set = set(primary_genres or [])
+    scored = []
+    seen = set(exclude_ids) | ({primary_id} if primary_id else set())
+
+    for m in candidates:
+        mid = m.get("id") or m.get("tmdb_id")
+        if not mid or mid in seen:
+            continue
+
+        title = (m.get("title") or "").strip()
+        if not title or title in ("—", "-", "N/A"):
+            continue
+
+        if m.get("adult") is True:
+            continue
+
+        vote_count = m.get("vote_count", 0) or 0
+        vote_avg = m.get("vote_average", 0) or 0
+
+        # Obscure / kalitesiz eleme
+        if vote_count < min_vote_count:
+            continue
+        if vote_avg < min_vote_average:
+            continue
+
+        cand_genres = set(m.get("genre_ids", []) or [])
+        overlap = len(primary_genre_set & cand_genres)
+
+        if require_genre_overlap and primary_genre_set and overlap == 0:
+            # Ana filmle hiç ortak tür yoksa tematik olarak alakasız → ele
+            continue
+
+        seen.add(mid)
+        score = (
+            overlap * 12.0
+            + min(vote_count / 400.0, 15.0)
+            + vote_avg
+            + random.uniform(0, 2.5)
+        )
+        scored.append((score, m))
+
+    scored.sort(key=lambda x: -x[0])
+    return [m for _, m in scored]
+
+
 def _turkish_normalize(text: str) -> str:
     """Extra normalization for Turkish character variations."""
     t = _normalize(text)
@@ -453,47 +527,55 @@ class ChatEngine:
             # Nothing found — fall back to mood
             return await self._handle_mood(intent, text, limit, min_vote, exclude_ids)
 
-        # 3. Get similar movies
+        # 3. Get similar movies — TMDB recommendations/similar are thematically
+        #    curated, so they are the primary source.
         movie_id = primary_movie.get("id") or primary_movie.get("tmdb_id")
+        primary_genres = primary_movie.get("genre_ids", []) or []
         try:
-            similar_data, rec_data = await asyncio.gather(
-                asyncio.wait_for(self.tmdb.get_similar_movies(movie_id), timeout=5.0),
+            rec_data, similar_data = await asyncio.gather(
                 asyncio.wait_for(self.tmdb.get_recommendations(movie_id), timeout=5.0),
+                asyncio.wait_for(self.tmdb.get_similar_movies(movie_id), timeout=5.0),
                 return_exceptions=True,
             )
-            if isinstance(similar_data, dict):
-                similar_movies.extend(similar_data.get("movies", []))
+            # Recommendations önce (TMDB'nin en isabetli sinyali), sonra similar
             if isinstance(rec_data, dict):
                 similar_movies.extend(rec_data.get("movies", []))
+            if isinstance(similar_data, dict):
+                similar_movies.extend(similar_data.get("movies", []))
         except Exception:
             pass
 
-        # Also search local DB for movies with same genres
-        primary_genres = primary_movie.get("genre_ids", [])
-        if primary_genres:
-            from backend.mood_scoring import calculate_mood_scores
-            genre_scores = calculate_mood_scores(
-                primary_genres, primary_movie.get("vote_average", 7),
-                overview=primary_movie.get("overview"),
-                release_date=primary_movie.get("release_date"),
-            )
-            if genre_scores:
-                top_mood = max(genre_scores, key=genre_scores.get)
-                local_mood_movies = await self.db.get_all_repository_movies_by_mood(top_mood, min_vote=min_vote)
-                similar_movies.extend(local_mood_movies[:20])
+        # Tematik/kaliteli süzme — obscure 10.0 ve alakasız tür dışı filmleri ele
+        final_similar = _filter_relevant_similar(
+            similar_movies, primary_genres, exclude_ids, movie_id,
+            min_vote_count=80, min_vote_average=6.0, require_genre_overlap=True,
+        )
 
-        # Deduplicate and exclude primary + exclude_ids
-        seen = {movie_id} | exclude_ids
-        unique_similar = []
-        for m in similar_movies:
-            mid = m.get("id") or m.get("tmdb_id")
-            if mid and mid not in seen:
-                seen.add(mid)
-                unique_similar.append(m)
+        # TMDB yeterli alakalı sonuç vermezse, yerel havuzdan AYNI türden
+        # filmlerle tamamla (yine tür-örtüşmesi + kalite filtresinden geçer).
+        if len(final_similar) < (limit - 1) and primary_genres:
+            try:
+                from backend.mood_scoring import calculate_mood_scores
+                genre_scores = calculate_mood_scores(
+                    primary_genres, primary_movie.get("vote_average", 7),
+                    overview=primary_movie.get("overview"),
+                    release_date=primary_movie.get("release_date"),
+                )
+                if genre_scores:
+                    top_mood = max(genre_scores, key=genre_scores.get)
+                    local_mood_movies = await self.db.get_all_repository_movies_by_mood(top_mood, min_vote=min_vote)
+                    already = {(x.get("id") or x.get("tmdb_id")) for x in final_similar}
+                    padded = _filter_relevant_similar(
+                        local_mood_movies, primary_genres,
+                        exclude_ids | already, movie_id,
+                        min_vote_count=50, min_vote_average=6.0,
+                        require_genre_overlap=True,
+                    )
+                    final_similar.extend(padded)
+            except Exception:
+                pass
 
-        # Sort by vote average + add randomization
-        unique_similar.sort(key=lambda x: -(x.get("vote_average", 0) * 0.7 + random.random() * 3))
-        final_similar = unique_similar[:limit - 1]
+        final_similar = final_similar[:limit - 1]
 
         # Build response
         all_movies = []
@@ -577,48 +659,53 @@ class ChatEngine:
         if not ref_movie:
             return await self._handle_mood(intent, text, limit, min_vote, exclude_ids)
 
-        # Get similar movies from TMDb
+        # Get similar movies from TMDb — recommendations önce (en isabetli)
         movie_id = ref_movie.get("id") or ref_movie.get("tmdb_id")
+        ref_genres = ref_movie.get("genre_ids", []) or []
         similar_movies = []
         try:
-            similar_data, rec_data = await asyncio.gather(
-                asyncio.wait_for(self.tmdb.get_similar_movies(movie_id), timeout=5.0),
+            rec_data, similar_data = await asyncio.gather(
                 asyncio.wait_for(self.tmdb.get_recommendations(movie_id), timeout=5.0),
+                asyncio.wait_for(self.tmdb.get_similar_movies(movie_id), timeout=5.0),
                 return_exceptions=True,
             )
-            if isinstance(similar_data, dict):
-                similar_movies.extend(similar_data.get("movies", []))
             if isinstance(rec_data, dict):
                 similar_movies.extend(rec_data.get("movies", []))
+            if isinstance(similar_data, dict):
+                similar_movies.extend(similar_data.get("movies", []))
         except Exception:
             pass
 
-        # Also get local DB movies with same genres/mood
-        ref_genres = ref_movie.get("genre_ids", [])
-        if ref_genres:
-            from backend.mood_scoring import calculate_mood_scores
-            genre_scores = calculate_mood_scores(
-                ref_genres, ref_movie.get("vote_average", 7),
-                overview=ref_movie.get("overview"),
-                release_date=ref_movie.get("release_date"),
-            )
-            if genre_scores:
-                top_mood = max(genre_scores, key=genre_scores.get)
-                local_mood_movies = await self.db.get_all_repository_movies_by_mood(top_mood, min_vote=min_vote)
-                similar_movies.extend(local_mood_movies[:20])
+        # Tematik/kaliteli süzme — alakasız ve obscure filmleri ele
+        final = _filter_relevant_similar(
+            similar_movies, ref_genres, exclude_ids, movie_id,
+            min_vote_count=80, min_vote_average=6.0, require_genre_overlap=True,
+        )
 
-        # Deduplicate, exclude ref movie and exclude_ids
-        seen = {movie_id} | exclude_ids
-        unique = []
-        for m in similar_movies:
-            mid = m.get("id") or m.get("tmdb_id")
-            if mid and mid not in seen:
-                seen.add(mid)
-                unique.append(m)
+        # Yetersizse yerel havuzdan AYNI türden filmlerle tamamla
+        if len(final) < limit and ref_genres:
+            try:
+                from backend.mood_scoring import calculate_mood_scores
+                genre_scores = calculate_mood_scores(
+                    ref_genres, ref_movie.get("vote_average", 7),
+                    overview=ref_movie.get("overview"),
+                    release_date=ref_movie.get("release_date"),
+                )
+                if genre_scores:
+                    top_mood = max(genre_scores, key=genre_scores.get)
+                    local_mood_movies = await self.db.get_all_repository_movies_by_mood(top_mood, min_vote=min_vote)
+                    already = {(x.get("id") or x.get("tmdb_id")) for x in final}
+                    padded = _filter_relevant_similar(
+                        local_mood_movies, ref_genres,
+                        exclude_ids | already, movie_id,
+                        min_vote_count=50, min_vote_average=6.0,
+                        require_genre_overlap=True,
+                    )
+                    final.extend(padded)
+            except Exception:
+                pass
 
-        # Sort with weighted randomization
-        unique.sort(key=lambda x: -(x.get("vote_average", 0) * 0.6 + random.random() * 4))
-        final = unique[:limit]
+        final = final[:limit]
 
         # Build movies list
         movies = []
