@@ -14,6 +14,63 @@
   --font-sans: 'Montserrat', sans-serif;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   AYDINLIK TEMA — [data-theme="light"]
+   JSX'e dokunmadan, hardcoded koyu renkleri açık paletle değiştirir.
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --color-bg: #f4efe4;        /* sıcak krem zemin */
+  --color-surface: #ffffff;   /* kart yüzeyi */
+  --color-ivory: #241c15;     /* ana metin (koyu) */
+  --color-rose: #7a5c5c;
+}
+
+/* Sayfa zeminleri (koyu espresso tonları) → krem */
+[data-theme="light"] .bg-\[\#120d0b\],
+[data-theme="light"] .bg-\[\#120d0a\],
+[data-theme="light"] .bg-\[\#0d0b0a\],
+[data-theme="light"] .bg-\[\#0a0807\] {
+  background-color: #f4efe4 !important;
+}
+/* Yüzeyler / modallar / paneller → beyaz */
+[data-theme="light"] .bg-\[\#1c1512\],
+[data-theme="light"] .bg-\[\#1a1a1a\],
+[data-theme="light"] .bg-\[\#1a1410\],
+[data-theme="light"] .bg-\[\#1a1816\],
+[data-theme="light"] .bg-\[\#12100e\],
+[data-theme="light"] .bg-\[\#12100e\]\/95,
+[data-theme="light"] .bg-\[\#1a1a1a\]\/90,
+[data-theme="light"] .bg-\[\#1a1a1a\]\/95 {
+  background-color: #ffffff !important;
+  color: #241c15;
+}
+
+/* Beyaz / açık hardcoded metinler → koyu mürekkep */
+[data-theme="light"] .text-white { color: #241c15 !important; }
+[data-theme="light"] [class*="text-white\/"] { color: rgba(36, 28, 21, 0.75) !important; }
+[data-theme="light"] .text-\[\#f5f2eb\],
+[data-theme="light"] .text-\[\#fff8e8\],
+[data-theme="light"] .text-\[\#fdf3d8\],
+[data-theme="light"] .text-\[\#ffe9b8\],
+[data-theme="light"] .text-\[\#ffe9b0\] { color: #241c15 !important; }
+[data-theme="light"] .text-\[\#e8d3d3\] { color: #7a5c5c !important; }
+/* Placeholder'lar koyu zeminde açıktı → light'ta koyu */
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder { color: rgba(36, 28, 21, 0.4) !important; }
+
+/* Yarı saydam beyaz dolgular (koyu üstünde kart) → ince koyu */
+[data-theme="light"] [class*="bg-white\/"] { background-color: rgba(20, 14, 10, 0.05) !important; }
+[data-theme="light"] [class*="border-white\/"] { border-color: rgba(20, 14, 10, 0.14) !important; }
+
+/* Koyu yarı saydam zeminler (etiket/rozet) → açık */
+[data-theme="light"] [class*="bg-black\/"] { background-color: rgba(255, 255, 255, 0.7) !important; }
+
+/* Vinyet / aura çok parlamasın */
+[data-theme="light"] .vignette { opacity: 0.05 !important; }
+
+/* Amber metin biraz koyulaşsın (krem üstünde okunur olsun) */
+[data-theme="light"] .text-amber { color: #9a6b00 !important; }
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

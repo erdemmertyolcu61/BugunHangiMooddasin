@@ -3,6 +3,35 @@ let currentMoodId = null;
 let transitionId = 0;
 let targetVolume = 0.35;
 
+// Mobil autoplay kilidi: ilk play() bloklanırsa beklemeye al,
+// kullanıcının ilk dokunuşunda otomatik başlat.
+let pendingMoodId = null;
+let unlockBound = false;
+
+function bindAutoUnlock() {
+  if (unlockBound || typeof window === 'undefined') return;
+  unlockBound = true;
+
+  const tryResume = () => {
+    // Bekleyen bir mood varsa onu başlat
+    if (pendingMoodId) {
+      const id = pendingMoodId;
+      pendingMoodId = null;
+      playMoodAudio(id);
+      return;
+    }
+    // Çalması gerekirken duraklamış ses varsa devam ettir
+    if (currentAudio && currentAudio.paused && currentMoodId && targetVolume > 0) {
+      currentAudio.play().catch(() => {});
+    }
+  };
+
+  // Kalıcı dinleyiciler — her dokunuş/tık denesin (gesture içinde çalışır)
+  ['pointerdown', 'touchend', 'click', 'keydown'].forEach((evt) => {
+    window.addEventListener(evt, tryResume, { passive: true, capture: true });
+  });
+}
+
 // Premium crossfade settings
 const fadeDurationMs = 600; // Faster, snappier fade
 const preloadedAudios = new Map();
@@ -92,6 +121,9 @@ export async function playMoodAudio(moodId) {
   const normalizedMoodId = normalizeMoodId(moodId);
   if (!normalizedMoodId || !getMoodAudioUrl(normalizedMoodId)) return;
 
+  // İlk çağrıda autoplay kilidi dinleyicilerini kur
+  bindAutoUnlock();
+
   if (currentAudio && currentMoodId === normalizedMoodId && !currentAudio.paused) {
     return;
   }
@@ -140,14 +172,18 @@ export async function playMoodAudio(moodId) {
         audio.pause();
         return;
       }
+      pendingMoodId = null; // Başarıyla başladı
       await fadeAudio(audio, 0, targetVolume, fadeDurationMs, token);
     }
   } catch (err) {
-    console.error("[MoodAudio] Playback blocked:", err);
+    // Mobil autoplay bloğu — bekleyene al, ilk dokunuşta başlasın
+    console.warn("[MoodAudio] Autoplay blocked, will resume on first interaction:", err?.name || err);
+    pendingMoodId = normalizedMoodId;
   }
 }
 
 export async function stopMoodAudio() {
+  pendingMoodId = null; // Açıkça durdurulduysa kilit açılınca dirilmesin
   transitionId += 1;
   const token = transitionId;
   if (!currentAudio) return;

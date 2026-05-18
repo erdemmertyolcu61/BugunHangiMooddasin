@@ -3,9 +3,11 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MoodProvider, useMood } from './context/MoodContext';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import BetaGate from './components/BetaGate';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
+import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
 // Ana sayfa (landing) eager — ilk boya hızlı olsun. Diğerleri lazy → çok daha hızlı ilk yükleme.
 import MoodSelector from './pages/MoodSelector';
@@ -61,6 +63,7 @@ function AppContent() {
     <>
       <ScrollToTop />
       <AuraBackground />
+      <ThemeToggle />
       <AudioPlayer />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
@@ -91,13 +94,15 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <BetaGate>
-          <MoodProvider>
-            <AppContent />
-          </MoodProvider>
-        </BetaGate>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <BetaGate>
+            <MoodProvider>
+              <AppContent />
+            </MoodProvider>
+          </BetaGate>
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }
