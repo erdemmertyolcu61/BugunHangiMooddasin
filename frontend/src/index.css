@@ -25,57 +25,82 @@
   --color-rose: #7a5c5c;
 }
 
-/* Sayfa zeminleri (koyu espresso tonları) → bej */
-[data-theme="light"] .bg-\[\#120d0b\],
-[data-theme="light"] .bg-\[\#120d0a\],
-[data-theme="light"] .bg-\[\#0d0b0a\],
-[data-theme="light"] .bg-\[\#0a0807\] {
+/* Sayfa zeminleri & bar'lar (tüm opaklık varyantlarıyla) → bej.
+   Substring eşleşme: bg-[#120d0b], bg-[#120d0b]/98, /95 hepsi yakalanır. */
+[data-theme="light"] [class*="bg-[#120d0b]"],
+[data-theme="light"] [class*="bg-[#0d0b0a]"],
+[data-theme="light"] [class*="bg-[#0a0807]"] {
   background-color: #e7dabd !important;
 }
-/* Head bar & bottom bar (#120d0b/98) → bej (yarı saydam, sticky okunur) */
-[data-theme="light"] .bg-\[\#120d0b\]\/98,
-[data-theme="light"] .bg-\[\#120d0b\]\/95 {
-  background-color: rgba(228, 216, 188, 0.97) !important;
-}
-/* Yüzeyler / modallar / paneller → açık bej */
-[data-theme="light"] .bg-\[\#1c1512\],
-[data-theme="light"] .bg-\[\#1a1a1a\],
-[data-theme="light"] .bg-\[\#1a1410\],
-[data-theme="light"] .bg-\[\#1a1816\],
-[data-theme="light"] .bg-\[\#12100e\],
-[data-theme="light"] .bg-\[\#1a1816\]\/95,
-[data-theme="light"] .bg-\[\#12100e\]\/95,
-[data-theme="light"] .bg-\[\#1a1a1a\]\/90,
-[data-theme="light"] .bg-\[\#1a1a1a\]\/95 {
+/* Yüzeyler / modallar / paneller / popover'lar → açık bej */
+[data-theme="light"] [class*="bg-[#1c1512]"],
+[data-theme="light"] [class*="bg-[#1a1a1a]"],
+[data-theme="light"] [class*="bg-[#1a1410]"],
+[data-theme="light"] [class*="bg-[#1a1816]"],
+[data-theme="light"] [class*="bg-[#12100e]"],
+[data-theme="light"] [class*="bg-[#120d0a]"] {
   background-color: #f3ecdb !important;
   color: #2a2017;
 }
 
-/* Beyaz / açık hardcoded metinler → koyu mürekkep */
-[data-theme="light"] .text-white { color: #241c15 !important; }
-[data-theme="light"] [class*="text-white\/"] { color: rgba(36, 28, 21, 0.75) !important; }
-[data-theme="light"] .text-\[\#f5f2eb\],
-[data-theme="light"] .text-\[\#fff8e8\],
-[data-theme="light"] .text-\[\#fdf3d8\],
-[data-theme="light"] .text-\[\#ffe9b8\],
-[data-theme="light"] .text-\[\#ffe9b0\] { color: #241c15 !important; }
-[data-theme="light"] .text-\[\#e8d3d3\] { color: #7a5c5c !important; }
-/* Placeholder'lar koyu zeminde açıktı → light'ta koyu */
+/* Tüm açık/beyaz hardcoded metinler → koyu espresso */
+[data-theme="light"] .text-white,
+[data-theme="light"] [class*="text-white/"],
+[data-theme="light"] [class*="text-[#f5f2eb]"],
+[data-theme="light"] [class*="text-[#fff8e8]"],
+[data-theme="light"] [class*="text-[#fdf3d8]"],
+[data-theme="light"] [class*="text-[#ffe9b8]"],
+[data-theme="light"] [class*="text-[#ffe9b0]"],
+[data-theme="light"] [class*="text-stone-3"],
+[data-theme="light"] [class*="text-stone-4"],
+[data-theme="light"] [class*="text-zinc-3"],
+[data-theme="light"] [class*="text-zinc-4"],
+[data-theme="light"] [class*="text-neutral-3"],
+[data-theme="light"] [class*="text-neutral-4"] {
+  color: #2a2017 !important;
+}
+/* "text-bg" amber buton üstünde koyu kalsın (bg değişkeni bej oldu) */
+[data-theme="light"] .text-bg { color: #2a2017 !important; }
+/* Gül/rose tonu metinler */
+[data-theme="light"] [class*="text-[#e8d3d3]"],
+[data-theme="light"] [class*="text-rose"] { color: #7a5c5c !important; }
+/* Açık amber metinler bej üstünde okunur espresso-altın olsun */
+[data-theme="light"] .text-amber,
+[data-theme="light"] [class*="text-amber-1"],
+[data-theme="light"] [class*="text-amber-2"],
+[data-theme="light"] [class*="text-amber-3"],
+[data-theme="light"] [class*="text-amber-4"],
+[data-theme="light"] [class*="text-amber-50"],
+[data-theme="light"] [class*="text-amber/"] { color: #8a5e08 !important; }
+
+/* Placeholder'lar → koyu */
 [data-theme="light"] input::placeholder,
-[data-theme="light"] textarea::placeholder { color: rgba(36, 28, 21, 0.4) !important; }
+[data-theme="light"] textarea::placeholder { color: rgba(42, 32, 23, 0.45) !important; }
 
-/* Yarı saydam beyaz dolgular (koyu üstünde kart) → ince koyu */
-[data-theme="light"] [class*="bg-white\/"] { background-color: rgba(20, 14, 10, 0.05) !important; }
-[data-theme="light"] [class*="border-white\/"] { border-color: rgba(20, 14, 10, 0.14) !important; }
-
+/* Yarı saydam beyaz dolgular/kenarlar → ince koyu */
+[data-theme="light"] [class*="bg-white/"] { background-color: rgba(42, 32, 23, 0.05) !important; }
+[data-theme="light"] [class*="border-white/"] { border-color: rgba(42, 32, 23, 0.15) !important; }
 /* Koyu yarı saydam zeminler (etiket/rozet) → açık */
-[data-theme="light"] [class*="bg-black\/"] { background-color: rgba(255, 255, 255, 0.7) !important; }
+[data-theme="light"] [class*="bg-black/"] { background-color: rgba(255, 255, 255, 0.6) !important; }
+
+/* Listeler & kart koyu gradyanları → düz açık bej (okunur olsun) */
+[data-theme="light"] [class*="bg-gradient-to"][class*="to-black"],
+[data-theme="light"] [class*="from-violet-95"],
+[data-theme="light"] [class*="from-slate-95"],
+[data-theme="light"] [class*="from-blue-95"],
+[data-theme="light"] [class*="from-pink-95"],
+[data-theme="light"] [class*="from-cyan-95"],
+[data-theme="light"] [class*="from-stone-95"],
+[data-theme="light"] [class*="from-rose-95"],
+[data-theme="light"] [class*="from-amber-95"],
+[data-theme="light"] [class*="from-emerald-95"],
+[data-theme="light"] [class*="from-zinc-95"] {
+  background-image: none !important;
+  background-color: #f3ecdb !important;
+}
 
 /* Vinyet / aura çok parlamasın */
-[data-theme="light"] .vignette { opacity: 0.05 !important; }
-
-/* Amber metin biraz koyulaşsın (krem üstünde okunur olsun) */
-[data-theme="light"] .text-amber { color: #9a6b00 !important; }
+[data-theme="light"] .vignette { opacity: 0.04 !important; }
 
 @layer base {
   html {

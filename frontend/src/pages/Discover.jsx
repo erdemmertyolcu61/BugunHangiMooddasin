@@ -795,8 +795,10 @@ export default function Discover() {
             </div>
           </div>
 
-          {/* Arama — ortada, tüm boşluğu doldurur */}
-          <div className="relative w-full md:flex-1 md:min-w-0">
+          {/* Mobilde: arama + "Bugünkü Ruh Halim" yan yana.
+              Web'de: md:contents ile 3-bölge düzeni korunur. */}
+          <div className="flex items-center gap-3 w-full md:contents">
+          <div className="relative flex-1 min-w-0 md:flex-1">
             <input
                 type="text"
                 value={searchQuery}
@@ -838,6 +840,7 @@ export default function Discover() {
                 {user?.name || 'Giriş Yap'}
               </span>
             </button>
+          </div>
           </div>
         </div>
       </header>
