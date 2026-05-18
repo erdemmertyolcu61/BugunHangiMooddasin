@@ -3,8 +3,12 @@ Claude AI Service - The 'Film Connoisseur' engine that assigns mood and emotiona
 """
 import json
 import random
+import asyncio
+import logging
 from anthropic import AsyncAnthropic
 from backend.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_FAST_MODEL
+
+logger = logging.getLogger("claude_service")
 
 FALLBACK_TEMPLATES = [
     "Üstadın Notu: {title} sıradan bir {genre} filmi değil — {year} yılında çekilmiş olmasına rağmen her izleyişte taze kalan nadir yapımlardan. Bir akşamını buna ayır, pişman olmayacaksın.",
@@ -196,157 +200,35 @@ class ConfusionService:
         if not user_text or len(user_text.strip()) < 3:
             return {}
 
-        prompt = f"""Sen 25 yılını sinemaya adamış, Cannes, Sundance ve Berlin'i avucunun içi gibi bilen, sofistike, entelektüel ve derin bir sinema eleştirmenisin (Üstat/Gurme).
-Üslubun bilge, samimi, hafif melankolik ve her zaman merak uyandırıcı olmalı. "Evlat", "Başyapıt", "Tozlu Raflar" gibi sıcak ifadeler kullanırsın.
-Kullanıcı ruh halini şöyle anlatıyor: "{user_text}"
+        prompt = f"""Sen bilge bir Türk sinema danışmanısın (Üstat). Kullanıcının yazdığını derinlemesine çözümle.
+Kullanıcı: "{user_text}"
 
-Görevin: Kullanıcının enerji seviyesini, duygusal tonunu, alt metnini ve sinemasal ihtiyacını derinlemesine analiz et.
+14 MOOD (id: kısa tanım):
+battaniye: sıcak/rahat/feel-good, yormaz | yolculuk: keşif/yol/macera | gece: karanlık şehir/suç/noir/gizem | kahkaha: komedi/gülme/hafif | gozyasi: duygusal/ağlatan/kayıp/aile dramı | adrenalin: aksiyon/tempo/heyecan | askbahcesi: romantik/aşk/tutku | zamanyolcusu: tarih/dönem/klasik/nostalji | sessiz: sakin/minimal/içe dönük/yavaş | zihin: puzzle/twist/mind-game | kalp: bağımsız/art house/festival/karakter odaklı | karmakar: gerçeküstü/deneysel/tuhaf | Retro: 80s/neon/synthwave/VHS | deep-chills: slow-burn atmosferik korku/gerilim
 
-YAZIM HATASI TESPİTİ (Fuzzy Matching & Typo Correction):
-Kullanıcı film adı veya yönetmen/oyuncu adı yazmış ama hatalı yazmış olabilir:
-- "Inseptiyon" / "inseption" → "Inception" (Başlangıç)
-- "Intersteler" / "interstellar" → "Interstellar" (Yıldızlararası)
-- "Tarantıno" → "Tarantino"
-- "Kofman" → "Kaufman" (Charlie Kaufman)
-- "Se7en" → doğru zaten
-- "finit dövüş kulübü" → "Fight Club"
-Eğer bir yazım hatası ya da yaklaşık yazım tespit edersen:
-- correction_detected: true
-- corrected_text: "Evlat, '[yanlış yazım]' derken [doğru ad]'ı kastettin herhalde... [kısa Üstad yorumu]"
-Eğer yazım hatası yoksa:
-- correction_detected: false
-- corrected_text: null
+NÜANS KURALLARI (mood seçiminde belirleyici):
+- "yorgun/bitkin/uykusuz" → düşük enerji: battaniye/sessiz/kalp (adrenalin/kahkaha DEĞİL)
+- "kafamı dağıtmak/gülmek/stres atayım" → kahkaha/battaniye
+- "romantik" → askbahcesi; "romantik ama klişe olmasın" → kalp/gozyasi (askbahcesi DEĞİL); "aşk ama ağlatan" → gozyasi
+- KRİTİK: "sevgilimle/eşimle/partnerimle" + "şehvetli/tutkulu/ateşli/erotik/romantik gece/çift gecesi/date night" → primary_mood KESİNLİKLE "askbahcesi" (yoğun romantik/tutkulu), prefer'a "passionate" ekle. ASLA battaniye/"sıcak rahat ortam" değil.
+- "karanlık+kaliteli" → gece/zihin/deep-chills; "gerilmek/korkmak" → deep-chills/gece
+- "düşündüren/felsefi/twist" → zihin/kalp/karmakar
+- "nostaljik/klasik/tarih" → zamanyolcusu; "80ler/neon/synth" → Retro
+- "sıradışı/tuhaf" → karmakar; "bağımsız/indie/festival" → kalp; "macera/keşif" → yolculuk
+- MEVSİM/HAVA (atmosphere'a yaz): "kış/kar/soğuk" → battaniye/sessiz/gozyasi/zamanyolcusu (içe dönük cozy, ASLA tersi); "yaz/güneş" → yolculuk/askbahcesi/adrenalin; "sonbahar" → sessiz/gozyasi/kalp; "yağmur" → sessiz/gozyasi/battaniye
+- Kısa/belirsiz → en güçlü ipucundan primary seç, mood_mix geniş tut. Çelişkili istek → baskın duygu primary, diğeri secondary.
+- ASLA kullanıcının istediğinin tersini önerme (kış istendi → sıcak/yazlık DEĞİL).
 
-BAĞLAM BOYUTLARI (3-Dimensional Context Matrix):
-Kullanıcının sorgusundan şu 3 boyutu çıkar ve mood seçiminde kullan:
+YAZIM HATASI: film/kişi adı yanlış yazılmışsa düzelt (Inseptiyon→Inception, Tarantıno→Tarantino). Varsa correction_detected=true + corrected_text="Evlat, '[yanlış]' derken [doğru]'ı kastettin herhalde...", yoksa false + null.
 
-A) Atmosfer/Mevsim (atmosphere): "yaz gecesi", "kışın kar", "sonbahar", "yağmurlu gün", "sıcak", "soğuk" vb.
-   Bulamazsan: null
-B) Eşlik Bağlamı (companion): "yalnız", "sevgilimle", "ailemle", "arkadaşlarla", "çocuklarla"
-   Bulamazsan: null
-C) Örtük Ruh Hali (implicit_mood): A ve B'nin sinemasal birleşimi — 1 cümle
+VARLIK ÇIKARIMI: metindeki film/kişi adlarını ekleri temizleyerek çıkar. intent_hint:
+- "similar": benzer film istiyor ("gibi/tarzında/tadında/benzeri")
+- "lookup": filmi bulmak/bilgi istiyor
+- "mood_inspired": referansı sadece atmosfer için kullanıyor
+- "none": film/kişi yok
 
-Bu boyutlar mood seçimini doğrudan etkiler (örnekler):
-- "sevgilimle + yaz akşamı" → askbahcesi/battaniye, sıcak romantik
-- "arkadaşlarla + gece" → kahkaha/adrenalin, yüksek enerji
-- "yalnız + kış gecesi" → sessiz/kalp/gozyasi, içe dönük
-- "ailemle + hafta sonu" → battaniye/yolculuk, herkese uygun
-- "çocuklarla" → battaniye (animasyon dahil), karanlık/korku ASLA
-- "iş çıkışı yorgun" → battaniye/sessiz, düşük enerji
-- "stres var kafamı dağıtayım" → kahkaha/adrenalin, yüksek enerji
-
-14 Mood Tanımları:
-- battaniye: Sıcak, rahat, ev hissi, kahve/çay/battaniye, feel-good. Yormaz, sarar. [Battaniye Modu]
-- yolculuk: Keşif, yol, uzak yerler, macera, içsel veya fiziksel yolculuk. Ufuk açar. [Yolculuk Ruhu]
-- gece: Karanlık şehir, suç, gizem, noir, uykusuzluk. Sokak lambaları, neon. [Gece Kuşu]
-- kahkaha: Komedi, gülmek, rahatlamak, kafayı dağıtmak. Hafif ve eğlenceli. [Kahkaha Molası]
-- gozyasi: Duygusal yoğunluk, ağlamak, aşk acısı, aile/kayıp dramı. Katarsis. [Gözyaşı Gecesi]
-- adrenalin: Aksiyon, tempo, heyecan, tehlike, yüksek enerji. Koltuğun kenarı. [Adrenalin Patlaması]
-- askbahcesi: Romantik, sıcak, kırılgan, aşk hissi. Kalpte kelebekler. [Aşk Bahçesi]
-- zamanyolcusu: Tarih, dönem filmi, klasik/vintage sinema, nostalji. [Zaman Yolcusu]
-- sessiz: Sakin, minimal, içe dönük, yavaş, düşündüren. Gözlem ve his. [Sessiz Yolculuk]
-- zihin: Puzzle, twist, karmaşık planlar, mind-game. Beyin jimnastiği. [Zihin Savaşı]
-- kalp: Bağımsız sinema, art house, festival filmleri. Blockbuster dışı, karakter odaklı, yaratıcı. [Kalbimin Sesi]
-- karmakar: Gerçeküstü, deneysel, tuhaf, mantığın büküldüğü. Rüya gibi. [Karmaşakar]
-- Retro: 80s synthwave, neon, VHS, arcade, retro estetik. Zaman makinesi. [Retro Bakış]
-- deep-chills: Slow-burn atmosferik korku/gerilim, ürperti. Tedirgin edici. [Derin Ürperti]
-
-KRİTİK NÜANS KURALLARI (bu kurallar mood seçiminde belirleyicidir):
-
-Enerji & Yorgunluk:
-- "yorgun" / "bitkin" / "uykusuz" → düşük enerji. battaniye/sessiz/kalp. Adrenalin/kahkaha DEĞİL.
-- "yorgun ama boş olmasın" → kalp/sessiz (anlamlı ama yormayan). Kahkaha DEĞİL.
-- "kafamı dağıtmak istiyorum" → kahkaha/battaniye (hafif). Gozyasi/deep-chills DEĞİL.
-- "enerjik" / "heyecanlı" → adrenalin/yolculuk/kahkaha.
-
-Ton & Karanlık:
-- "karanlık" + "kaliteli" → gece/zihin/deep-chills (kaliteli noir/gerilim).
-- "karanlık ama ucuz olmasın" → gece/zihin (ucuz slasher değil). Deep-chills ikincil.
-- "gerilmek" / "korkmak" → deep-chills/gece.
-- "ürpertici ama akıllı" → deep-chills/zihin.
-- "kasvetli" / "bunaltıcı olmasın" → battaniye/yolculuk/kahkaha (kaçış).
-
-Romantizm:
-- "romantik" normal → askbahcesi ağırlıklı.
-- "romantik ama klişe olmasın" → kalp (indie romantik) / gozyasi (derin). Askbahcesi DEĞİL.
-- "aşk filmi ama ağlatan" → gozyasi ağırlıklı, askbahcesi ikincil.
-- "tatlı/şirin" → battaniye/askbahcesi.
-- KRİTİK: "sevgilimle" / "partnerimle" / "eşimle" + "şehvetli" / "tutkulu" / "ateşli" / "erotik" / "baştan çıkarıcı" / "çift gecesi" / "romantik gece" → askbahcesi BİRİNCİL (yüksek ağırlık), ikincil gozyasi veya gece. Bu KESİNLİKLE battaniye DEĞİL — "sıcak/rahat ortam" diye yorumlama. Burada istenen yoğun romantik/tutkulu atmosfer; primary_mood="askbahcesi", prefer'a "sensual_romance"/"passionate" ekle.
-- "çiftlere film" / "ikimiz için" / "date night" → askbahcesi birincil, battaniye ikincil olabilir ama asla tek başına battaniye değil.
-
-Düşünce & Derinlik:
-- "düşündüren" / "sorgulatan" → zihin/kalp.
-- "beyin yakan" / "twist" → zihin ağırlıklı.
-- "boş olmasın" / "içi dolu" → kalp/sessiz/zihin. Kahkaha DEĞİL.
-- "felsefi" / "varoluşsal" → karmakar/sessiz/kalp.
-
-Hafiflik:
-- "gülmek istiyorum" → kahkaha ağırlıklı.
-- "ağır olmasın" → kahkaha/battaniye/yolculuk. Deep-chills/gozyasi DEĞİL.
-- "rahatlatıcı" → battaniye/sessiz.
-- "hafif ama içi dolu" → battaniye/kalp/sessiz.
-- "stres atayım" → kahkaha/adrenalin.
-
-Nostalji & Dönem:
-- "nostaljik/eski" → zamanyolcusu veya Retro.
-- "80ler/neon/VHS/synth" → Retro (80s estetiği).
-- "tarih/dönem/kostüm" → zamanyolcusu.
-- "klasik sinema" → zamanyolcusu.
-
-Özel Durumlar:
-- "sıradışı/garip/tuhaf" → karmakar.
-- "bağımsız/indie/festival" → kalp.
-- "macera/yolculuk/keşif" → yolculuk.
-- Kısa/belirsiz mesajlar → primary_mood'u en güçlü ipucuna göre seç, mood_mix geniş tut.
-- Çelişkili istekler ("korkunç ama komik") → en baskın duyguyu primary yap, diğerini secondary.
-
-Enerji seviyesi (energy_level):
-- low: yorgun, sakin, dinlenmek istiyor
-- medium: nötr, dengeli
-- high: enerjik, heyecanlı, aktif
-
-Duygusal ağırlık (emotional_weight):
-- light: hafif, eğlenceli
-- medium: dengeli
-- heavy: derin, ağır, yoğun
-
-Tempo (pace):
-- slow: yavaş, meditatif
-- medium: orta
-- fast: hızlı, dinamik
-
-Karanlık seviyesi (darkness_level):
-- light: parlak, aydınlık
-- neutral: dengeli
-- dark: karanlık, kasvetli
-- very_dark: çok karanlık, ağır
-
-Karmaşıklık (complexity):
-- easy: sade, anlaşılır
-- medium: orta düzey
-- complex: karmaşık, katmanlı
-
-Üstad'ın Sinemasal Satırı (ustad_line):
-- Kısa (1-2 cümle), şiirsel, sinemasal bir Türkçe cümle. Bir danışmanın değil, bir ustanın sesi.
-- Filmleri spoile etme. Kullanıcının hissini yansıt.
-
-FİLM ÖZEL TAHMİN KURALLARI:
-- Kullanıcının yazdığı her kelimeyi bir film sahnesine bağla. "yağmur" → Shawshank, Blade Runner. "yalnızlık" → Her, Lost in Translation.
-- Kullanıcı kısa/belirsiz yazsa bile, en olası 3-5 film aklında tut ve mood_mix'i buna göre ağırlıkla.
-- "gibi bir film" ifadesi gelirse, o filmin türünü, tonunu, temposunu ve atmosferini analiz edip en yakın mood'u seç.
-- Türkçe günlük dildeki duygu ifadelerini çöz: "içim sıkılıyor" → kahkaha/battaniye, "kafam dağınık" → sessiz/kalp, "delirmek üzereyim" → adrenalin/karmakar.
-- Mevsim/hava durumu ipuçları: "yağmurlu" → battaniye/sessiz/gozyasi, "sıcak yaz gecesi" → gece/adrenalin, "kar yağıyor" → battaniye/zamanyolcusu.
-- Kullanıcı spesifik bir sahne/his tarif ediyorsa (örn. "arabada müzik dinleyerek yolda gitmek") → bunu en iyi karşılayan mood'u birincil yap.
-
-VARLIK ÇIKARIMI (Entity Extraction):
-Kullanıcının metninde geçen film adları ve kişi adlarını tespit et:
-- Film adları: Türkçe veya İngilizce, ek almış olabilir ("Inception'daki", "interstellar tadında", "Başlangıç'taki"). Ekleri temizle, saf film adını yaz.
-- Kişi adları: Oyuncu veya yönetmen, Türkçe iyelik/hal ekleriyle olabilir ("Nolan'ın", "Al Pacino'nun", "brad pitt'in"). Ekleri temizle, saf ismi yaz.
-- Niyet ipucu (intent_hint): Kullanıcı bu referansla ne yapmak istiyor?
-  - "similar": benzer film istiyor ("gibi", "tarzında", "tadında", "benzeri", "o havada", "o tarz")
-  - "lookup": filmi bulmak/bilgi almak istiyor
-  - "mood_inspired": referansı sadece atmosfer/ruh hali için kullanıyor, spesifik benzer film beklemiyor
-  - "none": hiçbir film/kişi tespit edilemedi
+context_dimensions: atmosphere (mevsim/hava/ortam veya null), companion ("sevgilimle/ailemle/yalnız" veya null), implicit_mood (1 cümle sinemasal ihtiyaç).
+ustad_line: kısa, şiirsel, Türkçe, ustanın sesi, spoiler yok.
 
 Eğer film veya kişi tespit edemezsen, listeler boş olsun ve intent_hint "none" olsun.
 
@@ -385,26 +267,35 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
   }}
 }}"""
 
-        try:
-            # Hızlı model (Haiku) — yapısal çıkarım, latency-kritik.
-            # Haiku başarısız/yetersizse aşağıdaki except + rule-based devreye girer.
-            message = await self.client.messages.create(
-                model=self.fast_model, max_tokens=900,
-                messages=[{"role": "user", "content": prompt}],
-            )
+        # Model merdiveni: önce hızlı Haiku; başarısız/geçersiz olursa
+        # ÇALIŞAN Sonnet'e düş (asla doğrudan aptal rule-based'e değil).
+        # analyze_movie'deki kanıtlanmış retry desenini yansıtır.
+        models = [self.fast_model, self.model, self.model]
+        for attempt, model in enumerate(models):
+            try:
+                message = await self.client.messages.create(
+                    model=model, max_tokens=900,
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
-            response_text = message.content[0].text.strip()
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
+                response_text = message.content[0].text.strip()
+                if "```json" in response_text:
+                    response_text = response_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in response_text:
+                    response_text = response_text.split("```")[1].split("```")[0].strip()
 
-            result = json.loads(response_text)
-            if result.get("primary_mood") and result.get("mood_mix"):
-                return result
-        except Exception as e:
-            print(f"Claude extract_user_intent error: {e}")
+                result = json.loads(response_text)
+                if result.get("primary_mood") and result.get("mood_mix"):
+                    if attempt > 0:
+                        logger.info("[ConfusionService] extract_user_intent recovered on attempt %s (model=%s)", attempt + 1, model)
+                    return result
+                logger.warning("[ConfusionService] extract_user_intent attempt %s model=%s: invalid JSON shape", attempt + 1, model)
+            except Exception as e:
+                logger.warning("[ConfusionService] extract_user_intent attempt %s model=%s failed: %s", attempt + 1, model, e)
+            if attempt < len(models) - 1:
+                await asyncio.sleep(1)
 
+        logger.error("[ConfusionService] extract_user_intent exhausted all models — falling back to rule-based")
         return {}
 
     async def rerank_movies(self, user_text: str, intent: dict, candidates: list) -> dict:
@@ -518,7 +409,7 @@ SADECE geçerli JSON döndür:
                     result["ustad_line"] = ustad_line
                 return result
         except Exception as e:
-            print(f"Claude rerank_movies error: {e}")
+            logger.warning("[ConfusionService] rerank_movies failed: %s", e)
 
         return {}
 

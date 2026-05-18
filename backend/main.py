@@ -1692,26 +1692,81 @@ _CONFUSED_KEYWORDS = {
     "içimi parçala": {"gozyasi": 4, "kalp": 3},
     "huzur": {"battaniye": 4, "sessiz": 3, "yolculuk": 1},
     "abi": {"battaniye": 2, "kahkaha": 2, "yolculuk": 1},
+    # ─── Mevsimler (içe dönük cozy — asla istenenin tersi) ───
+    "kış": {"battaniye": 3, "sessiz": 2, "gozyasi": 2, "zamanyolcusu": 1},
+    "yaz": {"askbahcesi": 3, "yolculuk": 2, "adrenalin": 1},
+    "sonbahar": {"sessiz": 3, "gozyasi": 2, "kalp": 2},
+    "ilkbahar": {"battaniye": 2, "askbahcesi": 2, "yolculuk": 1},
+    "bahar": {"battaniye": 2, "askbahcesi": 2},
+    # ─── Hava durumu ───
+    "kar": {"battaniye": 3, "sessiz": 2, "zamanyolcusu": 1},
+    "yağmur": {"sessiz": 3, "gozyasi": 2, "battaniye": 1},
+    "yağmurlu": {"sessiz": 3, "gozyasi": 2, "battaniye": 1},
+    "güneş": {"yolculuk": 2, "askbahcesi": 2},
+    "fırtına": {"deep-chills": 2, "gece": 2, "adrenalin": 1},
+    "soğuk": {"battaniye": 3, "sessiz": 2},
+    "sıcak": {"askbahcesi": 2, "battaniye": 2, "yolculuk": 1},
+    # ─── Temalar ───
+    "tema": {},  # no-op: eşlik eden mevsim/konu kelimesi sonucu belirlesin
+    "savaş": {"gozyasi": 3, "zamanyolcusu": 2, "adrenalin": 1},
+    "doğa": {"yolculuk": 3, "sessiz": 1},
+    "deniz": {"yolculuk": 3, "sessiz": 1},
+    "dağ": {"yolculuk": 3},
+    "şehir": {"gece": 3, "zihin": 1},
+    "tutkulu": {"askbahcesi": 4, "gozyasi": 1},
+    "şehvetli": {"askbahcesi": 4, "gece": 1},
+    "sevgilimle": {"askbahcesi": 3, "battaniye": 1},
+    "ailemle": {"battaniye": 3, "kahkaha": 1},
+    "arkadaşlarla": {"kahkaha": 3, "adrenalin": 1},
+    "yalnız": {"sessiz": 2, "kalp": 2, "gozyasi": 1},
 }
 
 
+_TR_SUFFIXES = (
+    "temalı", "temali", "lık", "lik", "luk", "lük",
+    "ları", "leri", "lar", "ler", "ında", "inde", "ında", "unda", "ünde",
+    "da", "de", "ta", "te", "ın", "in", "un", "ün", "lı", "li", "lu", "lü",
+)
+
+
+def _tr_normalize(text: str) -> str:
+    """Türkçe-güvenli küçük harf (İ/I sorununu çözer)."""
+    return (text or "").replace("İ", "i").replace("I", "ı").lower()
+
+
+def _strip_tr_suffix(token: str) -> str:
+    """Eşleşme amaçlı ek temizleme: 'temalı'→'tema', 'kışın'→'kış'."""
+    for suf in _TR_SUFFIXES:
+        if len(token) > len(suf) + 1 and token.endswith(suf):
+            return token[: -len(suf)]
+    return token
+
+
 def _rule_based_confused_analysis(text: str) -> dict:
-    """Kural tabanli mood analizi (AI fallback)."""
-    text_lower = text.lower()
+    """Kural tabanli mood analizi (AI fallback) — Türkçe morfoloji + mevsim/tema."""
+    text_lower = _tr_normalize(text)
+    # Ekleri temizlenmiş token kümesi (substring kaçırırsa kök yakalansın)
+    tokens = [t.strip(".,!?;:\"'()") for t in text_lower.split()]
+    stripped = {_strip_tr_suffix(t) for t in tokens if t}
+
     scores = {m: 0 for m in [
         "battaniye","yolculuk","gece","kahkaha","gozyasi","adrenalin",
         "askbahcesi","zamanyolcusu","sessiz","zihin","kalp","karmakar",
         "Retro","deep-chills"
     ]}
 
+    matched_real = False
     for keyword, effects in _CONFUSED_KEYWORDS.items():
-        if keyword in text_lower:
+        kw = _tr_normalize(keyword)
+        if kw in text_lower or kw in stripped:
+            if effects:  # boş dict (örn. "tema") no-op
+                matched_real = True
             for mood_id, pts in effects.items():
                 if mood_id in scores:
                     scores[mood_id] += pts
 
-    # Varsayilan bonus: hic keyword eslesmezse
-    if all(v == 0 for v in scores.values()):
+    # Varsayilan bonus: hic gerçek keyword eslesmezse
+    if not matched_real and all(v == 0 for v in scores.values()):
         scores["battaniye"] = 2
         scores["yolculuk"] = 2
         scores["kalp"] = 2
@@ -1737,9 +1792,14 @@ def _rule_based_confused_analysis(text: str) -> dict:
         "Retro": "80'ler neon ve synthwave atmosferi",
     }
 
-    top_mood = top3[0][0] if top3 else "battaniye"
-    msg = messages.get(top_mood, "film")
-    message = f"Sana en çok {msg} aradığını söyleyebilirim. Bu gece için birkaç önerim var."
+    if not matched_real:
+        # Gerçek eşleşme yok → çelişkili iddia ETME (eski hata: kış istendi
+        # ama "sıcak rahat ortam" deniyordu). Taahhütsüz, dürüst mesaj.
+        message = "Tam olarak çözemedim ama ruh haline yakın birkaç film seçtim. Daha net yazarsan daha iyi öneririm."
+    else:
+        top_mood = top3[0][0] if top3 else "battaniye"
+        msg = messages.get(top_mood, "film")
+        message = f"Sana en çok {msg} aradığını söyleyebilirim. Bu gece için birkaç önerim var."
 
     return {"message": message, "mood_mix": mood_mix}
 

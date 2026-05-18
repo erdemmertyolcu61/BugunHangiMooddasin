@@ -885,7 +885,7 @@ class ChatEngine:
             try:
                 claude_intent = await asyncio.wait_for(
                     self.confusion.extract_user_intent(text),
-                    timeout=10.0
+                    timeout=20.0
                 )
                 if claude_intent:
                     # Re-classification: if Claude detected film/person entities, reroute
@@ -1036,7 +1036,7 @@ class ChatEngine:
             try:
                 rerank_result = await asyncio.wait_for(
                     self.confusion.rerank_movies(text, claude_intent, top_candidates),
-                    timeout=11.0
+                    timeout=15.0
                 )
                 if rerank_result and rerank_result.get("recommendations"):
                     mode = "claude_reranked"
