@@ -10,6 +10,7 @@ import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '..
 import UpcomingSlider from '../components/UpcomingSlider';
 import { getApiUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
+import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
 import { isPlatformLinked, linkPlatform, getPlatformInfo, buildWatchUrl } from '../utils/streamingMemory';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
@@ -660,24 +661,7 @@ export default function Discover() {
                   })()}
 
                   {/* Benzer Filmler */}
-                  {similarMovies.length > 0 && (
-                    <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
-                      <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1 snap-x snap-mandatory overscroll-x-contain" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
-                        {similarMovies.map((m) => (
-                          <button key={m.id} onClick={() => openSimilarMovie(m)}
-                            className="group shrink-0 snap-start w-[100px] sm:w-[130px] text-left" title={m.title}>
-                            <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
-                              <img src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'} alt={m.title} loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                            </div>
-                            <p className="mt-2 text-[11px] sm:text-xs font-sans font-semibold text-ivory/60 group-hover:text-amber transition-colors line-clamp-2 leading-tight">{m.title}</p>
-                            {m.release_date && <p className="text-[10px] text-ivory/25 font-sans mt-0.5">{m.release_date.split('-')[0]}</p>}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <SimilarFilmsStrip movies={similarMovies} onSelect={openSimilarMovie} />
 
                   <div className="flex gap-6 pt-4">
                     <button
@@ -1212,36 +1196,7 @@ export default function Discover() {
                 )}
 
                 {/* Benzer Filmler — Bunları da sevebilirsin */}
-                {similarMovies.length > 0 && (
-                  <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
-                    <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
-                      {similarMovies.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => openSimilarMovie(m)}
-                          className="group shrink-0 snap-start w-[100px] sm:w-[130px] text-left"
-                          title={m.title}
-                        >
-                          <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
-                            <img
-                              src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'}
-                              alt={m.title}
-                              loading="lazy"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                            />
-                          </div>
-                          <p className="mt-2 text-[11px] sm:text-xs font-sans font-semibold text-ivory/60 group-hover:text-amber transition-colors line-clamp-2 leading-tight">
-                            {m.title}
-                          </p>
-                          {m.release_date && (
-                            <p className="text-[10px] text-ivory/25 font-sans mt-0.5">{m.release_date.split('-')[0]}</p>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <SimilarFilmsStrip movies={similarMovies} onSelect={openSimilarMovie} />
 
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 pt-4">
                   <button

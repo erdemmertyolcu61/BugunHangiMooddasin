@@ -11,6 +11,7 @@ import {
   proxyImageUrl, getSimilarMovies,
   addToWatchlist, removeFromWatchlist, toggleWatched,
 } from '../services/api';
+import SimilarFilmsStrip from './SimilarFilmsStrip';
 
 const IMG_LG = 'https://image.tmdb.org/t/p/original';
 
@@ -187,24 +188,7 @@ export default function FilmDetailModal({ movieId, onClose }) {
                 })()}
 
                 {/* Benzer Filmler */}
-                {similar.length > 0 && (
-                  <div className="border-t border-white/5 pt-7 space-y-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
-                    <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1 snap-x snap-mandatory overscroll-x-contain" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
-                      {similar.map((m) => (
-                        <button key={m.id} onClick={() => setActiveId(m.id)}
-                          className="group shrink-0 snap-start w-[100px] sm:w-[128px] text-left" title={m.title}>
-                          <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
-                            <img src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'} alt={m.title}
-                              loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                          </div>
-                          <p className="mt-2 text-[11px] sm:text-xs font-sans font-semibold text-ivory/60 group-hover:text-amber transition-colors line-clamp-2 leading-tight">{m.title}</p>
-                          {m.release_date && <p className="text-[10px] text-ivory/25 font-sans mt-0.5">{m.release_date.split('-')[0]}</p>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <SimilarFilmsStrip movies={similar} onSelect={(m) => setActiveId(m.id)} />
 
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-5 pt-3">
                   <button onClick={handleSave}
