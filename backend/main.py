@@ -570,6 +570,25 @@ async def google_login(request: Request):
     return {"token": token, "user": {"id": user_id, "email": email, "name": name, "picture": picture, "created_at": created_at}}
 
 
+@app.get("/api/admin/users", dependencies=[Depends(verify_admin)])
+async def admin_list_users():
+    """Kayıtlı kullanıcı sayısı + listesi (sadece admin).
+
+    Erişim: Authorization: Bearer <admin_token>  veya
+            X-Admin-Password: <ADMIN_PASSWORD> header'ı.
+    """
+    async with aiosqlite.connect(cache.db_path) as db:
+        async with db.execute(
+            "SELECT id, email, name, created_at FROM users ORDER BY id DESC"
+        ) as cur:
+            rows = await cur.fetchall()
+    users = [
+        {"id": r[0], "email": r[1], "name": r[2], "created_at": r[3]}
+        for r in rows
+    ]
+    return {"total": len(users), "users": users}
+
+
 @app.get("/api/auth/verify")
 async def verify_token_endpoint(request: Request):
     """Verify if a token is still valid."""
