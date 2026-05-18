@@ -797,8 +797,8 @@ export default function Discover() {
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
       <header className="relative md:sticky md:top-0 z-[60] bg-[#120d0b]/98 border-b border-white/5 shadow-lg pt-safe">
-        <div className="w-full px-4 sm:px-8 lg:px-12 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3 sm:gap-6">
+        <div className="w-full px-4 sm:px-8 lg:px-12 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
+          <div className="flex items-center gap-3 sm:gap-6 md:shrink-0">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
               <ChevronLeft size={24} />
             </button>
@@ -810,16 +810,19 @@ export default function Discover() {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-3 md:gap-5 lg:gap-6">
-            <div className="relative flex-1 md:flex-none">
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    placeholder="Arşivde ara..."
-                    className="w-full md:w-72 lg:w-96 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 transition-all"
-                />
-            </div>
+
+          {/* Arama — ortada, tüm boşluğu doldurur */}
+          <div className="relative w-full md:flex-1 md:min-w-0">
+            <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Arşivde ara..."
+                className="w-full px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 transition-all"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 md:gap-4 md:shrink-0">
             <button onClick={() => navigate('/kafan-mi-karisik')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
               <span className="text-[10px] font-bold uppercase tracking-widest text-bg">Kafan mı Karışık?</span>
             </button>

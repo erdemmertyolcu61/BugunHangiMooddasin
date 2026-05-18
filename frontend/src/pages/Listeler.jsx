@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, BookOpen, Sparkles, Star } from 'lucide-react';
+import { ChevronLeft, BookOpen, Sparkles, Star, Check, BookmarkPlus, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiUrl } from '../utils/apiConfig';
-import { proxyImageUrl } from '../services/api';
+import { proxyImageUrl, addToWatchlist, removeFromWatchlist, toggleWatched } from '../services/api';
+import { MOODS } from '../context/MoodContext';
+import FilmDetailModal from '../components/FilmDetailModal';
+
+// Liste mood slug'ını sistemdeki gerçek mood adına çevir
+const moodName = (slug) => MOODS[slug]?.title || slug;
 
 const MOOD_COLORS = {
   zihin:       { bg: 'from-violet-950/60 to-black', accent: '#7c3aed', badge: 'bg-violet-900/50 text-violet-300' },
@@ -71,7 +76,7 @@ function ListelerAnasayfa() {
                 <p className="text-ivory/70 text-[15px] leading-relaxed line-clamp-2 mb-6 font-serif">{lst.description}</p>
                 <div className="flex items-center justify-between">
                   <span className={`inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full ${colors.badge}`}>
-                    {lst.mood} modu
+                    {moodName(lst.mood)}
                   </span>
                   <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-ivory/30 group-hover:text-amber transition-colors duration-300">
                     İncele <ChevronLeft size={13} className="rotate-180" />
@@ -92,7 +97,32 @@ function ListeDetay() {
   const [liste, setListe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [quickSaved, setQuickSaved] = useState(new Set());
+  const [quickWatched, setQuickWatched] = useState(new Set());
   const navigate = useNavigate();
+
+  const handleQuickSave = async (e, m) => {
+    e.stopPropagation();
+    if (quickSaved.has(m.id)) {
+      setQuickSaved(prev => { const n = new Set(prev); n.delete(m.id); return n; });
+      setQuickWatched(prev => { const n = new Set(prev); n.delete(m.id); return n; });
+      try { await removeFromWatchlist(m.id); } catch {}
+      return;
+    }
+    setQuickSaved(prev => new Set([...prev, m.id]));
+    try { await addToWatchlist(m); } catch {}
+  };
+
+  const handleQuickWatched = async (e, m) => {
+    e.stopPropagation();
+    const now = !quickWatched.has(m.id);
+    setQuickWatched(prev => { const n = new Set(prev); now ? n.add(m.id) : n.delete(m.id); return n; });
+    if (!quickSaved.has(m.id)) {
+      setQuickSaved(prev => new Set([...prev, m.id]));
+      try { await addToWatchlist(m); } catch {}
+    }
+    try { await toggleWatched(m.id); } catch {}
+  };
 
   useEffect(() => {
     fetch(getApiUrl(`/api/lists/${slug}`))
@@ -143,13 +173,13 @@ function ListeDetay() {
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
           {(liste.movies || []).map((movie, i) => (
-            <motion.button
+            <motion.div
               key={movie.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              onClick={() => navigate(`/discover?film=${movie.id}`)}
-              className="text-left group"
+              className="text-left group cursor-pointer"
+              onClick={() => setSelectedMovie(movie.id)}
             >
               <div className="aspect-[2/3] rounded-xl overflow-hidden bg-white/5 mb-3 relative">
                 {movie.poster_url ? (
@@ -162,12 +192,34 @@ function ListeDetay() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-white/5"><BookOpen size={28} className="text-ivory/20" /></div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-amber">İncele</span>
-                </div>
                 {/* Sıra numarası */}
-                <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center">
+                <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center z-10">
                   <span className="text-[9px] font-bold text-ivory/60">{i + 1}</span>
+                </div>
+                {/* Hızlı eylem butonları — mobilde her zaman, masaüstünde hover */}
+                <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-1.5 p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300">
+                  <button
+                    onClick={(e) => handleQuickSave(e, movie)}
+                    title="Deftere Ekle"
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
+                      quickSaved.has(movie.id)
+                        ? 'bg-amber/90 border-amber/60 text-black'
+                        : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black'
+                    }`}
+                  >
+                    {quickSaved.has(movie.id) ? <><Check size={9} /> Eklendi</> : <><BookmarkPlus size={9} /> Deftere</>}
+                  </button>
+                  <button
+                    onClick={(e) => handleQuickWatched(e, movie)}
+                    title="İzledim"
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
+                      quickWatched.has(movie.id)
+                        ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+                        : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white'
+                    }`}
+                  >
+                    {quickWatched.has(movie.id) ? <><Check size={9} /> İzledim</> : <><Eye size={9} /> İzledim</>}
+                  </button>
                 </div>
               </div>
               <p className="text-xs sm:text-sm font-semibold line-clamp-2 group-hover:text-amber transition-colors duration-300 leading-snug">{movie.title}</p>
@@ -177,10 +229,14 @@ function ListeDetay() {
                   <span className="text-[10px] text-ivory/50">{movie.vote_average.toFixed(1)}</span>
                 </div>
               )}
-            </motion.button>
+            </motion.div>
           ))}
         </div>
       </div>
+
+      {selectedMovie && (
+        <FilmDetailModal movieId={selectedMovie} onClose={() => setSelectedMovie(null)} />
+      )}
     </div>
   );
 }
