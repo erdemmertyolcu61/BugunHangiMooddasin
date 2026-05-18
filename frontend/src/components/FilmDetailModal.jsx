@@ -11,10 +11,22 @@ import {
   proxyImageUrl, getSimilarMovies,
   addToWatchlist, removeFromWatchlist, toggleWatched,
 } from '../services/api';
-import { buildWatchUrl } from '../utils/streamingMemory';
+import { buildWatchUrl, getPlatformInfo } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
 
 const IMG_LG = 'https://image.tmdb.org/t/p/original';
+
+// Marka rengi çok koyuysa (Apple #000, MUBI #001E3C) koyu temada görünmez —
+// okunur bir altın tona düşür. İki temada da canlı kalsın.
+const safeBrandColor = (hex) => {
+  const fallback = '#d6a84f';
+  if (!hex || typeof hex !== 'string' || hex[0] !== '#' || hex.length < 7) return fallback;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b; // 0–255
+  return lum < 60 ? fallback : hex;
+};
 
 const reliableRating = (m) => {
   if (m?.imdb_rating) {
@@ -37,6 +49,13 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   const [activeId, setActiveId] = useState(movieId);
 
   useEffect(() => { setActiveId(movieId); }, [movieId]);
+
+  // Modal açıkken arka plan (body) kaymasını kilitle
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   useEffect(() => {
     if (!activeId) return;
@@ -129,13 +148,25 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
               <div className="hidden md:block relative h-[42vh] max-h-[440px] w-full overflow-hidden">
                 <img src={banner || 'https://via.placeholder.com/1280x720'} alt={movie.title}
                   className="w-full h-full object-cover object-center" loading="eager" />
-                {/* Alt siyahlık — modal zeminine yumuşak geçiş */}
-                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#1a1a1a] via-[#1a1a1a]/70 to-transparent pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent pointer-events-none" />
-                {/* Başlık afişin altına oturur */}
-                <div className="absolute inset-x-0 bottom-0 px-14 pb-8">
-                  <p className="text-xs font-bold uppercase tracking-[0.4em] text-amber/60 mb-3">Film Özeti</p>
-                  <h2 className="text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">{movie.title}</h2>
+                {/* Alt siyahlık — koyu taban, tema fark etmeksizin yazı okunur */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: 'linear-gradient(to top, rgba(10,8,7,0.98) 0%, rgba(10,8,7,0.85) 22%, rgba(10,8,7,0.35) 50%, rgba(10,8,7,0.15) 100%)' }}
+                />
+                {/* Başlık afişin altına oturur — renk inline (index.css tema flip'ine takılmasın) */}
+                <div className="absolute inset-x-0 bottom-0 px-14 pb-9">
+                  <p
+                    className="text-xs font-bold uppercase tracking-[0.4em] mb-3"
+                    style={{ color: '#e8b94a' }}
+                  >
+                    Film Özeti
+                  </p>
+                  <h2
+                    className="text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words"
+                    style={{ color: '#faf7f0', textShadow: '0 2px 16px rgba(0,0,0,0.95)' }}
+                  >
+                    {movie.title}
+                  </h2>
                 </div>
               </div>
 
@@ -212,26 +243,36 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
 
                   return (
                     <div className="border-t border-white/10 pt-7 space-y-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber/60">Nerede İzlenir?</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber/70">Nerede İzlenir?</p>
                       <div className="flex flex-wrap gap-3">
                         {uniq.length === 0 ? (
                           <a href={wp.link} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-5 py-3 bg-amber/15 border border-amber/35 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber hover:bg-amber/25 transition-all">
+                            className="flex items-center gap-2 px-5 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-110"
+                            style={{ background: '#d6a84f', color: '#1a1410' }}>
                             <ExternalLink size={13} /> İzleme Seçenekleri
                           </a>
-                        ) : uniq.slice(0, 8).map(p => (
-                          <button
-                            key={p.provider_id}
-                            onClick={() => openProvider(p)}
-                            title={`${p.provider_name} (${p.tag}) — açmak için tıkla`}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-amber/10 border border-amber/30 rounded-full hover:bg-amber/20 hover:border-amber/50 transition-all group active:scale-95 cursor-pointer"
-                          >
-                            {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/80 group-hover:text-amber transition-colors">{p.provider_name}</span>
-                            <span className="text-[8px] uppercase tracking-widest text-ivory/40">{p.tag}</span>
-                            <ExternalLink size={11} className="text-ivory/40 group-hover:text-amber transition-colors" />
-                          </button>
-                        ))}
+                        ) : uniq.slice(0, 8).map(p => {
+                          // Platformun marka rengi — hem Espresso hem Latte'de canlı/okunur.
+                          const brand = safeBrandColor(getPlatformInfo(p.provider_id)?.color);
+                          return (
+                            <button
+                              key={p.provider_id}
+                              onClick={() => openProvider(p)}
+                              title={`${p.provider_name} (${p.tag}) — açmak için tıkla`}
+                              className="flex items-center gap-2 px-4 py-2.5 rounded-full transition-all group active:scale-95 cursor-pointer hover:brightness-110"
+                              style={{
+                                background: `${brand}22`,
+                                border: `1.5px solid ${brand}`,
+                                boxShadow: `0 2px 10px ${brand}26`,
+                              }}
+                            >
+                              {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
+                              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: brand }}>{p.provider_name}</span>
+                              <span className="text-[8px] uppercase tracking-widest text-ivory/45">{p.tag}</span>
+                              <ExternalLink size={11} style={{ color: brand }} />
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   );
