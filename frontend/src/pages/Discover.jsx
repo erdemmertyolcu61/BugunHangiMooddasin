@@ -605,17 +605,17 @@ export default function Discover() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      style={{ WebkitBackdropFilter: 'blur(0px)' }}
       className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] relative font-sans mood-${selectedMood.id}`}
     >
-      {/* Kalıcı arkaplan gradient — scroll'da backdrop-blur görünür kalmak için */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+      {/* Kalıcı blur arkaplan — CSS filter: blur() scroll'dan etkilenmez, her zaman görünür */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div
-          className="absolute inset-0 opacity-[0.12] transition-all duration-1000"
-          style={{
-            background: `radial-gradient(ellipse at 30% 20%, ${selectedMood.accentHex || '#ffbf00'}55 0%, transparent 70%),
-                        radial-gradient(ellipse at 70% 80%, ${selectedMood.vignette || '#000'}88 0%, transparent 60%)`,
-          }}
+          className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full opacity-[0.18]"
+          style={{ background: selectedMood.accentHex || '#ffbf00', filter: 'blur(120px)', willChange: 'filter' }}
+        />
+        <div
+          className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full opacity-[0.12]"
+          style={{ background: selectedMood.vignette || '#000', filter: 'blur(100px)', willChange: 'filter' }}
         />
       </div>
 
@@ -665,7 +665,7 @@ export default function Discover() {
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-      <header className="relative md:sticky md:top-0 z-[60] bg-[#120d0b]/98 border-b border-white/5 shadow-lg pt-safe">
+      <header className="sticky top-0 z-[60] bg-[#120d0b]/75 backdrop-blur-xl border-b border-white/5 shadow-lg pt-safe">
         <div className="w-full px-4 sm:px-8 lg:px-12 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
           <div className="flex items-center gap-3 sm:gap-6 md:shrink-0">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
