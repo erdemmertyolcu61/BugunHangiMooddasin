@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User, Search } from 'lucide-react';
+import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
@@ -144,17 +144,6 @@ export default function MoodSelector() {
           <p className="text-sm sm:text-base md:text-lg text-rose/60 font-serif italic leading-relaxed max-w-xl mx-auto px-2">
             Ruh halini seç ve bizimle yolculuğa çıkmaya hazırlan.
           </p>
-
-          {/* Arama çubuğu */}
-          <button
-            onClick={() => navigate('/search')}
-            className="group mt-7 sm:mt-9 mx-auto flex items-center gap-3 w-full max-w-md px-5 py-3.5 sm:py-4 rounded-full bg-white/[0.06] border border-white/10 hover:border-amber/40 hover:bg-white/[0.09] transition-all duration-300"
-          >
-            <Search size={18} className="text-amber/70 group-hover:text-amber transition-colors shrink-0" />
-            <span className="font-sans text-sm text-ivory/40 group-hover:text-ivory/60 transition-colors">
-              Film ara — isim, konu, oyuncu...
-            </span>
-          </button>
         </motion.header>
 
         {/* ═══ Grid: Mood Kartları + Quiz Widget ═══ */}

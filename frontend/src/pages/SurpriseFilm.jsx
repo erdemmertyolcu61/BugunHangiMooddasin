@@ -218,7 +218,7 @@ export default function SurpriseFilm() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6 sm:py-4"
             onClick={(e) => { if (e.target === e.currentTarget) setShowDetail(false); }}
           >
             <motion.div
@@ -226,7 +226,7 @@ export default function SurpriseFilm() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", bounce: 0.3 }}
-              className="w-full max-w-xl bg-[#1a1410] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-xl bg-[#1a1410] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl my-auto sm:max-h-[88vh] sm:overflow-y-auto overscroll-contain"
             >
               {/* Header */}
               <div className="relative">
@@ -308,6 +308,48 @@ export default function SurpriseFilm() {
                         </p>
                       </div>
                     )}
+
+                    {/* Nerede İzlenir */}
+                    {(() => {
+                      const wp = analysisData.watch_providers;
+                      if (!wp) return null;
+                      const all = [
+                        ...(wp.flatrate || []).map(p => ({ ...p, tag: 'Abonelik' })),
+                        ...(wp.rent || []).map(p => ({ ...p, tag: 'Kiralık' })),
+                        ...(wp.buy || []).map(p => ({ ...p, tag: 'Satın Al' })),
+                        ...(wp.free || []).map(p => ({ ...p, tag: 'Ücretsiz' })),
+                        ...(wp.ads || []).map(p => ({ ...p, tag: 'Reklamlı' })),
+                      ];
+                      const seen = new Set();
+                      const uniq = all.filter(p => !seen.has(p.provider_id) && seen.add(p.provider_id));
+                      return (
+                        <div>
+                          <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Nerede İzlenir?</p>
+                          {uniq.length === 0 ? (
+                            wp.link ? (
+                              <a href={wp.link} target="_blank" rel="noopener noreferrer"
+                                 className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-full text-sm text-amber hover:bg-white/15 transition-all">
+                                <ExternalLink size={14} /> İzleme Seçenekleri
+                              </a>
+                            ) : (
+                              <p className="text-white/60 text-sm font-serif italic">Türkiye için resmi platform bilgisi bulunamadı.</p>
+                            )
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {uniq.slice(0, 8).map(p => (
+                                <span key={p.provider_id}
+                                  title={`${p.provider_name} (${p.tag})`}
+                                  className="flex items-center gap-2 px-3 py-2 bg-white/10 border border-white/20 rounded-full">
+                                  {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-5 h-5 rounded object-contain" />}
+                                  <span className="text-[13px] font-bold text-white">{p.provider_name}</span>
+                                  <span className="text-[10px] uppercase tracking-wider text-amber/70">{p.tag}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </>
                 ) : null}
               </div>

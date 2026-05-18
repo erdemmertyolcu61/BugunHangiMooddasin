@@ -65,7 +65,7 @@ function ListelerAnasayfa() {
                 onClick={() => navigate(`/listeler/${lst.slug}`)}
                 className={`text-left p-6 sm:p-8 rounded-3xl bg-gradient-to-br ${colors.bg} border border-white/8 hover:border-white/20 transition-all duration-500 hover:scale-[1.02] group`}
               >
-                <div className="text-4xl mb-4">{lst.emoji}</div>
+                <div className="w-10 h-px bg-amber/40 mb-5" />
                 <h2 className="text-xl sm:text-2xl font-serif font-bold mb-2 group-hover:text-amber transition-colors duration-300">{lst.title}</h2>
                 <p className="text-ivory/50 text-sm leading-relaxed line-clamp-2 mb-4">{lst.description}</p>
                 <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${colors.badge}`}>
@@ -116,7 +116,7 @@ function ListeDetay() {
             <ChevronLeft size={18} />
             <span className="text-xs font-bold uppercase tracking-widest">Tüm Listeler</span>
           </button>
-          <div className="text-5xl mb-6">{liste.emoji}</div>
+          <div className="w-14 h-px bg-amber/50 mb-7" />
           <h1 className="text-4xl sm:text-6xl font-serif font-bold tracking-tight mb-4">{liste.title}</h1>
           <p className="text-ivory/60 text-lg sm:text-xl font-serif italic mb-10 max-w-2xl">{liste.description}</p>
 
@@ -154,7 +154,7 @@ function ListeDetay() {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl">🎬</div>
+                  <div className="w-full h-full flex items-center justify-center bg-white/5"><BookOpen size={28} className="text-ivory/20" /></div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
                   <span className="text-[9px] font-bold uppercase tracking-widest text-amber">İncele</span>
