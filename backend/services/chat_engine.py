@@ -834,6 +834,9 @@ class ChatEngine:
                         mood_mix = claude_intent["mood_mix"]
                         message = claude_intent.get("user_intent_summary", "")
                         ustad_line = claude_intent.get("ustad_line", "")
+                        # Typo correction — prepend to ustad_line if detected
+                        if claude_intent.get("correction_detected") and claude_intent.get("corrected_text"):
+                            ustad_line = claude_intent["corrected_text"]
             except Exception as e:
                 logger.warning(f"[ChatEngine] Claude intent extraction failed: {e}")
 
@@ -1015,7 +1018,10 @@ class ChatEngine:
         if intent_label == "feedback":
             intent_label = "mood_recommendation"
 
-        query_understanding = message or f"Ruh haline uygun filmler arıyorum."
+        query_understanding = message or "Ruh haline uygun filmler arıyorum."
+
+        # Context dimensions for frontend (optional display)
+        context_dims = claude_intent.get("context_dimensions", {}) if claude_intent else {}
 
         return {
             "mode": mode,
@@ -1025,6 +1031,9 @@ class ChatEngine:
             "message": message,
             "mood_mix": mood_mix,
             "movies": movies,
+            "correction_detected": claude_intent.get("correction_detected", False) if claude_intent else False,
+            "corrected_text": claude_intent.get("corrected_text") if claude_intent else None,
+            "context_dimensions": context_dims,
         }
 
     # ─────────── HELPERS ───────────

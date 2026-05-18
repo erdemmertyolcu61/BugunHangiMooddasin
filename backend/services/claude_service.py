@@ -195,10 +195,44 @@ class ConfusionService:
         if not user_text or len(user_text.strip()) < 3:
             return {}
 
-        prompt = f"""Sen 25 yılını sinemaya adamış, bilge, samimi ve hafif melankolik bir sinema danışmanısın (Üstat).
+        prompt = f"""Sen 25 yılını sinemaya adamış, Cannes, Sundance ve Berlin'i avucunun içi gibi bilen, sofistike, entelektüel ve derin bir sinema eleştirmenisin (Üstat/Gurme).
+Üslubun bilge, samimi, hafif melankolik ve her zaman merak uyandırıcı olmalı. "Evlat", "Başyapıt", "Tozlu Raflar" gibi sıcak ifadeler kullanırsın.
 Kullanıcı ruh halini şöyle anlatıyor: "{user_text}"
 
 Görevin: Kullanıcının enerji seviyesini, duygusal tonunu, alt metnini ve sinemasal ihtiyacını derinlemesine analiz et.
+
+YAZIM HATASI TESPİTİ (Fuzzy Matching & Typo Correction):
+Kullanıcı film adı veya yönetmen/oyuncu adı yazmış ama hatalı yazmış olabilir:
+- "Inseptiyon" / "inseption" → "Inception" (Başlangıç)
+- "Intersteler" / "interstellar" → "Interstellar" (Yıldızlararası)
+- "Tarantıno" → "Tarantino"
+- "Kofman" → "Kaufman" (Charlie Kaufman)
+- "Se7en" → doğru zaten
+- "finit dövüş kulübü" → "Fight Club"
+Eğer bir yazım hatası ya da yaklaşık yazım tespit edersen:
+- correction_detected: true
+- corrected_text: "Evlat, '[yanlış yazım]' derken [doğru ad]'ı kastettin herhalde... [kısa Üstad yorumu]"
+Eğer yazım hatası yoksa:
+- correction_detected: false
+- corrected_text: null
+
+BAĞLAM BOYUTLARI (3-Dimensional Context Matrix):
+Kullanıcının sorgusundan şu 3 boyutu çıkar ve mood seçiminde kullan:
+
+A) Atmosfer/Mevsim (atmosphere): "yaz gecesi", "kışın kar", "sonbahar", "yağmurlu gün", "sıcak", "soğuk" vb.
+   Bulamazsan: null
+B) Eşlik Bağlamı (companion): "yalnız", "sevgilimle", "ailemle", "arkadaşlarla", "çocuklarla"
+   Bulamazsan: null
+C) Örtük Ruh Hali (implicit_mood): A ve B'nin sinemasal birleşimi — 1 cümle
+
+Bu boyutlar mood seçimini doğrudan etkiler (örnekler):
+- "sevgilimle + yaz akşamı" → askbahcesi/battaniye, sıcak romantik
+- "arkadaşlarla + gece" → kahkaha/adrenalin, yüksek enerji
+- "yalnız + kış gecesi" → sessiz/kalp/gozyasi, içe dönük
+- "ailemle + hafta sonu" → battaniye/yolculuk, herkese uygun
+- "çocuklarla" → battaniye (animasyon dahil), karanlık/korku ASLA
+- "iş çıkışı yorgun" → battaniye/sessiz, düşük enerji
+- "stres var kafamı dağıtayım" → kahkaha/adrenalin, yüksek enerji
 
 14 Mood Tanımları:
 - battaniye: Sıcak, rahat, ev hissi, kahve/çay/battaniye, feel-good. Yormaz, sarar. [Battaniye Modu]
@@ -334,6 +368,13 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
     {{"mood_id": "sessiz", "title": "Sessiz Yolculuk", "percentage": 30}},
     {{"mood_id": "battaniye", "title": "Battaniye Modu", "percentage": 20}}
   ],
+  "correction_detected": false,
+  "corrected_text": null,
+  "context_dimensions": {{
+    "atmosphere": "yaz gecesi veya null",
+    "companion": "sevgilimle veya null",
+    "implicit_mood": "Bu bağlamdan doğan sinemasal ihtiyacın 1 cümlelik Türkçe özeti"
+  }},
   "detected_entities": {{
     "film_titles": ["Film Adı (ek olmadan)"],
     "person_names": [{{"name": "Kişi Adı", "type": "actor|director|unknown"}}],
@@ -343,7 +384,7 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
 
         try:
             message = await self.client.messages.create(
-                model=self.model, max_tokens=750,
+                model=self.model, max_tokens=900,
                 messages=[{"role": "user", "content": prompt}],
             )
 
@@ -375,6 +416,10 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
         emotional_weight = intent.get("emotional_weight", "medium")
         avoid = intent.get("avoid", [])
         prefer = intent.get("prefer", [])
+        context_dims = intent.get("context_dimensions", {})
+        atmosphere = context_dims.get("atmosphere") or ""
+        companion = context_dims.get("companion") or ""
+        implicit_mood = context_dims.get("implicit_mood") or ""
 
         # Film listesini prompt için hazırla (max 25)
         candidates_for_prompt = candidates[:25]
@@ -394,40 +439,56 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
                 f"Üst Moodlar:{top_moods_str} | Özet:{overview}\n"
             )
 
-        prompt = f"""Sen 25 yılını sinemaya adamış bilge bir sinema danışmanısın (Üstat).
+        # Context satırı — varsa ekle, yoksa boş bırak
+        context_line = ""
+        if atmosphere or companion or implicit_mood:
+            parts = []
+            if atmosphere: parts.append(f"Atmosfer/Mevsim: {atmosphere}")
+            if companion: parts.append(f"Eşlik bağlamı: {companion}")
+            if implicit_mood: parts.append(f"Örtük ihtiyaç: {implicit_mood}")
+            context_line = "\n" + " | ".join(parts)
+
+        prompt = f"""Sen 25 yılını sinemaya adamış, bilge ve samimi bir sinema eleştirmenisin (Üstat/Gurme).
+Üslubun: entelektüel ama sıcak, "Evlat" der gibi konuşursun. Jargon yok, içtenlik var.
 
 Kullanıcı şunu yazdı: "{user_text}"
-Niyet özeti: {intent_summary}
+Niyet özeti: {intent_summary}{context_line}
 Enerji: {energy} | Tempo: {pace} | Karanlık: {darkness} | Duygusal ağırlık: {emotional_weight}
 Kaçınılacaklar: {avoid}
 Tercihler: {prefer}
 
 Aşağıdaki {len(candidates_for_prompt)} film adayından EN FAZLA 8 tanesini seç ve kullanıcının ruh haline göre sırala.
-Her film için kısa Türkçe bir sebep yaz (spoiler yok, 1-2 cümle, kullanıcının hissine hitap et).
+Her film için kısa Türkçe bir "gurme_not" yaz (spoiler yok, 1-2 cümle, kullanıcının BAĞLAMINA hitap et).
 
 Filmler:
 {films_text}
 
 SIRALAMA KRİTERLERİ (öncelik sırasıyla):
 1. Kullanıcının yazdığı metinle DOĞRUDAN tematik örtüşme (anahtar kelimeler, his, atmosfer)
-2. Filmin genel tonu ve temposu kullanıcının enerji seviyesiyle uyumlu mu?
-3. Film kalitesi (puan yüksekliği tek başına yeterli değil, tematik uyum daha önemli)
-4. Çeşitlilik: Aynı türden art arda 3+ film seçme, farklı açılardan yaklaş.
+2. Eğer eşlik bağlamı varsa (sevgilimle/ailemle/yalnız): o bağlama uygunluk kritik
+3. Eğer mevsim/atmosfer varsa: film paleti ve tonu buna uygun olmalı
+4. Filmin genel tonu ve temposu kullanıcının enerji seviyesiyle uyumlu mu?
+5. Çeşitlilik: Aynı türden art arda 3+ film seçme.
 
-ÖNEMLİ: Her filmin reason_turkish'ini kullanıcının YAZDIKLARINA doğrudan bağla.
-Örnek: Kullanıcı "yorgunum" yazdıysa → "Yorgun bir akşamda seni yormadan saracak türden bir film."
-Kullanıcı "karanlık bir şeyler" yazdıysa → "Karanlığın içinde kaybolmak isteyenler için biçilmiş kaftan."
-Generic "Harika bir film" gibi sebepler YASAK. Her sebep kişiselleştirilmiş olmalı.
+GURME NOT KURALLARI:
+- Kullanıcının bağlamına DOĞRUDAN bağla. Örnekler:
+  * "sevgilimle yaz akşamı" → "O sıcak yaz gecesinde sevgilinle izlerken, bu filmin o İtalyan güneşi tam içinizi ısıtacak."
+  * "yalnız kış gecesi" → "Karlı bir gecede tek başına sarılacağın o hüzünlü ses bu filmde saklı."
+  * "arkadaşlarla stres atmak" → "Arkadaşlarınla kahkaha patlatmak için koltukların kenarına oturun."
+  * "yorgun hafif bir şey" → "Yorgun bir akşamda seni yormadan saracak, sıcaklığını hissettiren türden."
+- Generic "Harika bir film" veya "Kaçırma!" YASAK.
+- Her not kendine özgün olmalı — aynı kalıbı tekrarlama.
+- Spoiler ASLA.
 
 SADECE geçerli JSON döndür:
 {{
-  "ustad_line": "Bu ruh haline özel kısa sinemasal Türkçe cümle",
+  "ustad_line": "Bu özel bağlama yazılmış kısa sinemasal Türkçe cümle (Üstad sesi)",
   "recommendations": [
     {{
       "tmdb_id": <film ID numarası>,
       "rank": 1,
       "fit_score": <0-100 arası uyum puanı>,
-      "reason_turkish": "Kullanıcının hissine özel Türkçe sebep (spoiler yok)",
+      "reason_turkish": "Kullanıcının bağlamına/hissine özel Türkçe gurme not (spoiler yok)",
       "mood_match": ["mood_id1", "mood_id2"]
     }}
   ]

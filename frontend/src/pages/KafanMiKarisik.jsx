@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import { playMoodAudio } from '../utils/moodAudioManager';
@@ -289,6 +289,41 @@ export default function KafanMiKarisik() {
                 </motion.div>
               )}
 
+              {/* Typo correction banner */}
+              {result.correction_detected && result.corrected_text && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-3 p-4 rounded-2xl bg-violet-900/20 border border-violet-500/30"
+                >
+                  <AlertCircle size={15} className="text-violet-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-violet-400/70 mb-1">YAZIM DÜZELTMESİ</p>
+                    <p className="text-sm font-serif text-violet-200/80 leading-relaxed italic">{result.corrected_text}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Context dimensions (atmosphere / companion) */}
+              {result.context_dimensions && (result.context_dimensions.atmosphere || result.context_dimensions.companion) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-wrap gap-2"
+                >
+                  {result.context_dimensions.atmosphere && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-900/20 border border-blue-500/20 text-[10px] font-bold uppercase tracking-wider text-blue-300/70">
+                      <Cloud size={10} /> {result.context_dimensions.atmosphere}
+                    </span>
+                  )}
+                  {result.context_dimensions.companion && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-900/20 border border-rose-500/20 text-[10px] font-bold uppercase tracking-wider text-rose-300/70">
+                      <Users size={10} /> {result.context_dimensions.companion}
+                    </span>
+                  )}
+                </motion.div>
+              )}
+
               {/* Ustad quote */}
               {quote && (
                 <motion.div
@@ -423,7 +458,7 @@ export default function KafanMiKarisik() {
                         {movie.reason && (
                           <div className="p-5 space-y-1.5">
                             <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-amber/50">
-                              {movie.is_primary_match ? 'EŞLEŞME' : 'NEDEN SANA UYGUN?'}
+                              {movie.is_primary_match ? 'EŞLEŞME' : 'GURME NOTU'}
                             </p>
                             <p className="text-xs font-serif font-semibold text-amber-100/70 leading-relaxed">
                               &ldquo;{movie.reason}&rdquo;
