@@ -103,7 +103,7 @@ export default function AudioPlayer() {
 
   return (
     <div
-      className="fixed bottom-28 right-4 md:bottom-6 md:right-6 z-[95] flex items-end gap-3 mb-safe md:mb-0"
+      className="fixed right-4 bottom-[7.5rem] md:bottom-6 md:right-6 z-[95] flex items-end gap-3 mb-safe md:mb-0"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

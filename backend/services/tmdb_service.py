@@ -388,6 +388,39 @@ class TMDBService:
             print(f"Error fetching person credits for {person_id}: {e}")
             return []
 
+    async def get_director_filmography(self, person_id: int, limit: int = 12,
+                                       min_vote_count: int = 100) -> list:
+        """Bir yönetmenin SADECE yönettiği filmleri döndürür (oyunculuk hariç).
+
+        Küratöryel listeler için kullanılır: elle ID girmek hatalıdır, bu yöntem
+        TMDB'nin resmi crew verisinden çektiği için liste %100 doğru olur.
+        vote_count'a göre sıralar (en bilinen başyapıtlar üstte).
+        """
+        try:
+            data = await self._get(f"{self.base_url}/person/{person_id}/movie_credits", {
+                "api_key": self.api_key, "language": "tr-TR",
+            })
+            seen = set()
+            directed = []
+            for m in data.get("crew", []):
+                if m.get("job") != "Director":
+                    continue
+                mid = m.get("id")
+                if not mid or mid in seen:
+                    continue
+                if (m.get("vote_count", 0) or 0) < min_vote_count:
+                    continue
+                if (m.get("vote_average", 0) or 0) < 5.5:
+                    continue
+                seen.add(mid)
+                directed.append(self._format_movie(m))
+            # En bilinen / en çok oylanan başyapıtlar önce
+            directed.sort(key=lambda x: -(x.get("vote_count", 0) or 0))
+            return directed[:limit]
+        except Exception as e:
+            print(f"Error fetching director filmography for {person_id}: {e}")
+            return []
+
     # ──────────────── search ────────────────
 
     async def search_movies(self, query: str, page: int = 1) -> list:

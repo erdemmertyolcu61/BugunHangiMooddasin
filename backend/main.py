@@ -2617,10 +2617,10 @@ async def get_list_detail(slug: str):
 
     filters = lst.get("filters", {})
     language_filter = filters.get("with_original_language")
+    director_id = filters.get("director_tmdb_id")
     static_fallback = lst.get("static_fallback", [])
     MIN_MOVIES = 5  # bu kadardan az film kalırsa fallback devreye girer
 
-    # ─── KATMAN 1: Tanımlı tmdb_ids'den filmleri çek ───────────
     movies = []
     seen_ids = set()
 
@@ -2639,14 +2639,34 @@ async def get_list_detail(slug: str):
             logger.warning(f"[Lists] tmdb_id={tmdb_id} fetch failed: {e}")
         return None
 
-    fetch_tasks = [_fetch_one(tid) for tid in lst.get("tmdb_ids", [])]
-    fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+    # ─── KATMAN 0: Yönetmen listesi → TMDB resmi filmografisi ──
+    # En güvenilir kaynak: elle ID girmek hatalı (Nolan listesine The Departed
+    # girmiş gibi). director_tmdb_id varsa o yönetmenin GERÇEK yönettiği
+    # filmleri TMDB'den çekeriz — liste %100 listenin tanımıyla uyumlu olur.
+    if director_id:
+        try:
+            directed = await asyncio.wait_for(
+                tmdb_service.get_director_filmography(director_id, limit=12, min_vote_count=80),
+                timeout=8.0,
+            )
+            for m in directed:
+                mid = m.get("id")
+                if mid and mid not in seen_ids and _is_valid_list_movie(m):
+                    seen_ids.add(mid)
+                    movies.append(_build_movie_entry(m, mid))
+        except Exception as e:
+            logger.warning(f"[Lists] director filmography failed for {slug}: {e}")
 
-    for item in fetch_results:
-        if isinstance(item, dict) and item.get("id"):
-            if item["id"] not in seen_ids and _is_valid_list_movie(item, language_filter):
-                seen_ids.add(item["id"])
-                movies.append(item)
+    # ─── KATMAN 1: Tanımlı tmdb_ids'den filmleri çek ───────────
+    if len(movies) < MIN_MOVIES:
+        fetch_tasks = [_fetch_one(tid) for tid in lst.get("tmdb_ids", []) if tid not in seen_ids]
+        fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
+        for item in fetch_results:
+            if isinstance(item, dict) and item.get("id"):
+                if item["id"] not in seen_ids and _is_valid_list_movie(item, language_filter):
+                    seen_ids.add(item["id"])
+                    movies.append(item)
 
     # ─── KATMAN 2: Yetersiz film → TMDB discover ile doldur ────
     if len(movies) < MIN_MOVIES and language_filter:

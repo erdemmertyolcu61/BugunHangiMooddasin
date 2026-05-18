@@ -5,12 +5,13 @@
  */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Check, Eye } from 'lucide-react';
+import { X, Plus, Check, Eye, ExternalLink } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
 import {
   proxyImageUrl, getSimilarMovies,
   addToWatchlist, removeFromWatchlist, toggleWatched,
 } from '../services/api';
+import { buildWatchUrl } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
 
 const IMG_LG = 'https://image.tmdb.org/t/p/original';
@@ -152,7 +153,7 @@ export default function FilmDetailModal({ movieId, onClose }) {
                   </div>
                 </div>
 
-                {/* Nerede İzlenir */}
+                {/* Nerede İzlenir — her platform tıklanabilir */}
                 {movie.watch_providers && (() => {
                   const wp = movie.watch_providers;
                   const all = [
@@ -165,22 +166,39 @@ export default function FilmDetailModal({ movieId, onClose }) {
                   const seen = new Set();
                   const uniq = all.filter(p => !seen.has(p.provider_id) && seen.add(p.provider_id));
                   if (uniq.length === 0 && !wp.link) return null;
+
+                  const openProvider = (provider) => {
+                    // buildWatchUrl: bilinen platform → deep-link;
+                    // bilinmeyen → TMDB/JustWatch toplu linkine (wp.link) düşer.
+                    const url = buildWatchUrl(provider.provider_id, movie.title, wp.link);
+                    if (url && url !== '#') {
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                    } else if (wp.link) {
+                      window.open(wp.link, '_blank', 'noopener,noreferrer');
+                    }
+                  };
+
                   return (
-                    <div className="border-t border-white/5 pt-7 space-y-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Nerede İzlenir?</p>
+                    <div className="border-t border-white/10 pt-7 space-y-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber/60">Nerede İzlenir?</p>
                       <div className="flex flex-wrap gap-3">
                         {uniq.length === 0 ? (
                           <a href={wp.link} target="_blank" rel="noopener noreferrer"
-                            className="px-5 py-3 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber hover:bg-white/10 transition-all">
-                            İzleme Seçenekleri
+                            className="flex items-center gap-2 px-5 py-3 bg-amber/15 border border-amber/35 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber hover:bg-amber/25 transition-all">
+                            <ExternalLink size={13} /> İzleme Seçenekleri
                           </a>
                         ) : uniq.slice(0, 8).map(p => (
-                          <span key={p.provider_id} title={`${p.provider_name} (${p.tag})`}
-                            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
+                          <button
+                            key={p.provider_id}
+                            onClick={() => openProvider(p)}
+                            title={`${p.provider_name} (${p.tag}) — açmak için tıkla`}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-amber/10 border border-amber/30 rounded-full hover:bg-amber/20 hover:border-amber/50 transition-all group active:scale-95 cursor-pointer"
+                          >
                             {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/60">{p.provider_name}</span>
-                            <span className="text-[8px] uppercase tracking-widest text-ivory/20">{p.tag}</span>
-                          </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/80 group-hover:text-amber transition-colors">{p.provider_name}</span>
+                            <span className="text-[8px] uppercase tracking-widest text-ivory/40">{p.tag}</span>
+                            <ExternalLink size={11} className="text-ivory/40 group-hover:text-amber transition-colors" />
+                          </button>
                         ))}
                       </div>
                     </div>
