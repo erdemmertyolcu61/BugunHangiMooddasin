@@ -610,12 +610,12 @@ export default function Discover() {
       {/* Kalıcı blur arkaplan — CSS filter: blur() scroll'dan etkilenmez, her zaman görünür */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div
-          className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full opacity-[0.18]"
-          style={{ background: selectedMood.accentHex || '#ffbf00', filter: 'blur(120px)', willChange: 'filter' }}
+          className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full opacity-[0.30]"
+          style={{ background: selectedMood.accentHex || '#ffbf00', filter: 'blur(140px)', willChange: 'filter' }}
         />
         <div
-          className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full opacity-[0.12]"
-          style={{ background: selectedMood.vignette || '#000', filter: 'blur(100px)', willChange: 'filter' }}
+          className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full opacity-[0.20]"
+          style={{ background: selectedMood.vignette || '#000', filter: 'blur(120px)', willChange: 'filter' }}
         />
       </div>
 
@@ -814,117 +814,120 @@ export default function Discover() {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-10 gap-y-8 sm:gap-y-16">
-            {loading && searchResults === null
-              ? [...Array(10)].map((_, i) => <div key={i} className="aspect-[2/3] bg-white/5 rounded-[2.5rem] animate-pulse" />)
-              : displayMovies.length === 0
-                ? <div className="col-span-5 py-40 text-center">
-                    {error ? (
-                      <div className="space-y-4">
-                        <p className="text-amber text-3xl font-serif italic">{error}</p>
-                        <p className="text-ivory/40 text-sm">
-                          İpucu: Backend'i başlatmak için <code>python start.py</code> komutunu kullanın. 
-                          Eğer port 8002 çakışması varsa terminaldeki talimatları izleyin.
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-ivory/20 font-serif italic text-3xl">Üstad bu arama için uygun bir başyapıt bulamadı...</p>
-                    )}
-                  </div>
-                : displayMovies.map((movie) => (
-                  <div key={movie.id} className="group cursor-pointer relative" onClick={() => handleAnalyze(movie)}>
-                    <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
-                      {movie.poster_url || movie.poster_path
-                        ? <img
-                            src={proxyImageUrl(movie.poster_url || `${IMG_BASE}${movie.poster_path}`)}
-                            className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        : <div className={`artistic-fallback w-full h-full p-12`}>
-                            <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>
-                          </div>}
-                          
-                        {/* Mood Uyum Overlay */}
-                        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
-                                <Sparkles size={10} /> %{movie.mood_score || movie.match}
-                            </p>
+          {/* Frosted glass container — tıpkı Gurme kartı gibi, blur efektini scroll boyunca sürdürür */}
+          <div className="p-4 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[3rem] bg-surface/10 backdrop-blur-md border border-white/5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-10 gap-y-8 sm:gap-y-16">
+              {loading && searchResults === null
+                ? [...Array(10)].map((_, i) => <div key={i} className="aspect-[2/3] bg-white/5 rounded-[2.5rem] animate-pulse" />)
+                : displayMovies.length === 0
+                  ? <div className="col-span-5 py-40 text-center">
+                      {error ? (
+                        <div className="space-y-4">
+                          <p className="text-amber text-3xl font-serif italic">{error}</p>
+                          <p className="text-ivory/40 text-sm">
+                            İpucu: Backend'i başlatmak için <code>python start.py</code> komutunu kullanın. 
+                            Eğer port 8002 çakışması varsa terminaldeki talimatları izleyin.
+                          </p>
                         </div>
-
-                        {/* Hızlı Eylem Butonları — mobilde her zaman görünür */}
-                        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
-                          <button
-                            onClick={(e) => handleQuickSave(e, movie)}
-                            title="Deftere Ekle"
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
-                              ${quickSavedIds.has(movie.id)
-                                ? 'bg-amber/90 border-amber/60 text-black'
-                                : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
-                              }`}
-                          >
-                            {quickSavedIds.has(movie.id)
-                              ? <><Check size={10} /> Eklendi</>
-                              : <><BookmarkPlus size={10} /> Deftere</>
-                            }
-                          </button>
-                          <button
-                            onClick={(e) => handleQuickWatched(e, movie)}
-                            title="İzledim"
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
-                              ${quickWatchedIds.has(movie.id)
-                                ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-                                : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
-                              }`}
-                          >
-                            {quickWatchedIds.has(movie.id)
-                              ? <><Check size={10} /> İzledim</>
-                              : <><Eye size={10} /> İzledim</>
-                            }
-                          </button>
-                        </div>
+                      ) : (
+                        <p className="text-ivory/20 font-serif italic text-3xl">Üstad bu arama için uygun bir başyapıt bulamadı...</p>
+                      )}
                     </div>
-                    <div className="mt-3 sm:mt-5 px-1 sm:px-4">
-                      <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
-                        {movie.title}
-                      </h3>
-                      <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
-                        {reliableRating(movie) != null && (
-                          <div className="flex items-center gap-1.5">
-                              <Star size={10} className="fill-amber text-amber" />
-                              <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
+                  : displayMovies.map((movie) => (
+                      <div key={movie.id} className="group cursor-pointer relative" onClick={() => handleAnalyze(movie)}>
+                        <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
+                          {movie.poster_url || movie.poster_path
+                            ? <img
+                                src={proxyImageUrl(movie.poster_url || `${IMG_BASE}${movie.poster_path}`)}
+                                className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            : <div className={`artistic-fallback w-full h-full p-12`}>
+                                <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>
+                              </div>}
+                            
+                            {/* Mood Uyum Overlay */}
+                            <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
+                                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
+                                    <Sparkles size={10} /> %{movie.mood_score || movie.match}
+                                </p>
+                            </div>
+
+                            {/* Hızlı Eylem Butonları — mobilde her zaman görünür */}
+                            <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
+                              <button
+                                onClick={(e) => handleQuickSave(e, movie)}
+                                title="Deftere Ekle"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
+                                  ${quickSavedIds.has(movie.id)
+                                    ? 'bg-amber/90 border-amber/60 text-black'
+                                    : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
+                                  }`}
+                              >
+                                {quickSavedIds.has(movie.id)
+                                  ? <><Check size={10} /> Eklendi</>
+                                  : <><BookmarkPlus size={10} /> Deftere</>
+                                }
+                              </button>
+                              <button
+                                onClick={(e) => handleQuickWatched(e, movie)}
+                                title="İzledim"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
+                                  ${quickWatchedIds.has(movie.id)
+                                    ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+                                    : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
+                                  }`}
+                              >
+                                {quickWatchedIds.has(movie.id)
+                                  ? <><Check size={10} /> İzledim</>
+                                  : <><Eye size={10} /> İzledim</>
+                                }
+                              </button>
+                            </div>
+                        </div>
+                        <div className="mt-3 sm:mt-5 px-1 sm:px-4">
+                          <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
+                            {movie.title}
+                          </h3>
+                          <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
+                            {reliableRating(movie) != null && (
+                              <div className="flex items-center gap-1.5">
+                                  <Star size={10} className="fill-amber text-amber" />
+                                  <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))
-            }
-          </div>
-
-          {searchResults === null && totalPages > 1 && (
-            <div className="flex items-center justify-center gap-10 pt-20">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="w-16 h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
-              >
-                ←
-              </button>
-              <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.5em] text-ivory/20 mb-2">Sayfa</span>
-                  <span className="text-lg font-serif italic text-amber">{currentPage} / {totalPages}</span>
-              </div>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="w-16 h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
-              >
-                →
-              </button>
+                    ))
+              }
             </div>
-          )}
+
+            {searchResults === null && totalPages > 1 && (
+              <div className="flex items-center justify-center gap-10 pt-12 pb-4">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="w-16 h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
+                >
+                  ←
+                </button>
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.5em] text-ivory/20 mb-2">Sayfa</span>
+                    <span className="text-lg font-serif italic text-amber">{currentPage} / {totalPages}</span>
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="w-16 h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
         </motion.section>
       </main>
 
