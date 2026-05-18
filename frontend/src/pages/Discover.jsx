@@ -605,8 +605,20 @@ export default function Discover() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
+      style={{ WebkitBackdropFilter: 'blur(0px)' }}
       className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] relative font-sans mood-${selectedMood.id}`}
     >
+      {/* Kalıcı arkaplan gradient — scroll'da backdrop-blur görünür kalmak için */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.12] transition-all duration-1000"
+          style={{
+            background: `radial-gradient(ellipse at 30% 20%, ${selectedMood.accentHex || '#ffbf00'}55 0%, transparent 70%),
+                        radial-gradient(ellipse at 70% 80%, ${selectedMood.vignette || '#000'}88 0%, transparent 60%)`,
+          }}
+        />
+      </div>
+
       <div className="vignette vignette-active" />
 
       {/* ═══ MOOD GEÇİŞ ANİMASYONLARI ═══ */}
@@ -645,7 +657,7 @@ export default function Discover() {
         className="fixed inset-0 pointer-events-none z-10 transition-all duration-1000"
         style={{
           background: `radial-gradient(circle, transparent 20%, ${selectedMood.vignette || '#000'} 150%)`,
-          opacity: 0.25,
+          opacity: 0.35,
         }}
       />
 

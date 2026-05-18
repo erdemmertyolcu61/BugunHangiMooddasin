@@ -99,6 +99,12 @@
   background-color: #f3ecdb !important;
 }
 
+/* backdrop-filter scroll stabilitesi — Safari/WebKit'te scroll'da
+   görüntü düşmesini (backdrop-filter kaybolması) engeller */
+[class*="backdrop-blur-"] {
+  will-change: backdrop-filter;
+}
+
 /* Vinyet / aura çok parlamasın */
 [data-theme="light"] .vignette { opacity: 0.04 !important; }
 

@@ -1,4 +1,11 @@
+# ─── Film Connoisseur — Render Blueprint ──────────────────────────
+# 1. Commit + push this file to your GitHub repo
+# 2. In Render Dashboard → Blueprint → Connect repo
+# 3. Set required env vars (marked "sync: false") manually in Dashboard
+# ────────────────────────────────────────────────────────────────────
+
 services:
+  # ─── Backend API (Python FastAPI) ────────────────────────────────
   - type: web
     name: film-connoisseur-api
     runtime: python
@@ -11,6 +18,39 @@ services:
         value: movie_cache.db
       - key: PYTHON_VERSION
         value: 3.12.0
-      # Secrets below must be set manually in Render Dashboard → Environment
-      # TMDB_API_KEY, OMDB_API_KEY, ANTHROPIC_API_KEY,
-      # ALLOWED_ORIGINS, BETA_PASSWORD, ADMIN_PASSWORD, JWT_SECRET
+      # ─── SET THESE MANUALLY in Render Dashboard → Environment ────
+      - key: TMDB_API_KEY
+        sync: false
+      - key: OMDB_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CLAUDE_MODEL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: BETA_PASSWORD
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+  # ─── Frontend Static Site (React + Vite) ────────────────────────
+  - type: static
+    name: film-connoisseur
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    pullRequestPreviews: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+      # Set VITE_API_BASE_URL to your backend URL, e.g.:
+      #   https://film-connoisseur-api.onrender.com
+      # (You'll see this after the backend service deploys)

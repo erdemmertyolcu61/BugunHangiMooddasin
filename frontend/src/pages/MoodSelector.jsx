@@ -181,12 +181,12 @@ export default function MoodSelector() {
                     <div className="absolute inset-0 opacity-[0.025] mix-blend-overlay pointer-events-none"
                       style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-                    <div className="relative p-6 sm:p-7 flex flex-col min-h-[260px] sm:min-h-[310px] md:min-h-[340px]">
+                    <div className="relative p-4 sm:p-7 flex flex-col min-h-[200px] sm:min-h-[310px] md:min-h-[340px]">
 
                       {/* Icon box */}
-                      <div className="mb-5 sm:mb-6">
+                      <div className="mb-3 sm:mb-6">
                         <motion.div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors duration-500"
+                          className="w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors duration-500"
                           style={{ background: isHovered ? `${mood.accentHex}22` : 'rgba(255,255,255,0.05)', border: `1px solid ${isHovered ? mood.accentHex + '40' : 'rgba(255,255,255,0.07)'}` }}
                           animate={isHovered ? { scale: 1.08 } : { scale: 1 }}
                           transition={{ duration: 0.4 }}
@@ -204,31 +204,31 @@ export default function MoodSelector() {
                             }
                             transition={{ duration: 0.6, repeat: isHovered ? Infinity : 0 }}
                           >
-                            {mood.icon && <mood.icon size={22} strokeWidth={1.5} />}
+                            {mood.icon && <mood.icon size={18} strokeWidth={1.5} />}
                           </motion.span>
                         </motion.div>
                       </div>
 
                       {/* Title */}
-                      <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-tight leading-tight text-ivory group-hover:text-amber transition-colors duration-400 mb-3">
+                      <h3 className="font-serif text-[15px] sm:text-2xl font-bold tracking-tight leading-tight text-ivory group-hover:text-amber transition-colors duration-400 mb-1 sm:mb-3">
                         {mood.title}
                       </h3>
 
                       {/* Accent separator */}
                       <motion.div
-                        className="h-px mb-4 rounded-full"
+                        className="h-px mb-2 sm:mb-4 rounded-full"
                         animate={{ width: isHovered ? 36 : 20, opacity: isHovered ? 0.9 : 0.2 }}
                         transition={{ duration: 0.4 }}
                         style={{ background: mood.accentHex }}
                       />
 
                       {/* Intro */}
-                      <p className="font-sans text-[12.5px] sm:text-[13px] leading-relaxed text-ivory/75 group-hover:text-ivory transition-colors duration-500 line-clamp-3 flex-1">
+                      <p className="font-sans text-[11px] sm:text-[13px] leading-relaxed text-ivory/75 group-hover:text-ivory transition-colors duration-500 line-clamp-3 flex-1">
                         {mood.intro}
                       </p>
 
                       {/* Footer row */}
-                      <div className="mt-5 flex items-center justify-between">
+                      <div className="mt-3 sm:mt-5 flex items-center justify-between">
                         <span
                           className="font-sans text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.35em] transition-colors duration-400 text-ivory/55 group-hover:text-amber"
                           style={isHovered ? { color: mood.accentHex } : undefined}
