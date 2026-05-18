@@ -4,7 +4,7 @@ import { ChevronLeft, BookOpen, Sparkles, Star, Check, BookmarkPlus, Eye } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiUrl } from '../utils/apiConfig';
 import { proxyImageUrl, addToWatchlist, removeFromWatchlist, toggleWatched } from '../services/api';
-import { MOODS } from '../context/MoodContext';
+import { MOODS, useMood } from '../context/MoodContext';
 import FilmDetailModal from '../components/FilmDetailModal';
 
 // Liste mood slug'ını sistemdeki gerçek mood adına çevir
@@ -28,6 +28,9 @@ function ListelerAnasayfa() {
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { selectedMood } = useMood();
+  // Mood seçiliyse keşfet ekranına, değilse ana sayfaya dön
+  const goBack = () => navigate(selectedMood ? '/discover' : '/');
 
   useEffect(() => {
     fetch(getApiUrl('/api/lists'))
@@ -40,9 +43,9 @@ function ListelerAnasayfa() {
     <div className="min-h-screen pb-32 pt-8 px-4 sm:px-8 max-w-5xl mx-auto">
       {/* Başlık */}
       <div className="mb-12 sm:mb-16">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-ivory/40 hover:text-ivory/70 transition-colors mb-8">
+        <button onClick={goBack} className="flex items-center gap-2 text-ivory/40 hover:text-ivory/70 transition-colors mb-8">
           <ChevronLeft size={18} />
-          <span className="text-xs font-bold uppercase tracking-widest">Geri</span>
+          <span className="text-xs font-bold uppercase tracking-widest">{selectedMood ? 'Keşfete Dön' : 'Ana Sayfa'}</span>
         </button>
         <div className="flex items-center gap-4 mb-4">
           <BookOpen size={28} className="text-amber" />
