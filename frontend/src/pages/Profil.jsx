@@ -27,7 +27,7 @@ const formatDate = (iso) => {
 
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
-    <div className="flex-1 min-w-[140px] p-6 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/10">
+    <div className="flex-1 min-w-[140px] p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10">
       <Icon size={20} style={{ color: accent }} className="mb-3" />
       <p className="font-sans text-3xl font-bold text-ivory tracking-tight">{value}</p>
       <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.18em] text-ivory/40 mt-1">{label}</p>
@@ -187,7 +187,7 @@ export default function Profil() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="p-8 sm:p-12 rounded-[2.5rem] bg-slate-900/80 backdrop-blur-md border border-white/10 flex flex-col sm:flex-row items-center gap-8"
+          className="p-8 sm:p-12 rounded-[2.5rem] bg-[#1c1512]/90 backdrop-blur-md border border-white/10 flex flex-col sm:flex-row items-center gap-8"
         >
           <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-amber/30 shrink-0 bg-amber/10 flex items-center justify-center">
             {avatar
@@ -231,7 +231,7 @@ export default function Profil() {
                 <StatCard icon={Sparkles} label="Favori Mod" value={topMoods[0]?.title || '—'} accent="#a78bfa" />
               </div>
               {topMoods.length > 0 && (
-                <div className="p-6 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/10">
+                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10">
                   <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40 mb-4">
                     En Çok Tercih Ettiğin Modlar
                   </p>
