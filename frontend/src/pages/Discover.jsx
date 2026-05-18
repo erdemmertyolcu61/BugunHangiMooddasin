@@ -600,14 +600,9 @@ export default function Discover() {
   }
 
   return (
-    <motion.div
-      key={selectedMood.id}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] relative font-sans mood-${selectedMood.id}`}
-    >
-      {/* Kalıcı blur arkaplan — CSS filter: blur() scroll'dan etkilenmez, her zaman görünür */}
+    <div className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] font-sans mood-${selectedMood.id}`}>
+      {/* ═══ FIXED ARKAPLAN KATMANLARI (motion.div DIŞINDA — Safari fix) ═══ */}
+      {/* Kalıcı blur arkaplan */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div
           className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full opacity-[0.30]"
@@ -621,8 +616,20 @@ export default function Discover() {
 
       <div className="vignette vignette-active" />
 
+      {/* Sürekli Vignette — mood rengine göre kenarlarda hafif gölge */}
+      <div
+        className="fixed inset-0 pointer-events-none z-10 transition-all duration-1000"
+        style={{
+          background: `radial-gradient(circle, transparent 20%, ${selectedMood.vignette || '#000'} 150%)`,
+          opacity: 0.35,
+        }}
+      />
+
+      {/* Paper texture */}
+      <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
+           style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
+
       {/* ═══ MOOD GEÇİŞ ANİMASYONLARI ═══ */}
-      {/* Gradient Yıkama Efekti — mood değiştiğinde tam ekran gradient parlayıp söner */}
       <AnimatePresence mode="wait">
         <motion.div
           key={`wash-${selectedMood.id}`}
@@ -633,7 +640,6 @@ export default function Discover() {
         />
       </AnimatePresence>
 
-      {/* Mood İkon Giriş — büyük ikon ortada belirip küçülerek kaybolur */}
       <AnimatePresence mode="wait">
         <motion.div
           key={`icon-${selectedMood.id}`}
@@ -652,20 +658,15 @@ export default function Discover() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Sürekli Vignette — mood rengine göre kenarlarda hafif gölge */}
-      <div
-        className="fixed inset-0 pointer-events-none z-10 transition-all duration-1000"
-        style={{
-          background: `radial-gradient(circle, transparent 20%, ${selectedMood.vignette || '#000'} 150%)`,
-          opacity: 0.35,
-        }}
-      />
-
-      {/* Paper texture */}
-      <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
-           style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
-
-      <header className="sticky top-0 z-[60] bg-[#120d0b]/75 backdrop-blur-xl border-b border-white/5 shadow-lg pt-safe">
+      {/* ═══ İÇERİK (fade-in animasyonlu) ═══ */}
+      <motion.div
+        key={selectedMood.id}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="relative"
+      >
+        <header className="sticky top-0 z-[60] bg-[#120d0b]/75 backdrop-blur-xl border-b border-white/5 shadow-lg pt-safe">
         <div className="w-full px-4 sm:px-8 lg:px-12 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
           <div className="flex items-center gap-3 sm:gap-6 md:shrink-0">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
@@ -1079,6 +1080,7 @@ export default function Discover() {
         )}
       </AnimatePresence>
 
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
