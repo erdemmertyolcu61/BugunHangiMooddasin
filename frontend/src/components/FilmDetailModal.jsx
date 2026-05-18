@@ -294,23 +294,28 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                 {/* Benzer Filmler */}
                 <SimilarFilmsStrip movies={similar} onSelect={(m) => setActiveId(m.id)} />
 
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-5 pt-3">
+                {/* Tek tip pill aksiyon satırı — eşit yükseklik, sarmalanmaz */}
+                <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3 pt-4">
                   <button onClick={handleSave}
-                    className={`flex-1 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 ${
-                      saved ? 'bg-amber/10 text-amber border border-amber/30' : 'bg-amber text-bg hover:scale-[1.02] shadow-[0_20px_50px_-10px_rgba(255,191,0,0.3)]'
+                    className={`inline-flex items-center justify-center gap-2 h-12 px-7 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap transition-all active:scale-95 ${
+                      saved
+                        ? 'bg-amber/15 text-amber border border-amber/40'
+                        : 'bg-amber text-bg hover:brightness-105 shadow-[0_14px_36px_-12px_rgba(255,191,0,0.45)]'
                     }`}>
-                    {saved ? <><Check size={16} /> Deftere Eklendi</> : <><Plus size={16} /> Deftere Kaydet</>}
+                    {saved ? <><Check size={15} /> Deftere Eklendi</> : <><Plus size={15} /> Deftere Kaydet</>}
                   </button>
                   <button onClick={handleWatched}
-                    className={`px-6 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2 ${
-                      watched ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'border border-white/10 text-ivory/60 hover:bg-white/5'
+                    className={`inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap transition-all active:scale-95 ${
+                      watched
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
+                        : 'bg-white/5 border border-white/15 text-ivory/70 hover:bg-white/10 hover:text-ivory'
                     }`}>
                     {watched ? <><Check size={14} /> İzledim</> : <><Eye size={14} /> İzledim</>}
                   </button>
                   {/* Opsiyonel ek aksiyonlar (örn. Paylaş, Topluluğa Öner) */}
                   {extraActions}
                   <button onClick={onClose}
-                    className="px-8 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border border-white/10 hover:bg-white/5 transition-all">
+                    className="inline-flex items-center justify-center h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-white/15 text-ivory/60 hover:bg-white/10 hover:text-ivory transition-all active:scale-95">
                     Kapat
                   </button>
                 </div>

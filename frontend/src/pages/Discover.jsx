@@ -959,7 +959,7 @@ export default function Discover() {
             <>
               <button
                 onClick={handleShare}
-                className="px-6 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border border-white/10 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-white/15 text-ivory/70 hover:bg-white/10 hover:text-ivory transition-all active:scale-95"
               >
                 {shareCopied ? <><Copy size={14} /> Kopyalandı</> : <><Share2 size={14} /> Paylaş</>}
               </button>
@@ -968,10 +968,10 @@ export default function Discover() {
                   onClick={handleRecommendToCommunity}
                   disabled={recommending || alreadyRecommended}
                   title={alreadyRecommended ? 'Bu filmi zaten topluluğa önerdin' : 'Topluluğa öner'}
-                  className={`px-6 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2 ${
+                  className={`inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap transition-all active:scale-95 ${
                     alreadyRecommended
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 cursor-default'
-                      : 'border border-amber/30 text-amber hover:bg-amber/10'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-default'
+                      : 'bg-amber/12 border border-amber/40 text-amber hover:bg-amber/20'
                   }`}
                 >
                   {alreadyRecommended ? <><Check size={14} /> Önerdin</> : <><Users size={14} /> Topluluğa Öner</>}
