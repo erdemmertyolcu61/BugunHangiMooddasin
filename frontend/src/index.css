@@ -19,30 +19,36 @@
    JSX'e dokunmadan, hardcoded koyu renkleri açık paletle değiştirir.
    ═══════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-  --color-bg: #f4efe4;        /* sıcak krem zemin */
-  --color-surface: #ffffff;   /* kart yüzeyi */
-  --color-ivory: #241c15;     /* ana metin (koyu) */
+  --color-bg: #e7dabd;        /* sıcak bej zemin */
+  --color-surface: #f3ecdb;   /* açık bej kart yüzeyi */
+  --color-ivory: #2a2017;     /* ana metin (koyu espresso) */
   --color-rose: #7a5c5c;
 }
 
-/* Sayfa zeminleri (koyu espresso tonları) → krem */
+/* Sayfa zeminleri (koyu espresso tonları) → bej */
 [data-theme="light"] .bg-\[\#120d0b\],
 [data-theme="light"] .bg-\[\#120d0a\],
 [data-theme="light"] .bg-\[\#0d0b0a\],
 [data-theme="light"] .bg-\[\#0a0807\] {
-  background-color: #f4efe4 !important;
+  background-color: #e7dabd !important;
 }
-/* Yüzeyler / modallar / paneller → beyaz */
+/* Head bar & bottom bar (#120d0b/98) → bej (yarı saydam, sticky okunur) */
+[data-theme="light"] .bg-\[\#120d0b\]\/98,
+[data-theme="light"] .bg-\[\#120d0b\]\/95 {
+  background-color: rgba(228, 216, 188, 0.97) !important;
+}
+/* Yüzeyler / modallar / paneller → açık bej */
 [data-theme="light"] .bg-\[\#1c1512\],
 [data-theme="light"] .bg-\[\#1a1a1a\],
 [data-theme="light"] .bg-\[\#1a1410\],
 [data-theme="light"] .bg-\[\#1a1816\],
 [data-theme="light"] .bg-\[\#12100e\],
+[data-theme="light"] .bg-\[\#1a1816\]\/95,
 [data-theme="light"] .bg-\[\#12100e\]\/95,
 [data-theme="light"] .bg-\[\#1a1a1a\]\/90,
 [data-theme="light"] .bg-\[\#1a1a1a\]\/95 {
-  background-color: #ffffff !important;
-  color: #241c15;
+  background-color: #f3ecdb !important;
+  color: #2a2017;
 }
 
 /* Beyaz / açık hardcoded metinler → koyu mürekkep */
