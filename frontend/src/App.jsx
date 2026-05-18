@@ -20,6 +20,7 @@ const Profil = lazy(() => import('./pages/Profil'));
 const SearchPage = lazy(() => import('./pages/Search'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const Home = lazy(() => import('./pages/Home'));
+const TasteMapCollision = lazy(() => import('./pages/TasteMapCollision'));
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
@@ -77,6 +78,7 @@ function AppContent() {
           <Route path="/listeler/:slug" element={<Listeler />} />
           <Route path="/profil" element={<Profil />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/carpistir" element={<TasteMapCollision />} />
 
           {/* Design Preview & Legacy */}
           <Route path="/preview" element={<DesignPreview />} />
