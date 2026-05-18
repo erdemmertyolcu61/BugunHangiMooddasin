@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clapperboard, Shuffle, Sparkles, BookMarked, BookOpen } from 'lucide-react';
+import { Clapperboard, Compass, BookMarked, BookOpen } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
   { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
-  { label: 'Kafan mı?', icon: Sparkles, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
+  { label: 'Kafan Karışık?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];
 
@@ -36,8 +36,8 @@ export default function BottomNav() {
                 active ? 'text-amber' : 'text-ivory/45 active:text-ivory/80'
               }`}
             >
-              <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] leading-none">
+              <Icon size={21} strokeWidth={active ? 2.4 : 1.8} />
+              <span className="text-[9.5px] font-bold uppercase tracking-[0.02em] leading-none whitespace-nowrap">
                 {item.label}
               </span>
             </button>

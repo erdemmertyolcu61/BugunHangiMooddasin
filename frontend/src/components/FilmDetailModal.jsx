@@ -190,10 +190,10 @@ export default function FilmDetailModal({ movieId, onClose }) {
                 {similar.length > 0 && (
                   <div className="border-t border-white/5 pt-7 space-y-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
-                    <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+                    <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1 snap-x snap-mandatory overscroll-x-contain" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
                       {similar.map((m) => (
                         <button key={m.id} onClick={() => setActiveId(m.id)}
-                          className="group shrink-0 w-[100px] sm:w-[128px] text-left" title={m.title}>
+                          className="group shrink-0 snap-start w-[100px] sm:w-[128px] text-left" title={m.title}>
                           <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
                             <img src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'} alt={m.title}
                               loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />

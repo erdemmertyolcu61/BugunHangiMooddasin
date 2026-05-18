@@ -169,7 +169,7 @@ export default function SurpriseFilm() {
               initial={{ scale: 0.8, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ type: "spring", bounce: 0.4, duration: 1 }}
-              className="relative w-full max-w-lg"
+              className="relative w-full max-w-lg md:max-w-2xl lg:max-w-3xl"
             >
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 flex-wrap justify-center">
                 <span className="bg-[#ff6b35] text-white px-4 py-1.5 rounded-full font-bold uppercase tracking-widest text-[10px] shadow-lg">Sürpriz</span>
@@ -182,15 +182,15 @@ export default function SurpriseFilm() {
               </div>
 
               <div className="bg-black/70 backdrop-blur-md rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(255,107,53,0.15)]">
-                <div className="relative w-full h-[420px]">
+                <div className="relative w-full h-[420px] md:h-[560px] lg:h-[640px]">
                   <img src={proxyImageUrl(movie.poster_url)} className="w-full h-full object-cover object-center" alt={movie.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <h2 className="text-3xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl">
+                  <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
+                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl">
                       {movie.title}
                     </h2>
                     {ustadLine && (
-                      <p className="mt-2 text-[15px] text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">"{ustadLine}"</p>
+                      <p className="mt-3 text-[15px] sm:text-xl text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">"{ustadLine}"</p>
                     )}
                   </div>
                 </div>

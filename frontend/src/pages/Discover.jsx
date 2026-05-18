@@ -663,10 +663,10 @@ export default function Discover() {
                   {similarMovies.length > 0 && (
                     <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
-                      <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+                      <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1 snap-x snap-mandatory overscroll-x-contain" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
                         {similarMovies.map((m) => (
                           <button key={m.id} onClick={() => openSimilarMovie(m)}
-                            className="group shrink-0 w-[100px] sm:w-[130px] text-left" title={m.title}>
+                            className="group shrink-0 snap-start w-[100px] sm:w-[130px] text-left" title={m.title}>
                             <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
                               <img src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'} alt={m.title} loading="lazy"
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -828,9 +828,9 @@ export default function Discover() {
             </button>
             <button onClick={() => { setQuizOpen(true); setQuizStep(1); setQuizAnswers([]); setQuizResult(null); }}
               title="Bugünkü Ruh Halim"
-              className="flex items-center gap-2 p-3 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
-              <Brain size={18} className="text-bg/80 shrink-0" />
-              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
+              className="flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
+              <Brain size={16} className="text-bg/80 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
             </button>
             <button onClick={() => navigate('/listeler')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
               <BookOpen size={16} className="text-amber group-hover:scale-110 transition-transform" />
@@ -1220,7 +1220,7 @@ export default function Discover() {
                         <button
                           key={m.id}
                           onClick={() => openSimilarMovie(m)}
-                          className="group shrink-0 w-[100px] sm:w-[130px] text-left"
+                          className="group shrink-0 snap-start w-[100px] sm:w-[130px] text-left"
                           title={m.title}
                         >
                           <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
