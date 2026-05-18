@@ -85,6 +85,86 @@ class MovieCache:
                     await db.execute(f"ALTER TABLE {tbl} ADD COLUMN user_id INTEGER DEFAULT 0")
                 except Exception:
                     pass  # column already exists
+            # watchlist.watched kolonu da garanti olsun (eski şemada lazy ekleniyordu)
+            try:
+                await db.execute("ALTER TABLE watchlist ADD COLUMN watched INTEGER DEFAULT 0")
+            except Exception:
+                pass
+
+            # ── Çok-kullanıcılı izolasyon: PRIMARY KEY'i (tmdb_id, user_id)'ye taşı ──
+            # Eski şemada tmdb_id tek PK olduğu için aynı filmi iki kullanıcı
+            # bağımsız kaydedemiyordu. Tabloları kompozit PK ile yeniden kurar.
+            # Idempotent: schema_migrations sentinel ile bir kez çalışır.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    key TEXT PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur = await db.execute("SELECT 1 FROM schema_migrations WHERE key = 'multiuser_v1'")
+            already = await cur.fetchone()
+            if not already:
+                # watchlist
+                await db.execute("""
+                    CREATE TABLE watchlist_mu (
+                        tmdb_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        poster_url TEXT,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        watched INTEGER DEFAULT 0,
+                        user_id INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (tmdb_id, user_id)
+                    )
+                """)
+                await db.execute("""
+                    INSERT OR IGNORE INTO watchlist_mu (tmdb_id, title, poster_url, added_at, watched, user_id)
+                    SELECT tmdb_id, title, poster_url, added_at, COALESCE(watched, 0), COALESCE(user_id, 0)
+                    FROM watchlist
+                """)
+                await db.execute("DROP TABLE watchlist")
+                await db.execute("ALTER TABLE watchlist_mu RENAME TO watchlist")
+
+                # movie_notes
+                await db.execute("""
+                    CREATE TABLE movie_notes_mu (
+                        tmdb_id INTEGER NOT NULL,
+                        note_content TEXT NOT NULL,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        user_id INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (tmdb_id, user_id)
+                    )
+                """)
+                await db.execute("""
+                    INSERT OR IGNORE INTO movie_notes_mu (tmdb_id, note_content, updated_at, user_id)
+                    SELECT tmdb_id, note_content, updated_at, COALESCE(user_id, 0)
+                    FROM movie_notes
+                """)
+                await db.execute("DROP TABLE movie_notes")
+                await db.execute("ALTER TABLE movie_notes_mu RENAME TO movie_notes")
+
+                # future_plans
+                await db.execute("""
+                    CREATE TABLE future_plans_mu (
+                        tmdb_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        poster_url TEXT,
+                        priority INTEGER DEFAULT 0,
+                        watch_date TEXT,
+                        notes TEXT,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        user_id INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (tmdb_id, user_id)
+                    )
+                """)
+                await db.execute("""
+                    INSERT OR IGNORE INTO future_plans_mu (tmdb_id, title, poster_url, priority, watch_date, notes, added_at, user_id)
+                    SELECT tmdb_id, title, poster_url, priority, watch_date, notes, added_at, COALESCE(user_id, 0)
+                    FROM future_plans
+                """)
+                await db.execute("DROP TABLE future_plans")
+                await db.execute("ALTER TABLE future_plans_mu RENAME TO future_plans")
+
+                await db.execute("INSERT INTO schema_migrations (key) VALUES ('multiuser_v1')")
             # OMDb Ratings Cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS omdb_cache (
@@ -234,115 +314,117 @@ class MovieCache:
             return [json.loads(row[0]) for row in rows]
 
     # --- Watchlist (Defterim) Methods ---
-    async def add_to_watchlist(self, tmdb_id: int, title: str, poster_url: str):
-        """Add a movie to the watchlist."""
+    async def add_to_watchlist(self, tmdb_id: int, title: str, poster_url: str, user_id: int = 0):
+        """Add a movie to the watchlist (kullanıcıya özel)."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT OR IGNORE INTO watchlist (tmdb_id, title, poster_url) VALUES (?, ?, ?)",
-                (tmdb_id, title, poster_url)
+                "INSERT OR IGNORE INTO watchlist (tmdb_id, title, poster_url, user_id) VALUES (?, ?, ?, ?)",
+                (tmdb_id, title, poster_url, user_id)
             )
             await db.commit()
 
-    async def remove_from_watchlist(self, tmdb_id: int):
+    async def remove_from_watchlist(self, tmdb_id: int, user_id: int = 0):
         """Remove a movie from the watchlist."""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("DELETE FROM watchlist WHERE tmdb_id = ?", (tmdb_id,))
+            await db.execute("DELETE FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id))
             await db.commit()
 
-    async def get_watchlist(self) -> list:
-        """Get all movies in the watchlist."""
+    async def get_watchlist(self, user_id: int = 0) -> list:
+        """Get all movies in the watchlist for a user."""
         async with aiosqlite.connect(self.db_path) as db:
-            # Ensure watched column exists
-            try:
-                await db.execute("ALTER TABLE watchlist ADD COLUMN watched INTEGER DEFAULT 0")
-                await db.commit()
-            except Exception:
-                pass  # Column already exists
-            cursor = await db.execute("SELECT tmdb_id, title, poster_url, added_at, watched FROM watchlist ORDER BY added_at DESC")
+            cursor = await db.execute(
+                "SELECT tmdb_id, title, poster_url, added_at, watched FROM watchlist WHERE user_id = ? ORDER BY added_at DESC",
+                (user_id,)
+            )
             rows = await cursor.fetchall()
             return [
                 {"tmdb_id": r[0], "title": r[1], "poster_url": r[2], "added_at": r[3], "watched": bool(r[4])}
                 for r in rows
             ]
 
-    async def toggle_watched(self, tmdb_id: int) -> bool:
+    async def toggle_watched(self, tmdb_id: int, user_id: int = 0) -> bool:
         """Toggle watched status for a movie. Returns new watched state."""
         async with aiosqlite.connect(self.db_path) as db:
-            # Ensure column exists
-            try:
-                await db.execute("ALTER TABLE watchlist ADD COLUMN watched INTEGER DEFAULT 0")
-                await db.commit()
-            except Exception:
-                pass  # Column already exists
-
-            cursor = await db.execute("SELECT watched FROM watchlist WHERE tmdb_id = ?", (tmdb_id,))
+            cursor = await db.execute(
+                "SELECT watched FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
+            )
             row = await cursor.fetchone()
             if not row:
                 return False
             new_val = 0 if (row[0] or 0) else 1
-            await db.execute("UPDATE watchlist SET watched = ? WHERE tmdb_id = ?", (new_val, tmdb_id))
+            await db.execute(
+                "UPDATE watchlist SET watched = ? WHERE tmdb_id = ? AND user_id = ?",
+                (new_val, tmdb_id, user_id)
+            )
             await db.commit()
             return bool(new_val)
 
-    async def is_in_watchlist(self, tmdb_id: int) -> bool:
+    async def is_in_watchlist(self, tmdb_id: int, user_id: int = 0) -> bool:
         """Check if a movie is in the watchlist."""
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT 1 FROM watchlist WHERE tmdb_id = ?", (tmdb_id,))
+            cursor = await db.execute(
+                "SELECT 1 FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
+            )
             return await cursor.fetchone() is not None
 
     # --- Personal Notes Methods ---
-    async def save_note(self, tmdb_id: int, note_content: str):
+    async def save_note(self, tmdb_id: int, note_content: str, user_id: int = 0):
         """Save or update a personal note for a movie."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT OR REPLACE INTO movie_notes (tmdb_id, note_content, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-                (tmdb_id, note_content)
+                "INSERT OR REPLACE INTO movie_notes (tmdb_id, note_content, updated_at, user_id) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
+                (tmdb_id, note_content, user_id)
             )
             await db.commit()
 
-    async def get_note(self, tmdb_id: int) -> Optional[str]:
+    async def get_note(self, tmdb_id: int, user_id: int = 0) -> Optional[str]:
         """Get the personal note for a movie."""
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT note_content FROM movie_notes WHERE tmdb_id = ?", (tmdb_id,))
+            cursor = await db.execute(
+                "SELECT note_content FROM movie_notes WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
+            )
             row = await cursor.fetchone()
             return row[0] if row else None
 
     # --- Future Plans Methods ---
-    async def add_to_future(self, tmdb_id: int, title: str, poster_url: str, priority: int = 0, watch_date: str = None, notes: str = None):
+    async def add_to_future(self, tmdb_id: int, title: str, poster_url: str, priority: int = 0, watch_date: str = None, notes: str = None, user_id: int = 0):
         """Add a movie to future plans."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT OR REPLACE INTO future_plans (tmdb_id, title, poster_url, priority, watch_date, notes) VALUES (?, ?, ?, ?, ?, ?)",
-                (tmdb_id, title, poster_url, priority, watch_date, notes)
+                "INSERT OR REPLACE INTO future_plans (tmdb_id, title, poster_url, priority, watch_date, notes, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (tmdb_id, title, poster_url, priority, watch_date, notes, user_id)
             )
             await db.commit()
 
-    async def remove_from_future(self, tmdb_id: int):
+    async def remove_from_future(self, tmdb_id: int, user_id: int = 0):
         """Remove a movie from future plans."""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("DELETE FROM future_plans WHERE tmdb_id = ?", (tmdb_id,))
+            await db.execute("DELETE FROM future_plans WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id))
             await db.commit()
 
-    async def get_future_plans(self) -> list:
+    async def get_future_plans(self, user_id: int = 0) -> list:
         """Get all movies in future plans, ordered by priority."""
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT tmdb_id, title, poster_url, priority, watch_date, notes, added_at FROM future_plans ORDER BY priority DESC, added_at DESC")
+            cursor = await db.execute(
+                "SELECT tmdb_id, title, poster_url, priority, watch_date, notes, added_at FROM future_plans WHERE user_id = ? ORDER BY priority DESC, added_at DESC",
+                (user_id,)
+            )
             rows = await cursor.fetchall()
             return [
                 {"tmdb_id": r[0], "title": r[1], "poster_url": r[2], "priority": r[3], "watch_date": r[4], "notes": r[5], "added_at": r[6]}
                 for r in rows
             ]
 
-    async def update_future_priority(self, tmdb_id: int, priority: int):
+    async def update_future_priority(self, tmdb_id: int, priority: int, user_id: int = 0):
         """Update priority of a future plan."""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("UPDATE future_plans SET priority = ? WHERE tmdb_id = ?", (priority, tmdb_id))
+            await db.execute("UPDATE future_plans SET priority = ? WHERE tmdb_id = ? AND user_id = ?", (priority, tmdb_id, user_id))
             await db.commit()
 
-    async def update_future_date(self, tmdb_id: int, watch_date: str):
+    async def update_future_date(self, tmdb_id: int, watch_date: str, user_id: int = 0):
         """Update watch date of a future plan."""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("UPDATE future_plans SET watch_date = ? WHERE tmdb_id = ?", (watch_date, tmdb_id))
+            await db.execute("UPDATE future_plans SET watch_date = ? WHERE tmdb_id = ? AND user_id = ?", (watch_date, tmdb_id, user_id))
             await db.commit()
 
     # --- OMDb Ratings Cache ---
@@ -855,12 +937,12 @@ class MovieCache:
 
     # --- Taste Map Signals ---
 
-    async def get_user_movie_signals(self) -> dict:
-        """Collect all user movie interaction signals for taste analysis."""
+    async def get_user_movie_signals(self, user_id: int = 0) -> dict:
+        """Collect a user's movie interaction signals for taste analysis."""
         signals = {}
         async with aiosqlite.connect(self.db_path) as db:
             # Watchlist (signal +1)
-            cursor = await db.execute("SELECT tmdb_id FROM watchlist")
+            cursor = await db.execute("SELECT tmdb_id FROM watchlist WHERE user_id = ?", (user_id,))
             for row in await cursor.fetchall():
                 tid = row[0]
                 if tid not in signals:
@@ -869,7 +951,7 @@ class MovieCache:
                 signals[tid]["sources"].append("watchlist")
 
             # Future plans (signal +2, +priority bonus)
-            cursor = await db.execute("SELECT tmdb_id, priority FROM future_plans")
+            cursor = await db.execute("SELECT tmdb_id, priority FROM future_plans WHERE user_id = ?", (user_id,))
             for row in await cursor.fetchall():
                 tid, priority = row
                 score = 2 + (priority or 0)
@@ -879,7 +961,7 @@ class MovieCache:
                 signals[tid]["sources"].append("future")
 
             # Movie notes (signal +3)
-            cursor = await db.execute("SELECT tmdb_id FROM movie_notes")
+            cursor = await db.execute("SELECT tmdb_id FROM movie_notes WHERE user_id = ?", (user_id,))
             for row in await cursor.fetchall():
                 tid = row[0]
                 if tid not in signals:
@@ -887,7 +969,7 @@ class MovieCache:
                 signals[tid]["score"] += 3
                 signals[tid]["sources"].append("note")
 
-            # Movie cache (signal +1 for analyzed movies)
+            # Movie cache (signal +1 — analiz havuzu kullanıcı-bağımsız, ortak)
             cursor = await db.execute("SELECT tmdb_id, data FROM movie_cache")
             for row in await cursor.fetchall():
                 tid = row[0]

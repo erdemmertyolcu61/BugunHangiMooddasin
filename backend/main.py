@@ -544,6 +544,25 @@ def verify_user(request: Request) -> dict:
     return payload
 
 
+def optional_user_id(request: Request) -> int:
+    """Geçerli bir 'user' token'ı varsa kullanıcı id'sini döndürür, yoksa 0.
+
+    Hesapla giriş yapan kullanıcı kendi verisini (user_id) görür; sadece beta
+    şifresiyle giren anonim kullanıcı paylaşımlı havuzu (user_id=0) kullanır.
+    Asla hata fırlatmaz — anonim kullanım bozulmaz.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return 0
+    try:
+        payload = _verify_token(auth.replace("Bearer ", ""))
+        if payload.get("type") == "user":
+            return int(payload.get("user_id") or 0)
+    except Exception:
+        pass
+    return 0
+
+
 # ─── Topluluk Önerileri (Community Sharing) ───
 
 @app.post("/api/community/recommend")
@@ -1247,37 +1266,41 @@ class FuturePlanRequest(BaseModel):
 # --- Watchlist (Defterim) Endpoints ---
 
 @app.get("/api/watchlist")
-async def get_watchlist():
-    """Get all movies in the watchlist."""
+async def get_watchlist(request: Request):
+    """Get all movies in the watchlist (kullanıcıya özel)."""
     try:
-        movies = await cache.get_watchlist()
+        uid = optional_user_id(request)
+        movies = await cache.get_watchlist(user_id=uid)
         return {"movies": movies}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/watchlist")
-async def add_to_watchlist(req: WatchlistRequest):
+async def add_to_watchlist(req: WatchlistRequest, request: Request):
     """Add a movie to the watchlist."""
     try:
-        await cache.add_to_watchlist(req.tmdb_id, req.title, req.poster_url)
+        uid = optional_user_id(request)
+        await cache.add_to_watchlist(req.tmdb_id, req.title, req.poster_url, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/watchlist/{tmdb_id}")
-async def remove_from_watchlist(tmdb_id: int):
+async def remove_from_watchlist(tmdb_id: int, request: Request):
     """Remove a movie from the watchlist."""
     try:
-        await cache.remove_from_watchlist(tmdb_id)
+        uid = optional_user_id(request)
+        await cache.remove_from_watchlist(tmdb_id, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/watchlist/{tmdb_id}/toggle-watched")
-async def toggle_watched(tmdb_id: int = Path(..., ge=1)):
+async def toggle_watched(request: Request, tmdb_id: int = Path(..., ge=1)):
     """Toggle the watched status of a movie in the watchlist."""
     try:
-        new_state = await cache.toggle_watched(tmdb_id)
+        uid = optional_user_id(request)
+        new_state = await cache.toggle_watched(tmdb_id, user_id=uid)
         return {"tmdb_id": tmdb_id, "watched": new_state}
     except Exception as e:
         logger.error(f"Toggle watched error: {e}")
@@ -1286,36 +1309,39 @@ async def toggle_watched(tmdb_id: int = Path(..., ge=1)):
 # --- Personal Notes Endpoints ---
 
 @app.get("/api/movies/{movie_id}/notes")
-async def get_movie_note(movie_id: int):
+async def get_movie_note(movie_id: int, request: Request):
     """Get the personal note for a movie."""
     try:
-        note = await cache.get_note(movie_id)
+        uid = optional_user_id(request)
+        note = await cache.get_note(movie_id, user_id=uid)
         return {"note": note}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/movies/{movie_id}/notes")
-async def save_movie_note(movie_id: int, req: NoteRequest):
+async def save_movie_note(movie_id: int, req: NoteRequest, request: Request):
     """Save or update a personal note for a movie."""
     try:
-        await cache.save_note(movie_id, req.content)
+        uid = optional_user_id(request)
+        await cache.save_note(movie_id, req.content, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/movies/{movie_id}/analyze", dependencies=[Depends(rate_limit_ai)])
-async def analyze_movie(movie_id: int = Path(..., ge=1)):
+async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
     """
     Get full connoisseur analysis for a movie.
     Checks cache first; on miss, fetches from OMDb + Claude and caches result.
     """
+    uid = optional_user_id(request)
     # 1. Check cache
     cached_data = await cache.get_movie(movie_id)
-    
-    # Check watchlist status and notes (dynamic)
-    in_watchlist = await cache.is_in_watchlist(movie_id)
-    personal_note = await cache.get_note(movie_id)
+
+    # Check watchlist status and notes (dynamic, kullanıcıya özel)
+    in_watchlist = await cache.is_in_watchlist(movie_id, user_id=uid)
+    personal_note = await cache.get_note(movie_id, user_id=uid)
 
     if cached_data:
         cached_data["in_watchlist"] = in_watchlist
@@ -1575,46 +1601,51 @@ async def health_check():
 # --- Future Plans Endpoints (Gelecek Planları) ---
 
 @app.get("/api/future")
-async def get_future_plans():
-    """Get all movies in future plans."""
+async def get_future_plans(request: Request):
+    """Get all movies in future plans (kullanıcıya özel)."""
     try:
-        movies = await cache.get_future_plans()
+        uid = optional_user_id(request)
+        movies = await cache.get_future_plans(user_id=uid)
         return {"movies": movies}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/future")
-async def add_to_future(req: FuturePlanRequest):
+async def add_to_future(req: FuturePlanRequest, request: Request):
     """Add a movie to future plans."""
     try:
-        await cache.add_to_future(req.tmdb_id, req.title, req.poster_url, req.priority, req.watch_date, req.notes)
+        uid = optional_user_id(request)
+        await cache.add_to_future(req.tmdb_id, req.title, req.poster_url, req.priority, req.watch_date, req.notes, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/future/{tmdb_id}")
-async def remove_from_future(tmdb_id: int):
+async def remove_from_future(tmdb_id: int, request: Request):
     """Remove a movie from future plans."""
     try:
-        await cache.remove_from_future(tmdb_id)
+        uid = optional_user_id(request)
+        await cache.remove_from_future(tmdb_id, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/future/{tmdb_id}/priority")
-async def update_future_priority(tmdb_id: int, priority: int = Query(0, ge=0, le=5)):
+async def update_future_priority(tmdb_id: int, request: Request, priority: int = Query(0, ge=0, le=5)):
     """Update priority of a future plan."""
     try:
-        await cache.update_future_priority(tmdb_id, priority)
+        uid = optional_user_id(request)
+        await cache.update_future_priority(tmdb_id, priority, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/future/{tmdb_id}/date")
-async def update_future_date(tmdb_id: int, watch_date: str = Query(None)):
+async def update_future_date(tmdb_id: int, request: Request, watch_date: str = Query(None)):
     """Update watch date of a future plan."""
     try:
-        await cache.update_future_date(tmdb_id, watch_date)
+        uid = optional_user_id(request)
+        await cache.update_future_date(tmdb_id, watch_date, user_id=uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2165,14 +2196,15 @@ def _generate_taste_summary(top_moods, top_genres, era, total_signals):
 
 
 @app.get("/api/user/taste-map")
-async def get_user_taste_map():
+async def get_user_taste_map(request: Request):
     """
     Kullanicinin watchlist, future plans, notes ve analyze verilerinden
     kisisel zevk profilini cikarir.
     AI cagrisi yapmaz, deterministic kurallar kullanir.
     """
     try:
-        signals = await cache.get_user_movie_signals()
+        uid = optional_user_id(request)
+        signals = await cache.get_user_movie_signals(user_id=uid)
         total_signals = len(signals)
 
         mood_scores = {}

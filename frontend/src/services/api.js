@@ -44,7 +44,7 @@ export async function getUpcomingMovies() {
 }
 
 export async function analyzeMovie(movieId) {
-  const res = await fetch(`${BASE}/movies/${movieId}/analyze`);
+  const res = await fetch(`${BASE}/movies/${movieId}/analyze`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Film analiz edilemedi (${res.status})`);
   return res.json();
 }
@@ -107,7 +107,7 @@ export async function getWatchlist() {
 
   // Arka planda backend ile senkronize et (sessizce)
   try {
-    const res = await fetch(`${BASE}/watchlist`);
+    const res = await fetch(`${BASE}/watchlist`, { headers: { ...authHeaders() } });
     if (res.ok) {
       const data = await res.json();
       const backendMovies = data.movies || [];
@@ -136,7 +136,7 @@ export async function addToWatchlist(movie) {
   try {
     await fetch(`${BASE}/watchlist`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         tmdb_id: movie.id || movie.tmdb_id,
         title: movie.title,
@@ -151,7 +151,7 @@ export async function removeFromWatchlist(movieId) {
   // localStorage'dan hemen sil
   localRemoveFromWatchlist(movieId);
   // Backend'den de sil (başarısız olsa sorun değil)
-  try { await fetch(`${BASE}/watchlist/${movieId}`, { method: 'DELETE' }); } catch {}
+  try { await fetch(`${BASE}/watchlist/${movieId}`, { method: 'DELETE', headers: { ...authHeaders() } }); } catch {}
   return { success: true };
 }
 
@@ -160,7 +160,7 @@ export async function toggleWatched(tmdbId) {
   localToggleWatched(tmdbId);
   // Backend'e bildir
   try {
-    await fetch(`${BASE}/watchlist/${tmdbId}/toggle-watched`, { method: 'POST' });
+    await fetch(`${BASE}/watchlist/${tmdbId}/toggle-watched`, { method: 'POST', headers: { ...authHeaders() } });
   } catch {}
   return { success: true };
 }
@@ -174,7 +174,7 @@ export async function saveNote(movieId, content) {
   try {
     await fetch(`${BASE}/movies/${movieId}/notes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ content })
     });
   } catch {}
@@ -187,7 +187,7 @@ export async function getNote(movieId) {
   if (local) return { note: local };
   // Yoksa backend'den dene
   try {
-    const res = await fetch(`${BASE}/movies/${movieId}/notes`);
+    const res = await fetch(`${BASE}/movies/${movieId}/notes`, { headers: { ...authHeaders() } });
     if (res.ok) {
       const data = await res.json();
       if (data.note) localSaveNote(movieId, data.note);
@@ -200,7 +200,7 @@ export async function getNote(movieId) {
 // --- Future Plans API (Gelecek Planları) ---
 
 export async function getFuturePlans() {
-  const res = await fetch(`${BASE}/future`);
+  const res = await fetch(`${BASE}/future`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Gelecek planları yüklenemedi`);
   return res.json();
 }
@@ -208,7 +208,7 @@ export async function getFuturePlans() {
 export async function addToFuture(movie) {
   const res = await fetch(`${BASE}/future`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
       tmdb_id: movie.id,
       title: movie.title,
@@ -224,7 +224,7 @@ export async function addToFuture(movie) {
 
 export async function removeFromFuture(movieId) {
   const res = await fetch(`${BASE}/future/${movieId}`, {
-    method: 'DELETE'
+    method: 'DELETE', headers: { ...authHeaders() }
   });
   if (!res.ok) throw new Error(`Gelecek planlarından çıkarılamadı`);
   return res.json();
@@ -232,7 +232,7 @@ export async function removeFromFuture(movieId) {
 
 export async function updateFuturePriority(movieId, priority) {
   const res = await fetch(`${BASE}/future/${movieId}/priority?priority=${priority}`, {
-    method: 'PUT'
+    method: 'PUT', headers: { ...authHeaders() }
   });
   if (!res.ok) throw new Error(`Öncelik güncellenemedi`);
   return res.json();
@@ -240,7 +240,7 @@ export async function updateFuturePriority(movieId, priority) {
 
 export async function updateFutureDate(movieId, watchDate) {
   const res = await fetch(`${BASE}/future/${movieId}/date?watch_date=${encodeURIComponent(watchDate || '')}`, {
-    method: 'PUT'
+    method: 'PUT', headers: { ...authHeaders() }
   });
   if (!res.ok) throw new Error(`Tarih güncellenemedi`);
   return res.json();
@@ -249,7 +249,7 @@ export async function updateFutureDate(movieId, watchDate) {
 // --- "Kafan mı Karışık?" API ---
 
 export async function getTasteMap() {
-  const res = await fetch(`${BASE}/user/taste-map`);
+  const res = await fetch(`${BASE}/user/taste-map`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Zevk haritası alınamadı (${res.status})`);
   return res.json();
 }
