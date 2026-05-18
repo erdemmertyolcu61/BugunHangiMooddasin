@@ -123,7 +123,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center overflow-y-auto p-0 sm:p-6 md:p-12"
       >
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
+        {/* fixed: kaydırınca blur kaybolmasın — tüm ekranı sabit kaplar */}
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
         <motion.div
           initial={{ scale: 0.94, y: 24, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}

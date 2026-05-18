@@ -39,8 +39,15 @@ export default function Profil() {
   const navigate = useNavigate();
   const { user, logout, login } = useAuth();
 
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState('');
   const handleCredential = useCallback(async (cred) => {
-    if (cred) await login(cred);
+    if (!cred) return;
+    setAuthBusy(true);
+    setAuthError('');
+    const r = await login(cred);
+    setAuthBusy(false);
+    if (!r?.ok) setAuthError(r?.error || 'Giriş başarısız oldu.');
   }, [login]);
   const [savedCount, setSavedCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
@@ -112,12 +119,25 @@ export default function Profil() {
             </div>
 
             {GOOGLE_CLIENT_ID ? (
-              <div className="flex justify-center">
-                <GoogleSignInButton
-                  clientId={GOOGLE_CLIENT_ID}
-                  onCredential={handleCredential}
-                  width={280}
-                />
+              <div className="space-y-3">
+                <div className={`flex justify-center transition-opacity ${authBusy ? 'opacity-40 pointer-events-none' : ''}`}>
+                  <GoogleSignInButton
+                    clientId={GOOGLE_CLIENT_ID}
+                    onCredential={handleCredential}
+                    width={280}
+                  />
+                </div>
+                {authBusy && (
+                  <p className="font-sans text-xs text-amber/70 flex items-center justify-center gap-2">
+                    <span className="w-3 h-3 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
+                    Giriş yapılıyor...
+                  </p>
+                )}
+                {authError && (
+                  <p className="font-sans text-xs text-rose-400 leading-relaxed max-w-xs mx-auto">
+                    {authError}
+                  </p>
+                )}
               </div>
             ) : (
               <p className="font-sans text-xs text-ivory/20">

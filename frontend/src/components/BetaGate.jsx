@@ -56,11 +56,16 @@ export default function BetaGate({ children }) {
     if (googleUser) setAuthenticated(true);
   }, [googleUser]);
 
+  const [gBusy, setGBusy] = useState(false);
+  const [gError, setGError] = useState('');
   const handleGoogleCredential = useCallback(async (cred) => {
-    if (cred) {
-      await googleLogin(cred);
-      setAuthenticated(true);
-    }
+    if (!cred) return;
+    setGBusy(true);
+    setGError('');
+    const r = await googleLogin(cred);
+    setGBusy(false);
+    if (r?.ok) setAuthenticated(true);
+    else setGError(r?.error || 'Giriş başarısız oldu.');
   }, [googleLogin]);
 
   useEffect(() => {
@@ -207,11 +212,24 @@ export default function BetaGate({ children }) {
               <span className="text-[10px] uppercase tracking-widest text-[#f5f2eb]/20">veya</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
-            <GoogleSignInButton
-              clientId={GOOGLE_CLIENT_ID}
-              onCredential={handleGoogleCredential}
-              width={300}
-            />
+            <div className={`transition-opacity ${gBusy ? 'opacity-40 pointer-events-none' : ''}`}>
+              <GoogleSignInButton
+                clientId={GOOGLE_CLIENT_ID}
+                onCredential={handleGoogleCredential}
+                width={300}
+              />
+            </div>
+            {gBusy && (
+              <p className="text-center text-[11px] text-amber/70 mt-3 flex items-center justify-center gap-2">
+                <span className="w-3 h-3 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
+                Giriş yapılıyor...
+              </p>
+            )}
+            {gError && (
+              <p className="text-center text-[11px] text-rose-400 mt-3 leading-relaxed">
+                {gError}
+              </p>
+            )}
           </div>
         )}
 

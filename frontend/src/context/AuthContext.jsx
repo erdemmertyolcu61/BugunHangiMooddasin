@@ -22,15 +22,26 @@ export function AuthProvider({ children }) {
   });
   const [token, setToken] = useState(() => localStorage.getItem(AUTH_KEY) || null);
 
+  // { ok: true } veya { ok: false, error: '...' } döndürür ki UI geri bildirim verebilsin.
   const login = useCallback(async (googleCredential) => {
+    const ctrl = new AbortController();
+    // Render free-tier soğuk başlatma uzun sürebilir → 35sn timeout
+    const timer = setTimeout(() => ctrl.abort(), 35000);
     try {
       const res = await fetch(getApiUrl('/api/auth/google'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: googleCredential }),
+        signal: ctrl.signal,
       });
-      if (!res.ok) throw new Error('Google login başarısız');
-      const data = await res.json();
+      let data = null;
+      try { data = await res.json(); } catch {}
+      if (!res.ok) {
+        const detail = (data && (data.detail || data.message)) || `Sunucu hatası (${res.status})`;
+        console.error('[Auth] Google login failed:', res.status, detail);
+        return { ok: false, error: String(detail) };
+      }
+      if (!data?.token) return { ok: false, error: 'Sunucudan geçersiz yanıt' };
       // Önceki (anonim veya başka) hesabın yerel önbelleğini temizle
       clearLocalUserData();
       setToken(data.token);
@@ -38,8 +49,15 @@ export function AuthProvider({ children }) {
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
+      return { ok: true };
     } catch (e) {
+      const msg = e?.name === 'AbortError'
+        ? 'Sunucu yanıt vermedi (uyanıyor olabilir, birkaç saniye sonra tekrar dene).'
+        : 'Bağlantı hatası. İnternetini kontrol edip tekrar dene.';
       console.error('[Auth] Google login error:', e);
+      return { ok: false, error: msg };
+    } finally {
+      clearTimeout(timer);
     }
   }, []);
 
