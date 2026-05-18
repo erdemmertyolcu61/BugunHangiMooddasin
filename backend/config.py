@@ -41,7 +41,9 @@ ALLOWED_ORIGINS = [
 BETA_PASSWORD = os.getenv("BETA_PASSWORD", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+# .strip(): Render/panel'e yapıştırırken araya kaçan boşluk/yeni satır
+# audience eşleşmesini bozuyordu — temizle.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 
 # ─── Rate Limiting ───
 RATE_LIMIT_GENERAL = int(os.getenv("RATE_LIMIT_GENERAL", "60"))   # per minute per IP

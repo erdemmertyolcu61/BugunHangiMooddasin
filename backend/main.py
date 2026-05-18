@@ -498,7 +498,29 @@ async def google_login(request: Request):
         idinfo = id_token.verify_oauth2_token(credential, grequests.Request(), GOOGLE_CLIENT_ID)
     except Exception as e:
         logger.warning(f"[GoogleAuth] Token doğrulama hatası: {e}")
-        raise HTTPException(status_code=401, detail="Geçersiz Google token")
+        # Kesin teşhis: token'ı imzasız çözüp aud (token'ın ait olduğu Client ID)
+        # ile backend'deki GOOGLE_CLIENT_ID'yi karşılaştır. Client ID'ler gizli
+        # değildir (frontend bundle'ında zaten görünür) — mesajda göstermek güvenli.
+        detail = "Geçersiz Google token"
+        try:
+            unverified = pyjwt.decode(credential, options={"verify_signature": False})
+            token_aud = (unverified.get("aud") or "").strip()
+            cfg = (GOOGLE_CLIENT_ID or "").strip()
+            if token_aud and cfg and token_aud != cfg:
+                detail = (
+                    "Google Client ID eşleşmiyor. "
+                    f"Token'ın aud'u …{token_aud[-16:]} ama Render'daki "
+                    f"GOOGLE_CLIENT_ID …{cfg[-16:]}. Vercel (VITE_GOOGLE_CLIENT_ID) "
+                    "ve Render aynı OAuth Client ID olmalı."
+                )
+            elif not cfg:
+                detail = "Render'da GOOGLE_CLIENT_ID tanımlı değil."
+            else:
+                exp = unverified.get("exp")
+                detail = f"Token doğrulanamadı ({type(e).__name__}). Sunucu saati/exp: {exp}."
+        except Exception:
+            pass
+        raise HTTPException(status_code=401, detail=detail)
 
     google_id = idinfo.get("sub")
     email = idinfo.get("email", "")
