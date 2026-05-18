@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, BookOpen, Sparkles, Star, Check, BookmarkPlus, Eye } from 'lucide-react';
+import { ChevronLeft, BookOpen, Sparkles, Star, Check, BookmarkPlus, Eye, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiUrl } from '../utils/apiConfig';
 import { proxyImageUrl, addToWatchlist, removeFromWatchlist, toggleWatched } from '../services/api';
@@ -11,17 +11,17 @@ import FilmDetailModal from '../components/FilmDetailModal';
 const moodName = (slug) => MOODS[slug]?.title || slug;
 
 const MOOD_COLORS = {
-  zihin:       { bg: 'from-violet-950/60 to-black', accent: '#7c3aed', badge: 'bg-violet-900/50 text-violet-300' },
-  gece:        { bg: 'from-slate-950/60 to-black',  accent: '#64748b', badge: 'bg-slate-900/50 text-slate-300' },
-  'deep-chills': { bg: 'from-blue-950/60 to-black', accent: '#1e40af', badge: 'bg-blue-950/50 text-blue-300' },
-  kalp:        { bg: 'from-pink-950/60 to-black',   accent: '#be185d', badge: 'bg-pink-950/50 text-pink-300' },
-  Retro:       { bg: 'from-cyan-950/60 to-black',   accent: '#0891b2', badge: 'bg-cyan-950/50 text-cyan-300' },
-  sessiz:      { bg: 'from-stone-950/60 to-black',  accent: '#78716c', badge: 'bg-stone-900/50 text-stone-300' },
-  askbahcesi:  { bg: 'from-rose-950/60 to-black',   accent: '#e11d48', badge: 'bg-rose-950/50 text-rose-300' },
-  zamanyolcusu:{ bg: 'from-amber-950/60 to-black',  accent: '#b45309', badge: 'bg-amber-950/50 text-amber-300' },
-  yolculuk:    { bg: 'from-emerald-950/60 to-black', accent: '#059669', badge: 'bg-emerald-950/50 text-emerald-300' },
+  zihin:         { bg: 'from-violet-950/70 to-black', accent: '#7c3aed', badge: 'bg-violet-900/60 text-violet-200' },
+  gece:          { bg: 'from-slate-900/70 to-black',  accent: '#94a3b8', badge: 'bg-slate-800/60 text-slate-200' },
+  'deep-chills': { bg: 'from-blue-950/70 to-black',   accent: '#3b82f6', badge: 'bg-blue-950/60 text-blue-200' },
+  kalp:          { bg: 'from-pink-950/70 to-black',   accent: '#ec4899', badge: 'bg-pink-950/60 text-pink-200' },
+  Retro:         { bg: 'from-cyan-950/70 to-black',   accent: '#06b6d4', badge: 'bg-cyan-950/60 text-cyan-200' },
+  sessiz:        { bg: 'from-stone-900/70 to-black',  accent: '#a8a29e', badge: 'bg-stone-800/60 text-stone-200' },
+  askbahcesi:    { bg: 'from-rose-950/70 to-black',   accent: '#f43f5e', badge: 'bg-rose-950/60 text-rose-200' },
+  zamanyolcusu:  { bg: 'from-amber-950/70 to-black',  accent: '#f59e0b', badge: 'bg-amber-950/60 text-amber-200' },
+  yolculuk:      { bg: 'from-emerald-950/70 to-black',accent: '#10b981', badge: 'bg-emerald-950/60 text-emerald-200' },
 };
-const DEFAULT_COLOR = { bg: 'from-zinc-950/60 to-black', accent: '#71717a', badge: 'bg-zinc-900/50 text-zinc-300' };
+const DEFAULT_COLOR = { bg: 'from-zinc-900/70 to-black', accent: '#a1a1aa', badge: 'bg-zinc-800/60 text-zinc-200' };
 
 // ─── Liste Listesi Sayfası ───────────────────────────────────
 function ListelerAnasayfa() {
@@ -29,7 +29,6 @@ function ListelerAnasayfa() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { selectedMood } = useMood();
-  // Mood seçiliyse keşfet ekranına, değilse ana sayfaya dön
   const goBack = () => navigate(selectedMood ? '/discover' : '/');
 
   useEffect(() => {
@@ -43,21 +42,33 @@ function ListelerAnasayfa() {
     <div className="min-h-screen pb-32 pt-8 px-4 sm:px-8 max-w-5xl mx-auto">
       {/* Başlık */}
       <div className="mb-12 sm:mb-16">
-        <button onClick={goBack} className="flex items-center gap-2 text-ivory/40 hover:text-ivory/70 transition-colors mb-8">
-          <ChevronLeft size={18} />
-          <span className="text-xs font-bold uppercase tracking-widest">{selectedMood ? 'Keşfete Dön' : 'Ana Sayfa'}</span>
+        <button
+          onClick={goBack}
+          className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors mb-8 group"
+        >
+          <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+          <span className="text-[11px] font-bold uppercase tracking-widest font-sans">
+            {selectedMood ? 'Keşfete Dön' : 'Ana Sayfa'}
+          </span>
         </button>
+
         <div className="flex items-center gap-4 mb-4">
-          <BookOpen size={28} className="text-amber" />
-          <h1 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight">Üstadın Listeleri</h1>
+          <div className="w-10 h-10 rounded-2xl bg-amber/15 flex items-center justify-center flex-shrink-0">
+            <BookOpen size={20} className="text-amber" />
+          </div>
+          <h1 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight text-slate-50">
+            Üstadın Listeleri
+          </h1>
         </div>
-        <p className="text-ivory/40 font-serif italic text-lg">Küratöryel koleksiyonlar — her biri bir sinema yolculuğu.</p>
+        <p className="text-slate-400 font-serif italic text-base sm:text-lg leading-relaxed">
+          Küratöryel koleksiyonlar — her biri bir sinema yolculuğu.
+        </p>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-48 rounded-3xl bg-white/5 animate-pulse" />
+            <div key={i} className="h-52 rounded-3xl bg-white/5 animate-pulse" />
           ))}
         </div>
       ) : (
@@ -69,20 +80,39 @@ function ListelerAnasayfa() {
                 key={lst.slug}
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.07, duration: 0.5 }}
+                transition={{ delay: i * 0.07, duration: 0.45 }}
                 onClick={() => navigate(`/listeler/${lst.slug}`)}
-                className={`relative text-left p-7 sm:p-9 rounded-[1.75rem] bg-gradient-to-br ${colors.bg} border border-white/10 hover:border-amber/30 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.6)] group overflow-hidden`}
+                className={`relative text-left p-7 sm:p-9 rounded-[1.75rem] bg-gradient-to-br ${colors.bg} border border-white/10 hover:border-amber/40 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7)] group overflow-hidden`}
               >
-                <div className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="h-1 w-10 rounded-full mb-6 transition-all duration-500 group-hover:w-16" style={{ background: colors.accent }} />
-                <h2 className="text-2xl sm:text-[28px] font-serif font-bold mb-3 leading-tight text-ivory group-hover:text-amber transition-colors duration-300">{lst.title}</h2>
-                <p className="text-ivory/70 text-[15px] leading-relaxed line-clamp-2 mb-6 font-serif">{lst.description}</p>
+                {/* Üst kenarda amber çizgi efekti */}
+                <div className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
+
+                {/* Renk aksanı */}
+                <div
+                  className="h-1 w-10 rounded-full mb-5 transition-all duration-400 group-hover:w-16"
+                  style={{ background: colors.accent }}
+                />
+
+                {/* Emoji + başlık */}
+                <div className="flex items-start gap-3 mb-3">
+                  {lst.emoji && (
+                    <span className="text-2xl leading-none mt-0.5 select-none">{lst.emoji}</span>
+                  )}
+                  <h2 className="text-xl sm:text-2xl font-serif font-bold leading-snug text-slate-100 group-hover:text-amber transition-colors duration-300">
+                    {lst.title}
+                  </h2>
+                </div>
+
+                <p className="text-slate-400 text-sm leading-relaxed line-clamp-2 mb-6 font-sans">
+                  {lst.description}
+                </p>
+
                 <div className="flex items-center justify-between">
-                  <span className={`inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full ${colors.badge}`}>
+                  <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-[0.18em] px-3 py-1.5 rounded-full font-sans ${colors.badge} border border-white/10`}>
                     {moodName(lst.mood)}
                   </span>
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-ivory/30 group-hover:text-amber transition-colors duration-300">
-                    İncele <ChevronLeft size={13} className="rotate-180" />
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 group-hover:text-amber transition-colors duration-300 font-sans">
+                    Keşfet <ChevronLeft size={13} className="rotate-180" />
                   </span>
                 </div>
               </motion.button>
@@ -142,99 +172,183 @@ function ListeDetay() {
     );
   }
 
-  if (!liste) return <div className="min-h-screen flex items-center justify-center text-ivory/40">Liste bulunamadı.</div>;
+  if (!liste) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-slate-400 font-serif italic text-lg">Liste bulunamadı.</p>
+      </div>
+    );
+  }
 
   const colors = MOOD_COLORS[liste.mood] || DEFAULT_COLOR;
 
+  // Sıfır puan + başlıksız filmleri frontend'de de filtrele
+  const validMovies = (liste.movies || []).filter(
+    m =>
+      (m.title || '').trim() &&
+      m.title !== '—' &&
+      m.title !== '-' &&
+      (m.vote_average == null || m.vote_average >= 0.5)
+  );
+
   return (
     <div className="min-h-screen pb-32">
-      {/* Hero */}
+
+      {/* ── Hero ── */}
       <div className={`px-4 sm:px-8 pt-8 pb-16 bg-gradient-to-b ${colors.bg}`}>
         <div className="max-w-4xl mx-auto">
-          <button onClick={() => navigate('/listeler')} className="flex items-center gap-2 text-ivory/40 hover:text-ivory/70 transition-colors mb-10">
-            <ChevronLeft size={18} />
-            <span className="text-xs font-bold uppercase tracking-widest">Tüm Listeler</span>
+
+          {/* Geri butonu */}
+          <button
+            onClick={() => navigate('/listeler')}
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors mb-10 group"
+          >
+            <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span className="text-[11px] font-bold uppercase tracking-widest font-sans">Tüm Listeler</span>
           </button>
-          <div className="w-14 h-px bg-amber/50 mb-7" />
-          <h1 className="text-4xl sm:text-6xl font-serif font-bold tracking-tight mb-5 text-ivory">{liste.title}</h1>
-          <p className="text-ivory/75 text-lg sm:text-2xl font-serif italic mb-12 max-w-2xl leading-relaxed">{liste.description}</p>
+
+          {/* Renk aksanı çizgisi */}
+          <div className="h-px w-16 mb-7" style={{ background: colors.accent }} />
+
+          {/* Başlık */}
+          <div className="flex items-start gap-4 mb-4">
+            {liste.emoji && (
+              <span className="text-4xl sm:text-5xl select-none leading-none mt-1">{liste.emoji}</span>
+            )}
+            <h1 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight text-slate-50 leading-tight">
+              {liste.title}
+            </h1>
+          </div>
+
+          <p className="text-slate-300 text-base sm:text-lg font-sans leading-relaxed mb-12 max-w-2xl">
+            {liste.description}
+          </p>
 
           {/* Üstad Girişi */}
-          <div className="p-7 sm:p-12 rounded-[2rem] border border-amber/15 bg-black/40 backdrop-blur-sm">
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber mb-5">Üstadın Girişi</p>
-            <p className="font-serif text-[#fdf3d8] text-lg sm:text-2xl leading-[1.7] first-letter:text-5xl sm:first-letter:text-6xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:font-bold first-letter:text-amber">
+          <div className="p-7 sm:p-10 rounded-[2rem] border border-amber/20 bg-black/40 backdrop-blur-sm">
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber mb-5 font-sans">
+              Üstadın Girişi
+            </p>
+            <p className="font-serif text-slate-200 text-base sm:text-xl leading-[1.8]
+              first-letter:text-5xl sm:first-letter:text-6xl first-letter:float-left
+              first-letter:mr-3 first-letter:mt-1.5 first-letter:font-bold first-letter:text-amber">
               {liste.ustad_intro}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Film Grid */}
+      {/* ── Film Grid ── */}
       <div className="px-4 sm:px-8 max-w-4xl mx-auto mt-12">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/30 mb-8">
-          {liste.movies?.length} film
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-8 font-sans">
+          {validMovies.length} film
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-          {(liste.movies || []).map((movie, i) => (
-            <motion.div
-              key={movie.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="text-left group cursor-pointer"
-              onClick={() => setSelectedMovie(movie.id)}
-            >
-              <div className="aspect-[2/3] rounded-xl overflow-hidden bg-white/5 mb-3 relative">
-                {movie.poster_url ? (
-                  <img
-                    src={proxyImageUrl(movie.poster_url)}
-                    alt={movie.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-white/5"><BookOpen size={28} className="text-ivory/20" /></div>
+
+        {validMovies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <Film size={36} className="text-slate-600" />
+            <p className="text-slate-500 font-serif italic text-lg">Filmler yükleniyor...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-7">
+            {validMovies.map((movie, i) => (
+              <motion.div
+                key={movie.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="group cursor-pointer"
+                onClick={() => setSelectedMovie(movie.id)}
+              >
+                {/* Poster */}
+                <div className="aspect-[2/3] rounded-xl overflow-hidden bg-white/5 mb-3 relative shadow-lg">
+                  {movie.poster_url ? (
+                    <img
+                      src={proxyImageUrl(movie.poster_url)}
+                      alt={movie.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    /* Poster yoksa zarif placeholder */
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-zinc-900 to-zinc-800 p-3">
+                      <Film size={22} className="text-slate-600" />
+                      <span className="text-[10px] text-slate-500 font-sans text-center leading-tight line-clamp-3">
+                        {movie.title}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Sıra numarası */}
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/75 flex items-center justify-center z-10 backdrop-blur-sm border border-white/10">
+                    <span className="text-[9px] font-bold text-slate-300 font-sans">{i + 1}</span>
+                  </div>
+
+                  {/* Hızlı eylem butonları — mobilde her zaman, masaüstünde hover */}
+                  <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-1.5 p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300">
+                    <button
+                      onClick={(e) => handleQuickSave(e, movie)}
+                      title="Deftere Ekle"
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 font-sans ${
+                        quickSaved.has(movie.id)
+                          ? 'bg-amber/90 border-amber/60 text-black'
+                          : 'bg-black/75 border-white/25 text-white hover:bg-amber/80 hover:text-black'
+                      }`}
+                    >
+                      {quickSaved.has(movie.id)
+                        ? <><Check size={9} /> Eklendi</>
+                        : <><BookmarkPlus size={9} /> Deftere</>
+                      }
+                    </button>
+                    <button
+                      onClick={(e) => handleQuickWatched(e, movie)}
+                      title="İzledim"
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 font-sans ${
+                        quickWatched.has(movie.id)
+                          ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+                          : 'bg-black/75 border-white/25 text-white hover:bg-emerald-500/80 hover:text-white'
+                      }`}
+                    >
+                      {quickWatched.has(movie.id)
+                        ? <><Check size={9} /> İzledim</>
+                        : <><Eye size={9} /> İzledim</>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                {/* Film adı */}
+                <p className="text-sm font-semibold font-sans line-clamp-2 group-hover:text-amber transition-colors duration-300 leading-snug text-slate-200 mt-1">
+                  {movie.title}
+                </p>
+
+                {/* Puan + yıl satırı */}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {movie.vote_average != null && movie.vote_average > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Star size={9} className="fill-amber text-amber flex-shrink-0" />
+                      <span className="text-[10px] text-slate-400 font-sans font-medium">
+                        {movie.vote_average.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+                  {movie.release_date && (
+                    <span className="text-[10px] text-slate-500 font-sans">
+                      {movie.release_date.slice(0, 4)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Yönetmen — sadece varsa ve biliniyorsa */}
+                {movie.director && movie.director !== 'Bilinmiyor' && (
+                  <p className="text-[10px] text-slate-500 font-sans mt-0.5 truncate" title={movie.director}>
+                    {movie.director}
+                  </p>
                 )}
-                {/* Sıra numarası */}
-                <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center z-10">
-                  <span className="text-[9px] font-bold text-ivory/60">{i + 1}</span>
-                </div>
-                {/* Hızlı eylem butonları — mobilde her zaman, masaüstünde hover */}
-                <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-1.5 p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300">
-                  <button
-                    onClick={(e) => handleQuickSave(e, movie)}
-                    title="Deftere Ekle"
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
-                      quickSaved.has(movie.id)
-                        ? 'bg-amber/90 border-amber/60 text-black'
-                        : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black'
-                    }`}
-                  >
-                    {quickSaved.has(movie.id) ? <><Check size={9} /> Eklendi</> : <><BookmarkPlus size={9} /> Deftere</>}
-                  </button>
-                  <button
-                    onClick={(e) => handleQuickWatched(e, movie)}
-                    title="İzledim"
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
-                      quickWatched.has(movie.id)
-                        ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-                        : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white'
-                    }`}
-                  >
-                    {quickWatched.has(movie.id) ? <><Check size={9} /> İzledim</> : <><Eye size={9} /> İzledim</>}
-                  </button>
-                </div>
-              </div>
-              <p className="text-xs sm:text-sm font-semibold line-clamp-2 group-hover:text-amber transition-colors duration-300 leading-snug">{movie.title}</p>
-              {movie.vote_average && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Star size={9} className="fill-amber text-amber" />
-                  <span className="text-[10px] text-ivory/50">{movie.vote_average.toFixed(1)}</span>
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedMovie && (

@@ -2562,54 +2562,165 @@ async def get_all_lists():
     ]
 
 
+def _is_valid_list_movie(movie: dict, language_filter: str = None) -> bool:
+    """Bir filmin listede gösterilmeye uygun olup olmadığını kontrol eder."""
+    # Başlık kontrolü
+    title = (movie.get("title") or "").strip()
+    if not title or title in ("—", "-", "N/A", "Unknown"):
+        return False
+    # Puan kontrolü — 0 veya tanımsız filmleri filtrele
+    vote = movie.get("vote_average")
+    if vote is None or vote < 0.5:
+        return False
+    # Dil filtresi
+    if language_filter:
+        orig_lang = movie.get("original_language", "")
+        if orig_lang and orig_lang != language_filter:
+            return False
+    return True
+
+
+def _build_movie_entry(raw: dict, fallback_id: int = None) -> dict:
+    """Ham TMDB/cache verisinden temiz bir film dict'i oluşturur."""
+    mid = raw.get("id") or fallback_id
+    poster = raw.get("poster_url")
+    if not poster and raw.get("poster_path"):
+        poster = f"https://image.tmdb.org/t/p/w500{raw['poster_path']}"
+    return {
+        "id": mid,
+        "title": (raw.get("title") or "").strip(),
+        "original_title": raw.get("original_title", ""),
+        "original_language": raw.get("original_language", ""),
+        "poster_url": poster,
+        "release_date": raw.get("release_date", ""),
+        "vote_average": raw.get("vote_average"),
+        "mood": raw.get("mood"),
+        "ai_analysis": raw.get("ai_analysis"),
+        "director": raw.get("director"),
+        "overview": raw.get("overview", ""),
+    }
+
+
 @app.get("/api/lists/{slug}")
 async def get_list_detail(slug: str):
-    """Tek bir listenin detayı + filmlerin TMDB ID'leri."""
+    """Tek bir listenin detayı + filmlerin TMDB verileri.
+
+    Üç katmanlı strateji:
+    1. Liste'deki tmdb_ids → cache veya TMDB'den çek, dil/puan filtrele
+    2. Eğer yeterli film bulunamazsa → TMDB discover ile dil/tür filtresi uygula
+    3. Discover da yetersizse → static_fallback listesini kullan
+    """
     lists = _load_lists()
     lst = next((l for l in lists if l["slug"] == slug), None)
     if not lst:
         raise HTTPException(status_code=404, detail="Liste bulunamadı")
 
-    # Her film için cache'den temel bilgi çek
+    filters = lst.get("filters", {})
+    language_filter = filters.get("with_original_language")
+    static_fallback = lst.get("static_fallback", [])
+    MIN_MOVIES = 5  # bu kadardan az film kalırsa fallback devreye girer
+
+    # ─── KATMAN 1: Tanımlı tmdb_ids'den filmleri çek ───────────
     movies = []
-    for tmdb_id in lst["tmdb_ids"]:
+    seen_ids = set()
+
+    async def _fetch_one(tmdb_id: int) -> dict | None:
         try:
             cached = await cache.get_movie(tmdb_id)
             if cached:
-                movies.append({
-                    "id": cached.get("id", tmdb_id),
-                    "title": cached.get("title", ""),
-                    "poster_url": cached.get("poster_url"),
-                    "release_date": cached.get("release_date", ""),
-                    "vote_average": cached.get("vote_average"),
-                    "mood": cached.get("mood"),
-                    "ai_analysis": cached.get("ai_analysis"),
-                    "director": cached.get("director"),
-                })
-            else:
-                # Cache'de yoksa TMDB'den minimal bilgi al
-                try:
-                    details = await asyncio.wait_for(
-                        tmdb_service.get_movie_details(tmdb_id), timeout=5.0
-                    )
-                    movies.append({
-                        "id": tmdb_id,
-                        "title": details.get("title", ""),
-                        "poster_url": details.get("poster_url") or (
-                            f"https://image.tmdb.org/t/p/w500{details['poster_path']}"
-                            if details.get("poster_path") else None
-                        ),
-                        "release_date": details.get("release_date", ""),
-                        "vote_average": details.get("vote_average"),
-                        "mood": None,
-                        "ai_analysis": None,
-                    })
-                except Exception:
-                    movies.append({"id": tmdb_id, "title": "—", "poster_url": None})
-        except Exception:
-            movies.append({"id": tmdb_id, "title": "—", "poster_url": None})
+                return _build_movie_entry(cached, tmdb_id)
+            # Cache'de yok → TMDB'den çek
+            details = await asyncio.wait_for(
+                tmdb_service.get_movie_details(tmdb_id), timeout=5.0
+            )
+            if details:
+                return _build_movie_entry(details, tmdb_id)
+        except Exception as e:
+            logger.warning(f"[Lists] tmdb_id={tmdb_id} fetch failed: {e}")
+        return None
 
-    return {**lst, "movies": movies}
+    fetch_tasks = [_fetch_one(tid) for tid in lst.get("tmdb_ids", [])]
+    fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
+    for item in fetch_results:
+        if isinstance(item, dict) and item.get("id"):
+            if item["id"] not in seen_ids and _is_valid_list_movie(item, language_filter):
+                seen_ids.add(item["id"])
+                movies.append(item)
+
+    # ─── KATMAN 2: Yetersiz film → TMDB discover ile doldur ────
+    if len(movies) < MIN_MOVIES and language_filter:
+        logger.info(f"[Lists] {slug}: only {len(movies)} valid movies, trying discover ({language_filter})")
+        try:
+            discover_result = await asyncio.wait_for(
+                tmdb_service.discover_movies(
+                    genre_ids=[],
+                    with_original_language=language_filter,
+                    min_vote_average=6.0,
+                    min_vote_count=200,
+                    sort_by="vote_average.desc",
+                    page=1,
+                ),
+                timeout=8.0,
+            )
+            for m in discover_result.get("movies", []):
+                mid = m.get("id")
+                if mid and mid not in seen_ids and _is_valid_list_movie(m, language_filter):
+                    seen_ids.add(mid)
+                    movies.append(_build_movie_entry(m, mid))
+                    if len(movies) >= 10:
+                        break
+        except Exception as e:
+            logger.warning(f"[Lists] Discover fallback failed for {slug}: {e}")
+
+    # ─── KATMAN 3: Hâlâ yetersizse → static_fallback ──────────
+    if len(movies) < MIN_MOVIES and static_fallback:
+        logger.info(f"[Lists] {slug}: using static_fallback ({len(static_fallback)} items)")
+        fallback_ids = [fb["tmdb_id"] for fb in static_fallback if fb.get("tmdb_id") and fb["tmdb_id"] not in seen_ids]
+        fallback_tasks = [_fetch_one(tid) for tid in fallback_ids]
+        fallback_results = await asyncio.gather(*fallback_tasks, return_exceptions=True)
+
+        for i, item in enumerate(fallback_results):
+            fb_meta = static_fallback[i] if i < len(static_fallback) else {}
+            if isinstance(item, dict) and item.get("id"):
+                if item["id"] not in seen_ids:
+                    seen_ids.add(item["id"])
+                    # Eğer dil filtresi var ama film geçemiyorsa static meta ile ekle (Türk filmleri bazen TMDB'de dil eksik)
+                    movies.append(item)
+            elif fb_meta.get("tmdb_id") and fb_meta["tmdb_id"] not in seen_ids:
+                # TMDB'den çekme başarısız → static meta'dan oluştur
+                seen_ids.add(fb_meta["tmdb_id"])
+                movies.append({
+                    "id": fb_meta["tmdb_id"],
+                    "title": fb_meta.get("title", ""),
+                    "original_language": language_filter or "",
+                    "poster_url": None,
+                    "release_date": str(fb_meta.get("year", "")),
+                    "vote_average": None,
+                    "director": fb_meta.get("director"),
+                    "mood": None,
+                    "ai_analysis": None,
+                    "overview": "",
+                })
+
+    # ─── Son temizlik: sıfır puan + başlıksız filmler ──────────
+    movies = [
+        m for m in movies
+        if (m.get("title") or "").strip() and m.get("title") not in ("—", "-")
+        and (m.get("vote_average") is None or m.get("vote_average", 0) >= 0.5)
+    ]
+
+    # Duplicate ID koruması
+    final_movies = []
+    final_ids = set()
+    for m in movies:
+        if m["id"] not in final_ids:
+            final_ids.add(m["id"])
+            final_movies.append(m)
+
+    # static_fallback alanını response'a dahil etme (frontend gereksiz veri almasın)
+    response_lst = {k: v for k, v in lst.items() if k not in ("static_fallback",)}
+    return {**response_lst, "movies": final_movies}
 
 
 # ─────────────────────────────────────────────────────────────

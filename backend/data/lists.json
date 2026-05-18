@@ -6,6 +6,7 @@
     "description": "Christopher Nolan'ın zamanı, belleği ve gerçekliği sorguladığı 10 başyapıt. Her biri bir labirentin kapısı.",
     "ustad_intro": "Nolan sinema tarihinde nadir rastlanan bir şey inşa etti: kitlesel ve entelektüel olan bir evren. Blockbuster bütçesiyle art-house zekasını birleştiren bu filmler, izledikten sonra hâlâ zihinlerde dolaşmaya devam ediyor.",
     "mood": "zihin",
+    "filters": { "director_tmdb_id": 525 },
     "tmdb_ids": [27205, 155, 157336, 77, 1124, 374720, 503919, 872585, 272, 1422]
   },
   {
@@ -13,8 +14,9 @@
     "title": "Bong Joon-ho Manifestosu",
     "emoji": "🎭",
     "description": "Sınıf çatışması, ironi ve sinematik cesaret. Güney Kore'nin en büyük yönetmeninin tüm filmleri.",
-    "ustad_intro": "Bong Joon-ho her filminde sosyal bir yaraya dokunuyor ama bunu hiç didaktik yapmıyor. O merdivenlerle, o bodrum katlarıyla, o soğuk bakışlarıyla anlatıyor her şeyi. Parasite'in Oscar gecesinden önce de bu adam bir dehayı.",
+    "ustad_intro": "Bong Joon-ho her filminde sosyal bir yaraya dokunuyor ama bunu hiç didaktik yapmıyor. O merdivenlerle, o bodrum katlarıyla, o soğuk bakışlarıyla anlatıyor her şeyi. Parasite'in Oscar gecesinden önce de bu adam bir dehaydı.",
     "mood": "gece",
+    "filters": { "with_original_language": "ko" },
     "tmdb_ids": [496243, 144662, 438631, 28281, 63493, 49852, 517814]
   },
   {
@@ -24,6 +26,7 @@
     "description": "Jumpscare değil, ürperti. Atmosferik korkunun zirvesi — izledikten sonra ışıkları açık bırakacaksın.",
     "ustad_intro": "Bu listedeki filmler seni korkutmuyor, tedirgin ediyor. Fark büyük. Korkudan çabuk kurtulursun; bu huzursuzluk ise günlerce peşinden geliyor.",
     "mood": "deep-chills",
+    "filters": {},
     "tmdb_ids": [493922, 262504, 530385, 553604, 274854, 419430, 343611, 507089, 438631, 600354]
   },
   {
@@ -33,6 +36,7 @@
     "description": "Küçük bütçe, büyük etki. A24, Sundance ve festivallerden çıkan, sinemanın özünü hatırlatan filmler.",
     "ustad_intro": "Hollywood'un dev prodüksiyonları gürültüyle girerken bu filmler sessizce oturdu yanına. Çıkarken fark ettin ne kadar derin hissettirdiğini. Bağımsız sinema hayatta kaldı çünkü bunlar var.",
     "mood": "kalp",
+    "filters": {},
     "tmdb_ids": [376867, 391713, 439079, 334533, 477354, 332562, 406759, 335796, 343611, 77338]
   },
   {
@@ -42,7 +46,8 @@
     "description": "Synth müzikler, neon ışıklar, VHS estetiği. 80'ler sinemasının en ikonik anları.",
     "ustad_intro": "80'ler sineması bugün nostalji değil, kültür referansı. Drive'daki o pembe jaketin, Terminator'ün gözlerindeki soğukluğun tadını başka hiçbir dönem veremez.",
     "mood": "Retro",
-    "tmdb_ids": [78, 218, 105, 620, 601, 9377, 14476, 2048, 8914, 9377]
+    "filters": { "primary_release_date_gte": "1978-01-01", "primary_release_date_lte": "1995-12-31" },
+    "tmdb_ids": [218, 105, 620, 601, 9377, 14476, 2048, 8914, 78, 641]
   },
   {
     "slug": "tarkovski-yi-anlamak",
@@ -51,6 +56,7 @@
     "description": "Sabır ister, karşılığını fazlasıyla verir. Yavaş sinemanın kutsal kitapları.",
     "ustad_intro": "Tarkovski bir sahneyi çekerken izleyicinin zamanını çalmıyor — ona hediye ediyor. Bu listede her kare bir tablo, her sessizlik bir anlam taşıyor.",
     "mood": "sessiz",
+    "filters": {},
     "tmdb_ids": [2156, 35683, 12573, 19217, 14430, 37799, 11159, 1115, 167424, 28519]
   },
   {
@@ -60,6 +66,7 @@
     "description": "Rom-com değil, gerçek aşk filmleri. Kalpte kalan, düşündüren, yeniden izleten türden.",
     "ustad_intro": "Aşkı kolay anlatan film çok, doğru anlatan az. Bu listede her film aşkın farklı bir gerçeğini söylüyor. Bir kısmı seni ağlatacak, bir kısmı seni düşündürecek — hepsi sende bir iz bırakacak.",
     "mood": "askbahcesi",
+    "filters": {},
     "tmdb_ids": [11302, 313369, 38365, 152601, 153, 6977, 194662, 97020, 43074, 398818]
   },
   {
@@ -69,7 +76,20 @@
     "description": "Yılmaz Güney'den Nuri Bilge Ceylan'a — Türk sinemasının dünya sahnesine taşıdığı şaheserler.",
     "ustad_intro": "Türk sineması çok az insanın dikkat ettiği bir hazine. Cannes'da Altın Palmiye alan filmler bu topraklardan çıktı. Bu liste onları görünür kılmak için.",
     "mood": "zamanyolcusu",
-    "tmdb_ids": [72384, 15807, 35854, 79568, 228150, 196070, 14647, 296, 38366, 2172]
+    "filters": { "with_original_language": "tr" },
+    "tmdb_ids": [210577, 63858, 14430, 14066, 460488, 10168, 72384, 53793, 332567, 27065],
+    "static_fallback": [
+      { "title": "Kış Uykusu", "year": 2014, "director": "Nuri Bilge Ceylan", "tmdb_id": 210577 },
+      { "title": "Bir Zamanlar Anadolu'da", "year": 2011, "director": "Nuri Bilge Ceylan", "tmdb_id": 63858 },
+      { "title": "Uzak", "year": 2002, "director": "Nuri Bilge Ceylan", "tmdb_id": 14430 },
+      { "title": "Üç Maymun", "year": 2008, "director": "Nuri Bilge Ceylan", "tmdb_id": 14066 },
+      { "title": "Ahlat Ağacı", "year": 2018, "director": "Nuri Bilge Ceylan", "tmdb_id": 460488 },
+      { "title": "Babam ve Oğlum", "year": 2005, "director": "Çağan Irmak", "tmdb_id": 27065 },
+      { "title": "Yol", "year": 1982, "director": "Yılmaz Güney", "tmdb_id": 72384 },
+      { "title": "Eşkıya", "year": 1996, "director": "Yavuz Turgul", "tmdb_id": 53793 },
+      { "title": "Masumiyet", "year": 1997, "director": "Zeki Demirkubuz", "tmdb_id": 332567 },
+      { "title": "Duvara Karşı", "year": 2004, "director": "Fatih Akın", "tmdb_id": 10168 }
+    ]
   },
   {
     "slug": "yolculugun-filmleri",
@@ -78,6 +98,7 @@
     "description": "Fiziksel ya da içsel — her büyük yolculuk bir dönüşümle biter. Bu filmler o yolu birlikte yürür.",
     "ustad_intro": "Road movie dediğinde akla yol gelir, ama en iyi örnekleri aslında içe dönük bir yolculuğu anlatır. Bu listedeki karakterler döndüklerinde artık eskisi değil.",
     "mood": "yolculuk",
+    "filters": {},
     "tmdb_ids": [180, 11509, 7161, 257211, 1691, 72640, 39413, 73467, 9472, 114150]
   },
   {
@@ -85,8 +106,9 @@
     "title": "Mind-Bending Başyapıtlar",
     "emoji": "🌀",
     "description": "Twist'ler, paralel gerçeklikler, güvenilmez anlatıcılar. Bir kez izlemek asla yetmeyecek.",
-    "ustad_intro": "Bu filmleri izledikten sonra birkaç saniye ekrana bakıp kaldığın olmuştur. Sonra da telefonu alıp 'ama bekleme ne anlama geliyordu' diye aratırsın. İşte bu his, büyük sinemanın imzası.",
+    "ustad_intro": "Bu filmleri izledikten sonra birkaç saniye ekrana bakıp kaldığın olmuştur. Sonra da telefonu alıp 'ama o sahne ne anlama geliyordu' diye aratırsın. İşte bu his, büyük sinemanın imzası.",
     "mood": "zihin",
+    "filters": {},
     "tmdb_ids": [27205, 77, 22970, 45243, 1018, 550, 745, 9693, 264644, 381288]
   }
 ]
