@@ -4,6 +4,7 @@ import { ChevronLeft, Shuffle, RefreshCw, X, Star, BookOpen, Sparkles, ExternalL
 import { motion, AnimatePresence } from 'framer-motion';
 import { proxyImageUrl } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
+import FilmDetailModal from '../components/FilmDetailModal';
 
 const LOADING_PHRASES = [
   "Kader zarları atılıyor...",
@@ -72,21 +73,10 @@ export default function SurpriseFilm() {
 
   useEffect(() => { fetchSurprise(); return () => stopPhraseRotation(); }, []);
 
-  const handleInspect = async () => {
+  // FilmDetailModal kendi /analyze çağrısını yapar — burada sadece açıyoruz.
+  const handleInspect = () => {
     if (!movie) return;
-    const movieId = movie.id || movie.tmdb_id;
-    setLoadingDetail(true);
     setShowDetail(true);
-    try {
-      const res = await fetch(getApiUrl(`/api/movies/${movieId}/analyze`));
-      if (!res.ok) throw new Error('Analiz alınamadı');
-      const data = await res.json();
-      setAnalysisData(data);
-    } catch (err) {
-      setAnalysisData({ error: err.message });
-    } finally {
-      setLoadingDetail(false);
-    }
   };
 
   return (
@@ -211,152 +201,13 @@ export default function SurpriseFilm() {
         </AnimatePresence>
       </main>
 
-      {/* Film Detail Modal */}
-      <AnimatePresence>
-        {showDetail && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6 sm:py-4"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowDetail(false); }}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", bounce: 0.3 }}
-              className="w-full max-w-xl bg-[#1a1410] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl my-auto sm:max-h-[88vh] sm:overflow-y-auto overscroll-contain"
-            >
-              {/* Header */}
-              <div className="relative">
-                {movie?.poster_url && (
-                  <img src={proxyImageUrl(movie.poster_url)} className="w-full h-52 object-cover" alt={movie.title} />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#1a1410] via-[#1a1410]/50 to-transparent" />
-                <button onClick={() => setShowDetail(false)}
-                  className="absolute top-4 right-4 w-9 h-9 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-all border border-white/20">
-                  <X size={16} />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <h2 className="text-2xl font-serif font-bold text-white">{movie?.title}</h2>
-                  <div className="flex items-center gap-3 mt-1">
-                    {movie?.vote_average && (
-                      <span className="flex items-center gap-1 text-[#ffbf00] text-sm font-bold">
-                        <Star size={12} fill="currentColor" /> {movie.vote_average.toFixed(1)}
-                      </span>
-                    )}
-                    {movie?.release_date && (
-                      <span className="text-white/40 text-xs">{movie.release_date.split('-')[0]}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-5">
-                {loadingDetail ? (
-                  <div className="flex flex-col items-center gap-4 py-8">
-                    <div className="w-8 h-8 rounded-full border-2 border-[#ffbf00]/30 border-t-[#ffbf00] animate-spin" />
-                    <p className="text-white/40 text-sm font-serif italic">Üstad inceliyor...</p>
-                  </div>
-                ) : analysisData?.error ? (
-                  <p className="text-red-400 text-sm text-center py-4">{analysisData.error}</p>
-                ) : analysisData ? (
-                  <>
-                    {/* Üstadın Notu — ai_analysis bir string */}
-                    {analysisData.ai_analysis && (
-                      <div className="bg-black/50 border border-[#ffbf00]/30 rounded-2xl p-5">
-                        <p className="text-[12px] uppercase tracking-[0.3em] text-[#ffbf00] mb-3 flex items-center gap-1.5 font-bold">
-                          <Sparkles size={11} /> Üstadın Notu
-                        </p>
-                        <p className="text-[#fff8e8] text-base sm:text-lg font-serif leading-[1.75]">
-                          "{analysisData.ai_analysis}"
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Özet */}
-                    {(analysisData.overview || movie?.overview) && (
-                      <div>
-                        <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Özet</p>
-                        <p className="text-white text-base sm:text-lg leading-[1.7] font-serif">
-                          {analysisData.overview || movie.overview}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Puanlar */}
-                    {analysisData.ratings?.length > 0 && (
-                      <div>
-                        <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Puanlar</p>
-                        <div className="flex flex-wrap gap-2">
-                          {analysisData.ratings.map((r, i) => (
-                            <span key={i} className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-full text-sm text-white">
-                              {r.source}: <span className="text-amber font-bold">{r.value}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Cast */}
-                    {analysisData.cast?.length > 0 && (
-                      <div>
-                        <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Oyuncular</p>
-                        <p className="text-white text-base sm:text-lg">
-                          {analysisData.cast.slice(0, 4).map(c => c.name).join(', ')}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Nerede İzlenir */}
-                    {(() => {
-                      const wp = analysisData.watch_providers;
-                      if (!wp) return null;
-                      const all = [
-                        ...(wp.flatrate || []).map(p => ({ ...p, tag: 'Abonelik' })),
-                        ...(wp.rent || []).map(p => ({ ...p, tag: 'Kiralık' })),
-                        ...(wp.buy || []).map(p => ({ ...p, tag: 'Satın Al' })),
-                        ...(wp.free || []).map(p => ({ ...p, tag: 'Ücretsiz' })),
-                        ...(wp.ads || []).map(p => ({ ...p, tag: 'Reklamlı' })),
-                      ];
-                      const seen = new Set();
-                      const uniq = all.filter(p => !seen.has(p.provider_id) && seen.add(p.provider_id));
-                      return (
-                        <div>
-                          <p className="text-[12px] uppercase tracking-[0.3em] text-amber/70 mb-2 font-bold">Nerede İzlenir?</p>
-                          {uniq.length === 0 ? (
-                            wp.link ? (
-                              <a href={wp.link} target="_blank" rel="noopener noreferrer"
-                                 className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-full text-sm text-amber hover:bg-white/15 transition-all">
-                                <ExternalLink size={14} /> İzleme Seçenekleri
-                              </a>
-                            ) : (
-                              <p className="text-white/60 text-sm font-serif italic">Türkiye için resmi platform bilgisi bulunamadı.</p>
-                            )
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {uniq.slice(0, 8).map(p => (
-                                <span key={p.provider_id}
-                                  title={`${p.provider_name} (${p.tag})`}
-                                  className="flex items-center gap-2 px-3 py-2 bg-white/10 border border-white/20 rounded-full">
-                                  {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-5 h-5 rounded object-contain" />}
-                                  <span className="text-[13px] font-bold text-white">{p.provider_name}</span>
-                                  <span className="text-[10px] uppercase tracking-wider text-amber/70">{p.tag}</span>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : null}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Film Detail Modal — birleşik tasarım (FilmDetailModal) */}
+      {showDetail && movie && (
+        <FilmDetailModal
+          movieId={movie.id || movie.tmdb_id}
+          onClose={() => setShowDetail(false)}
+        />
+      )}
     </div>
   );
 }

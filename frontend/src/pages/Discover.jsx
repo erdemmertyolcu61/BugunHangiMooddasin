@@ -11,6 +11,7 @@ import UpcomingSlider from '../components/UpcomingSlider';
 import { getApiUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
+import FilmDetailModal from '../components/FilmDetailModal';
 import { isPlatformLinked, linkPlatform, getPlatformInfo, buildWatchUrl } from '../utils/streamingMemory';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
@@ -550,142 +551,14 @@ export default function Discover() {
     );
   }
 
-  // 2b. Mood yok ama selectedMovie var (KafanMıKarisik'tan ?analyze ile gelindi)
+  // 2b. Mood yok ama selectedMovie var (KafanMıKarisik/Search'ten ?analyze/?film ile gelindi)
   if (!selectedMood && selectedMovie) {
     return (
       <div className="min-h-screen bg-[#120d0b] text-[#f5f2eb] relative">
-        {/* Film Detay Modal — mood'suz */}
-        <AnimatePresence>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 md:p-12">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setSelectedMovie(null); navigate('/'); }} />
-            <motion.div
-              initial={{ scale: 0.9, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
-            >
-              <button onClick={() => { setSelectedMovie(null); navigate(-1); }} className="absolute top-4 right-4 sm:top-10 sm:right-10 z-[110] w-11 h-11 flex items-center justify-center rounded-full bg-black/50 sm:bg-transparent text-ivory/50 sm:text-ivory/20 hover:text-amber transition-colors">
-                <X size={26} />
-              </button>
-              <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-[72%] sm:w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-[0_30px_70px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/10">
-                  <img
-                    src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
-                    className="w-full h-full object-cover object-center"
-                    alt={selectedMovie.title}
-                    loading="eager"
-                  />
-                  <div className="absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl sm:rounded-[2rem] pointer-events-none" />
-                  <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
-                </div>
-                <div className="flex-1 min-w-0 space-y-6 sm:space-y-12">
-                  <header className="space-y-4 sm:space-y-6">
-                    <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-amber/40">FİLM ÖZETİ</p>
-                    <h2 className="text-[28px] sm:text-5xl lg:text-7xl font-serif font-bold tracking-tight leading-[1.1] sm:leading-[1.05] break-words">{selectedMovie.title}</h2>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-6 pt-2 sm:pt-4">
-                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
-                      <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.runtime || '90+'} Dakika</span>
-                      <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.genres?.join(', ') || 'Sinema'}</span>
-                    </div>
-                  </header>
-                  <div className="space-y-8">
-                    <p className="text-base sm:text-2xl font-serif leading-relaxed text-ivory/80 italic">
-                      {selectedMovie.overview || "Bu yapıt hakkında henüz bir özet bulunmuyor..."}
-                    </p>
-                  </div>
-                  <div className="p-6 sm:p-16 rounded-[1.5rem] sm:rounded-[4rem] bg-black/40 border border-white/5 relative shadow-inner">
-                    {isAnalyzing
-                      ? <div className="flex flex-col items-center gap-6 sm:gap-8 py-8 sm:py-10">
-                          <SkeletonGurme />
-                          <p className="text-lg sm:text-2xl font-serif italic text-ivory/40 animate-pulse">Üstad notlarını hazırlıyor...</p>
-                        </div>
-                      : <>
-                                                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-4 sm:mb-6">Üstadın Notu</p>
-                          <p className="text-lg sm:text-4xl font-serif italic leading-relaxed sm:leading-[1.2] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-7xl first-letter:float-left first-letter:mr-3 sm:first-letter:mr-4 first-letter:font-bold first-letter:text-amber">
-                            {selectedMovie.ai_analysis || "Üstad bu başyapıt için notlarını hazırlıyor... Birazdan burada olacak."}
-                          </p>
-                        </>
-                    }
-                  </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-12 border-t border-white/5 pt-8 sm:pt-16">
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Üstat</p>
-                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Gizli'}</p>
-                    </div>
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Zamanın Ruhu</p>
-                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.genres?.slice(0, 2).join(', ')}</p>
-                    </div>
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel yankı</p>
-                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(selectedMovie) ?? '—'}</p>
-                    </div>
-                  </div>
-                  {/* Nerede İzlenir */}
-                  {selectedMovie.watch_providers && (() => {
-                    const wp = selectedMovie.watch_providers;
-                    const all = [
-                      ...(wp.flatrate || []).map(p => ({ ...p, tag: 'Abonelik' })),
-                      ...(wp.rent || []).map(p => ({ ...p, tag: 'Kiralık' })),
-                      ...(wp.buy || []).map(p => ({ ...p, tag: 'Satın Al' })),
-                      ...(wp.free || []).map(p => ({ ...p, tag: 'Ücretsiz' })),
-                      ...(wp.ads || []).map(p => ({ ...p, tag: 'Reklamlı' })),
-                    ];
-                    const seen = new Set();
-                    const uniq = all.filter(p => !seen.has(p.provider_id) && seen.add(p.provider_id));
-                    if (uniq.length === 0 && !wp.link) return null;
-                    return (
-                      <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Nerede İzlenir?</p>
-                        <div className="flex flex-wrap gap-3">
-                          {uniq.length === 0 ? (
-                            <a href={wp.link} target="_blank" rel="noopener noreferrer"
-                               className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber hover:bg-white/10 transition-all">
-                              İzleme Seçenekleri
-                            </a>
-                          ) : uniq.slice(0, 8).map(p => (
-                            <button key={p.provider_id} onClick={(e) => handleProviderClick(e, p)}
-                              title={`${p.provider_name} (${p.tag})`}
-                              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-                              {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/60 group-hover:text-amber transition-colors">{p.provider_name}</span>
-                              <span className="text-[8px] uppercase tracking-widest text-ivory/20">{p.tag}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Benzer Filmler */}
-                  <SimilarFilmsStrip movies={similarMovies} onSelect={openSimilarMovie} />
-
-                  <div className="flex gap-6 pt-4">
-                    <button
-                      onClick={handleSaveToJournal}
-                      disabled={savedIds.has(selectedMovie.id)}
-                      className={`flex-1 py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.4em] transition-all duration-700 flex items-center justify-center gap-4 ${
-                        savedIds.has(selectedMovie.id)
-                          ? 'bg-amber/10 text-amber border border-amber/30 cursor-default'
-                          : 'bg-amber text-bg hover:scale-[1.02] shadow-[0_20px_50px_-10px_rgba(255,191,0,0.3)]'
-                      }`}
-                    >
-                      {savedIds.has(selectedMovie.id) ? <><Check size={16} /> DEFTERE EKLENDİ</> : <><Plus size={16} /> DEFTERİME KAYDET</>}
-                    </button>
-                    <button
-                      onClick={() => { setSelectedMovie(null); navigate(-1); }}
-                      className="px-8 sm:px-12 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
-                    >
-                      Geri Dön
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>
+        <FilmDetailModal
+          movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          onClose={() => { setSelectedMovie(null); navigate(-1); }}
+        />
       </div>
     );
   }
@@ -1042,209 +915,54 @@ export default function Discover() {
         </motion.section>
       </main>
 
-      {/* Film Detay Modal - Master Overlay Edition */}
-      <AnimatePresence>
-        {selectedMovie && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 md:p-12">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedMovie(null)} />
-            <motion.div
-                initial={{ scale: 0.9, y: 20, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 0.9, y: 20, opacity: 0 }}
-                className="relative w-full max-w-6xl h-full sm:h-fit max-h-screen sm:max-h-[90vh] bg-[#1a1a1a]/95 sm:bg-[#1a1a1a]/90 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[3rem] p-5 sm:p-12 md:p-16 pt-safe pb-nav sm:pb-12 shadow-2xl overflow-y-auto no-scrollbar"
-            >
-              {selectedMood && <div className={`absolute top-0 right-0 w-80 h-80 bg-gradient-to-br ${selectedMood.color} opacity-10 blur-[100px] pointer-events-none`} />}
-
-              <button onClick={() => setSelectedMovie(null)} className="absolute top-4 right-4 sm:top-10 sm:right-10 z-[110] w-11 h-11 flex items-center justify-center rounded-full bg-black/50 sm:bg-transparent text-ivory/50 sm:text-ivory/20 hover:text-amber transition-colors">
-                <X size={26} />
-              </button>
-
-              <div className="flex flex-col md:flex-row gap-6 sm:gap-16 relative z-10">
-                <div className="w-[72%] sm:w-full md:w-[35%] shrink-0 aspect-[2/3] max-h-none mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-[0_30px_70px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/10">
-                  <img
-                    src={proxyImageUrl(selectedMovie.poster_url || (selectedMovie.poster_path ? `${IMG_BASE_LG}${selectedMovie.poster_path}` : null)) || 'https://via.placeholder.com/500x750'}
-                    className="w-full h-full object-cover object-center"
-                    alt={selectedMovie.title}
-                    loading="eager"
-                  />
-                  <div className="absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl sm:rounded-[2rem] pointer-events-none" />
-                  <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
-                </div>
-
-                <div className="flex-1 min-w-0 space-y-6 sm:space-y-12">
-                <div className="noise-overlay" />
-
-                <header className="space-y-4 sm:space-y-6 relative">
-                  <p className="text-[10px] sm:text-[12px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-amber/40">FİLM ÖZETİ</p>
-                  <h2 className="text-[28px] sm:text-5xl lg:text-7xl font-serif font-bold tracking-tight leading-[1.1] sm:leading-[1.05] break-words">{selectedMovie.title}</h2>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-6 pt-2 sm:pt-4">
-                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.release_date?.split('-')[0]}</span>
-                      <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.runtime || '90+'} Dakika</span>
-                      <div className="h-1 w-1 bg-white/20 rounded-full" />
-                      <span className="text-sm sm:text-xl font-serif italic text-ivory/30">{selectedMovie.genres?.join(', ') || 'Sinema'}</span>
-                  </div>
-                </header>
-
-                {/* Topluluk önerisi rozeti */}
-                {recommenders.length > 0 && (
-                  <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber/20 w-fit">
-                    <div className="flex -space-x-2">
-                      {recommenders.slice(0, 3).map((r) => (
-                        <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-[#1a1a1a] bg-amber/15 flex items-center justify-center">
-                          {r.avatar
-                            ? <img src={r.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            : <span className="font-serif text-[11px] font-bold text-amber">{(r.username || '?').slice(0, 1).toUpperCase()}</span>}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="font-sans text-[12px] sm:text-sm text-ivory/70">
-                      <span className="font-bold text-amber">Gurme {recommenders[0].username}</span>
-                      {recommenders.length > 1 && <span className="text-ivory/40"> ve {recommenders.length - 1} kişi daha</span>} önerdi
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-8">
-                    <p className="text-base sm:text-2xl font-serif leading-relaxed text-ivory/80 italic">
-                        {selectedMovie.overview || "Bu yapıt hakkında henüz bir özet bulunmuyor..."}
-                    </p>
-                </div>
-
-                <div className="p-6 sm:p-16 rounded-[1.5rem] sm:rounded-[4rem] bg-black/40 border border-white/5 relative shadow-inner group">
-                  {isAnalyzing
-                    ? <div className="flex flex-col items-center gap-6 sm:gap-8 py-8 sm:py-10">
-                        <SkeletonGurme />
-                        <p className="text-lg sm:text-2xl font-serif italic text-ivory/40 animate-pulse">Üstad notlarını hazırlıyor...</p>
-                      </div>
-                    : <>
-                                                <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-4 sm:mb-6">Üstadın Notu</p>
-                        <p className="text-lg sm:text-4xl font-serif italic leading-relaxed sm:leading-[1.2] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-7xl first-letter:float-left first-letter:mr-3 sm:first-letter:mr-4 first-letter:font-bold first-letter:text-amber">
-                            {selectedMovie.ai_analysis || "Üstad bu başyapıt için notlarını hazırlıyor... Birazdan burada olacak."}
-                        </p>
-                      </>
-                  }
-                </div>
-
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-12 border-t border-white/5 pt-8 sm:pt-16">
-                  <div className="space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Üstat</p>
-                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.director || 'Gizli'}</p>
-                  </div>
-                  <div className="space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Zamanın Ruhu</p>
-                      <p className="text-lg sm:text-2xl font-serif text-ivory/80">{selectedMovie.genres?.slice(0, 2).join(', ')}</p>
-                  </div>
-                  <div className="space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel yankı</p>
-                      <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(selectedMovie) ?? '—'}</p>
-                  </div>
-                </div>
-
-                {/* Watch Providers */}
-                {selectedMovie.watch_providers && (
-                  <div className="border-t border-white/5 pt-12 space-y-6">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Nerede İzlenir?</p>
-                    <div className="flex flex-wrap gap-3">
-                      {(() => {
-                        const wp = selectedMovie.watch_providers;
-                        const allProviders = [
-                          ...(wp.flatrate || []).map(p => ({ ...p, tag: 'Abonelik' })),
-                          ...(wp.rent || []).map(p => ({ ...p, tag: 'Kiralık' })),
-                          ...(wp.buy || []).map(p => ({ ...p, tag: 'Satın Al' })),
-                          ...(wp.free || []).map(p => ({ ...p, tag: 'Ücretsiz' })),
-                          ...(wp.ads || []).map(p => ({ ...p, tag: 'Reklamlı' })),
-                        ];
-                        if (allProviders.length === 0) {
-                          if (wp.link) {
-                            return (
-                              <a href={wp.link} target="_blank" rel="noopener noreferrer"
-                                 className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber hover:bg-white/10 transition-all">
-                                İzleme Seçenekleri
-                              </a>
-                            );
-                          }
-                          return <p className="text-ivory/30 text-sm font-serif italic">Türkiye için resmi platform bilgisi bulunamadı.</p>;
-                        }
-                        const seen = new Set();
-                        const unique = allProviders.filter(p => {
-                          if (seen.has(p.provider_id)) return false;
-                          seen.add(p.provider_id);
-                          return true;
-                        });
-                        return unique.slice(0, 6).map((p) => {
-                          const linked = isPlatformLinked(p.provider_id);
-                          return (
-                            <button key={p.provider_id}
-                               onClick={(e) => handleProviderClick(e, p)}
-                               title={linked ? `${p.provider_name} — eşleşti, tek tıkla aç` : `${p.provider_name} (${p.tag})`}
-                               className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-                              {p.logo_url ? (
-                                <img src={p.logo_url} alt={p.provider_name}
-                                     className="w-6 h-6 rounded object-contain" />
-                              ) : null}
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/60 group-hover:text-amber transition-colors">
-                                {p.provider_name}
-                              </span>
-                              {linked
-                                ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" title="Eşleşti" />
-                                : <span className="text-[8px] uppercase tracking-widest text-ivory/20">{p.tag}</span>}
-                            </button>
-                          );
-                        });
-                      })()}
-                    </div>
-                  </div>
-                )}
-
-                {/* Benzer Filmler — Bunları da sevebilirsin */}
-                <SimilarFilmsStrip movies={similarMovies} onSelect={openSimilarMovie} />
-
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 pt-4">
-                  <button
-                    onClick={handleSaveToJournal}
-                    disabled={savedIds.has(selectedMovie.id)}
-                    className={`flex-1 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] transition-all duration-700 flex items-center justify-center gap-3 sm:gap-4 ${
-                      savedIds.has(selectedMovie.id)
-                        ? 'bg-amber/10 text-amber border border-amber/30 cursor-default'
-                        : 'bg-amber text-bg hover:scale-[1.02] shadow-[0_20px_50px_-10px_rgba(255,191,0,0.3)]'
-                    }`}
-                  >
-                    {savedIds.has(selectedMovie.id) ? <><Check size={16} /> DEFTERE EKLENDİ</> : <><Plus size={16} /> DEFTERİME KAYDET</>}
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    className="px-6 sm:px-10 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
-                  >
-                    {shareCopied ? <><Copy size={14} /> Kopyalandı</> : <><Share2 size={14} /> Paylaş</>}
-                  </button>
-                  {user && (
-                    <button
-                      onClick={handleRecommendToCommunity}
-                      disabled={recommending || alreadyRecommended}
-                      title={alreadyRecommended ? 'Bu filmi zaten topluluğa önerdin' : 'Topluluğa öner'}
-                      className={`px-6 sm:px-10 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] transition-all flex items-center justify-center gap-2 ${
-                        alreadyRecommended
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 cursor-default'
-                          : 'border border-amber/30 text-amber hover:bg-amber/10'
-                      }`}
-                    >
-                      {alreadyRecommended ? <><Check size={14} /> Önerdin</> : <><Users size={14} /> Topluluğa Öner</>}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setSelectedMovie(null)}
-                    className="px-8 sm:px-12 py-4 sm:py-6 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] sm:tracking-[0.4em] border border-white/10 hover:bg-white/5 transition-all"
-                  >
-                    Kapat
-                  </button>
-                </div>
+      {/* Film Detay Modal — birleşik tasarım (FilmDetailModal) */}
+      {selectedMovie && (
+        <FilmDetailModal
+          movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          onClose={() => setSelectedMovie(null)}
+          headerBadge={recommenders.length > 0 ? (
+            <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber/20 w-fit">
+              <div className="flex -space-x-2">
+                {recommenders.slice(0, 3).map((r) => (
+                  <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-[#1a1a1a] bg-amber/15 flex items-center justify-center">
+                    {r.avatar
+                      ? <img src={r.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      : <span className="font-serif text-[11px] font-bold text-amber">{(r.username || '?').slice(0, 1).toUpperCase()}</span>}
+                  </span>
+                ))}
               </div>
+              <p className="font-sans text-[12px] sm:text-sm text-ivory/70">
+                <span className="font-bold text-amber">Gurme {recommenders[0].username}</span>
+                {recommenders.length > 1 && <span className="text-ivory/40"> ve {recommenders.length - 1} kişi daha</span>} önerdi
+              </p>
             </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : null}
+          extraActions={(
+            <>
+              <button
+                onClick={handleShare}
+                className="px-6 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border border-white/10 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+              >
+                {shareCopied ? <><Copy size={14} /> Kopyalandı</> : <><Share2 size={14} /> Paylaş</>}
+              </button>
+              {user && (
+                <button
+                  onClick={handleRecommendToCommunity}
+                  disabled={recommending || alreadyRecommended}
+                  title={alreadyRecommended ? 'Bu filmi zaten topluluğa önerdin' : 'Topluluğa öner'}
+                  className={`px-6 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2 ${
+                    alreadyRecommended
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 cursor-default'
+                      : 'border border-amber/30 text-amber hover:bg-amber/10'
+                  }`}
+                >
+                  {alreadyRecommended ? <><Check size={14} /> Önerdin</> : <><Users size={14} /> Topluluğa Öner</>}
+                </button>
+              )}
+            </>
+          )}
+        />
+      )}
 
       {/* ═══ AKILLI YAYIN PLATFORMU ONAY MODALI ═══ */}
       <StreamingConsentModal

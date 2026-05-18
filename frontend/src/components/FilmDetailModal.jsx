@@ -28,7 +28,7 @@ const reliableRating = (m) => {
   return avg <= 9.0 ? avg.toFixed(1) : null;
 };
 
-export default function FilmDetailModal({ movieId, onClose }) {
+export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null }) {
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
   const [similar, setSimilar] = useState([]);
@@ -81,6 +81,13 @@ export default function FilmDetailModal({ movieId, onClose }) {
   const poster = movie && proxyImageUrl(
     movie.poster_url || (movie.poster_path ? `${IMG_LG}${movie.poster_path}` : null)
   );
+  // Yatay banner için backdrop tercih edilir; yoksa poster'a düşer.
+  const banner = movie && proxyImageUrl(
+    movie.backdrop_url ||
+    (movie.backdrop_path ? `${IMG_LG}${movie.backdrop_path}` : null) ||
+    movie.poster_url ||
+    (movie.poster_path ? `${IMG_LG}${movie.poster_path}` : null)
+  );
 
   return (
     <AnimatePresence>
@@ -94,10 +101,10 @@ export default function FilmDetailModal({ movieId, onClose }) {
           animate={{ scale: 1, y: 0, opacity: 1 }}
           exit={{ scale: 0.94, y: 24, opacity: 0 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-5xl my-auto bg-[#1a1a1a]/95 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[2.5rem] p-5 sm:p-12 md:p-14 pt-safe pb-24 sm:pb-12 shadow-2xl"
+          className="relative w-full max-w-4xl my-auto bg-[#1a1a1a]/95 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[2.5rem] overflow-hidden pt-safe pb-24 sm:pb-12 shadow-2xl"
         >
           <button onClick={onClose}
-            className="absolute top-4 right-4 sm:top-8 sm:right-8 z-10 w-11 h-11 flex items-center justify-center rounded-full bg-black/50 text-ivory/60 hover:text-amber transition-colors">
+            className="absolute top-4 right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-ivory/80 hover:text-amber hover:bg-black/80 transition-colors">
             <X size={24} />
           </button>
 
@@ -107,18 +114,40 @@ export default function FilmDetailModal({ movieId, onClose }) {
               <p className="font-serif italic text-ivory/40 text-lg">Üstad notlarını hazırlıyor...</p>
             </div>
           ) : movie ? (
-            <div className="flex flex-col md:flex-row gap-6 sm:gap-14 relative z-[1]">
-              <div className="w-[72%] sm:w-full md:w-[34%] shrink-0 aspect-[2/3] mx-auto relative rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-[0_30px_70px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/10">
-                <img src={poster || 'https://via.placeholder.com/500x750'} alt={movie.title}
-                  className="w-full h-full object-cover object-center" loading="eager" />
-                <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
+            <div className="relative z-[1]">
+              {/* ─── HERO ─── */}
+              {/* MOBİL: dikey poster (değişmedi) */}
+              <div className="md:hidden px-5 pt-8">
+                <div className="w-[72%] mx-auto aspect-[2/3] relative rounded-2xl overflow-hidden shadow-[0_30px_70px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/10">
+                  <img src={poster || 'https://via.placeholder.com/500x750'} alt={movie.title}
+                    className="w-full h-full object-cover object-center" loading="eager" />
+                  <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
+                </div>
               </div>
 
-              <div className="flex-1 min-w-0 space-y-7 sm:space-y-10">
+              {/* MASAÜSTÜ: yatay afiş bandı — altı şık siyah geçişle biter */}
+              <div className="hidden md:block relative h-[42vh] max-h-[440px] w-full overflow-hidden">
+                <img src={banner || 'https://via.placeholder.com/1280x720'} alt={movie.title}
+                  className="w-full h-full object-cover object-center" loading="eager" />
+                {/* Alt siyahlık — modal zeminine yumuşak geçiş */}
+                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#1a1a1a] via-[#1a1a1a]/70 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent pointer-events-none" />
+                {/* Başlık afişin altına oturur */}
+                <div className="absolute inset-x-0 bottom-0 px-14 pb-8">
+                  <p className="text-xs font-bold uppercase tracking-[0.4em] text-amber/60 mb-3">Film Özeti</p>
+                  <h2 className="text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">{movie.title}</h2>
+                </div>
+              </div>
+
+              {/* ─── İÇERİK ─── */}
+              <div className="px-5 sm:px-12 md:px-14 pt-7 md:pt-9 space-y-7 sm:space-y-10">
+                {/* Başlık + meta — mobilde göster, masaüstünde meta satırı */}
                 <header className="space-y-4">
-                  <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] text-amber/40">Film Özeti</p>
-                  <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words">{movie.title}</h2>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-5 text-sm sm:text-lg font-serif italic text-ivory/35">
+                  <div className="md:hidden space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">Film Özeti</p>
+                    <h2 className="text-3xl font-serif font-bold tracking-tight leading-[1.05] break-words">{movie.title}</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-5 text-sm sm:text-lg font-serif italic text-ivory/45">
                     <span>{movie.release_date?.split('-')[0]}</span>
                     <span className="w-1 h-1 bg-white/20 rounded-full" />
                     <span>{movie.runtime || '90+'} Dakika</span>
@@ -126,6 +155,9 @@ export default function FilmDetailModal({ movieId, onClose }) {
                     <span>{movie.genres?.join(', ') || 'Sinema'}</span>
                   </div>
                 </header>
+
+                {/* Opsiyonel rozet (örn. topluluk önerisi) */}
+                {headerBadge}
 
                 <p className="text-base sm:text-xl font-serif leading-relaxed text-ivory/80 italic">
                   {movie.overview || 'Bu yapıt hakkında henüz bir özet bulunmuyor...'}
@@ -221,6 +253,8 @@ export default function FilmDetailModal({ movieId, onClose }) {
                     }`}>
                     {watched ? <><Check size={14} /> İzledim</> : <><Eye size={14} /> İzledim</>}
                   </button>
+                  {/* Opsiyonel ek aksiyonlar (örn. Paylaş, Topluluğa Öner) */}
+                  {extraActions}
                   <button onClick={onClose}
                     className="px-8 sm:px-10 py-4 sm:py-5 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border border-white/10 hover:bg-white/5 transition-all">
                     Kapat

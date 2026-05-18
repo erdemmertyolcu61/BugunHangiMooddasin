@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchMovies, fetchNowPlaying } from '../services/api';
 import { moodSynth } from '../services/music';
 import MovieCard from './MovieCard';
-import MovieModal from './MovieModal';
+import FilmDetailModal from './FilmDetailModal';
 import Loader from './Loader';
 import MoodSelector from './MoodSelector';
 import Hero from './Hero';
@@ -164,7 +164,12 @@ export default function MovieGrid({ autoMusic }) {
         </>
       )}
 
-      {selectedMovie && <MovieModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />}
+      {selectedMovie && (
+        <FilmDetailModal
+          movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          onClose={() => setSelectedMovie(null)}
+        />
+      )}
     </>
   );
 }
