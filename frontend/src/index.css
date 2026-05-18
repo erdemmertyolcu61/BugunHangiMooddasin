@@ -102,6 +102,18 @@
 /* Vinyet / aura çok parlamasın */
 [data-theme="light"] .vignette { opacity: 0.04 !important; }
 
+/* ─── MOBİL PERFORMANS ─────────────────────────────────────
+   Tam ekran sabit film-grain katmanları mix-blend-mode ile
+   her karede tüm ekranı yeniden composite ettiriyor → telefonda
+   ciddi kasma. Opaklık 0.03 olduğu için telefonda zaten görünmez;
+   mobilde tamamen kapat. (Masaüstünde aynen kalır.) */
+@media (max-width: 767px) {
+  .mix-blend-overlay,
+  .noise-overlay {
+    display: none !important;
+  }
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

@@ -69,7 +69,6 @@ export default function Discover() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedMood, selectMood, fetchMoodMovies } = useMood();
-  console.log("[Discover] Render, selectedMood:", selectedMood?.id);
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMovie, setSelectedMovie] = useState(null);
