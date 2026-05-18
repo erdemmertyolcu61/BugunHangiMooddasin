@@ -4,12 +4,13 @@
  * Tema: koyu mod + buzlu cam (backdrop-blur-md bg-slate-900/80),
  * serif başlıklar + sans-serif veri tipografisi, Framer Motion fade-in.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, LogOut, Film, Eye, Sparkles, CalendarDays, Mail, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getWatchlist, getTasteMap } from '../services/api';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -38,12 +39,8 @@ export default function Profil() {
   const navigate = useNavigate();
   const { user, logout, login } = useAuth();
 
-  // Google Sign-In callback
-  useEffect(() => {
-    window.handleGoogleCallback = async (response) => {
-      if (response?.credential) await login(response.credential);
-    };
-    return () => { delete window.handleGoogleCallback; };
+  const handleCredential = useCallback(async (cred) => {
+    if (cred) await login(cred);
   }, [login]);
   const [savedCount, setSavedCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
@@ -115,21 +112,11 @@ export default function Profil() {
             </div>
 
             {GOOGLE_CLIENT_ID ? (
-              <div className="space-y-4">
-                <div
-                  id="g_id_onload"
-                  data-client_id={GOOGLE_CLIENT_ID}
-                  data-callback="handleGoogleCallback"
-                  data-auto_prompt="false"
-                />
-                <div
-                  className="g_id_signin flex justify-center"
-                  data-type="standard"
-                  data-theme="filled_black"
-                  data-text="signin_with"
-                  data-shape="pill"
-                  data-locale="tr"
-                  data-width="280"
+              <div className="flex justify-center">
+                <GoogleSignInButton
+                  clientId={GOOGLE_CLIENT_ID}
+                  onCredential={handleCredential}
+                  width={280}
                 />
               </div>
             ) : (

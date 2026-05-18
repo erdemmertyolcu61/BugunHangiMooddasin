@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, Film } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from './GoogleSignInButton';
 
 const BETA_TOKEN_KEY = 'beta_token';
 
@@ -55,15 +56,11 @@ export default function BetaGate({ children }) {
     if (googleUser) setAuthenticated(true);
   }, [googleUser]);
 
-  // Register Google callback on window so GSI script can call it
-  useEffect(() => {
-    window.handleGoogleCallback = async (response) => {
-      if (response?.credential) {
-        await googleLogin(response.credential);
-        setAuthenticated(true);
-      }
-    };
-    return () => { delete window.handleGoogleCallback; };
+  const handleGoogleCredential = useCallback(async (cred) => {
+    if (cred) {
+      await googleLogin(cred);
+      setAuthenticated(true);
+    }
   }, [googleLogin]);
 
   useEffect(() => {
@@ -210,20 +207,10 @@ export default function BetaGate({ children }) {
               <span className="text-[10px] uppercase tracking-widest text-[#f5f2eb]/20">veya</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
-            <div
-              id="g_id_onload"
-              data-client_id={GOOGLE_CLIENT_ID}
-              data-callback="handleGoogleCallback"
-              data-auto_prompt="false"
-            />
-            <div
-              className="g_id_signin flex justify-center"
-              data-type="standard"
-              data-theme="filled_black"
-              data-text="signin_with"
-              data-shape="pill"
-              data-locale="tr"
-              data-width="300"
+            <GoogleSignInButton
+              clientId={GOOGLE_CLIENT_ID}
+              onCredential={handleGoogleCredential}
+              width={300}
             />
           </div>
         )}
