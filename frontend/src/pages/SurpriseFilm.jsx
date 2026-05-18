@@ -205,6 +205,7 @@ export default function SurpriseFilm() {
       {showDetail && movie && (
         <FilmDetailModal
           movieId={movie.id || movie.tmdb_id}
+          initialMovie={movie}
           onClose={() => setShowDetail(false)}
         />
       )}

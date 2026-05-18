@@ -557,6 +557,7 @@ export default function Discover() {
       <div className="min-h-screen bg-[#120d0b] text-[#f5f2eb] relative">
         <FilmDetailModal
           movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          initialMovie={selectedMovie}
           onClose={() => { setSelectedMovie(null); navigate(-1); }}
         />
       </div>
@@ -919,6 +920,7 @@ export default function Discover() {
       {selectedMovie && (
         <FilmDetailModal
           movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          initialMovie={selectedMovie}
           onClose={() => setSelectedMovie(null)}
           headerBadge={recommenders.length > 0 ? (
             <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber/20 w-fit">

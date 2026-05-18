@@ -258,7 +258,7 @@ function ListeDetay() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 className="group cursor-pointer"
-                onClick={() => setSelectedMovie(movie.id)}
+                onClick={() => setSelectedMovie(movie)}
               >
                 {/* Poster */}
                 <div className="aspect-[2/3] rounded-xl overflow-hidden bg-white/5 mb-3 relative shadow-lg">
@@ -352,7 +352,11 @@ function ListeDetay() {
       </div>
 
       {selectedMovie && (
-        <FilmDetailModal movieId={selectedMovie} onClose={() => setSelectedMovie(null)} />
+        <FilmDetailModal
+          movieId={selectedMovie.id}
+          initialMovie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+        />
       )}
     </div>
   );

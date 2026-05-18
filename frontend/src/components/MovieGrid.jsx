@@ -167,6 +167,7 @@ export default function MovieGrid({ autoMusic }) {
       {selectedMovie && (
         <FilmDetailModal
           movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          initialMovie={selectedMovie}
           onClose={() => setSelectedMovie(null)}
         />
       )}

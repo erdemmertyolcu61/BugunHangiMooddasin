@@ -40,9 +40,10 @@ const reliableRating = (m) => {
   return avg <= 9.0 ? avg.toFixed(1) : null;
 };
 
-export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null }) {
-  const [movie, setMovie] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null }) {
+  // initialMovie verilmişse modal ANINDA dolu açılır; /analyze arka planda
+  // sadece eksikleri (ai_analysis, watch_providers vb.) tamamlar.
+  const [movie, setMovie] = useState(initialMovie ? { id: movieId, ...initialMovie } : null);
   const [similar, setSimilar] = useState([]);
   const [saved, setSaved] = useState(false);
   const [watched, setWatched] = useState(false);
@@ -50,29 +51,37 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
 
   useEffect(() => { setActiveId(movieId); }, [movieId]);
 
-  // Modal açıkken arka plan (body) kaymasını kilitle
+  // Modal açıkken arka plan kaymasını kilitle (html + body + scroll zinciri)
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    const prevOB = body.style.overscrollBehavior;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+      body.style.overscrollBehavior = prevOB;
+    };
   }, []);
 
   useEffect(() => {
     if (!activeId) return;
     let active = true;
-    setLoading(true);
-    setMovie(null);
     setSimilar([]);
     (async () => {
       try {
         const res = await fetch(getApiUrl(`/api/movies/${activeId}/analyze`));
         if (res.ok && active) {
           const data = await res.json();
-          setMovie({ id: activeId, ...data });
+          // Mevcut (initial) veriyi koru, /analyze ile zenginleştir
+          setMovie(prev => ({ ...(prev || {}), id: activeId, ...data }));
           setSaved(!!data.in_watchlist);
         }
       } catch {}
-      finally { if (active) setLoading(false); }
     })();
     getSimilarMovies(activeId).then((d) => { if (active) setSimilar(d.movies || []); });
     return () => { active = false; };
@@ -127,12 +136,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
             <X size={24} />
           </button>
 
-          {loading && !movie ? (
-            <div className="flex flex-col items-center justify-center gap-6 py-32">
-              <div className="w-10 h-10 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
-              <p className="font-serif italic text-ivory/40 text-lg">Üstad notlarını hazırlıyor...</p>
-            </div>
-          ) : movie ? (
+          {movie ? (
             <div className="relative z-[1]">
               {/* ─── HERO ─── */}
               {/* MOBİL: dikey poster (değişmedi) */}
@@ -196,9 +200,17 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
 
                 <div className="p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-black/40 border border-white/5">
                   <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-4">Üstadın Notu</p>
-                  <p className="text-lg sm:text-3xl font-serif italic leading-relaxed sm:leading-[1.25] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-6xl first-letter:float-left first-letter:mr-3 first-letter:font-bold first-letter:text-amber">
-                    {movie.ai_analysis || 'Üstad bu başyapıt için notlarını hazırlıyor...'}
-                  </p>
+                  {movie.ai_analysis ? (
+                    <p className="text-lg sm:text-3xl font-serif italic leading-relaxed sm:leading-[1.25] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-6xl first-letter:float-left first-letter:mr-3 first-letter:font-bold first-letter:text-amber">
+                      {movie.ai_analysis}
+                    </p>
+                  ) : (
+                    <div className="space-y-3 animate-pulse">
+                      <div className="h-4 w-full rounded bg-white/10" />
+                      <div className="h-4 w-11/12 rounded bg-white/10" />
+                      <div className="h-4 w-4/5 rounded bg-white/10" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 border-t border-white/5 pt-7">
@@ -304,9 +316,13 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
               </div>
             </div>
           ) : (
-            <div className="py-32 text-center">
-              <p className="font-serif italic text-ivory/40 text-lg">Film bilgisi yüklenemedi.</p>
-              <button onClick={onClose} className="mt-6 px-8 py-3 rounded-full border border-white/10 text-ivory/60 text-sm hover:bg-white/5">Kapat</button>
+            // initialMovie verilmeyen (yalnız id) durumda kısa, sessiz iskelet —
+            // "Üstad hazırlanıyor" bloğu YOK, modal yine de hemen açılır.
+            <div className="px-5 sm:px-12 md:px-14 py-16 space-y-6 animate-pulse">
+              <div className="h-8 w-1/2 rounded-lg bg-white/10" />
+              <div className="h-3 w-full rounded bg-white/5" />
+              <div className="h-3 w-5/6 rounded bg-white/5" />
+              <div className="h-40 w-full rounded-2xl bg-white/5" />
             </div>
           )}
         </motion.div>
