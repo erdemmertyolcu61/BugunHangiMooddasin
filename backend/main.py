@@ -2639,6 +2639,89 @@ async def get_list_detail(slug: str):
             logger.warning(f"[Lists] tmdb_id={tmdb_id} fetch failed: {e}")
         return None
 
+    async def _resolve_by_title(title: str, year=None) -> dict | None:
+        """Bir filmi başlık (+yıl) ile TMDB'de arayıp en iyi eşleşmeyi döndürür.
+
+        Elle girilen ID'ler hatalı olabilir (kanıtlanmış sorun); başlık araması
+        küratöryel listeler için en güvenilir çözüm — "Kış Uykusu 2014" daima
+        doğru filmi bulur, ID ne olursa olsun.
+        """
+        try:
+            results = await asyncio.wait_for(
+                tmdb_service.search_movies(title), timeout=5.0
+            )
+            if not results:
+                return None
+            norm = lambda s: "".join(ch.lower() for ch in (s or "") if ch.isalnum())
+            want = norm(title)
+            best, best_score = None, -1
+            for r in results[:8]:
+                rt = norm(r.get("title"))
+                ro = norm(r.get("original_title"))
+                ry = (r.get("release_date") or "")[:4]
+                score = 0
+                if want and (want == rt or want == ro):
+                    score += 100
+                elif want and (want in rt or want in ro or rt in want or ro in want):
+                    score += 50
+                if year and ry and abs(int(ry) - int(year)) <= 1:
+                    score += 40
+                score += min((r.get("vote_count", 0) or 0) / 500.0, 10)
+                if score > best_score:
+                    best_score, best = score, r
+            if best and best_score >= 40:
+                return _build_movie_entry(best, best.get("id"))
+        except Exception as e:
+            logger.warning(f"[Lists] title resolve '{title}' failed: {e}")
+        return None
+
+    # ─── KATMAN 0a: Küratöryel statik liste (Türk sineması vb.) ──
+    # static_fallback varsa bu, listenin OTORİTER kaynağıdır. Her filmi
+    # başlık+yıl ile aratıp doğru TMDB kaydını buluruz — yanlış ID sorunu biter.
+    if static_fallback:
+        resolve_tasks = [
+            _resolve_by_title(fb.get("title", ""), fb.get("year"))
+            for fb in static_fallback
+        ]
+        resolved = await asyncio.gather(*resolve_tasks, return_exceptions=True)
+        for i, item in enumerate(resolved):
+            fb_meta = static_fallback[i] if i < len(static_fallback) else {}
+            if isinstance(item, dict) and item.get("id") and item["id"] not in seen_ids:
+                seen_ids.add(item["id"])
+                if not item.get("director") and fb_meta.get("director"):
+                    item["director"] = fb_meta["director"]
+                movies.append(item)
+            elif fb_meta.get("tmdb_id") and fb_meta["tmdb_id"] not in seen_ids:
+                # Arama da başarısız → ID ile dene, o da olmazsa meta ile bas
+                got = await _fetch_one(fb_meta["tmdb_id"])
+                if isinstance(got, dict) and got.get("id"):
+                    seen_ids.add(got["id"])
+                    movies.append(got)
+                else:
+                    seen_ids.add(fb_meta["tmdb_id"])
+                    movies.append({
+                        "id": fb_meta["tmdb_id"],
+                        "title": fb_meta.get("title", ""),
+                        "original_language": language_filter or "",
+                        "poster_url": None,
+                        "release_date": str(fb_meta.get("year", "")),
+                        "vote_average": None,
+                        "director": fb_meta.get("director"),
+                        "mood": None, "ai_analysis": None, "overview": "",
+                    })
+        # Statik liste otoriter olduğu için diğer katmanları atla
+        movies = [
+            m for m in movies
+            if (m.get("title") or "").strip() and m.get("title") not in ("—", "-")
+        ]
+        final_movies, final_ids = [], set()
+        for m in movies:
+            if m["id"] not in final_ids:
+                final_ids.add(m["id"])
+                final_movies.append(m)
+        response_lst = {k: v for k, v in lst.items() if k not in ("static_fallback",)}
+        return {**response_lst, "movies": final_movies}
+
     # ─── KATMAN 0: Yönetmen listesi → TMDB resmi filmografisi ──
     # En güvenilir kaynak: elle ID girmek hatalı (Nolan listesine The Departed
     # girmiş gibi). director_tmdb_id varsa o yönetmenin GERÇEK yönettiği

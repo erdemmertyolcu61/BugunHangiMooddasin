@@ -4,7 +4,7 @@ Claude AI Service - The 'Film Connoisseur' engine that assigns mood and emotiona
 import json
 import random
 from anthropic import AsyncAnthropic
-from backend.config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+from backend.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_FAST_MODEL
 
 FALLBACK_TEMPLATES = [
     "Üstadın Notu: {title} sıradan bir {genre} filmi değil — {year} yılında çekilmiş olmasına rağmen her izleyişte taze kalan nadir yapımlardan. Bir akşamını buna ayır, pişman olmayacaksın.",
@@ -188,6 +188,7 @@ class ConfusionService:
     def __init__(self):
         self.client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.model = CLAUDE_MODEL
+        self.fast_model = CLAUDE_FAST_MODEL
 
     async def extract_user_intent(self, user_text: str) -> dict:
         """Kullanıcının serbest metninden zengin niyet/intent çıkarır (Phase 1)."""
@@ -270,6 +271,8 @@ Romantizm:
 - "romantik ama klişe olmasın" → kalp (indie romantik) / gozyasi (derin). Askbahcesi DEĞİL.
 - "aşk filmi ama ağlatan" → gozyasi ağırlıklı, askbahcesi ikincil.
 - "tatlı/şirin" → battaniye/askbahcesi.
+- KRİTİK: "sevgilimle" / "partnerimle" / "eşimle" + "şehvetli" / "tutkulu" / "ateşli" / "erotik" / "baştan çıkarıcı" / "çift gecesi" / "romantik gece" → askbahcesi BİRİNCİL (yüksek ağırlık), ikincil gozyasi veya gece. Bu KESİNLİKLE battaniye DEĞİL — "sıcak/rahat ortam" diye yorumlama. Burada istenen yoğun romantik/tutkulu atmosfer; primary_mood="askbahcesi", prefer'a "sensual_romance"/"passionate" ekle.
+- "çiftlere film" / "ikimiz için" / "date night" → askbahcesi birincil, battaniye ikincil olabilir ama asla tek başına battaniye değil.
 
 Düşünce & Derinlik:
 - "düşündüren" / "sorgulatan" → zihin/kalp.
@@ -383,8 +386,10 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
 }}"""
 
         try:
+            # Hızlı model (Haiku) — yapısal çıkarım, latency-kritik.
+            # Haiku başarısız/yetersizse aşağıdaki except + rule-based devreye girer.
             message = await self.client.messages.create(
-                model=self.model, max_tokens=900,
+                model=self.fast_model, max_tokens=900,
                 messages=[{"role": "user", "content": prompt}],
             )
 

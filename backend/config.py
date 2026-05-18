@@ -24,6 +24,9 @@ OMDB_BASE_URL = "http://www.omdbapi.com/"
 # ─── Anthropic Claude Configuration ───
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+# Hızlı model — yapısal intent çıkarımı gibi düşük yaratıcılık isteyen,
+# latency-kritik işlerde kullanılır (Sonnet'ten ~3x hızlı).
+CLAUDE_FAST_MODEL = os.getenv("CLAUDE_FAST_MODEL", "claude-3-5-haiku-latest")
 
 # ─── Database ───
 DATABASE_PATH = os.getenv("DATABASE_PATH", "movie_cache.db")

@@ -114,42 +114,72 @@ export default function AudioPlayer() {
             initial={{ opacity: 0, width: 0, scale: 0.9, x: 20 }}
             animate={{ opacity: 1, width: 'auto', scale: 1, x: 0 }}
             exit={{ opacity: 0, width: 0, scale: 0.9, x: 20 }}
-            className="bg-[#12100e]/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl h-14 flex items-center px-5 overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.5)] mb-1 gap-3"
+            className="relative bg-gradient-to-br from-[#1a1410]/95 to-[#12100e]/95 backdrop-blur-xl border border-amber-500/40 rounded-full h-16 flex items-center pl-4 pr-5 overflow-hidden shadow-[0_15px_45px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,191,0,0.12)] mb-1 gap-3.5"
           >
-            {/* Mute butonu (mobilde ayrıca görünür) */}
+            {/* Plak kenarı parıltısı — üstte ince altın çizgi */}
+            <div className="absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent pointer-events-none" />
+
+            {/* Mute / hoparlör — yuvarlak plak düğmesi hissi */}
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-              className="shrink-0 text-amber-500/60 hover:text-amber-400 transition-colors tap-target flex items-center justify-center"
+              className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-amber-500/10 border border-amber-500/30 text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-all active:scale-90"
             >
               {muted || volume === 0
-                ? <VolumeX size={16} />
-                : <Volume2 size={16} />
+                ? <VolumeX size={15} />
+                : <Volume2 size={15} />
               }
             </button>
 
-            {/* Slider */}
-            <input
-              type="range"
-              min="0" max="1" step="0.02"
-              value={muted ? 0 : volume}
-              onChange={handleVolume}
-              onPointerDown={(e) => e.stopPropagation()}
-              onPointerUp={() => {
-                // Parmak/mouse bırakılınca 1.2s sonra kapat
-                clearTimeout(closeTimer.current);
-                closeTimer.current = setTimeout(() => setPanelOpen(false), 1200);
-              }}
-              className="w-24 accent-amber-500 h-1 rounded-full appearance-none outline-none cursor-pointer"
-            />
+            {/* Şimdi çalıyor — mood adı + ince eşitleyici çubukları */}
+            <div className="flex flex-col justify-center min-w-0 max-w-[120px]">
+              <div className="flex items-center gap-1.5">
+                {/* Mini equalizer — çalarken animasyonlu */}
+                <span className="flex items-end gap-[2px] h-3">
+                  {[0, 1, 2].map(i => (
+                    <span
+                      key={i}
+                      className="w-[2px] rounded-full bg-amber-400/70"
+                      style={{
+                        height: isPlaying && !muted ? '100%' : '30%',
+                        animation: isPlaying && !muted
+                          ? `eqBar 0.9s ${i * 0.15}s ease-in-out infinite alternate`
+                          : 'none',
+                      }}
+                    />
+                  ))}
+                </span>
+                <span className="text-[8px] font-bold uppercase tracking-[0.25em] text-amber-500/45">
+                  {isPlaying && !muted ? 'Çalıyor' : 'Duraklatıldı'}
+                </span>
+              </div>
+              <span className="text-[11px] font-serif italic text-amber-100/85 truncate leading-tight mt-0.5">
+                {selectedMood?.title || 'Sinema Atmosferi'}
+              </span>
+            </div>
 
-            <span className="text-[9px] font-bold text-amber-500/40 uppercase tracking-widest shrink-0 w-6 text-right">
-              {muted ? '0' : Math.round(volume * 100)}
-            </span>
+            {/* Vinyl-groove slider */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <input
+                type="range"
+                min="0" max="1" step="0.02"
+                value={muted ? 0 : volume}
+                onChange={handleVolume}
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={() => {
+                  clearTimeout(closeTimer.current);
+                  closeTimer.current = setTimeout(() => setPanelOpen(false), 1200);
+                }}
+                className="vinyl-slider w-20 sm:w-24 cursor-pointer"
+              />
+              <span className="text-[10px] font-bold text-amber-500/55 tabular-nums shrink-0 w-7 text-right">
+                {muted ? '0' : Math.round(volume * 100)}
+              </span>
+            </div>
 
             {isIOS && (
               <span className="text-[7px] text-amber-500/30 uppercase tracking-wider whitespace-nowrap">
-                iOS: hw tuşları
+                iOS: hw
               </span>
             )}
           </motion.div>
