@@ -6,3 +6,6 @@ python-dotenv==1.0.1
 aiosqlite==0.20.0
 PyJWT[crypto]>=2.10.1
 google-auth>=2.37.0
+# google.auth.transport.requests Google ID token doğrulaması için
+# üçüncü parti 'requests' kütüphanesini zorunlu kılar (yoksa ImportError).
+requests>=2.31.0

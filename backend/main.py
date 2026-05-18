@@ -492,12 +492,38 @@ async def google_login(request: Request):
     if not credential:
         raise HTTPException(status_code=400, detail="Google credential eksik")
 
+    idinfo = None
+    primary_err = None
+    # 1) google-auth ile doğrula (tercih edilen)
     try:
         from google.oauth2 import id_token
         from google.auth.transport import requests as grequests
         idinfo = id_token.verify_oauth2_token(credential, grequests.Request(), GOOGLE_CLIENT_ID)
     except Exception as e:
-        logger.warning(f"[GoogleAuth] Token doğrulama hatası: {e}")
+        primary_err = e
+        logger.warning(f"[GoogleAuth] google-auth doğrulama hatası: {e}")
+        # 2) Yedek: httpx ile Google tokeninfo (requests/google-auth gerekmez)
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(
+                    "https://oauth2.googleapis.com/tokeninfo",
+                    params={"id_token": credential},
+                )
+            if r.status_code == 200:
+                info = r.json()
+                aud = (info.get("aud") or "").strip()
+                iss = info.get("iss", "")
+                if aud == (GOOGLE_CLIENT_ID or "").strip() and iss in (
+                    "accounts.google.com", "https://accounts.google.com"
+                ):
+                    idinfo = info
+                    logger.info("[GoogleAuth] tokeninfo fallback başarılı")
+        except Exception as fe:
+            logger.warning(f"[GoogleAuth] tokeninfo fallback hatası: {fe}")
+
+    if not idinfo:
+        e = primary_err or Exception("verification failed")
         # Kesin teşhis: token'ı imzasız çözüp aud (token'ın ait olduğu Client ID)
         # ile backend'deki GOOGLE_CLIENT_ID'yi karşılaştır. Client ID'ler gizli
         # değildir (frontend bundle'ında zaten görünür) — mesajda göstermek güvenli.
