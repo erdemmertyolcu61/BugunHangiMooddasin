@@ -63,14 +63,20 @@ function ListelerAnasayfa() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07, duration: 0.5 }}
                 onClick={() => navigate(`/listeler/${lst.slug}`)}
-                className={`text-left p-6 sm:p-8 rounded-3xl bg-gradient-to-br ${colors.bg} border border-white/8 hover:border-white/20 transition-all duration-500 hover:scale-[1.02] group`}
+                className={`relative text-left p-7 sm:p-9 rounded-[1.75rem] bg-gradient-to-br ${colors.bg} border border-white/10 hover:border-amber/30 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.6)] group overflow-hidden`}
               >
-                <div className="w-10 h-px bg-amber/40 mb-5" />
-                <h2 className="text-xl sm:text-2xl font-serif font-bold mb-2 group-hover:text-amber transition-colors duration-300">{lst.title}</h2>
-                <p className="text-ivory/50 text-sm leading-relaxed line-clamp-2 mb-4">{lst.description}</p>
-                <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${colors.badge}`}>
-                  {lst.mood} modu
-                </span>
+                <div className="absolute -top-px left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="h-1 w-10 rounded-full mb-6 transition-all duration-500 group-hover:w-16" style={{ background: colors.accent }} />
+                <h2 className="text-2xl sm:text-[28px] font-serif font-bold mb-3 leading-tight text-ivory group-hover:text-amber transition-colors duration-300">{lst.title}</h2>
+                <p className="text-ivory/70 text-[15px] leading-relaxed line-clamp-2 mb-6 font-serif">{lst.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className={`inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full ${colors.badge}`}>
+                    {lst.mood} modu
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-ivory/30 group-hover:text-amber transition-colors duration-300">
+                    İncele <ChevronLeft size={13} className="rotate-180" />
+                  </span>
+                </div>
               </motion.button>
             );
           })}
@@ -117,13 +123,13 @@ function ListeDetay() {
             <span className="text-xs font-bold uppercase tracking-widest">Tüm Listeler</span>
           </button>
           <div className="w-14 h-px bg-amber/50 mb-7" />
-          <h1 className="text-4xl sm:text-6xl font-serif font-bold tracking-tight mb-4">{liste.title}</h1>
-          <p className="text-ivory/60 text-lg sm:text-xl font-serif italic mb-10 max-w-2xl">{liste.description}</p>
+          <h1 className="text-4xl sm:text-6xl font-serif font-bold tracking-tight mb-5 text-ivory">{liste.title}</h1>
+          <p className="text-ivory/75 text-lg sm:text-2xl font-serif italic mb-12 max-w-2xl leading-relaxed">{liste.description}</p>
 
           {/* Üstad Girişi */}
-          <div className="p-6 sm:p-10 rounded-[2rem] border border-white/8 bg-black/30 backdrop-blur-sm">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-amber/60 mb-4">Üstadın Girişi</p>
-            <p className="font-serif italic text-ivory/80 text-lg sm:text-xl leading-relaxed first-letter:text-4xl first-letter:float-left first-letter:mr-3 first-letter:font-bold first-letter:text-amber">
+          <div className="p-7 sm:p-12 rounded-[2rem] border border-amber/15 bg-black/40 backdrop-blur-sm">
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber mb-5">Üstadın Girişi</p>
+            <p className="font-serif text-[#fdf3d8] text-lg sm:text-2xl leading-[1.7] first-letter:text-5xl sm:first-letter:text-6xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:font-bold first-letter:text-amber">
               {liste.ustad_intro}
             </p>
           </div>

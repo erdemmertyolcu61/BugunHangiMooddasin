@@ -623,6 +623,62 @@ export default function Discover() {
                       <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(selectedMovie) ?? '—'}</p>
                     </div>
                   </div>
+                  {/* Nerede İzlenir */}
+                  {selectedMovie.watch_providers && (() => {
+                    const wp = selectedMovie.watch_providers;
+                    const all = [
+                      ...(wp.flatrate || []).map(p => ({ ...p, tag: 'Abonelik' })),
+                      ...(wp.rent || []).map(p => ({ ...p, tag: 'Kiralık' })),
+                      ...(wp.buy || []).map(p => ({ ...p, tag: 'Satın Al' })),
+                      ...(wp.free || []).map(p => ({ ...p, tag: 'Ücretsiz' })),
+                      ...(wp.ads || []).map(p => ({ ...p, tag: 'Reklamlı' })),
+                    ];
+                    const seen = new Set();
+                    const uniq = all.filter(p => !seen.has(p.provider_id) && seen.add(p.provider_id));
+                    if (uniq.length === 0 && !wp.link) return null;
+                    return (
+                      <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Nerede İzlenir?</p>
+                        <div className="flex flex-wrap gap-3">
+                          {uniq.length === 0 ? (
+                            <a href={wp.link} target="_blank" rel="noopener noreferrer"
+                               className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-amber hover:bg-white/10 transition-all">
+                              İzleme Seçenekleri
+                            </a>
+                          ) : uniq.slice(0, 8).map(p => (
+                            <button key={p.provider_id} onClick={(e) => handleProviderClick(e, p)}
+                              title={`${p.provider_name} (${p.tag})`}
+                              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all group">
+                              {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/60 group-hover:text-amber transition-colors">{p.provider_name}</span>
+                              <span className="text-[8px] uppercase tracking-widest text-ivory/20">{p.tag}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Benzer Filmler */}
+                  {similarMovies.length > 0 && (
+                    <div className="border-t border-white/5 pt-8 sm:pt-12 space-y-5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Bunları da Sevebilirsin</p>
+                      <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
+                        {similarMovies.map((m) => (
+                          <button key={m.id} onClick={() => openSimilarMovie(m)}
+                            className="group shrink-0 w-[100px] sm:w-[130px] text-left" title={m.title}>
+                            <div className="aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-white/5 border border-white/10 group-hover:border-amber/40 transition-all duration-500 shadow-lg">
+                              <img src={proxyImageUrl(m.poster_url) || 'https://via.placeholder.com/300x450'} alt={m.title} loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                            </div>
+                            <p className="mt-2 text-[11px] sm:text-xs font-sans font-semibold text-ivory/60 group-hover:text-amber transition-colors line-clamp-2 leading-tight">{m.title}</p>
+                            {m.release_date && <p className="text-[10px] text-ivory/25 font-sans mt-0.5">{m.release_date.split('-')[0]}</p>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-6 pt-4">
                     <button
                       onClick={handleSaveToJournal}
@@ -741,7 +797,7 @@ export default function Discover() {
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
       <header className="relative md:sticky md:top-0 z-[60] bg-[#120d0b]/98 border-b border-white/5 shadow-lg pt-safe">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="w-full px-4 sm:px-8 lg:px-12 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3 sm:gap-6">
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
               <ChevronLeft size={24} />
@@ -754,14 +810,14 @@ export default function Discover() {
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-3 md:gap-5 lg:gap-6">
             <div className="relative flex-1 md:flex-none">
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     placeholder="Arşivde ara..."
-                    className="w-full md:w-64 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 transition-all md:focus:w-80"
+                    className="w-full md:w-72 lg:w-96 px-5 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 transition-all"
                 />
             </div>
             <button onClick={() => navigate('/kafan-mi-karisik')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">

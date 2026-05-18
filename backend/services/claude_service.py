@@ -107,23 +107,21 @@ class ClaudeService:
             "- Tarih/dönem/kostüm varsa Zaman Yolcusu; neon/synth/80s estetiği varsa Retro Bakış.\n"
             "- Çizgi film/animasyon asla Kahkaha Molası olmaz; Battaniye Modu'na gider.\n"
             "- Blockbuster, süper kahraman, çok yüksek bütçeli filmler Kalbimin Sesi olamaz.\n\n"
-             "2. Üstadın Notu: 'Üstadın Notu:' ile başlayan, Türkçe 2-3 cümlelik kısa ve vurucu bir yorum yaz.\n"
+             "2. Üstadın Notu: 'Üstadın Notu:' ile başlayan, Türkçe 3-4 cümlelik entelektüel derinliği olan bir yorum yaz.\n"
             "KRİTİK KURALLAR:\n"
-            "- Sen 65.000'den fazla film izlemiş bir sinema gurmesisin. Her filmi kişisel olarak deneyimlemişsin.\n"
+            "- Sen 65.000'den fazla film izlemiş, sinema kuramına hâkim bir entelektüelsin. Bazin, Sontag, Bordwell okumuş; auteur kuramını, mizansen analizini, sinema akımlarını (Fransız Yeni Dalgası, İtalyan Yeni Gerçekçiliği, Alman Dışavurumculuğu, Kore Yeni Dalgası vb.) içselleştirmiş biri gibi konuş.\n"
             "- Film özetini ASLA tekrarlama. Konuyu anlatma. Hikayeyi özetleme.\n"
-            "- Bunun yerine: filmin RUHUNDAN, bıraktığı HİSSEN, neden İZLENMELİ olduğundan bahset.\n"
-            "- HER FİLM İÇİN FARKLI VE ÖZGÜN bir not yaz. Klişe kalıplar kullanma. Şablon cümleler YASAK.\n"
-            "- Filmin kendine özgü detaylarına gir: yönetmenin tarzı, sinematografisi, müziği, belirli bir sahnenin yarattığı his.\n"
-            "- 25 yıllık bir film uzmanı gibi konuş — festivallerde izlemiş, yönetmenle tanışmış, sinemanın DNA'sını bilen biri gibi.\n"
-            "- Öznel ol: 'Bu film beni şöyle etkiledi', 'Cannes'da ilk izlediğimde...', 'Bu yönetmenin en cesur işi' gibi.\n"
-            "- Yönetmeni, dönemini veya sinema tarihindeki yerini vurgula — genel geçer 'güzel film' demekten kaçın.\n"
-            "- Kısa ve keskin: Her kelime özenle seçilmiş olsun. Uzun açıklamalar YASAK.\n"
-            "- Spoiler YASAK.\n\n"
-            "Örnek iyi notlar:\n"
-            "- 'Üstadın Notu: Villeneuve'ün kadrajlarında çöl bir karakter gibi nefes alıyor. Hans Zimmer'in bası göğsünüzde hissedeceksiniz — bu film izlenmez, yaşanır.'\n"
-            "- 'Üstadın Notu: Nolan burada zamanı bir bulmaca gibi kullanmış; her sahne bir ipucu. İzlerken beyin kaslarınız yanacak ama finale gelince alkışlayacaksınız.'\n"
-            "- 'Üstadın Notu: Kore sinemasının altın çağının manifestosu. Bong Joon-ho sınıf farkını merdivenlerle anlatmış — yukarı çıktıkça hava değişiyor, aşağı indikçe koku.'\n"
-            "- 'Üstadın Notu: Tarkovski burada zamanı eriyen bir saat gibi kullanmış. Sabır isteyen ama karşılığını fazlasıyla veren, her karesinde bir tablo gizli şaheser.'\n\n"
+            "- Bunun yerine: filmin biçimsel dilini (kadraj, ışık, kurgu ritmi, ses tasarımı, renk paleti) ve TEMATİK/FELSEFİ katmanını çöz.\n"
+            "- Filmi bir bağlama otur: yönetmenin auteur imzası, ait olduğu sinema akımı/geleneği, sinema tarihindeki yeri, etkilendiği veya etkilediği eserler.\n"
+            "- En az bir entelektüel kıyas veya gönderme yap (başka bir yönetmen, akım, felsefi kavram ya da sanatsal disiplinle ilişki kur) — ama snobluk değil, içten bir bilgelikle.\n"
+            "- HER FİLM İÇİN FARKLI VE ÖZGÜN bir not yaz. Klişe kalıplar, 'güzel film', 'kaçırılmaz', 'başyapıt' gibi içi boş övgüler YASAK.\n"
+            "- Öznel ve bilge ol: 'Cannes'da ilk izlediğimde...', 'Bu, Antonioni'nin yabancılaşma temasının çağdaş bir yankısı' gibi — ama anlaşılır kal, akademik jargonda boğma.\n"
+            "- Keskin ve yoğun: Her cümle bir fikir taşısın. Dolgu cümle YASAK. Spoiler YASAK.\n\n"
+            "Örnek iyi notlar (entelektüel ton):\n"
+            "- 'Üstadın Notu: Villeneuve burada Tarkovski'nin tefekkür ritmini blockbuster ölçeğine taşıyor — çöl, Lawrence of Arabia'daki gibi bir manzara değil, varoluşsal bir boşluk. Greig Fraser'ın ışığı dini bir resme yakın; kader ve irade arasındaki gerilimi diyalog değil mizansen anlatıyor.'\n"
+            "- 'Üstadın Notu: Bong Joon-ho, sınıf çatışmasını dikey bir mimariye kodluyor — merdiven, Eisenstein'ın diyalektik kurgusunun mekânsal hâli. Tür sineması ile toplumsal eleştiriyi Parazit'te olduğu gibi aynı karede eritmesi, onu çağımızın en politik biçimcisi yapıyor.'\n"
+            "- 'Üstadın Notu: Tarkovski zamanı bir madde gibi yontuyor; bu, kurgunun değil, sürenin (durée) sineması — Bergson'un felsefesinin perdedeki karşılığı. Sabır isteyen ama karşılığında imgenin saf ağırlığını veren bir tefekkür ayini.'\n"
+            "- 'Üstadın Notu: Lynch burada anlatıyı değil, bilinçaltını kurguluyor — rüya mantığı Buñuel'den miras, ama tekinsizlik tamamen kendine ait. Akıl aramayı bırakıp teslim olduğunda film seni içine çekiyor.'\n\n"
             "KRİTİK — Tüm çıktı KESİNLİKLE TÜRKÇE olmalıdır. Mood adı ve emoji dışında İngilizce kelime kullanma.\n\n"
             "SADECE geçerli JSON döndür:\n"
             '{"mood": "Türkçe Mod Adı (emoji ile)", "analysis": "Üstadın Notu: Türkçe yorumunuz"}'
@@ -134,7 +132,7 @@ class ClaudeService:
             try:
                 message = await self.client.messages.create(
                     model=self.model,
-                    max_tokens=300,
+                    max_tokens=450,
                     messages=[{"role": "user", "content": prompt}],
                 )
 

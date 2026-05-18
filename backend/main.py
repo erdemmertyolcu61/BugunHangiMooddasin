@@ -1415,23 +1415,53 @@ async def analyze_movie(movie_id: int = Path(..., ge=1)):
 @app.get("/api/movies/{movie_id}/similar")
 async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
     """
-    Bir filme benzer filmler — modal'daki "Bunları da sevebilirsin" bölümü.
-    Önce TMDB /similar, boşsa /recommendations fallback. En fazla 12 film.
+    Bir filme gerçekten yakın filmler. TMDB /recommendations (daha kaliteli)
+    önce, /similar ile tamamlanır; tür örtüşmesi + kalite skoruyla sıralanır.
     """
     try:
-        result = await tmdb_service.get_similar_movies(movie_id, page=1)
-        movies = result.get("movies", [])
-        if len(movies) < 6:
-            rec = await tmdb_service.get_recommendations(movie_id, page=1)
-            seen = {m["id"] for m in movies}
-            for m in rec.get("movies", []):
-                if m["id"] not in seen:
-                    movies.append(m)
-                    seen.add(m["id"])
-        # Posteri olanları, oy sayısına göre öne al
-        movies = [m for m in movies if m.get("poster_url")]
-        movies.sort(key=lambda m: m.get("vote_count", 0), reverse=True)
-        return {"movies": movies[:12]}
+        # Kaynak filmin türlerini al (örtüşme skoru için)
+        src_genres = set()
+        try:
+            details = await asyncio.wait_for(
+                tmdb_service.get_movie_details(movie_id), timeout=4.0
+            )
+            for g in (details.get("genre_ids") or []):
+                src_genres.add(g)
+            for g in (details.get("genres") or []):
+                if isinstance(g, dict) and g.get("id"):
+                    src_genres.add(g["id"])
+        except Exception:
+            pass
+
+        rec = await tmdb_service.get_recommendations(movie_id, page=1)
+        sim = await tmdb_service.get_similar_movies(movie_id, page=1)
+
+        # Recommendations öncelikli havuz
+        pool = {}
+        for m in rec.get("movies", []):
+            pool[m["id"]] = m
+        for m in sim.get("movies", []):
+            pool.setdefault(m["id"], m)
+
+        # Kalite filtresi: posteri olan, yeterince oylanmış, vasat üstü
+        candidates = [
+            m for m in pool.values()
+            if m.get("poster_url") and m["id"] != movie_id
+            and (m.get("vote_count") or 0) >= 60
+            and (m.get("vote_average") or 0) >= 5.8
+        ]
+
+        def relevance(m):
+            gids = set(m.get("genre_ids") or [])
+            overlap = len(gids & src_genres) if src_genres else 0
+            return (
+                overlap * 3.0
+                + min((m.get("vote_average") or 0), 9.0) * 0.5
+                + min((m.get("vote_count") or 0) / 1000.0, 5.0) * 0.3
+            )
+
+        candidates.sort(key=relevance, reverse=True)
+        return {"movies": candidates[:12]}
     except Exception as e:
         logger.warning(f"Similar movies unavailable for {movie_id}: {e}")
         return {"movies": []}
