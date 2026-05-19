@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeOff, Film } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from './GoogleSignInButton';
@@ -155,11 +155,15 @@ export default function BetaGate({ children }) {
         className="w-full max-w-md"
       >
         <div className="text-center mb-12">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 border border-amber/20 flex items-center justify-center mx-auto mb-6">
-            <Film size={32} className="text-amber" />
-          </div>
-          <h1 className="text-4xl font-serif font-bold text-[#f5f2eb] tracking-tight mb-3">
-            Film Connoisseur
+          <img
+            src="/sinemod-mark.svg"
+            alt="Sinemod"
+            className="w-24 h-24 mx-auto mb-6 rounded-[1.2rem]"
+            style={{ filter: 'drop-shadow(0 12px 40px rgba(255,178,80,0.18))' }}
+          />
+          <h1 className="text-4xl font-serif font-bold text-[#f5f2eb] tracking-tight mb-3"
+              style={{ textShadow: '0 0 24px rgba(255,178,80,0.12)' }}>
+            Sinemod
           </h1>
           <p className="text-[#f5f2eb]/40 text-sm font-sans">
             Beta Erisimine Hosgeldiniz

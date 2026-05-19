@@ -64,7 +64,6 @@ function AppContent() {
 
   return (
     <>
-      <SplashScreen />
       <ScrollToTop />
       <ScrollChrome />
       <AuraBackground />
@@ -100,6 +99,7 @@ function AppContent() {
 function App() {
   return (
     <Router>
+      <SplashScreen />
       <ThemeProvider>
         <AuthProvider>
           <BetaGate>
