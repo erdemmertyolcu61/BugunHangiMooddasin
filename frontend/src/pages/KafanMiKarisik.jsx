@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
+import { postConfusedRecommendation, streamConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import { playMoodAudio } from '../utils/moodAudioManager';
 
 const SUGGESTIONS = [
@@ -63,16 +63,32 @@ export default function KafanMiKarisik() {
     return () => clearInterval(phraseTimer.current);
   }, [loading]);
 
+  // Early intent data — shown while full results load
+  const [earlyIntent, setEarlyIntent] = useState(null);
+
   const analyze = async (inputText, feedbackMode = false) => {
     const txt = inputText || text;
     if (!txt.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
+    setEarlyIntent(null);
     if (!feedbackMode) setLastQuery(txt);
     try {
-      const data = await postConfusedRecommendation(txt, 6, 5.0, sessionExcludeIds);
+      const data = await streamConfusedRecommendation(txt, {
+        limit: 6,
+        minVote: 5.0,
+        excludeIds: sessionExcludeIds,
+        onIntent: (intentData) => {
+          // Show ustad_line + mood_mix instantly while movies load
+          setEarlyIntent(intentData);
+        },
+        onError: (err) => {
+          setError(err.message || 'Bir hata oluştu');
+        },
+      });
       setResult(data);
+      setEarlyIntent(null); // clear early state, full result is here
       // Track recommended movie IDs for anti-repetition
       if (data.movies) {
         const newIds = data.movies.map(m => m.id).filter(Boolean);
@@ -236,16 +252,32 @@ export default function KafanMiKarisik() {
             </div>
             <AnimatePresence mode="wait">
               <motion.p
-                key={phraseIdx}
+                key={earlyIntent ? 'intent' : phraseIdx}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.35 }}
-                className="text-lg font-serif italic text-amber-200/70 font-medium text-center"
+                className="text-lg font-serif italic text-amber-200/70 font-medium text-center max-w-sm"
               >
-                {LOADING_PHRASES[phraseIdx]}
+                {earlyIntent?.ustad_line || LOADING_PHRASES[phraseIdx]}
               </motion.p>
             </AnimatePresence>
+            {/* Early mood_mix badges while movies load */}
+            {earlyIntent?.mood_mix?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.15 }}
+                className="flex flex-wrap justify-center gap-2 mt-3"
+              >
+                {earlyIntent.mood_mix.slice(0, 3).map((m, i) => (
+                  <span key={m.mood_id || i}
+                    className="px-3 py-1 rounded-full bg-amber/10 border border-amber/20 text-amber-200/80 text-[10px] font-sans font-medium uppercase tracking-wider">
+                    {m.title} {m.percentage}%
+                  </span>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
         )}
 

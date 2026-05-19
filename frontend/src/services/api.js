@@ -264,6 +264,66 @@ export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0,
   return res.json();
 }
 
+/**
+ * SSE streaming variant — yields phases progressively.
+ * @param {string} text
+ * @param {Object} opts - { limit, minVote, excludeIds, onIntent, onResult, onError }
+ * @returns {Promise<Object>} final result (same shape as postConfusedRecommendation)
+ */
+export async function streamConfusedRecommendation(text, {
+  limit = 6, minVote = 5.0, excludeIds = [],
+  onIntent = null, onResult = null, onError = null,
+} = {}) {
+  const res = await fetch(`${BASE}/recommend/confused/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0, exclude_ids: excludeIds }),
+  });
+  if (!res.ok) throw new Error(`Öneri alınamadı (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let finalResult = null;
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Parse SSE events from buffer
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop(); // keep incomplete chunk
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      let eventType = 'message';
+      let dataStr = '';
+      for (const line of part.split('\n')) {
+        if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+        else if (line.startsWith('data: ')) dataStr = line.slice(6);
+      }
+      if (!dataStr) continue;
+      try {
+        const payload = JSON.parse(dataStr);
+        if (eventType === 'phase') {
+          const { phase, data } = payload;
+          if (phase === 'intent' && onIntent) onIntent(data);
+          if (phase === 'result') {
+            finalResult = data;
+            if (onResult) onResult(data);
+          }
+          if (phase === 'error' && onError) onError(data);
+        }
+      } catch { /* skip malformed */ }
+    }
+  }
+
+  // Fallback: if SSE didn't yield a result, use the legacy endpoint
+  if (!finalResult) {
+    return postConfusedRecommendation(text, limit, minVote, excludeIds);
+  }
+  return finalResult;
+}
+
 export async function getConfusedRecommendation(mood = null) {
   const url = mood ? `${BASE}/recommend/confused?mood=${mood}` : `${BASE}/recommend/confused`;
   const res = await fetch(url);

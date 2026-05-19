@@ -20,7 +20,7 @@ from backend.config import (
 )
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
@@ -1463,7 +1463,7 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
             cached_data.get("title"),
             cached_data.get("release_date"),
         )
-        return cached_data
+        return _with_layout(cached_data)
 
     # 2. Fetch movie details from TMDB
     try:
@@ -1536,7 +1536,65 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
     # 9. Cache result
     await cache.save_movie(movie_id, details["title"], enriched)
 
-    return enriched
+    return _with_layout(enriched)
+
+
+def _with_layout(movie: dict) -> dict:
+    """Attach _layout metadata for Mobile/Web UI synchronicity.
+    Both clients receive identical data + semantic layout config so that
+    poster transitions, ambient lighting, and detail presentation are 1:1.
+    """
+    poster = movie.get("poster_url") or ""
+    backdrop = movie.get("backdrop_url") or ""
+    title = movie.get("title") or ""
+
+    movie["_layout"] = {
+        "poster": {
+            "src": poster,
+            # TMDB image variants — clients pick the right size for their viewport
+            "sizes": {
+                "sm":  poster.replace("/original/", "/w342/")   if "/original/" in poster else poster,
+                "md":  poster.replace("/original/", "/w500/")   if "/original/" in poster else poster,
+                "lg":  poster.replace("/original/", "/w780/")   if "/original/" in poster else poster,
+                "full": poster,
+            },
+            "aspect_ratio": "2:3",
+            "corner_radius": "16dp",
+        },
+        "backdrop": {
+            "src": backdrop,
+            "sizes": {
+                "sm":  backdrop.replace("/original/", "/w780/")  if "/original/" in backdrop else backdrop,
+                "lg":  backdrop.replace("/original/", "/w1280/") if "/original/" in backdrop else backdrop,
+                "full": backdrop,
+            },
+            "aspect_ratio": "16:9",
+        },
+        "ambient": {
+            "source": "backdrop",
+            "effect": "blur_glow",
+            "blur_radius": 80,
+            "opacity": 0.35,
+            "blend_mode": "soft-light",
+        },
+        "detail_sections": [
+            "header",         # poster + title + year + rating
+            "mood_badge",     # mood classification with icon
+            "ustad_notu",     # ai_analysis card
+            "overview",       # synopsis
+            "cast_strip",     # horizontal cast scroll
+            "ratings_bar",    # IMDb / RT / Metacritic
+            "streaming",      # where to watch
+            "similar_strip",  # similar films horizontal scroll
+        ],
+        "transition": {
+            "type": "shared_element",
+            "shared_tag": f"poster-{movie.get('id', '')}",
+            "duration_ms": 350,
+            "curve": "ease_out_expo",
+        },
+    }
+    return movie
 
 
 @app.get("/api/movies/{movie_id}/similar")
@@ -2157,6 +2215,85 @@ async def post_confused_recommendation(req: ConfusedRequest):
     )
 
     return result
+
+
+@app.post("/api/recommend/confused/stream", dependencies=[Depends(rate_limit_ai)])
+async def post_confused_recommendation_stream(req: ConfusedRequest):
+    """
+    SSE streaming variant of Kafan mı Karışık?.
+    Yields events progressively so the frontend can render phases instantly:
+      event: phase  → {"phase":"intent","data":{...}}      (instant ~200ms)
+      event: phase  → {"phase":"candidates","data":{...}}  (fast ~1-3s)
+      event: phase  → {"phase":"result","data":{...}}      (full ~5-8s)
+      event: done   → {"ok":true}
+    Falls back to single "result" event if streaming phases fail.
+    """
+    import json as _json
+
+    text = req.text.strip()
+    limit = max(3, min(req.limit, 12))
+    min_vote = max(4.0, min(req.min_vote, 10.0))
+    exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
+
+    async def event_stream():
+        from backend.services.claude_service import confusion_service
+        from backend.services.tmdb_service import tmdb_service
+        from backend.services.chat_engine import ChatEngine
+
+        engine = ChatEngine(db=cache, tmdb_service=tmdb_service, confusion_service=confusion_service)
+
+        # ── Phase 1: Intent extraction (fast — Haiku or semantic cache) ──
+        intent_data = {}
+        try:
+            from backend.services import semantic_cache
+            from backend.database import cache as _sem_db
+
+            claude_intent = await semantic_cache.lookup(_sem_db, text)
+            if claude_intent is None:
+                claude_intent = await asyncio.wait_for(
+                    confusion_service.extract_user_intent(text), timeout=20.0
+                )
+                if claude_intent:
+                    await semantic_cache.store(_sem_db, text, claude_intent)
+
+            if claude_intent:
+                intent_data = {
+                    "user_intent_summary": claude_intent.get("user_intent_summary", ""),
+                    "primary_mood": claude_intent.get("primary_mood", ""),
+                    "ustad_line": claude_intent.get("ustad_line", ""),
+                    "mood_mix": claude_intent.get("mood_mix", []),
+                    "correction_detected": claude_intent.get("correction_detected", False),
+                    "corrected_text": claude_intent.get("corrected_text"),
+                    "context_dimensions": claude_intent.get("context_dimensions", {}),
+                }
+                yield f"event: phase\ndata: {_json.dumps({'phase': 'intent', 'data': intent_data}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            logger.warning(f"[SSE] Intent phase failed: {e}")
+
+        # ── Phase 2+3: Full pipeline (candidates + rerank) ──
+        try:
+            result = await engine.process(
+                text=text,
+                limit=limit,
+                min_vote=min_vote,
+                exclude_ids=exclude_ids,
+            )
+            yield f"event: phase\ndata: {_json.dumps({'phase': 'result', 'data': result}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            logger.error(f"[SSE] Full pipeline failed: {e}")
+            yield f"event: phase\ndata: {_json.dumps({'phase': 'error', 'data': {'message': str(e)}}, ensure_ascii=False)}\n\n"
+
+        yield f"event: done\ndata: {_json.dumps({'ok': True})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Nginx/proxy: don't buffer SSE
+        },
+    )
 
 
 # --- Movie Pool Expander ---
