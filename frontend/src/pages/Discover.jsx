@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users } from 'lucide-react';
@@ -12,6 +12,7 @@ import { getApiUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
 import FilmDetailModal from '../components/FilmDetailModal';
+import MovieCard from '../components/MovieCard';
 import { isPlatformLinked, linkPlatform, getPlatformInfo, buildWatchUrl } from '../utils/streamingMemory';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
@@ -286,7 +287,7 @@ export default function Discover() {
     fetchData();
   }, [currentPage, selectedMood?.id, sortBy, refreshKey, fetchMoodMovies]);
 
-  const handleAnalyze = async (movie) => {
+  const handleAnalyze = useCallback(async (movie) => {
     setSelectedMovie(movie);
     const cached = getCachedAnalysis(movie.id);
     if (cached) {
@@ -311,7 +312,7 @@ export default function Discover() {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, []);
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -470,43 +471,44 @@ export default function Discover() {
   };
 
   // Quick actions — card overlay, no modal
-  const handleQuickSave = async (e, movie) => {
-    e.stopPropagation();
-    const isSaved = quickSavedIds.has(movie.id);
-    if (isSaved) {
-      // Tekrar basınca defterden çıkar (toggle)
-      setQuickSavedIds(prev => {
-        const next = new Set(prev);
+  const handleQuickSave = useCallback(async (movie) => {
+    setQuickSavedIds(prev => {
+      const isSaved = prev.has(movie.id);
+      const next = new Set(prev);
+      if (isSaved) {
         next.delete(movie.id);
-        return next;
-      });
-      setQuickWatchedIds(prev => {
-        const next = new Set(prev);
-        next.delete(movie.id);
-        return next;
-      });
-      try { await removeFromWatchlist(movie.id); } catch (err) { console.error('Quick remove hatası:', err); }
-      return;
-    }
-    setQuickSavedIds(prev => new Set([...prev, movie.id]));
-    try { await addToWatchlist(movie); } catch (err) { console.error('Quick save hatası:', err); }
-  };
+        setQuickWatchedIds(wprev => {
+          const wnext = new Set(wprev);
+          wnext.delete(movie.id);
+          return wnext;
+        });
+        removeFromWatchlist(movie.id).catch(() => {});
+      } else {
+        next.add(movie.id);
+        addToWatchlist(movie).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
 
-  const handleQuickWatched = async (e, movie) => {
-    e.stopPropagation();
-    const nowWatched = !quickWatchedIds.has(movie.id);
+  const handleQuickWatched = useCallback(async (movie) => {
     setQuickWatchedIds(prev => {
+      const nowWatched = !prev.has(movie.id);
       const next = new Set(prev);
       if (nowWatched) next.add(movie.id); else next.delete(movie.id);
       return next;
     });
-    // Also ensure it's in watchlist
-    if (!quickSavedIds.has(movie.id)) {
-      setQuickSavedIds(prev => new Set([...prev, movie.id]));
-      try { await addToWatchlist(movie); } catch {}
-    }
+    setQuickSavedIds(prev => {
+      if (!prev.has(movie.id)) {
+        const next = new Set(prev);
+        next.add(movie.id);
+        addToWatchlist(movie).catch(() => {});
+        return next;
+      }
+      return prev;
+    });
     try { await toggleWatched(movie.id); } catch (err) { console.error('Quick watched hatası:', err); }
-  };
+  }, []);
 
 
   const displayMovies = searchResults !== null ? searchResults : movies;
@@ -618,7 +620,7 @@ export default function Discover() {
 
       {/* Sürekli Vignette — mood rengine göre kenarlarda hafif gölge */}
       <div
-        className="fixed inset-0 pointer-events-none z-10 transition-all duration-1000"
+        className="fixed inset-0 pointer-events-none z-10 transition-opacity duration-1000"
         style={{
           background: `radial-gradient(circle, transparent 20%, ${selectedMood.vignette || '#000'} 150%)`,
           opacity: 0.35,
@@ -835,73 +837,15 @@ export default function Discover() {
                       )}
                     </div>
                   : displayMovies.map((movie) => (
-                      <div key={movie.id} className="group cursor-pointer relative" onClick={() => handleAnalyze(movie)}>
-                        <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
-                          {movie.poster_url || movie.poster_path
-                            ? <img
-                                src={proxyImageUrl(movie.poster_url || `${IMG_BASE}${movie.poster_path}`)}
-                                className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
-                                loading="lazy"
-                                decoding="async"
-                              />
-                            : <div className={`artistic-fallback w-full h-full p-12`}>
-                                <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>
-                              </div>}
-                            
-                            {/* Mood Uyum Overlay */}
-                            <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
-                                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
-                                    <Sparkles size={10} /> %{movie.mood_score || movie.match}
-                                </p>
-                            </div>
-
-                            {/* Hızlı Eylem Butonları — mobilde her zaman görünür */}
-                            <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
-                              <button
-                                onClick={(e) => handleQuickSave(e, movie)}
-                                title="Deftere Ekle"
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
-                                  ${quickSavedIds.has(movie.id)
-                                    ? 'bg-amber/90 border-amber/60 text-black'
-                                    : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
-                                  }`}
-                              >
-                                {quickSavedIds.has(movie.id)
-                                  ? <><Check size={10} /> Eklendi</>
-                                  : <><BookmarkPlus size={10} /> Deftere</>
-                                }
-                              </button>
-                              <button
-                                onClick={(e) => handleQuickWatched(e, movie)}
-                                title="İzledim"
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all duration-200 active:scale-95
-                                  ${quickWatchedIds.has(movie.id)
-                                    ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-                                    : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
-                                  }`}
-                              >
-                                {quickWatchedIds.has(movie.id)
-                                  ? <><Check size={10} /> İzledim</>
-                                  : <><Eye size={10} /> İzledim</>
-                                }
-                              </button>
-                            </div>
-                        </div>
-                        <div className="mt-3 sm:mt-5 px-1 sm:px-4">
-                          <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
-                            {movie.title}
-                          </h3>
-                          <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
-                            {reliableRating(movie) != null && (
-                              <div className="flex items-center gap-1.5">
-                                  <Star size={10} className="fill-amber text-amber" />
-                                  <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <MovieCard
+                        key={movie.id}
+                        movie={movie}
+                        isSaved={quickSavedIds.has(movie.id)}
+                        isWatched={quickWatchedIds.has(movie.id)}
+                        onQuickSave={handleQuickSave}
+                        onQuickWatched={handleQuickWatched}
+                        onAnalyze={handleAnalyze}
+                      />
                     ))
               }
             </div>

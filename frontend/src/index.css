@@ -204,7 +204,7 @@
   }
 
   .ticket-card {
-    @apply relative overflow-hidden rounded-[2.5rem] border border-white/5 transition-all duration-700 cursor-pointer shadow-2xl;
+    @apply relative overflow-hidden rounded-[2.5rem] border border-white/5 transition-transform duration-700 cursor-pointer shadow-2xl;
     background: rgba(28, 21, 18, 0.35);
   }
 

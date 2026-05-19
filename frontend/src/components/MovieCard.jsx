@@ -1,66 +1,95 @@
-/**
- * MovieCard — vinyl sleeve aesthetic, uses real TMDB poster.
- */
-import MoodBadge from './MoodBadge';
+import React, { memo } from 'react';
+import { motion } from 'framer-motion';
+import { Sparkles, BookmarkPlus, Check, Eye, Star } from 'lucide-react';
+import { proxyImageUrl } from '../services/api';
 
-export default function MovieCard({ movie, onClick, width = 220 }) {
+const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
+
+const reliableRating = (movie) => {
+  if (movie.imdb_rating) {
+    const n = parseFloat(movie.imdb_rating);
+    if (!isNaN(n) && n > 0) return n.toFixed(1);
+  }
+  const avg = movie.vote_average;
+  if (avg == null || avg <= 0) return null;
+  const count = movie.vote_count;
+  if (count != null) {
+    return count >= 50 ? avg.toFixed(1) : null;
+  }
+  return avg <= 9.0 ? avg.toFixed(1) : null;
+};
+
+function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onAnalyze }) {
   return (
-    <button
-      onClick={() => onClick(movie)}
-      style={{ width: `${width}px` }}
-      className="group flex flex-shrink-0 flex-col gap-3 text-left transition-transform hover:-translate-y-1"
-    >
-      <div className="sleeve sleeve-hover relative aspect-[2/3] w-full overflow-hidden rounded-[3px] bg-ink-soft">
-        {movie.poster_url ? (
-          <img
-            src={movie.poster_url}
-            alt={movie.title}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="grid h-full w-full place-items-center bg-ink-soft text-2xl text-paper-cream">🎬</div>
-        )}
+    <div className="group cursor-pointer relative" onClick={() => onAnalyze(movie)}>
+      <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
+        {movie.poster_url || movie.poster_path
+          ? <img
+              src={proxyImageUrl(movie.poster_url || `${IMG_BASE}${movie.poster_path}`)}
+              className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
+              loading="lazy"
+              decoding="async"
+              alt={movie.title}
+            />
+          : <div className="artistic-fallback w-full h-full p-12">
+              <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>
+            </div>}
 
-        {/* Mood badge (top-left, replaces old top-right) */}
-        {movie.mood && movie.mood !== 'Bilinmiyor' && (
-          <div className="absolute left-2 top-2">
-            <MoodBadge mood={movie.mood} size="sm" />
-          </div>
-        )}
+        {/* Mood Uyum Overlay */}
+        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
+          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
+            <Sparkles size={10} /> %{movie.mood_score || movie.match}
+          </p>
+        </div>
 
-        {/* Tag stamp top-right (when present, e.g. for "now playing") */}
-        {movie.tag && (
-          <span
-            className={`stamp absolute right-[-6px] top-2 ${
-              movie.tag === 'YENİ' ? 'bg-mustard text-ink' :
-              movie.tag === 'GURME' ? 'bg-accent text-paper-warm' :
-              'bg-olive text-paper-warm'
-            }`}
+        {/* Hızlı Eylem Butonları */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
+            title="Deftere Ekle"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+              ${isSaved
+                ? 'bg-amber/90 border-amber/60 text-black'
+                : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
+              }`}
           >
-            {movie.tag}
-          </span>
-        )}
-      </div>
-
-      <div className="px-0.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[15px] font-sans font-semibold tracking-tight text-ink leading-snug">
-            {movie.title}
-          </span>
-          {(() => {
-            const avg = movie.vote_average;
-            if (avg == null || avg <= 0) return null;
-            const count = movie.vote_count;
-            const ok = count != null ? count >= 50 : avg <= 9.0;
-            return ok ? <span className="whitespace-nowrap text-xs font-medium text-accent">★ {avg.toFixed(1)}</span> : null;
-          })()}
+            {isSaved
+              ? <><Check size={10} /> Eklendi</>
+              : <><BookmarkPlus size={10} /> Deftere</>
+            }
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
+            title="İzledim"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+              ${isWatched
+                ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+                : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
+              }`}
+          >
+            {isWatched
+              ? <><Check size={10} /> İzledim</>
+              : <><Eye size={10} /> İzledim</>
+            }
+          </button>
         </div>
-        <div className="mt-0.5 text-[11px] text-ink-mute">
-          <span>{movie.release_date?.slice(0, 4) || '—'}</span>
+      </div>
+      <div className="mt-3 sm:mt-5 px-1 sm:px-4">
+        <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
+          {movie.title}
+        </h3>
+        <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
+          {reliableRating(movie) != null && (
+            <div className="flex items-center gap-1.5">
+              <Star size={10} className="fill-amber text-amber" />
+              <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
+            </div>
+          )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
+
+export default memo(MovieCard);
