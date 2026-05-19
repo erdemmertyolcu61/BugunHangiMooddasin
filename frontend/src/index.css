@@ -160,6 +160,13 @@
   }
   html[data-chrome="down"] header.sticky {
     transform: translateY(-110%);
+    /* iOS Safari, backdrop-filter'lı sticky eleman transform ile
+       kaydırılınca bulanık backdrop'u "hayalet" şerit olarak bırakır.
+       Gizlerken filtreyi kapatınca şerit yok olur. */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
   }
 
   .app-bottom-nav {
@@ -317,31 +324,4 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   border-radius: 50%;
   background: #ffbf00;
   cursor: pointer;
-}
-
-/* Sinemod golden glow pulse */
-@keyframes goldenPulse {
-  0%, 100% { opacity: 0.15; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(1.08); }
-}
-
-@keyframes goldenGlow {
-  0%, 100% { box-shadow: 0 0 20px rgba(255,191,0,0.05); }
-  50% { box-shadow: 0 0 40px rgba(255,191,0,0.15); }
-}
-
-/* Sinemod ambient background glow — use on container elements */
-.sinemod-glow {
-  position: relative;
-}
-.sinemod-glow::before {
-  content: '';
-  position: fixed;
-  top: -30%;
-  left: -10%;
-  width: 120%;
-  height: 60%;
-  background: radial-gradient(ellipse at 50% 0%, rgba(255,191,0,0.04) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
 }
