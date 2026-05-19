@@ -53,6 +53,23 @@ export default function MoodSelector() {
     setQuizResult(null);
   };
 
+  // Mobil alt bardaki "Ruh Halim" butonundan quiz açılması:
+  // BottomNav sessionStorage bayrağı bırakır / event yollar.
+  useEffect(() => {
+    const tryFlag = () => {
+      if (sessionStorage.getItem('open_mood_quiz') === '1') {
+        sessionStorage.removeItem('open_mood_quiz');
+        setQuizOpen(true);
+        setQuizStep(1);
+        setAnswers([]);
+        setQuizResult(null);
+      }
+    };
+    tryFlag(); // başka sayfadan yönlendirilip gelindiyse
+    window.addEventListener('open-mood-quiz', tryFlag);
+    return () => window.removeEventListener('open-mood-quiz', tryFlag);
+  }, []);
+
   const selectAnswer = (ansIdx) => {
     const newAnswers = [...answers];
     newAnswers[quizStep - 1] = ansIdx;
@@ -269,7 +286,7 @@ export default function MoodSelector() {
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-bg">Kafan mı Karışık?</span>
             </button>
             <button onClick={openQuiz}
-              className="flex items-center gap-2 px-6 py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+              className="hidden md:flex items-center gap-2 px-6 py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]">
               <Brain size={16} className="text-bg/80" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Bugünkü Ruh Halim</span>
             </button>

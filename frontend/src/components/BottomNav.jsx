@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clapperboard, Compass, BookMarked, BookOpen } from 'lucide-react';
+import { Clapperboard, Compass, BookMarked, BookOpen, Brain } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
+  { label: 'Ruh Halim', icon: Brain, action: 'mood-quiz', match: () => false },
   { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
   { label: 'Kafan Karışık?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
@@ -18,9 +19,23 @@ export default function BottomNav() {
   const location = useLocation();
   const path = location.pathname;
 
+  const handlePress = (item) => {
+    if (item.action === 'mood-quiz') {
+      // "Bugünkü Ruh Halim" quiz'i MoodSelector (/) içinde yaşıyor.
+      sessionStorage.setItem('open_mood_quiz', '1');
+      if (path === '/') {
+        window.dispatchEvent(new CustomEvent('open-mood-quiz'));
+      } else {
+        navigate('/');
+      }
+      return;
+    }
+    navigate(item.path);
+  };
+
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-[90] bg-[#120d0b]/98 border-t border-white/10 pb-safe"
+      className="app-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-[90] bg-[#120d0b]/98 border-t border-white/10 pb-safe"
       aria-label="Ana menü"
     >
       <div className="flex items-stretch justify-around px-2 pt-2 pb-1">
@@ -29,8 +44,8 @@ export default function BottomNav() {
           const Icon = item.icon;
           return (
             <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
+              key={item.label}
+              onClick={() => handlePress(item)}
               aria-current={active ? 'page' : undefined}
               className={`flex flex-col items-center justify-center gap-1 flex-1 min-h-[52px] rounded-2xl transition-colors duration-300 ${
                 active ? 'text-amber' : 'text-ivory/45 active:text-ivory/80'

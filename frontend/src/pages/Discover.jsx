@@ -700,7 +700,7 @@ export default function Discover() {
             </button>
             <button onClick={() => { setQuizOpen(true); setQuizStep(1); setQuizAnswers([]); setQuizResult(null); }}
               title="Bugünkü Ruh Halim"
-              className="flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
+              className="hidden md:flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
               <Brain size={16} className="text-bg/80 shrink-0" />
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
             </button>

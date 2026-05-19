@@ -149,6 +149,26 @@
   img, video, svg {
     max-width: 100%;
   }
+
+  /* ── Scroll'a göre kaybolan/gelen chrome ──────────────────────────
+     ScrollChrome bileşeni html[data-chrome] = top|up|down ayarlar.
+     Sayfa header'ları sticky top-0 desenini paylaşır → tek kuralla
+     hepsi yönetilir (DesignPreview section/nav etkilenmez). */
+  header.sticky {
+    transition: transform 0.35s ease;
+    will-change: transform;
+  }
+  html[data-chrome="down"] header.sticky {
+    transform: translateY(-110%);
+  }
+
+  .app-bottom-nav {
+    transition: transform 0.35s ease;
+    will-change: transform;
+  }
+  html[data-chrome="up"] .app-bottom-nav {
+    transform: translateY(110%);
+  }
 }
 
 @layer utilities {

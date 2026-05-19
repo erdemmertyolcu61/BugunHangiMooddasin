@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import BetaGate from './components/BetaGate';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
+import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
 // Ana sayfa (landing) eager — ilk boya hızlı olsun. Diğerleri lazy → çok daha hızlı ilk yükleme.
@@ -63,6 +64,7 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
+      <ScrollChrome />
       <AuraBackground />
       <ThemeToggle />
       <AudioPlayer />
