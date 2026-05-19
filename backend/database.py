@@ -2,40 +2,68 @@
 SQLite/Turso caching layer.
 
 Movie data  → always local aiosqlite  (reproducible via TMDB re-seed, fast)
-User data   → Turso HTTP if configured (libsql-client, pure Python, persistent)
+User data   → Turso HTTP API if configured (plain httpx, persistent)
              falls back to local aiosqlite when TURSO_* env vars are absent.
 
 Set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN to enable persistent user storage.
 No code changes required for local/dev — fallback is automatic.
+
+Turso access uses the official Hrana-over-HTTP v2 pipeline endpoint via httpx
+(already a dependency). No libsql client lib, no Rust, no websockets.
 """
 import aiosqlite
 import sqlite3
 import json
 import os
+import base64
 import asyncio
 import contextlib
+import httpx
 from typing import Optional
 from backend.config import DATABASE_PATH
 
-# ── Turso HTTP client (pure Python, no Rust) ─────────────────────────────────
+# ── Turso HTTP API (Hrana v2 pipeline, plain httpx) ──────────────────────────
 _TURSO_URL   = os.getenv("TURSO_DATABASE_URL")
 _TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
-_turso_client = None   # libsql_client.Client, set in MovieCache.init_db()
+_turso_client = None   # _TursoHTTP instance, set in MovieCache.init_db()
+_LIBSQL_OK = True       # httpx is always available; gating is on the env vars
 
-try:
-    import libsql_client as _libsql
-    _LIBSQL_OK = True
-except ImportError:
-    _LIBSQL_OK = False
+
+def _encode_arg(v):
+    """Python value → Hrana typed-value JSON."""
+    if v is None:
+        return {"type": "null"}
+    if isinstance(v, bool):
+        return {"type": "integer", "value": str(int(v))}
+    if isinstance(v, int):
+        return {"type": "integer", "value": str(v)}
+    if isinstance(v, float):
+        return {"type": "float", "value": v}
+    if isinstance(v, bytes):
+        return {"type": "blob", "base64": base64.b64encode(v).decode()}
+    return {"type": "text", "value": str(v)}
+
+
+def _decode_cell(cell):
+    """Hrana typed-value JSON → Python value."""
+    t = cell.get("type")
+    if t == "null":
+        return None
+    if t == "integer":
+        return int(cell["value"])
+    if t == "float":
+        return float(cell["value"])
+    if t == "blob":
+        return base64.b64decode(cell.get("base64", ""))
+    return cell.get("value")
 
 
 class _TursoCursor:
-    """Wraps a libsql_client ResultSet as an aiosqlite-style async cursor."""
+    """aiosqlite-style async cursor over a decoded Hrana result."""
     __slots__ = ("_rows",)
 
     def __init__(self, rows):
-        # rows: list of libsql_client Row (behaves like a sequence)
-        self._rows = [tuple(r) for r in rows]
+        self._rows = rows  # list of tuples
 
     async def fetchone(self):
         return self._rows[0] if self._rows else None
@@ -44,28 +72,51 @@ class _TursoCursor:
         return self._rows
 
 
-class _TursoConn:
-    """Wraps a libsql_client.Client to look like an aiosqlite connection."""
+class _TursoHTTP:
+    """Minimal Turso client using the Hrana v2 /pipeline HTTP endpoint."""
 
-    def __init__(self, client):
-        self._client = client
+    def __init__(self, url: str, auth_token: str):
+        base = url.replace("libsql://", "https://").rstrip("/")
+        self._endpoint = f"{base}/v2/pipeline"
+        self._headers = {"Authorization": f"Bearer {auth_token}"}
+
+    async def _pipeline(self, stmts):
+        requests = [{"type": "execute", "stmt": s} for s in stmts]
+        requests.append({"type": "close"})
+        payload = {"baton": None, "requests": requests}
+        async with httpx.AsyncClient(timeout=30.0) as http:
+            r = await http.post(self._endpoint, json=payload, headers=self._headers)
+            r.raise_for_status()
+            data = r.json()
+        out = []
+        for item in data.get("results", []):
+            if item.get("type") == "error":
+                raise RuntimeError(f"Turso error: {item.get('error')}")
+            resp = item.get("response") or {}
+            if resp.get("type") == "execute":
+                res = resp.get("result", {})
+                out.append([
+                    tuple(_decode_cell(c) for c in row)
+                    for row in res.get("rows", [])
+                ])
+        return out
 
     async def execute(self, sql, params=()):
-        if params:
-            result = await self._client.execute(sql, list(params))
-        else:
-            result = await self._client.execute(sql)
-        return _TursoCursor(result.rows)
+        stmt = {"sql": sql, "args": [_encode_arg(v) for v in params]}
+        results = await self._pipeline([stmt])
+        return _TursoCursor(results[0] if results else [])
 
     async def executemany(self, sql, params_list):
-        stmts = [{"sql": sql, "args": list(p)} for p in params_list]
-        if stmts:
-            # Chunk to avoid oversized requests
-            for i in range(0, len(stmts), 100):
-                await self._client.batch(stmts[i:i + 100])
+        params_list = list(params_list)
+        for i in range(0, len(params_list), 50):
+            chunk = params_list[i:i + 50]
+            await self._pipeline([
+                {"sql": sql, "args": [_encode_arg(v) for v in p]}
+                for p in chunk
+            ])
 
     async def commit(self):
-        pass  # libsql_client auto-commits every statement
+        pass  # each /pipeline call is its own auto-committed transaction
 
 
 @contextlib.asynccontextmanager
@@ -76,7 +127,7 @@ async def _get_connection(db_path: str, user_data: bool = False):
     user_data=False → always local aiosqlite (movie caches, repository, etc.).
     """
     if user_data and _turso_client is not None:
-        yield _TursoConn(_turso_client)
+        yield _turso_client
     else:
         async with aiosqlite.connect(db_path) as db:
             await db.execute("PRAGMA journal_mode=WAL")
@@ -96,10 +147,19 @@ class MovieCache:
         if _LIBSQL_OK and _TURSO_URL and _TURSO_TOKEN and _turso_client is None:
             import logging as _log
             _logger = _log.getLogger(__name__)
-            _logger.info("[DB] Turso HTTP client bağlanıyor: %s", _TURSO_URL)
-            _turso_client = _libsql.create_client(_TURSO_URL, auth_token=_TURSO_TOKEN)
-            await self._init_turso_user_tables()
-            _logger.info("[DB] Turso kullanıcı tabloları hazır, kalıcı depolama aktif.")
+            _logger.info("[DB] Turso HTTP API bağlanıyor: %s", _TURSO_URL)
+            try:
+                client = _TursoHTTP(_TURSO_URL, _TURSO_TOKEN)
+                # Connectivity smoke test before committing the client globally
+                await client.execute("SELECT 1")
+                _turso_client = client
+                await self._init_turso_user_tables()
+                _logger.info("[DB] Turso kullanıcı tabloları hazır, kalıcı depolama aktif.")
+            except Exception as e:
+                _turso_client = None
+                _logger.error(
+                    "[DB] Turso bağlantısı başarısız (%s) — local SQLite'a düşülüyor.", e
+                )
 
         # Local SQLite schema — movie data + local fallback for user data
         async with aiosqlite.connect(self.db_path) as db:
