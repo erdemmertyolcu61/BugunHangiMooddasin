@@ -11,7 +11,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
 
   const mark = (
     <img
-      src="/sinemod-mark.svg"
+      src="/sinemod-mark.png"
       alt="Sinemod"
       width={d.w}
       height={d.w}
@@ -45,7 +45,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
         }}
       >
         <img
-          src="/sinemod-mark.svg"
+          src="/sinemod-mark.png"
           alt="Sinemod"
           width={d.w}
           height={d.w}
@@ -79,7 +79,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
           }}
         >
           <img
-            src="/sinemod-mark.svg"
+            src="/sinemod-mark.png"
             alt="Sinemod"
             width={d.w}
             height={d.w}
