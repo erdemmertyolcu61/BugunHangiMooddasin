@@ -598,6 +598,21 @@ async def admin_list_users():
     return {"total": len(users), "users": users}
 
 
+@app.post("/api/admin/warm-ustad", dependencies=[Depends(verify_admin)])
+async def admin_warm_ustad(limit: int = Query(10, ge=1, le=50)):
+    """Cache'lenmemiş repository filmleri için Üstad Notu'nu ön-üretir.
+
+    Maliyet kontrolü: çağrı başına max 50 film (her biri 1 Claude çağrısı).
+    Admin tekrar tekrar çağırarak havuzu kademeli ısıtır. Başlangıçta
+    otomatik çalışmaz — maliyet sürprizi olmaz.
+
+    Erişim: Authorization: Bearer <admin_token> veya X-Admin-Password.
+    """
+    from backend.tasks.ustad_pipeline import warm_ustad_notes
+    summary = await warm_ustad_notes(limit=limit)
+    return summary
+
+
 @app.get("/api/auth/verify")
 async def verify_token_endpoint(request: Request):
     """Verify if a token is still valid."""

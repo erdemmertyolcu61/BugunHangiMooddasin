@@ -1514,5 +1514,23 @@ class MovieCache:
             )
             await db.commit()
 
+    # ──────────── Üstad Notu pre-generation (warm pipeline) ────────────
+
+    async def get_movies_needing_ustad_note(self, limit: int = 20) -> list:
+        """Repository movies with NO cached analysis yet (Üstad Notu eksik).
+
+        Returns [(tmdb_id, title)]. movie_cache PK = tmdb_id; bir kez
+        üretilince burada artık görünmez (idempotent ısıtma)."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                """SELECT DISTINCT r.tmdb_id, r.title
+                   FROM movie_repository r
+                   LEFT JOIN movie_cache c ON r.tmdb_id = c.tmdb_id
+                   WHERE c.tmdb_id IS NULL
+                   LIMIT ?""",
+                (limit,)
+            )
+            return await cursor.fetchall()
+
 
 cache = MovieCache()
