@@ -79,15 +79,34 @@ class _TursoHTTP:
         base = url.replace("libsql://", "https://").rstrip("/")
         self._endpoint = f"{base}/v2/pipeline"
         self._headers = {"Authorization": f"Bearer {auth_token}"}
+        self._http: Optional[httpx.AsyncClient] = None
+
+    def _client(self) -> httpx.AsyncClient:
+        """Lazily create one pooled client (keep-alive, reused across calls)."""
+        if self._http is None or self._http.is_closed:
+            self._http = httpx.AsyncClient(
+                timeout=30.0,
+                limits=httpx.Limits(
+                    max_keepalive_connections=10,
+                    max_connections=20,
+                    keepalive_expiry=60.0,
+                ),
+            )
+        return self._http
+
+    async def aclose(self):
+        if self._http is not None and not self._http.is_closed:
+            await self._http.aclose()
 
     async def _pipeline(self, stmts):
         requests = [{"type": "execute", "stmt": s} for s in stmts]
         requests.append({"type": "close"})
         payload = {"baton": None, "requests": requests}
-        async with httpx.AsyncClient(timeout=30.0) as http:
-            r = await http.post(self._endpoint, json=payload, headers=self._headers)
-            r.raise_for_status()
-            data = r.json()
+        r = await self._client().post(
+            self._endpoint, json=payload, headers=self._headers
+        )
+        r.raise_for_status()
+        data = r.json()
         out = []
         for item in data.get("results", []):
             if item.get("type") == "error":

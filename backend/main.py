@@ -343,6 +343,13 @@ async def lifespan(app: FastAPI):
 
     # Cleanup persistent TMDB client
     await tmdb_service.close()
+    # Cleanup persistent Turso HTTP client (pooled connections)
+    from backend.database import _turso_client as _tc
+    if _tc is not None:
+        try:
+            await _tc.aclose()
+        except Exception:
+            pass
 
 
 app = FastAPI(
@@ -3041,14 +3048,3 @@ async def share_movie_page(movie_id: int):
 </body>
 </html>"""
     return HTMLResponse(content=html)
-
-
-@app.get("/health")
-async def health_check():
-    """Service health check."""
-    return {
-        "status": "ok",
-        "service": "Film Connoisseur API",
-        "version": "3.0",
-        "port": 8002
-    }
