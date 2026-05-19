@@ -89,7 +89,7 @@ export function clearVault() {
  */
 const PLATFORM_MAPPING = {
   8:    { name: 'Netflix',        color: '#E50914', web: (t) => `https://www.netflix.com/search?q=${encodeURIComponent(t)}`, app: (t) => `nflx://www.netflix.com/search?q=${encodeURIComponent(t)}`, home: 'https://www.netflix.com' },
-   337:  { name: 'Disney+',        color: '#113CCF', web: (t) => `https://www.disneyplus.com/tr-tr/search?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.disneyplus.com/tr-tr' },
+  337:  { name: 'Disney+',        color: '#113CCF', web: (t) => `https://www.disneyplus.com/search?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.disneyplus.com' },
   119:  { name: 'Amazon Prime',   color: '#00A8E1', web: (t) => `https://www.primevideo.com/search?phrase=${encodeURIComponent(t)}`, app: null, home: 'https://www.primevideo.com' },
   10:   { name: 'Amazon Video',   color: '#00A8E1', web: (t) => `https://www.amazon.com/s?k=${encodeURIComponent(t)}&i=instant-video`, app: null, home: 'https://www.amazon.com/gp/video' },
    350:  { name: 'Apple TV+',      color: '#555555', web: (t) => `https://tv.apple.com/search?term=${encodeURIComponent(t)}`, app: null, home: 'https://tv.apple.com' },

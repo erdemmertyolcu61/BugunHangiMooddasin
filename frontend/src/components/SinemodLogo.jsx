@@ -1,24 +1,31 @@
 import React from 'react';
 
-const GOLD = '#ffbf00';
-const GOLD_LIGHT = '#ffd700';
-
 export default function SinemodLogo({ variant = 'logo', size = 'md', className = '' }) {
-  const dimensions = {
-    sm: { logo: 20, text: 'text-[10px]', gap: 1.5 },
-    md: { logo: 28, text: 'text-xs', gap: 2 },
-    lg: { logo: 40, text: 'text-sm', gap: 2.5 },
-    xl: { logo: 72, text: 'text-lg', gap: 3 },
+  const dims = {
+    sm: { w: 22, text: 'text-[10px]', gap: 1.5 },
+    md: { w: 30, text: 'text-xs', gap: 2 },
+    lg: { w: 44, text: 'text-sm', gap: 2.5 },
+    xl: { w: 72, text: 'text-lg', gap: 3 },
   };
+  const d = dims[size] || dims.md;
 
-  const d = dimensions[size] || dimensions.md;
+  const mark = (
+    <img
+      src="/sinemod-mark.svg"
+      alt="Sinemod"
+      width={d.w}
+      height={d.w}
+      className={`shrink-0 ${className}`}
+      style={{ borderRadius: d.w * 0.1875 }}
+    />
+  );
 
   if (variant === 'brand') {
     return (
       <div className={`flex items-center gap-${d.gap} ${className}`}>
-        <GoldenS size={d.logo} />
+        {mark}
         <span className={`font-serif font-semibold tracking-wide text-amber ${d.text}`}
-          style={{ textShadow: '0 0 20px rgba(255,191,0,0.2)' }}>
+          style={{ textShadow: '0 0 20px rgba(255,178,80,0.2)' }}>
           Sinemod
         </span>
       </div>
@@ -27,56 +34,62 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
 
   if (variant === 'square') {
     return (
-      <div className={`inline-flex items-center justify-center bg-[#0d0b0a] border border-amber/20 rounded-lg shadow-lg ${className}`}
+      <div
+        className={`inline-flex items-center justify-center ${className}`}
         style={{
-          boxShadow: '0 0 30px rgba(255,191,0,0.08), inset 0 0 30px rgba(255,191,0,0.03)',
-          padding: d.logo * 0.3,
-        }}>
-        <GoldenS size={d.logo} />
+          background: '#0a0606',
+          border: '1px solid rgba(255,178,80,0.15)',
+          borderRadius: d.w * 0.3,
+          padding: d.w * 0.3,
+          boxShadow: '0 0 30px rgba(255,178,80,0.08), inset 0 0 30px rgba(255,178,80,0.03)',
+        }}
+      >
+        <img
+          src="/sinemod-mark.svg"
+          alt="Sinemod"
+          width={d.w}
+          height={d.w}
+          style={{ borderRadius: d.w * 0.1875 }}
+        />
       </div>
     );
   }
 
   if (variant === 'glow') {
     return (
-      <div className={`relative inline-flex items-center justify-center ${className}`}
-        style={{ width: d.logo * 3, height: d.logo * 3 }}>
-        <div className="absolute inset-0 rounded-full opacity-30 animate-pulse"
+      <div
+        className={`relative inline-flex items-center justify-center ${className}`}
+        style={{ width: d.w * 3, height: d.w * 3 }}
+      >
+        <div
+          className="absolute inset-0 rounded-full opacity-30"
           style={{
-            background: `radial-gradient(circle, ${GOLD}55 0%, transparent 70%)`,
+            background: 'radial-gradient(circle, rgba(255,178,80,0.33) 0%, transparent 70%)',
             animation: 'goldenPulse 3s ease-in-out infinite',
           }}
         />
-        <div className="relative bg-[#0d0b0a] rounded-xl border border-amber/20"
+        <div
+          className="relative"
           style={{
-            padding: d.logo * 0.25,
-            boxShadow: '0 0 40px rgba(255,191,0,0.12)',
-          }}>
-          <GoldenS size={d.logo} />
+            background: '#0a0606',
+            borderRadius: d.w * 0.25,
+            border: '1px solid rgba(255,178,80,0.15)',
+            padding: d.w * 0.25,
+            boxShadow: '0 0 40px rgba(255,178,80,0.12)',
+          }}
+        >
+          <img
+            src="/sinemod-mark.svg"
+            alt="Sinemod"
+            width={d.w}
+            height={d.w}
+            style={{ borderRadius: d.w * 0.1875 }}
+          />
         </div>
       </div>
     );
   }
 
-  return <GoldenS size={d.logo} className={className} />;
-}
-
-function GoldenS({ size = 28, className = '' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" className={`shrink-0 ${className}`}
-      style={{ filter: 'drop-shadow(0 0 6px rgba(255,191,0,0.35))' }}
-      aria-label="Sinemod">
-      <defs>
-        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={GOLD_LIGHT} />
-          <stop offset="50%" stopColor={GOLD} />
-          <stop offset="100%" stopColor="#e6a800" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M28 18c0-5 3-9 9-10 4-.8 8 1.5 10 5l2 3-8 5-2-3c-1-1.5-2-2-3.5-1.5S33 19 33 22c0 4 3 6 10 10 8 5 13 10 13 18 0 8-5 14-12 16-8 2-15-1-19-7l-2-3 8-5 2 3c2 3 4 4.5 7 3.5s4-3.5 4-6.5c0-5-3-7-10-11-7.5-4.5-13-10-13-18 0-5 2-10 7-13Z"
-        fill="url(#goldGrad)"
-      />
-    </svg>
-  );
+  // logo variant — bare mark
+  return mark;
 }

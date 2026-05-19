@@ -5,13 +5,12 @@ import { MoodProvider, useMood } from './context/MoodContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import BetaGate from './components/BetaGate';
+import SplashScreen from './components/SplashScreen';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
-import SplashScreen from './components/SplashScreen';
-import SinemodLogo from './components/SinemodLogo';
 // Ana sayfa (landing) eager — ilk boya hızlı olsun. Diğerleri lazy → çok daha hızlı ilk yükleme.
 import MoodSelector from './pages/MoodSelector';
 const Discover = lazy(() => import('./pages/Discover'));
@@ -69,19 +68,6 @@ function AppContent() {
       <ScrollToTop />
       <ScrollChrome />
       <AuraBackground />
-      {/* Sinemod marka — tüm sayfalarda sol üst köşede */}
-      <div className="fixed top-3 sm:top-4 left-3 sm:left-4 z-[45] pointer-events-none">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg backdrop-blur-sm bg-black/20">
-          <SinemodLogo size="sm" />
-          <span className="font-serif text-xs font-semibold tracking-wide text-amber/70"
-            style={{ textShadow: '0 0 12px rgba(255,191,0,0.1)' }}>
-            Sinemod
-          </span>
-        </div>
-        <div className="sm:hidden">
-          <SinemodLogo size="sm" />
-        </div>
-      </div>
       <ThemeToggle />
       <AudioPlayer />
       <Suspense fallback={<RouteFallback />}>
