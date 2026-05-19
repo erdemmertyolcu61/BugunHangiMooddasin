@@ -883,10 +883,18 @@ class ChatEngine:
 
         if claude_available:
             try:
-                claude_intent = await asyncio.wait_for(
-                    self.confusion.extract_user_intent(text),
-                    timeout=20.0
-                )
+                # Semantic cache: a similar past query skips the 2-15s Claude
+                # call entirely ($0, <50ms). Downstream pool + rerank stay live.
+                from backend.services import semantic_cache
+                from backend.database import cache as _sem_db
+                claude_intent = await semantic_cache.lookup(_sem_db, text)
+                if claude_intent is None:
+                    claude_intent = await asyncio.wait_for(
+                        self.confusion.extract_user_intent(text),
+                        timeout=20.0
+                    )
+                    if claude_intent:
+                        await semantic_cache.store(_sem_db, text, claude_intent)
                 if claude_intent:
                     # Re-classification: if Claude detected film/person entities, reroute
                     entities = claude_intent.get("detected_entities", {})

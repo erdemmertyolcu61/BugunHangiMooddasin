@@ -151,6 +151,9 @@ async def _get_connection(db_path: str, user_data: bool = False):
         async with aiosqlite.connect(db_path) as db:
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute("PRAGMA synchronous=NORMAL")
+            # Wait up to 30s for a writer lock instead of raising
+            # "database is locked" under concurrent cache writes.
+            await db.execute("PRAGMA busy_timeout=30000")
             yield db
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -436,6 +439,23 @@ class MovieCache:
             """)
             await db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_community_movie ON community_recommendations(tmdb_id)
+            """)
+            # Semantic cache for "Kafan mı Karışık?" Claude intent extraction.
+            # Local (reproducible) — survives restarts, auto-rewarms after wipe.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS mood_query_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    query_norm TEXT NOT NULL,
+                    tokens TEXT NOT NULL,
+                    intent_json TEXT NOT NULL,
+                    hits INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_mqc_recent
+                ON mood_query_cache(last_used DESC)
             """)
             await db.commit()
 
@@ -1452,6 +1472,47 @@ class MovieCache:
             )
             row = await cursor.fetchone()
             return json.loads(row[0]) if row else None
+
+    # ──────────── Semantic intent cache (Kafan mı Karışık?) ────────────
+
+    async def get_recent_intent_cache(self, limit: int = 400) -> list:
+        """Return recent cached (id, query_norm, tokens, intent_json) rows."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                """SELECT id, query_norm, tokens, intent_json
+                   FROM mood_query_cache
+                   ORDER BY last_used DESC LIMIT ?""",
+                (limit,)
+            )
+            return await cursor.fetchall()
+
+    async def save_intent_cache(self, query_norm: str, tokens_json: str,
+                                intent_json: str):
+        """Insert a new semantic-cache row; prune to the 1000 most useful."""
+        async with _get_connection(self.db_path) as db:
+            await db.execute(
+                """INSERT INTO mood_query_cache (query_norm, tokens, intent_json)
+                   VALUES (?, ?, ?)""",
+                (query_norm, tokens_json, intent_json)
+            )
+            await db.execute(
+                """DELETE FROM mood_query_cache WHERE id NOT IN (
+                       SELECT id FROM mood_query_cache
+                       ORDER BY hits DESC, last_used DESC LIMIT 1000
+                   )"""
+            )
+            await db.commit()
+
+    async def bump_intent_cache_hit(self, row_id: int):
+        """Mark a cache row as freshly used (hit counter + recency)."""
+        async with _get_connection(self.db_path) as db:
+            await db.execute(
+                """UPDATE mood_query_cache
+                   SET hits = hits + 1, last_used = CURRENT_TIMESTAMP
+                   WHERE id = ?""",
+                (row_id,)
+            )
+            await db.commit()
 
 
 cache = MovieCache()
