@@ -9,13 +9,17 @@ import json
 import os
 import asyncio
 import contextlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from backend.config import DATABASE_PATH
 
 # ── Turso / libSQL embedded-replica ──────────────────────────────────────────
-_TURSO_URL   = os.getenv("TURSO_DATABASE_URL")
-_TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
-_turso_conn  = None   # initialised inside MovieCache.init_db()
+_TURSO_URL      = os.getenv("TURSO_DATABASE_URL")
+_TURSO_TOKEN    = os.getenv("TURSO_AUTH_TOKEN")
+_turso_conn     = None   # initialised inside MovieCache.init_db()
+# Single-thread executor keeps every libsql call on the same OS thread,
+# satisfying libsql's (and SQLite's underlying) thread-affinity requirement.
+_turso_executor: Optional[ThreadPoolExecutor] = None
 
 try:
     import libsql_experimental as _libsql
@@ -25,37 +29,42 @@ except ImportError:
 
 
 class _TursoCursor:
-    __slots__ = ("_cur", "_loop")
+    __slots__ = ("_cur",)
 
-    def __init__(self, cur, loop):
-        self._cur  = cur
-        self._loop = loop
+    def __init__(self, cur):
+        self._cur = cur
 
     async def fetchone(self):
-        return await self._loop.run_in_executor(None, self._cur.fetchone)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(_turso_executor, self._cur.fetchone)
 
     async def fetchall(self):
-        return await self._loop.run_in_executor(None, self._cur.fetchall)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(_turso_executor, self._cur.fetchall)
 
 
 class _TursoConn:
-    """Wraps a libsql Connection to expose the same async interface as aiosqlite."""
+    """Wraps a libsql Connection to expose the same async interface as aiosqlite.
+
+    All operations are dispatched through _turso_executor (max_workers=1) so that
+    libsql always runs on the same OS thread — required for thread-safety.
+    """
 
     def __init__(self, conn):
         self._conn = conn
 
     async def execute(self, sql, params=()):
         loop = asyncio.get_running_loop()
-        cur  = await loop.run_in_executor(None, self._conn.execute, sql, params)
-        return _TursoCursor(cur, loop)
+        cur  = await loop.run_in_executor(_turso_executor, self._conn.execute, sql, params)
+        return _TursoCursor(cur)
 
     async def executemany(self, sql, params_list):
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._conn.executemany, sql, params_list)
+        await loop.run_in_executor(_turso_executor, self._conn.executemany, sql, params_list)
 
     async def commit(self):
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._conn.commit)
+        await loop.run_in_executor(_turso_executor, self._conn.commit)
 
 
 @contextlib.asynccontextmanager
@@ -78,19 +87,22 @@ class MovieCache:
 
     async def init_db(self):
         """Create the cache, watchlist and notes tables."""
-        global _turso_conn
+        global _turso_conn, _turso_executor
         if _LIBSQL_OK and _TURSO_URL and _TURSO_TOKEN and _turso_conn is None:
             import logging as _log
             _logger = _log.getLogger(__name__)
             _logger.info("[DB] Turso embedded-replica bağlanıyor: %s", _TURSO_URL)
+            # Create the dedicated single-thread executor FIRST so that connect()
+            # and every subsequent execute() all run on the same OS thread.
+            _turso_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="turso-db")
             loop = asyncio.get_running_loop()
             conn = await loop.run_in_executor(
-                None,
+                _turso_executor,
                 lambda: _libsql.connect(
                     self.db_path, sync_url=_TURSO_URL, auth_token=_TURSO_TOKEN
                 ),
             )
-            await loop.run_in_executor(None, conn.sync)
+            await loop.run_in_executor(_turso_executor, conn.sync)
             _turso_conn = conn
             _logger.info("[DB] Turso sync tamamlandı, kalıcı depolama aktif.")
 
