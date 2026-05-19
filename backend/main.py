@@ -555,7 +555,7 @@ async def google_login(request: Request):
     picture = idinfo.get("picture", "")
 
     # Upsert user
-    async with _db_conn(cache.db_path) as db:
+    async with _db_conn(cache.db_path, user_data=True) as db:
         await db.execute("""
             INSERT INTO users (google_id, email, name, picture)
             VALUES (?, ?, ?, ?)
@@ -578,7 +578,7 @@ async def admin_list_users():
     Erişim: Authorization: Bearer <admin_token>  veya
             X-Admin-Password: <ADMIN_PASSWORD> header'ı.
     """
-    async with _db_conn(cache.db_path) as db:
+    async with _db_conn(cache.db_path, user_data=True) as db:
         cur = await db.execute(
             "SELECT id, email, name, created_at FROM users ORDER BY id DESC"
         )
@@ -645,7 +645,7 @@ async def community_recommend(request: Request, user=Depends(verify_user)):
         raise HTTPException(status_code=400, detail="tmdb_id gerekli")
     user_id = user.get("user_id", 0)
 
-    async with _db_conn(cache.db_path) as db:
+    async with _db_conn(cache.db_path, user_data=True) as db:
         cur = await db.execute("SELECT name, picture FROM users WHERE id = ?", (user_id,))
         row = await cur.fetchone()
         username = (row[0] if row and row[0] else user.get("email", "Sinemasever"))
@@ -663,7 +663,7 @@ async def community_recommend(request: Request, user=Depends(verify_user)):
 @app.get("/api/community/recommendations/{tmdb_id}")
 async def community_recommendations(tmdb_id: int = Path(..., ge=1)):
     """Bir filmi topluluğa öneren kullanıcıları döndürür (en yeniler önce)."""
-    async with _db_conn(cache.db_path) as db:
+    async with _db_conn(cache.db_path, user_data=True) as db:
         cur = await db.execute("""
             SELECT user_id, username, avatar FROM community_recommendations
             WHERE tmdb_id = ? ORDER BY created_at DESC LIMIT 10

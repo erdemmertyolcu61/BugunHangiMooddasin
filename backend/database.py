@@ -1,7 +1,12 @@
 """
-SQLite/Turso caching layer — plain aiosqlite by default; set TURSO_DATABASE_URL +
-TURSO_AUTH_TOKEN env vars to activate a libsql embedded-replica (local reads,
-remote persistence).  No other code changes required to switch modes.
+SQLite/Turso caching layer.
+
+Movie data  → always local aiosqlite  (reproducible via TMDB re-seed, fast)
+User data   → Turso HTTP if configured (libsql-client, pure Python, persistent)
+             falls back to local aiosqlite when TURSO_* env vars are absent.
+
+Set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN to enable persistent user storage.
+No code changes required for local/dev — fallback is automatic.
 """
 import aiosqlite
 import sqlite3
@@ -9,69 +14,69 @@ import json
 import os
 import asyncio
 import contextlib
-from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from backend.config import DATABASE_PATH
 
-# ── Turso / libSQL embedded-replica ──────────────────────────────────────────
-_TURSO_URL      = os.getenv("TURSO_DATABASE_URL")
-_TURSO_TOKEN    = os.getenv("TURSO_AUTH_TOKEN")
-_turso_conn     = None   # initialised inside MovieCache.init_db()
-# Single-thread executor keeps every libsql call on the same OS thread,
-# satisfying libsql's (and SQLite's underlying) thread-affinity requirement.
-_turso_executor: Optional[ThreadPoolExecutor] = None
+# ── Turso HTTP client (pure Python, no Rust) ─────────────────────────────────
+_TURSO_URL   = os.getenv("TURSO_DATABASE_URL")
+_TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
+_turso_client = None   # libsql_client.Client, set in MovieCache.init_db()
 
 try:
-    import libsql_experimental as _libsql
+    import libsql_client as _libsql
     _LIBSQL_OK = True
 except ImportError:
     _LIBSQL_OK = False
 
 
 class _TursoCursor:
-    __slots__ = ("_cur",)
+    """Wraps a libsql_client ResultSet as an aiosqlite-style async cursor."""
+    __slots__ = ("_rows",)
 
-    def __init__(self, cur):
-        self._cur = cur
+    def __init__(self, rows):
+        # rows: list of libsql_client Row (behaves like a sequence)
+        self._rows = [tuple(r) for r in rows]
 
     async def fetchone(self):
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(_turso_executor, self._cur.fetchone)
+        return self._rows[0] if self._rows else None
 
     async def fetchall(self):
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(_turso_executor, self._cur.fetchall)
+        return self._rows
 
 
 class _TursoConn:
-    """Wraps a libsql Connection to expose the same async interface as aiosqlite.
+    """Wraps a libsql_client.Client to look like an aiosqlite connection."""
 
-    All operations are dispatched through _turso_executor (max_workers=1) so that
-    libsql always runs on the same OS thread — required for thread-safety.
-    """
-
-    def __init__(self, conn):
-        self._conn = conn
+    def __init__(self, client):
+        self._client = client
 
     async def execute(self, sql, params=()):
-        loop = asyncio.get_running_loop()
-        cur  = await loop.run_in_executor(_turso_executor, self._conn.execute, sql, params)
-        return _TursoCursor(cur)
+        if params:
+            result = await self._client.execute(sql, list(params))
+        else:
+            result = await self._client.execute(sql)
+        return _TursoCursor(result.rows)
 
     async def executemany(self, sql, params_list):
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(_turso_executor, self._conn.executemany, sql, params_list)
+        stmts = [{"sql": sql, "args": list(p)} for p in params_list]
+        if stmts:
+            # Chunk to avoid oversized requests
+            for i in range(0, len(stmts), 100):
+                await self._client.batch(stmts[i:i + 100])
 
     async def commit(self):
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(_turso_executor, self._conn.commit)
+        pass  # libsql_client auto-commits every statement
 
 
 @contextlib.asynccontextmanager
-async def _get_connection(db_path: str):
-    """Yield an aiosqlite-compatible handle: Turso embedded replica OR plain SQLite."""
-    if _turso_conn is not None:
-        yield _TursoConn(_turso_conn)
+async def _get_connection(db_path: str, user_data: bool = False):
+    """Yield an aiosqlite-compatible DB handle.
+
+    user_data=True  → Turso HTTP client (if configured) for persistent user tables.
+    user_data=False → always local aiosqlite (movie caches, repository, etc.).
+    """
+    if user_data and _turso_client is not None:
+        yield _TursoConn(_turso_client)
     else:
         async with aiosqlite.connect(db_path) as db:
             await db.execute("PRAGMA journal_mode=WAL")
@@ -87,30 +92,20 @@ class MovieCache:
 
     async def init_db(self):
         """Create the cache, watchlist and notes tables."""
-        global _turso_conn, _turso_executor
-        if _LIBSQL_OK and _TURSO_URL and _TURSO_TOKEN and _turso_conn is None:
+        global _turso_client
+        if _LIBSQL_OK and _TURSO_URL and _TURSO_TOKEN and _turso_client is None:
             import logging as _log
             _logger = _log.getLogger(__name__)
-            _logger.info("[DB] Turso embedded-replica bağlanıyor: %s", _TURSO_URL)
-            # Create the dedicated single-thread executor FIRST so that connect()
-            # and every subsequent execute() all run on the same OS thread.
-            _turso_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="turso-db")
-            loop = asyncio.get_running_loop()
-            conn = await loop.run_in_executor(
-                _turso_executor,
-                lambda: _libsql.connect(
-                    self.db_path, sync_url=_TURSO_URL, auth_token=_TURSO_TOKEN
-                ),
-            )
-            await loop.run_in_executor(_turso_executor, conn.sync)
-            _turso_conn = conn
-            _logger.info("[DB] Turso sync tamamlandı, kalıcı depolama aktif.")
+            _logger.info("[DB] Turso HTTP client bağlanıyor: %s", _TURSO_URL)
+            _turso_client = _libsql.create_client(_TURSO_URL, auth_token=_TURSO_TOKEN)
+            await self._init_turso_user_tables()
+            _logger.info("[DB] Turso kullanıcı tabloları hazır, kalıcı depolama aktif.")
 
-        async with _get_connection(self.db_path) as db:
-            try:
-                await db.execute("PRAGMA cache_size=-8000")
-            except Exception:
-                pass
+        # Local SQLite schema — movie data + local fallback for user data
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA synchronous=NORMAL")
+            await db.execute("PRAGMA cache_size=-8000")
             # Movie analysis cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS movie_cache (
@@ -365,6 +360,53 @@ class MovieCache:
             """)
             await db.commit()
 
+    async def _init_turso_user_tables(self):
+        """Create user-data tables on Turso (idempotent). Called once at startup."""
+        stmts = [
+            """CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                google_id TEXT UNIQUE NOT NULL,
+                email TEXT, name TEXT, picture TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            """CREATE TABLE IF NOT EXISTS watchlist (
+                tmdb_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                poster_url TEXT,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                watched INTEGER DEFAULT 0,
+                user_id INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (tmdb_id, user_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS movie_notes (
+                tmdb_id INTEGER NOT NULL,
+                note_content TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                user_id INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (tmdb_id, user_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS future_plans (
+                tmdb_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                poster_url TEXT,
+                priority INTEGER DEFAULT 0,
+                watch_date TEXT,
+                notes TEXT,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                user_id INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (tmdb_id, user_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS community_recommendations (
+                tmdb_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                username TEXT, avatar TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (tmdb_id, user_id)
+            )""",
+        ]
+        for stmt in stmts:
+            await _turso_client.execute(stmt)
+
     async def get_movie(self, tmdb_id: int) -> Optional[dict]:
         """Retrieve cached movie analysis by TMDB ID."""
         async with _get_connection(self.db_path) as db:
@@ -398,7 +440,7 @@ class MovieCache:
     # --- Watchlist (Defterim) Methods ---
     async def add_to_watchlist(self, tmdb_id: int, title: str, poster_url: str, user_id: int = 0):
         """Add a movie to the watchlist (kullanıcıya özel)."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(
                 "INSERT OR IGNORE INTO watchlist (tmdb_id, title, poster_url, user_id) VALUES (?, ?, ?, ?)",
                 (tmdb_id, title, poster_url, user_id)
@@ -407,13 +449,13 @@ class MovieCache:
 
     async def remove_from_watchlist(self, tmdb_id: int, user_id: int = 0):
         """Remove a movie from the watchlist."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute("DELETE FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id))
             await db.commit()
 
     async def get_watchlist(self, user_id: int = 0) -> list:
         """Get all movies in the watchlist for a user."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 "SELECT tmdb_id, title, poster_url, added_at, watched FROM watchlist WHERE user_id = ? ORDER BY added_at DESC",
                 (user_id,)
@@ -426,7 +468,7 @@ class MovieCache:
 
     async def toggle_watched(self, tmdb_id: int, user_id: int = 0) -> bool:
         """Toggle watched status for a movie. Returns new watched state."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 "SELECT watched FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
             )
@@ -443,7 +485,7 @@ class MovieCache:
 
     async def is_in_watchlist(self, tmdb_id: int, user_id: int = 0) -> bool:
         """Check if a movie is in the watchlist."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 "SELECT 1 FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
             )
@@ -452,7 +494,7 @@ class MovieCache:
     # --- Personal Notes Methods ---
     async def save_note(self, tmdb_id: int, note_content: str, user_id: int = 0):
         """Save or update a personal note for a movie."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO movie_notes (tmdb_id, note_content, updated_at, user_id) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
                 (tmdb_id, note_content, user_id)
@@ -461,7 +503,7 @@ class MovieCache:
 
     async def get_note(self, tmdb_id: int, user_id: int = 0) -> Optional[str]:
         """Get the personal note for a movie."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 "SELECT note_content FROM movie_notes WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
             )
@@ -471,7 +513,7 @@ class MovieCache:
     # --- Future Plans Methods ---
     async def add_to_future(self, tmdb_id: int, title: str, poster_url: str, priority: int = 0, watch_date: str = None, notes: str = None, user_id: int = 0):
         """Add a movie to future plans."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO future_plans (tmdb_id, title, poster_url, priority, watch_date, notes, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (tmdb_id, title, poster_url, priority, watch_date, notes, user_id)
@@ -480,13 +522,13 @@ class MovieCache:
 
     async def remove_from_future(self, tmdb_id: int, user_id: int = 0):
         """Remove a movie from future plans."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute("DELETE FROM future_plans WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id))
             await db.commit()
 
     async def get_future_plans(self, user_id: int = 0) -> list:
         """Get all movies in future plans, ordered by priority."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 "SELECT tmdb_id, title, poster_url, priority, watch_date, notes, added_at FROM future_plans WHERE user_id = ? ORDER BY priority DESC, added_at DESC",
                 (user_id,)
@@ -499,13 +541,13 @@ class MovieCache:
 
     async def update_future_priority(self, tmdb_id: int, priority: int, user_id: int = 0):
         """Update priority of a future plan."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute("UPDATE future_plans SET priority = ? WHERE tmdb_id = ? AND user_id = ?", (priority, tmdb_id, user_id))
             await db.commit()
 
     async def update_future_date(self, tmdb_id: int, watch_date: str, user_id: int = 0):
         """Update watch date of a future plan."""
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute("UPDATE future_plans SET watch_date = ? WHERE tmdb_id = ? AND user_id = ?", (watch_date, tmdb_id, user_id))
             await db.commit()
 

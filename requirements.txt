@@ -4,7 +4,8 @@ httpx==0.28.1
 anthropic==0.42.0
 python-dotenv==1.0.1
 aiosqlite==0.20.0
-libsql-experimental>=0.0.10
+libsql-client>=0.1.4
+aiohttp>=3.9.0
 PyJWT[crypto]>=2.10.1
 google-auth>=2.37.0
 # google.auth.transport.requests Google ID token doğrulaması için
