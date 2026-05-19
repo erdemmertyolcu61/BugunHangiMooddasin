@@ -1122,9 +1122,15 @@ class MovieCache:
     # --- Taste Map Signals ---
 
     async def get_user_movie_signals(self, user_id: int = 0) -> dict:
-        """Collect a user's movie interaction signals for taste analysis."""
+        """Collect a user's movie interaction signals for taste analysis.
+
+        User tables (watchlist/future_plans/movie_notes) live in Turso;
+        movie_cache is a shared local cache — so this reads from both.
+        """
         signals = {}
-        async with _get_connection(self.db_path) as db:
+
+        # ── User-specific signals (Turso when configured) ────────────────
+        async with _get_connection(self.db_path, user_data=True) as db:
             # Watchlist (signal +1)
             cursor = await db.execute("SELECT tmdb_id FROM watchlist WHERE user_id = ?", (user_id,))
             for row in await cursor.fetchall():
@@ -1153,7 +1159,8 @@ class MovieCache:
                 signals[tid]["score"] += 3
                 signals[tid]["sources"].append("note")
 
-            # Movie cache (signal +1 — analiz havuzu kullanıcı-bağımsız, ortak)
+        # ── Shared analysis pool (always local) ──────────────────────────
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute("SELECT tmdb_id, data FROM movie_cache")
             for row in await cursor.fetchall():
                 tid = row[0]
