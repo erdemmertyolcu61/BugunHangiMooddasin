@@ -605,12 +605,12 @@ export default function Discover() {
       {/* Kalıcı blur arkaplan */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div
-          className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full opacity-[0.30]"
-          style={{ background: selectedMood.accentHex || '#ffbf00', filter: 'blur(140px)', willChange: 'filter' }}
+          className="absolute -top-30 -left-30 w-[450px] h-[450px] rounded-full opacity-[0.30]"
+          style={{ background: selectedMood.accentHex || '#ffbf00', filter: 'blur(80px)', willChange: 'filter' }}
         />
         <div
-          className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full opacity-[0.20]"
-          style={{ background: selectedMood.vignette || '#000', filter: 'blur(120px)', willChange: 'filter' }}
+          className="absolute -bottom-30 -right-30 w-[350px] h-[350px] rounded-full opacity-[0.20]"
+          style={{ background: selectedMood.vignette || '#000', filter: 'blur(60px)', willChange: 'filter' }}
         />
       </div>
 
@@ -626,7 +626,7 @@ export default function Discover() {
       />
 
       {/* Paper texture */}
-      <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"
+      <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03]"
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
       {/* ═══ MOOD GEÇİŞ ANİMASYONLARI ═══ */}
@@ -816,7 +816,7 @@ export default function Discover() {
             )}
           </div>
           {/* Frosted glass container — tıpkı Gurme kartı gibi, blur efektini scroll boyunca sürdürür */}
-          <div className="p-4 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[3rem] bg-surface/10 backdrop-blur-md border border-white/5">
+          <div className="p-4 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[3rem] bg-surface/5 border border-white/5">
             <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-10 gap-y-8 sm:gap-y-16">
               {loading && searchResults === null
                 ? [...Array(10)].map((_, i) => <div key={i} className="aspect-[2/3] bg-white/5 rounded-[2.5rem] animate-pulse" />)
