@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 
 import asyncio
 import aiosqlite
-from backend.database import cache
+from backend.database import cache, _get_connection as _db_conn
 from backend.services.tmdb_service import tmdb_service
 from backend.services.omdb_service import omdb_service
 from backend.services.claude_service import claude_service
@@ -311,7 +311,8 @@ async def lifespan(app: FastAPI):
         # Phase 5: Mood score pre-computation — SKIPPED if scores already exist
         # (Scores persist in DB from previous runs)
         try:
-            async with aiosqlite.connect(cache.db_path) as db:
+            from backend.database import _get_connection as _db_conn
+            async with _db_conn(cache.db_path) as db:
                 cursor = await db.execute(
                     "SELECT COUNT(*) FROM movie_repository WHERE mood_score > 0"
                 )
@@ -554,17 +555,17 @@ async def google_login(request: Request):
     picture = idinfo.get("picture", "")
 
     # Upsert user
-    async with aiosqlite.connect(cache.db_path) as db:
+    async with _db_conn(cache.db_path) as db:
         await db.execute("""
             INSERT INTO users (google_id, email, name, picture)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name, picture=excluded.picture
         """, (google_id, email, name, picture))
         await db.commit()
-        async with db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,)) as cur:
-            row = await cur.fetchone()
-            user_id = row[0] if row else 0
-            created_at = row[1] if row and len(row) > 1 else None
+        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,))
+        row = await cur.fetchone()
+        user_id = row[0] if row else 0
+        created_at = row[1] if row and len(row) > 1 else None
 
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=720)
     return {"token": token, "user": {"id": user_id, "email": email, "name": name, "picture": picture, "created_at": created_at}}
@@ -577,11 +578,11 @@ async def admin_list_users():
     Erişim: Authorization: Bearer <admin_token>  veya
             X-Admin-Password: <ADMIN_PASSWORD> header'ı.
     """
-    async with aiosqlite.connect(cache.db_path) as db:
-        async with db.execute(
+    async with _db_conn(cache.db_path) as db:
+        cur = await db.execute(
             "SELECT id, email, name, created_at FROM users ORDER BY id DESC"
-        ) as cur:
-            rows = await cur.fetchall()
+        )
+        rows = await cur.fetchall()
     users = [
         {"id": r[0], "email": r[1], "name": r[2], "created_at": r[3]}
         for r in rows
@@ -644,9 +645,9 @@ async def community_recommend(request: Request, user=Depends(verify_user)):
         raise HTTPException(status_code=400, detail="tmdb_id gerekli")
     user_id = user.get("user_id", 0)
 
-    async with aiosqlite.connect(cache.db_path) as db:
-        async with db.execute("SELECT name, picture FROM users WHERE id = ?", (user_id,)) as cur:
-            row = await cur.fetchone()
+    async with _db_conn(cache.db_path) as db:
+        cur = await db.execute("SELECT name, picture FROM users WHERE id = ?", (user_id,))
+        row = await cur.fetchone()
         username = (row[0] if row and row[0] else user.get("email", "Sinemasever"))
         avatar = (row[1] if row and len(row) > 1 else "") or ""
         await db.execute("""
@@ -662,12 +663,12 @@ async def community_recommend(request: Request, user=Depends(verify_user)):
 @app.get("/api/community/recommendations/{tmdb_id}")
 async def community_recommendations(tmdb_id: int = Path(..., ge=1)):
     """Bir filmi topluluğa öneren kullanıcıları döndürür (en yeniler önce)."""
-    async with aiosqlite.connect(cache.db_path) as db:
-        async with db.execute("""
+    async with _db_conn(cache.db_path) as db:
+        cur = await db.execute("""
             SELECT user_id, username, avatar FROM community_recommendations
             WHERE tmdb_id = ? ORDER BY created_at DESC LIMIT 10
-        """, (tmdb_id,)) as cur:
-            rows = await cur.fetchall()
+        """, (tmdb_id,))
+        rows = await cur.fetchall()
     recommenders = [{"uid": r[0], "username": r[1], "avatar": r[2]} for r in rows]
     return {"count": len(recommenders), "recommenders": recommenders}
 
