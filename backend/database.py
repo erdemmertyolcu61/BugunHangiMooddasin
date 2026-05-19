@@ -1,34 +1,104 @@
 """
-SQLite caching layer - stores Claude analysis results to avoid redundant API calls.
+SQLite/Turso caching layer — plain aiosqlite by default; set TURSO_DATABASE_URL +
+TURSO_AUTH_TOKEN env vars to activate a libsql embedded-replica (local reads,
+remote persistence).  No other code changes required to switch modes.
 """
 import aiosqlite
 import sqlite3
 import json
+import os
+import asyncio
+import contextlib
 from typing import Optional
 from backend.config import DATABASE_PATH
+
+# ── Turso / libSQL embedded-replica ──────────────────────────────────────────
+_TURSO_URL   = os.getenv("TURSO_DATABASE_URL")
+_TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
+_turso_conn  = None   # initialised inside MovieCache.init_db()
+
+try:
+    import libsql_experimental as _libsql
+    _LIBSQL_OK = True
+except ImportError:
+    _LIBSQL_OK = False
+
+
+class _TursoCursor:
+    __slots__ = ("_cur", "_loop")
+
+    def __init__(self, cur, loop):
+        self._cur  = cur
+        self._loop = loop
+
+    async def fetchone(self):
+        return await self._loop.run_in_executor(None, self._cur.fetchone)
+
+    async def fetchall(self):
+        return await self._loop.run_in_executor(None, self._cur.fetchall)
+
+
+class _TursoConn:
+    """Wraps a libsql Connection to expose the same async interface as aiosqlite."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    async def execute(self, sql, params=()):
+        loop = asyncio.get_event_loop()
+        cur  = await loop.run_in_executor(None, self._conn.execute, sql, params)
+        return _TursoCursor(cur, loop)
+
+    async def executemany(self, sql, params_list):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._conn.executemany, sql, params_list)
+
+    async def commit(self):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._conn.commit)
+
+
+@contextlib.asynccontextmanager
+async def _get_connection(db_path: str):
+    """Yield an aiosqlite-compatible handle: Turso embedded replica OR plain SQLite."""
+    if _turso_conn is not None:
+        yield _TursoConn(_turso_conn)
+    else:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA synchronous=NORMAL")
+            yield db
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class MovieCache:
     def __init__(self, db_path: str = None):
         self.db_path = db_path or DATABASE_PATH
-        self._wal_set = False
-
-    async def _connect(self):
-        """Open a connection with WAL mode for concurrent reads."""
-        db = await aiosqlite.connect(self.db_path)
-        if not self._wal_set:
-            await db.execute("PRAGMA journal_mode=WAL")
-            await db.execute("PRAGMA synchronous=NORMAL")
-            self._wal_set = True
-        return db
 
     async def init_db(self):
         """Create the cache, watchlist and notes tables."""
-        async with aiosqlite.connect(self.db_path) as db:
-            # Enable WAL mode for concurrent reads during writes
-            await db.execute("PRAGMA journal_mode=WAL")
-            await db.execute("PRAGMA synchronous=NORMAL")
-            await db.execute("PRAGMA cache_size=-8000")  # 8MB cache
+        global _turso_conn
+        if _LIBSQL_OK and _TURSO_URL and _TURSO_TOKEN and _turso_conn is None:
+            import logging as _log
+            _logger = _log.getLogger(__name__)
+            _logger.info("[DB] Turso embedded-replica bağlanıyor: %s", _TURSO_URL)
+            loop = asyncio.get_event_loop()
+            conn = await loop.run_in_executor(
+                None,
+                lambda: _libsql.connect(
+                    self.db_path, sync_url=_TURSO_URL, auth_token=_TURSO_TOKEN
+                ),
+            )
+            await loop.run_in_executor(None, conn.sync)
+            _turso_conn = conn
+            _logger.info("[DB] Turso sync tamamlandı, kalıcı depolama aktif.")
+
+        async with _get_connection(self.db_path) as db:
+            try:
+                await db.execute("PRAGMA cache_size=-8000")
+            except Exception:
+                pass
             # Movie analysis cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS movie_cache (
@@ -285,7 +355,7 @@ class MovieCache:
 
     async def get_movie(self, tmdb_id: int) -> Optional[dict]:
         """Retrieve cached movie analysis by TMDB ID."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT data FROM movie_cache WHERE tmdb_id = ?",
                 (tmdb_id,)
@@ -297,7 +367,7 @@ class MovieCache:
 
     async def save_movie(self, tmdb_id: int, title: str, data: dict):
         """Save or update movie analysis in cache."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO movie_cache
                    (tmdb_id, title, data, updated_at)
@@ -308,7 +378,7 @@ class MovieCache:
 
     async def get_all_cached(self) -> list:
         """Return all cached movie analyses."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute("SELECT data FROM movie_cache")
             rows = await cursor.fetchall()
             return [json.loads(row[0]) for row in rows]
@@ -316,7 +386,7 @@ class MovieCache:
     # --- Watchlist (Defterim) Methods ---
     async def add_to_watchlist(self, tmdb_id: int, title: str, poster_url: str, user_id: int = 0):
         """Add a movie to the watchlist (kullanıcıya özel)."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 "INSERT OR IGNORE INTO watchlist (tmdb_id, title, poster_url, user_id) VALUES (?, ?, ?, ?)",
                 (tmdb_id, title, poster_url, user_id)
@@ -325,13 +395,13 @@ class MovieCache:
 
     async def remove_from_watchlist(self, tmdb_id: int, user_id: int = 0):
         """Remove a movie from the watchlist."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute("DELETE FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id))
             await db.commit()
 
     async def get_watchlist(self, user_id: int = 0) -> list:
         """Get all movies in the watchlist for a user."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT tmdb_id, title, poster_url, added_at, watched FROM watchlist WHERE user_id = ? ORDER BY added_at DESC",
                 (user_id,)
@@ -344,7 +414,7 @@ class MovieCache:
 
     async def toggle_watched(self, tmdb_id: int, user_id: int = 0) -> bool:
         """Toggle watched status for a movie. Returns new watched state."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT watched FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
             )
@@ -361,7 +431,7 @@ class MovieCache:
 
     async def is_in_watchlist(self, tmdb_id: int, user_id: int = 0) -> bool:
         """Check if a movie is in the watchlist."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT 1 FROM watchlist WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
             )
@@ -370,7 +440,7 @@ class MovieCache:
     # --- Personal Notes Methods ---
     async def save_note(self, tmdb_id: int, note_content: str, user_id: int = 0):
         """Save or update a personal note for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO movie_notes (tmdb_id, note_content, updated_at, user_id) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
                 (tmdb_id, note_content, user_id)
@@ -379,7 +449,7 @@ class MovieCache:
 
     async def get_note(self, tmdb_id: int, user_id: int = 0) -> Optional[str]:
         """Get the personal note for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT note_content FROM movie_notes WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id)
             )
@@ -389,7 +459,7 @@ class MovieCache:
     # --- Future Plans Methods ---
     async def add_to_future(self, tmdb_id: int, title: str, poster_url: str, priority: int = 0, watch_date: str = None, notes: str = None, user_id: int = 0):
         """Add a movie to future plans."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO future_plans (tmdb_id, title, poster_url, priority, watch_date, notes, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (tmdb_id, title, poster_url, priority, watch_date, notes, user_id)
@@ -398,13 +468,13 @@ class MovieCache:
 
     async def remove_from_future(self, tmdb_id: int, user_id: int = 0):
         """Remove a movie from future plans."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute("DELETE FROM future_plans WHERE tmdb_id = ? AND user_id = ?", (tmdb_id, user_id))
             await db.commit()
 
     async def get_future_plans(self, user_id: int = 0) -> list:
         """Get all movies in future plans, ordered by priority."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT tmdb_id, title, poster_url, priority, watch_date, notes, added_at FROM future_plans WHERE user_id = ? ORDER BY priority DESC, added_at DESC",
                 (user_id,)
@@ -417,13 +487,13 @@ class MovieCache:
 
     async def update_future_priority(self, tmdb_id: int, priority: int, user_id: int = 0):
         """Update priority of a future plan."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute("UPDATE future_plans SET priority = ? WHERE tmdb_id = ? AND user_id = ?", (priority, tmdb_id, user_id))
             await db.commit()
 
     async def update_future_date(self, tmdb_id: int, watch_date: str, user_id: int = 0):
         """Update watch date of a future plan."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute("UPDATE future_plans SET watch_date = ? WHERE tmdb_id = ? AND user_id = ?", (watch_date, tmdb_id, user_id))
             await db.commit()
 
@@ -435,7 +505,7 @@ class MovieCache:
                                      vote_count: int = 0, original_language: str = "",
                                      popularity: float = 0):
         """Save a movie to the repository (upsert)."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute("""
                 INSERT OR REPLACE INTO movie_repository
                 (tmdb_id, title, poster_url, overview, release_date,
@@ -450,7 +520,7 @@ class MovieCache:
                                             per_page: int = 20, min_vote: float = 5.0) -> dict:
         """Get movies from repository filtered by mood, sorted by vote_average desc."""
         offset = (page - 1) * per_page
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             # Count
             cursor = await db.execute(
                 "SELECT COUNT(*) FROM movie_repository WHERE mood_id = ? AND vote_average >= ?",
@@ -494,7 +564,7 @@ class MovieCache:
 
     async def get_all_repository_movies_by_mood(self, mood_id: str, min_vote: float = 5.0) -> list:
         """Fetch ALL movies for a mood (no LIMIT) for client-side filtering."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 """SELECT tmdb_id, title, poster_url, overview, release_date,
                           vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity
@@ -527,7 +597,7 @@ class MovieCache:
             return []
 
         q = query.strip().lower()
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             # Try exact-ish match first, then progressively fuzzier
             results = []
             seen_ids = set()
@@ -622,7 +692,7 @@ class MovieCache:
 
     async def get_random_repository_movie(self) -> dict:
         """Tum repository'den rastgele bir film dondurur (puan/mood filtresi YOK)."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 """SELECT tmdb_id, title, poster_url, overview, release_date,
                           vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity
@@ -656,7 +726,7 @@ class MovieCache:
             "Retro","deep-chills"
         ]
         total_all = 0
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             for mid in all_mood_ids:
                 cursor = await db.execute(
                     "SELECT COUNT(*) FROM movie_repository WHERE mood_id = ?", (mid,))
@@ -712,7 +782,7 @@ class MovieCache:
             )
             for m in movies
         ]
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.executemany("""
                 INSERT OR REPLACE INTO movie_repository
                 (tmdb_id, title, poster_url, overview, release_date,
@@ -823,7 +893,7 @@ class MovieCache:
     # --- Mood Classification Methods ---
     async def save_mood_classification(self, tmdb_id: int, mood_id: str):
         """Save a Claude-classified mood for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO mood_classifications
                    (tmdb_id, classified_mood, updated_at)
@@ -834,7 +904,7 @@ class MovieCache:
 
     async def get_mood_classification(self, tmdb_id: int) -> Optional[str]:
         """Get the classified mood for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT classified_mood FROM mood_classifications WHERE tmdb_id = ?",
                 (tmdb_id,)
@@ -844,7 +914,7 @@ class MovieCache:
 
     async def get_classified_movies_by_mood(self, mood_id: str, limit: int = 50) -> list:
         """Get tmdb_ids that are classified for a specific mood."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT tmdb_id FROM mood_classifications WHERE classified_mood = ? LIMIT ?",
                 (mood_id, limit)
@@ -854,7 +924,7 @@ class MovieCache:
 
     async def get_unclassified_movies(self, limit: int = 100) -> list:
         """Get movie IDs that haven't been classified yet."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute("""
                 SELECT r.tmdb_id, r.title, r.overview, r.genre_ids, r.vote_average, r.vote_count, r.release_date
                 FROM movie_repository r
@@ -875,7 +945,7 @@ class MovieCache:
 
     async def save_mood_scores(self, tmdb_id: int, mood_scores: dict, keywords: list = None):
         """Save AI-calculated mood scores for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO movie_attributes
                    (tmdb_id, keywords, mood_scores, updated_at)
@@ -887,7 +957,7 @@ class MovieCache:
 
     async def get_mood_scores(self, tmdb_id: int) -> Optional[dict]:
         """Get stored mood scores for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT mood_scores FROM movie_attributes WHERE tmdb_id = ?",
                 (tmdb_id,)
@@ -898,7 +968,7 @@ class MovieCache:
     # --- OMDb Ratings Cache ---
     async def save_omdb_rating(self, tmdb_id: int, imdb_rating: float):
         """Save or update OMDb IMDb rating for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO omdb_cache (tmdb_id, imdb_rating, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
                 (tmdb_id, imdb_rating)
@@ -907,7 +977,7 @@ class MovieCache:
 
     async def get_omdb_rating(self, tmdb_id: int) -> Optional[float]:
         """Get the cached OMDb IMDb rating for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute("SELECT imdb_rating FROM omdb_cache WHERE tmdb_id = ?", (tmdb_id,))
             row = await cursor.fetchone()
             return row[0] if row else None
@@ -916,7 +986,7 @@ class MovieCache:
 
     async def get_watch_providers(self, tmdb_id: int, region: str = "TR") -> Optional[dict]:
         """Get cached watch providers for a movie in a region."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT data FROM watch_provider_cache WHERE tmdb_id = ? AND region = ?",
                 (tmdb_id, region)
@@ -926,7 +996,7 @@ class MovieCache:
 
     async def save_watch_providers(self, tmdb_id: int, region: str, data: dict):
         """Save watch providers to cache."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO watch_provider_cache
                    (tmdb_id, region, data, updated_at)
@@ -940,7 +1010,7 @@ class MovieCache:
     async def get_user_movie_signals(self, user_id: int = 0) -> dict:
         """Collect a user's movie interaction signals for taste analysis."""
         signals = {}
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             # Watchlist (signal +1)
             cursor = await db.execute("SELECT tmdb_id FROM watchlist WHERE user_id = ?", (user_id,))
             for row in await cursor.fetchall():
@@ -982,7 +1052,7 @@ class MovieCache:
 
     async def get_mood_for_movie(self, tmdb_id: int) -> str:
         """Get classified mood for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT classified_mood FROM mood_classifications WHERE tmdb_id = ?",
                 (tmdb_id,)
@@ -992,7 +1062,7 @@ class MovieCache:
 
     async def save_movie_keywords(self, tmdb_id: int, keywords: list):
         """Save TMDB keywords for a movie into movie_attributes."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             # Try update existing row first
             cursor = await db.execute(
                 "SELECT tmdb_id FROM movie_attributes WHERE tmdb_id = ?", (tmdb_id,)
@@ -1013,7 +1083,7 @@ class MovieCache:
 
     async def get_movie_keywords(self, tmdb_id: int) -> list:
         """Get stored TMDB keywords for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT keywords FROM movie_attributes WHERE tmdb_id = ?", (tmdb_id,)
             )
@@ -1092,7 +1162,7 @@ class MovieCache:
     async def update_mood_scores_for_mood(self, mood_id: str):
         """Pre-compute mood_score for all movies in a mood. Runs once at startup/seed."""
         from backend.mood_scoring import classify_movie
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             # Fetch all movies + their keywords in one go
             cursor = await db.execute(
                 """SELECT r.tmdb_id, r.genre_ids, r.vote_average, r.vote_count,
@@ -1213,7 +1283,7 @@ class MovieCache:
 
     async def get_movies_without_keywords(self, mood_id: str = None, limit: int = 100) -> list:
         """Get movie IDs from repository that don't have keywords yet."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             if mood_id:
                 cursor = await db.execute("""
                     SELECT DISTINCT r.tmdb_id, r.title
@@ -1235,7 +1305,7 @@ class MovieCache:
 
     async def get_mood_scores_for_movie(self, tmdb_id: int) -> dict:
         """Get stored mood scores for a movie."""
-        async with aiosqlite.connect(self.db_path) as db:
+        async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT mood_scores FROM movie_attributes WHERE tmdb_id = ?",
                 (tmdb_id,)
