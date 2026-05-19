@@ -20,124 +20,362 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!-- ═══════════════════════════════════════════════════════════
-         SINEMOD SPLASH — CSS-only, zero-JS, paints on first frame.
-         Removed by SplashScreen.jsx once React router fires ready.
+         SINEMOD ENHANCED CINEMATIC GOLDEN FLOW
+         4-Phase ritual: Ignition → Trace → Bloom → Reveal
+         Pure CSS, zero JS, GPU-composited, first-frame paint.
+         Removed by SplashScreen.jsx handshake controller.
          ═══════════════════════════════════════════════════════════ -->
     <style id="sinemod-splash-styles">
-      /* All properties use transform/opacity for GPU compositing (60/120fps) */
+
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  FOUNDATION — Fixed overlay, pure black backdrop      ║
+         ╚═══════════════════════════════════════════════════════╝ */
       #sinemod-splash {
         position: fixed; inset: 0; z-index: 99999;
         background: #000;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
         overflow: hidden;
-        /* Fade-out controlled by .splash-exit class */
         opacity: 1;
-        transition: opacity 0.55s cubic-bezier(0.25,0.46,0.45,0.94);
-        will-change: opacity;
+        will-change: opacity, transform;
       }
+      /* Phase 4 exit: fade + scale up → reveal content behind */
       #sinemod-splash.splash-exit {
         opacity: 0;
+        transform: scale(1.05);
+        transition: opacity 0.5s cubic-bezier(0.25,0.46,0.45,0.94),
+                    transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94);
         pointer-events: none;
       }
 
-      /* ── Ambient halo ── */
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  PHASE 1 — IGNITION: Sparks at S-curve endpoints     ║
+         ║  Two golden sparks burst from bottom-left & top-right ║
+         ║  tips of the S, with lens flare + particle sprites    ║
+         ╚═══════════════════════════════════════════════════════╝ */
+
+      /* ── Spark at bottom-left tip (start of S) ── */
+      .sp-spark-bottom {
+        position: absolute;
+        /* Position at the bottom-left tip of S within logo bounds */
+        left: 28%; bottom: 32%;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #fffaf0;
+        box-shadow:
+          0 0 6px 3px rgba(255,250,240,0.95),
+          0 0 18px 8px rgba(255,200,100,0.7),
+          0 0 45px 18px rgba(255,160,50,0.4),
+          0 0 90px 40px rgba(255,130,20,0.15);
+        opacity: 0;
+        animation: spSparkIgnite 0.4s cubic-bezier(0.16,1,0.3,1) 0.1s forwards,
+                   spSparkFade 0.6s ease-out 0.7s forwards;
+        will-change: opacity, transform;
+        z-index: 10;
+      }
+
+      /* ── Spark at top-right tip (end of S) ── */
+      .sp-spark-top {
+        position: absolute;
+        right: 24%; top: 32%;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: #fffaf0;
+        box-shadow:
+          0 0 5px 2px rgba(255,250,240,0.9),
+          0 0 14px 6px rgba(255,200,100,0.6),
+          0 0 35px 14px rgba(255,160,50,0.35),
+          0 0 70px 30px rgba(255,130,20,0.12);
+        opacity: 0;
+        animation: spSparkIgnite 0.35s cubic-bezier(0.16,1,0.3,1) 0.2s forwards,
+                   spSparkFade 0.5s ease-out 0.8s forwards;
+        will-change: opacity, transform;
+        z-index: 10;
+      }
+
+      @keyframes spSparkIgnite {
+        0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.2); }
+        60%  { opacity: 1; transform: translate3d(0,0,0) scale(1.8); }
+        100% { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+      }
+      @keyframes spSparkFade {
+        0%   { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      /* ── Lens flare — elongated horizontal streak from bottom spark ── */
+      .sp-flare {
+        position: absolute;
+        left: 18%; bottom: 34%;
+        width: 90px; height: 3px;
+        background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(255,220,140,0.0) 15%,
+          rgba(255,220,140,0.7) 45%,
+          rgba(255,250,240,0.9) 50%,
+          rgba(255,220,140,0.7) 55%,
+          rgba(255,220,140,0.0) 85%,
+          transparent 100%);
+        border-radius: 2px;
+        opacity: 0;
+        animation: spFlareIn 0.5s ease-out 0.15s forwards,
+                   spFlareOut 0.4s ease-in 0.9s forwards;
+        will-change: opacity, transform;
+        z-index: 10;
+        filter: blur(1px);
+      }
+      @keyframes spFlareIn {
+        0%   { opacity: 0; transform: translate3d(0,0,0) scaleX(0.3); }
+        100% { opacity: 0.85; transform: translate3d(0,0,0) scaleX(1); }
+      }
+      @keyframes spFlareOut {
+        0%   { opacity: 0.85; }
+        100% { opacity: 0; }
+      }
+
+      /* ── Particle sprites — tiny golden dots bursting outward ── */
+      .sp-particles {
+        position: absolute;
+        left: 28%; bottom: 33%;
+        width: 0; height: 0;
+        z-index: 9;
+      }
+      .sp-particle {
+        position: absolute;
+        width: 3px; height: 3px;
+        border-radius: 50%;
+        background: rgba(255,200,100,0.9);
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+      /* 6 particles radiating outward at different angles */
+      .sp-particle:nth-child(1) { animation: spPart1 0.7s ease-out 0.15s forwards; }
+      .sp-particle:nth-child(2) { animation: spPart2 0.8s ease-out 0.2s forwards; }
+      .sp-particle:nth-child(3) { animation: spPart3 0.65s ease-out 0.18s forwards; }
+      .sp-particle:nth-child(4) { animation: spPart4 0.75s ease-out 0.22s forwards; }
+      .sp-particle:nth-child(5) { animation: spPart5 0.6s ease-out 0.25s forwards; }
+      .sp-particle:nth-child(6) { animation: spPart6 0.7s ease-out 0.12s forwards; }
+
+      @keyframes spPart1 {
+        0%   { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+        100% { opacity: 0; transform: translate3d(-25px,-18px,0) scale(0.3); }
+      }
+      @keyframes spPart2 {
+        0%   { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+        100% { opacity: 0; transform: translate3d(-30px,10px,0) scale(0.2); }
+      }
+      @keyframes spPart3 {
+        0%   { opacity: 0.9; transform: translate3d(0,0,0) scale(0.8); }
+        100% { opacity: 0; transform: translate3d(-12px,-28px,0) scale(0.2); }
+      }
+      @keyframes spPart4 {
+        0%   { opacity: 1; transform: translate3d(0,0,0) scale(1.2); }
+        100% { opacity: 0; transform: translate3d(15px,-20px,0) scale(0.1); }
+      }
+      @keyframes spPart5 {
+        0%   { opacity: 0.8; transform: translate3d(0,0,0) scale(0.6); }
+        100% { opacity: 0; transform: translate3d(-18px,22px,0) scale(0.15); }
+      }
+      @keyframes spPart6 {
+        0%   { opacity: 0.9; transform: translate3d(0,0,0) scale(0.9); }
+        100% { opacity: 0; transform: translate3d(8px,15px,0) scale(0.2); }
+      }
+
+      /* Top-right particles (smaller, delayed) */
+      .sp-particles-top {
+        position: absolute;
+        right: 25%; top: 33%;
+        width: 0; height: 0;
+        z-index: 9;
+      }
+      .sp-particles-top .sp-particle { width: 2px; height: 2px; }
+      .sp-particles-top .sp-particle:nth-child(1) { animation: spPartT1 0.6s ease-out 0.25s forwards; }
+      .sp-particles-top .sp-particle:nth-child(2) { animation: spPartT2 0.7s ease-out 0.3s forwards; }
+      .sp-particles-top .sp-particle:nth-child(3) { animation: spPartT3 0.55s ease-out 0.28s forwards; }
+      .sp-particles-top .sp-particle:nth-child(4) { animation: spPartT4 0.65s ease-out 0.32s forwards; }
+
+      @keyframes spPartT1 {
+        0%   { opacity: 1; transform: translate3d(0,0,0); }
+        100% { opacity: 0; transform: translate3d(22px,-14px,0); }
+      }
+      @keyframes spPartT2 {
+        0%   { opacity: 0.9; transform: translate3d(0,0,0); }
+        100% { opacity: 0; transform: translate3d(18px,12px,0); }
+      }
+      @keyframes spPartT3 {
+        0%   { opacity: 0.8; transform: translate3d(0,0,0); }
+        100% { opacity: 0; transform: translate3d(25px,5px,0); }
+      }
+      @keyframes spPartT4 {
+        0%   { opacity: 1; transform: translate3d(0,0,0); }
+        100% { opacity: 0; transform: translate3d(10px,-20px,0); }
+      }
+
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  AMBIENT HALO — warm gold atmosphere from center      ║
+         ╚═══════════════════════════════════════════════════════╝ */
       .sp-halo {
         position: absolute; inset: 0; pointer-events: none;
         background: radial-gradient(55% 40% at 50% 42%,
           rgba(255,168,50,0.0) 0%, transparent 70%);
-        animation: spHaloIn 1.8s cubic-bezier(0.16,1,0.3,1) forwards;
+        animation: spHaloIn 1.6s cubic-bezier(0.16,1,0.3,1) 0.3s forwards;
         will-change: opacity;
       }
       @keyframes spHaloIn {
         0%   { opacity: 0; }
         100% { opacity: 1; background: radial-gradient(55% 40% at 50% 42%,
-               rgba(255,168,50,0.18) 0%, rgba(255,130,20,0.04) 50%, transparent 70%); }
+               rgba(255,168,50,0.2) 0%, rgba(255,130,20,0.05) 50%, transparent 70%); }
       }
 
-      /* ── Logo container ── */
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  LOGO CONTAINER — entrance animation                  ║
+         ╚═══════════════════════════════════════════════════════╝ */
       .sp-logo-wrap {
         position: relative;
         width: min(58vmin, 300px); aspect-ratio: 1/1;
-        animation: spLogoIn 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
+        animation: spLogoIn 1.0s cubic-bezier(0.16,1,0.3,1) forwards;
         will-change: transform, opacity, filter;
       }
       @keyframes spLogoIn {
-        0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.82); filter: blur(18px); }
+        0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.85); filter: blur(14px); }
         100% { opacity: 1; transform: translate3d(0,0,0) scale(1);    filter: blur(0); }
       }
 
-      /* ── Ambient glow behind logo (pulsing) ── */
+      /* ── Ambient glow behind logo ── */
       .sp-glow {
         position: absolute; inset: -20%; border-radius: 50%;
-        background: radial-gradient(circle, rgba(255,155,50,0.28) 0%, transparent 65%);
+        background: radial-gradient(circle, rgba(255,155,50,0.25) 0%, transparent 65%);
         filter: blur(30px);
-        animation: spGlowPulse 3.2s ease-in-out 0.6s infinite;
-        will-change: transform, opacity;
+        opacity: 0;
+        animation: spGlowIn 1s ease-out 0.5s forwards;
+        will-change: opacity;
       }
-      @keyframes spGlowPulse {
-        0%,100% { opacity: 0.25; transform: translate3d(0,0,0) scale(1); }
-        50%     { opacity: 0.45; transform: translate3d(0,0,0) scale(1.06); }
+      @keyframes spGlowIn {
+        0%   { opacity: 0; }
+        100% { opacity: 0.4; }
       }
 
       /* ── PNG logo ── */
       .sp-logo-img {
         position: relative; width: 100%; height: 100%; display: block;
         border-radius: 21.5%;
-        filter: drop-shadow(0 14px 45px rgba(255,150,50,0.32))
-                drop-shadow(0 0 70px rgba(255,130,20,0.12));
+        filter: drop-shadow(0 14px 45px rgba(255,150,50,0.3))
+                drop-shadow(0 0 60px rgba(255,130,20,0.1));
       }
 
-      /* ── SVG light-trace overlay ── */
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  PHASE 2 — TRACE: Light flows outward from S tips     ║
+         ║  Two streams emerge from endpoints, trace the path,   ║
+         ║  meet in the middle with bright head / fading tail    ║
+         ╚═══════════════════════════════════════════════════════╝ */
       .sp-trace-svg {
         position: absolute; inset: 0; width: 100%; height: 100%;
         border-radius: 21.5%; overflow: hidden; pointer-events: none;
       }
 
-      /* S-path: total length ≈ 680. Dash = 680 → fully visible, offset starts at 680 */
-      .sp-trace-main {
-        stroke-dasharray: 680;
+      /*
+       * S-path total length ≈ 680.
+       *
+       * Stream A: flows from BOTTOM tip → upward (normal direction)
+       *   dasharray: 340 340 → shows half the path
+       *   offset: 680 → 340 (reveals first half from start)
+       *
+       * Stream B: flows from TOP tip → downward (reverse direction)
+       *   Same trick but on a reversed path
+       *
+       * Both meet at the center of the S curve.
+       */
+
+      /* Stream A — bottom to center (bright head, fading tail) */
+      .sp-trace-a {
+        stroke-dasharray: 340 340;
         stroke-dashoffset: 680;
-        animation: spTrace 1.2s cubic-bezier(0.4,0,0.2,1) 0.3s forwards;
+        animation: spTraceA 1.5s cubic-bezier(0.4,0,0.15,1) 0.3s forwards;
         will-change: stroke-dashoffset;
       }
-      @keyframes spTrace {
+      @keyframes spTraceA {
         0%   { stroke-dashoffset: 680; }
-        100% { stroke-dashoffset: 0; }
+        100% { stroke-dashoffset: 340; }
       }
 
-      /* After trace completes → continuous flowing light */
-      .sp-trace-flow1 {
-        stroke-dasharray: 140 540;
+      /* Stream A glow — softer, wider, slightly delayed */
+      .sp-trace-a-glow {
+        stroke-dasharray: 340 340;
         stroke-dashoffset: 680;
-        opacity: 0;
-        animation: spFlowDelay 0s 1.5s forwards, spFlow1 2.8s ease-in-out 1.5s infinite;
-        will-change: stroke-dashoffset, opacity;
-      }
-      @keyframes spFlowDelay { to { opacity: 0.7; } }
-      @keyframes spFlow1 {
-        0%   { stroke-dashoffset: 680; }
-        100% { stroke-dashoffset: -140; }
+        animation: spTraceA 1.5s cubic-bezier(0.4,0,0.15,1) 0.35s forwards;
+        will-change: stroke-dashoffset;
       }
 
-      .sp-trace-flow2 {
-        stroke-dasharray: 80 600;
+      /* Stream B — top to center (reversed path) */
+      .sp-trace-b {
+        stroke-dasharray: 340 340;
         stroke-dashoffset: 680;
-        opacity: 0;
-        animation: spFlowDelay2 0s 1.8s forwards, spFlow2 3.6s ease-in-out 1.8s infinite;
-        will-change: stroke-dashoffset, opacity;
+        animation: spTraceB 1.5s cubic-bezier(0.4,0,0.15,1) 0.35s forwards;
+        will-change: stroke-dashoffset;
       }
-      @keyframes spFlowDelay2 { to { opacity: 0.45; } }
-      @keyframes spFlow2 {
+      @keyframes spTraceB {
         0%   { stroke-dashoffset: 680; }
-        100% { stroke-dashoffset: -80; }
+        100% { stroke-dashoffset: 340; }
       }
 
-      /* ── Wordmark ── */
+      /* Stream B glow */
+      .sp-trace-b-glow {
+        stroke-dasharray: 340 340;
+        stroke-dashoffset: 680;
+        animation: spTraceB 1.5s cubic-bezier(0.4,0,0.15,1) 0.4s forwards;
+        will-change: stroke-dashoffset;
+      }
+
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  PHASE 3 — BLOOM: Shimmer pulse when paths meet       ║
+         ║  A radial golden flash blooms outward from center     ║
+         ╚═══════════════════════════════════════════════════════╝ */
+      .sp-bloom {
+        position: absolute;
+        inset: -10%;
+        border-radius: 50%;
+        background: radial-gradient(circle,
+          rgba(255,220,140,0.35) 0%,
+          rgba(255,180,60,0.15) 30%,
+          rgba(255,150,40,0.05) 55%,
+          transparent 70%);
+        opacity: 0;
+        transform: translate3d(0,0,0) scale(0.7);
+        /* Bloom fires at 1.8s (when both trace streams meet at center) */
+        animation: spBloom 0.8s cubic-bezier(0.16,1,0.3,1) 1.7s forwards;
+        will-change: opacity, transform;
+        pointer-events: none;
+        filter: blur(8px);
+      }
+      @keyframes spBloom {
+        0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.7); }
+        40%  { opacity: 1; transform: translate3d(0,0,0) scale(1.1); }
+        100% { opacity: 0; transform: translate3d(0,0,0) scale(1.25); }
+      }
+
+      /* Logo shimmer — brief brightness flash on bloom */
+      .sp-logo-img {
+        animation: spLogoShimmer 0.6s ease-out 1.75s both;
+      }
+      @keyframes spLogoShimmer {
+        0%   { filter: drop-shadow(0 14px 45px rgba(255,150,50,0.3))
+                       drop-shadow(0 0 60px rgba(255,130,20,0.1))
+                       brightness(1); }
+        40%  { filter: drop-shadow(0 14px 55px rgba(255,170,60,0.5))
+                       drop-shadow(0 0 80px rgba(255,150,30,0.25))
+                       brightness(1.15); }
+        100% { filter: drop-shadow(0 14px 45px rgba(255,150,50,0.3))
+                       drop-shadow(0 0 60px rgba(255,130,20,0.1))
+                       brightness(1); }
+      }
+
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  WORDMARK — "Sinemod" title + tagline                 ║
+         ╚═══════════════════════════════════════════════════════╝ */
       .sp-wordmark {
         margin-top: clamp(20px, 4.5vmin, 40px);
         text-align: center;
-        animation: spTextIn 0.9s cubic-bezier(0.16,1,0.3,1) 0.5s both;
+        animation: spTextIn 0.9s cubic-bezier(0.16,1,0.3,1) 0.6s both;
         will-change: transform, opacity;
       }
       @keyframes spTextIn {
@@ -156,10 +394,12 @@
         font-weight: 500; font-size: clamp(8px,1.8vmin,12px);
         letter-spacing: 0.38em; text-transform: uppercase;
         color: rgba(255,178,80,0.42);
-        animation: spTextIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.75s both;
+        animation: spTextIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.8s both;
       }
 
-      /* ── Pulsing dots ── */
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  PULSING DOTS — loading indicator at bottom           ║
+         ╚═══════════════════════════════════════════════════════╝ */
       .sp-dots {
         position: fixed; bottom: max(34px, calc(env(safe-area-inset-bottom,0px) + 22px));
         left: 50%; transform: translateX(-50%);
@@ -178,42 +418,120 @@
         0%,100% { opacity: 0.35; transform: scale(1); }
         50%     { opacity: 1;    transform: scale(1.45); }
       }
+
+      /* ╔═══════════════════════════════════════════════════════╗
+         ║  REDUCED MOTION — accessibility compliance            ║
+         ╚═══════════════════════════════════════════════════════╝ */
+      @media (prefers-reduced-motion: reduce) {
+        .sp-logo-wrap, .sp-halo, .sp-glow, .sp-wordmark, .sp-tagline,
+        .sp-dots, .sp-bloom, .sp-logo-img,
+        .sp-spark-bottom, .sp-spark-top, .sp-flare,
+        .sp-particle, .sp-dot {
+          animation: none !important;
+          opacity: 1 !important;
+          filter: none !important;
+          transform: none !important;
+        }
+        .sp-trace-a, .sp-trace-a-glow,
+        .sp-trace-b, .sp-trace-b-glow {
+          stroke-dashoffset: 0 !important;
+          animation: none !important;
+        }
+      }
     </style>
   </head>
 
   <body>
-    <!-- ═══ Instant Splash — renders before ANY JS ═══ -->
+    <!-- ═══ Enhanced Cinematic Golden Flow — renders before ANY JS ═══ -->
     <div id="sinemod-splash" aria-label="Sinemod yükleniyor" role="status">
       <div class="sp-halo"></div>
 
       <div class="sp-logo-wrap">
         <div class="sp-glow"></div>
+
+        <!-- Phase 1: Ignition sparks at S-curve endpoints -->
+        <div class="sp-spark-bottom"></div>
+        <div class="sp-spark-top"></div>
+        <div class="sp-flare"></div>
+
+        <!-- Bottom-left particle burst -->
+        <div class="sp-particles">
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+        </div>
+
+        <!-- Top-right particle burst -->
+        <div class="sp-particles-top">
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+          <span class="sp-particle"></span>
+        </div>
+
+        <!-- Phase 3: Bloom flash when trace streams meet -->
+        <div class="sp-bloom"></div>
+
         <img src="/sinemod-mark.png" alt="" class="sp-logo-img" draggable="false" />
 
-        <!-- SVG light-trace overlay on top of PNG -->
+        <!-- Phase 2: SVG light-trace — two streams emerge from S endpoints -->
         <svg class="sp-trace-svg" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <filter id="spBlur" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="4"/>
             </filter>
+            <filter id="spBlurWide" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="8"/>
+            </filter>
             <clipPath id="spClip"><rect width="512" height="512" rx="108"/></clipPath>
+
+            <!-- Gradient for head=bright / tail=fading on Stream A (bottom→center) -->
+            <linearGradient id="spGradA" x1="0" y1="1" x2="0.5" y2="0.5">
+              <stop offset="0%" stop-color="#FFFAF0" stop-opacity="0"/>
+              <stop offset="60%" stop-color="#FFFAF0" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#FFFAF0" stop-opacity="1"/>
+            </linearGradient>
+
+            <!-- Gradient for Stream B (top→center) -->
+            <linearGradient id="spGradB" x1="0.8" y1="0" x2="0.3" y2="0.6">
+              <stop offset="0%" stop-color="#FFFAF0" stop-opacity="0"/>
+              <stop offset="60%" stop-color="#FFFAF0" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#FFFAF0" stop-opacity="1"/>
+            </linearGradient>
           </defs>
+
           <g clip-path="url(#spClip)">
-            <!-- 1) One-shot trace: light draws the S path -->
-            <path class="sp-trace-main"
+            <!--
+              S path: M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56
+              Reversed: M 366 56 C 478 118, 420 218, 230 244 C 40 270, 40 392, 168 454
+            -->
+
+            <!-- Stream A: bottom-left → center (normal path direction) -->
+            <!-- Glow layer (wider, softer) -->
+            <path class="sp-trace-a-glow"
                   d="M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56"
-                  stroke="#FFFAF0" stroke-width="16" fill="none" stroke-linecap="round"
-                  opacity="0.75" filter="url(#spBlur)"/>
-            <!-- 2) Continuous flow streak 1 -->
-            <path class="sp-trace-flow1"
+                  stroke="url(#spGradA)" stroke-width="28" fill="none" stroke-linecap="round"
+                  opacity="0.3" filter="url(#spBlurWide)"/>
+            <!-- Core layer (bright, thin) -->
+            <path class="sp-trace-a"
                   d="M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56"
-                  stroke="#FFFAF2" stroke-width="18" fill="none" stroke-linecap="round"
-                  filter="url(#spBlur)"/>
-            <!-- 3) Continuous flow streak 2 (softer, offset) -->
-            <path class="sp-trace-flow2"
-                  d="M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56"
-                  stroke="#FFE0A0" stroke-width="10" fill="none" stroke-linecap="round"
-                  filter="url(#spBlur)"/>
+                  stroke="url(#spGradA)" stroke-width="12" fill="none" stroke-linecap="round"
+                  opacity="0.85" filter="url(#spBlur)"/>
+
+            <!-- Stream B: top-right → center (reversed path direction) -->
+            <!-- Glow layer -->
+            <path class="sp-trace-b-glow"
+                  d="M 366 56 C 478 118, 420 218, 230 244 C 40 270, 40 392, 168 454"
+                  stroke="url(#spGradB)" stroke-width="28" fill="none" stroke-linecap="round"
+                  opacity="0.3" filter="url(#spBlurWide)"/>
+            <!-- Core layer -->
+            <path class="sp-trace-b"
+                  d="M 366 56 C 478 118, 420 218, 230 244 C 40 270, 40 392, 168 454"
+                  stroke="url(#spGradB)" stroke-width="12" fill="none" stroke-linecap="round"
+                  opacity="0.85" filter="url(#spBlur)"/>
           </g>
         </svg>
       </div>

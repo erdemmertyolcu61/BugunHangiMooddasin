@@ -17,9 +17,9 @@ import { useEffect, useRef } from 'react';
  *   4. On repeat visits within the same session, splash is removed instantly
  */
 
-const SPLASH_KEY = 'sinemod_splash_seen_v1';
-const MIN_DISPLAY_MS = 2400;   // let CSS animations play (trace + entrance ≈ 1.5s + breathing room)
-const FADE_OUT_MS   = 600;     // matches .splash-exit transition duration
+const SPLASH_KEY = 'sinemod_splash_seen_v2';
+const MIN_DISPLAY_MS = 2200;   // Golden Ritual: ignition(0.4) + trace(1.5) + bloom(0.3) = 2.2s
+const FADE_OUT_MS   = 550;     // matches .splash-exit transition (opacity + scale)
 
 function dismissSplash(immediate = false) {
   const el = document.getElementById('sinemod-splash');
