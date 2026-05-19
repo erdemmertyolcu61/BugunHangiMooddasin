@@ -45,16 +45,16 @@ class _TursoConn:
         self._conn = conn
 
     async def execute(self, sql, params=()):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         cur  = await loop.run_in_executor(None, self._conn.execute, sql, params)
         return _TursoCursor(cur, loop)
 
     async def executemany(self, sql, params_list):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conn.executemany, sql, params_list)
 
     async def commit(self):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conn.commit)
 
 
@@ -83,7 +83,7 @@ class MovieCache:
             import logging as _log
             _logger = _log.getLogger(__name__)
             _logger.info("[DB] Turso embedded-replica bağlanıyor: %s", _TURSO_URL)
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             conn = await loop.run_in_executor(
                 None,
                 lambda: _libsql.connect(
