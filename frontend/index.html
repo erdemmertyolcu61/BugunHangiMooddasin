@@ -2,14 +2,14 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/sinemod-mark.svg" />
-    <link rel="apple-touch-icon" href="/sinemod-mark.svg" />
+    <link rel="icon" type="image/png" href="/sinemod-mark.png" />
+    <link rel="apple-touch-icon" href="/sinemod-mark.png" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0"
     />
     <meta name="description" content="Yapay zeka destekli film keşif platformu. Ruh haline göre film önerileri, Üstad'ın notları ve sinematik keşif." />
-    <meta name="theme-color" content="#0a0606" />
+    <meta name="theme-color" content="#000000" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,8 +18,218 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Sinemod — Bugün Hangi Mooddasın?</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SINEMOD SPLASH — CSS-only, zero-JS, paints on first frame.
+         Removed by SplashScreen.jsx once React router fires ready.
+         ═══════════════════════════════════════════════════════════ -->
+    <style id="sinemod-splash-styles">
+      /* All properties use transform/opacity for GPU compositing (60/120fps) */
+      #sinemod-splash {
+        position: fixed; inset: 0; z-index: 99999;
+        background: #000;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        overflow: hidden;
+        /* Fade-out controlled by .splash-exit class */
+        opacity: 1;
+        transition: opacity 0.55s cubic-bezier(0.25,0.46,0.45,0.94);
+        will-change: opacity;
+      }
+      #sinemod-splash.splash-exit {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* ── Ambient halo ── */
+      .sp-halo {
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(55% 40% at 50% 42%,
+          rgba(255,168,50,0.0) 0%, transparent 70%);
+        animation: spHaloIn 1.8s cubic-bezier(0.16,1,0.3,1) forwards;
+        will-change: opacity;
+      }
+      @keyframes spHaloIn {
+        0%   { opacity: 0; }
+        100% { opacity: 1; background: radial-gradient(55% 40% at 50% 42%,
+               rgba(255,168,50,0.18) 0%, rgba(255,130,20,0.04) 50%, transparent 70%); }
+      }
+
+      /* ── Logo container ── */
+      .sp-logo-wrap {
+        position: relative;
+        width: min(58vmin, 300px); aspect-ratio: 1/1;
+        animation: spLogoIn 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
+        will-change: transform, opacity, filter;
+      }
+      @keyframes spLogoIn {
+        0%   { opacity: 0; transform: translate3d(0,0,0) scale(0.82); filter: blur(18px); }
+        100% { opacity: 1; transform: translate3d(0,0,0) scale(1);    filter: blur(0); }
+      }
+
+      /* ── Ambient glow behind logo (pulsing) ── */
+      .sp-glow {
+        position: absolute; inset: -20%; border-radius: 50%;
+        background: radial-gradient(circle, rgba(255,155,50,0.28) 0%, transparent 65%);
+        filter: blur(30px);
+        animation: spGlowPulse 3.2s ease-in-out 0.6s infinite;
+        will-change: transform, opacity;
+      }
+      @keyframes spGlowPulse {
+        0%,100% { opacity: 0.25; transform: translate3d(0,0,0) scale(1); }
+        50%     { opacity: 0.45; transform: translate3d(0,0,0) scale(1.06); }
+      }
+
+      /* ── PNG logo ── */
+      .sp-logo-img {
+        position: relative; width: 100%; height: 100%; display: block;
+        border-radius: 21.5%;
+        filter: drop-shadow(0 14px 45px rgba(255,150,50,0.32))
+                drop-shadow(0 0 70px rgba(255,130,20,0.12));
+      }
+
+      /* ── SVG light-trace overlay ── */
+      .sp-trace-svg {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        border-radius: 21.5%; overflow: hidden; pointer-events: none;
+      }
+
+      /* S-path: total length ≈ 680. Dash = 680 → fully visible, offset starts at 680 */
+      .sp-trace-main {
+        stroke-dasharray: 680;
+        stroke-dashoffset: 680;
+        animation: spTrace 1.2s cubic-bezier(0.4,0,0.2,1) 0.3s forwards;
+        will-change: stroke-dashoffset;
+      }
+      @keyframes spTrace {
+        0%   { stroke-dashoffset: 680; }
+        100% { stroke-dashoffset: 0; }
+      }
+
+      /* After trace completes → continuous flowing light */
+      .sp-trace-flow1 {
+        stroke-dasharray: 140 540;
+        stroke-dashoffset: 680;
+        opacity: 0;
+        animation: spFlowDelay 0s 1.5s forwards, spFlow1 2.8s ease-in-out 1.5s infinite;
+        will-change: stroke-dashoffset, opacity;
+      }
+      @keyframes spFlowDelay { to { opacity: 0.7; } }
+      @keyframes spFlow1 {
+        0%   { stroke-dashoffset: 680; }
+        100% { stroke-dashoffset: -140; }
+      }
+
+      .sp-trace-flow2 {
+        stroke-dasharray: 80 600;
+        stroke-dashoffset: 680;
+        opacity: 0;
+        animation: spFlowDelay2 0s 1.8s forwards, spFlow2 3.6s ease-in-out 1.8s infinite;
+        will-change: stroke-dashoffset, opacity;
+      }
+      @keyframes spFlowDelay2 { to { opacity: 0.45; } }
+      @keyframes spFlow2 {
+        0%   { stroke-dashoffset: 680; }
+        100% { stroke-dashoffset: -80; }
+      }
+
+      /* ── Wordmark ── */
+      .sp-wordmark {
+        margin-top: clamp(20px, 4.5vmin, 40px);
+        text-align: center;
+        animation: spTextIn 0.9s cubic-bezier(0.16,1,0.3,1) 0.5s both;
+        will-change: transform, opacity;
+      }
+      @keyframes spTextIn {
+        0%   { opacity: 0; transform: translate3d(0,10px,0); }
+        100% { opacity: 1; transform: translate3d(0,0,0); }
+      }
+      .sp-title {
+        font-family: 'Playfair Display','Cormorant Garamond',serif;
+        font-weight: 600; font-size: clamp(28px,5.5vmin,52px);
+        color: #f3e9d2; letter-spacing: -0.012em; line-height: 1;
+        text-shadow: 0 0 26px rgba(255,178,80,0.16);
+      }
+      .sp-tagline {
+        margin-top: clamp(7px,1.8vmin,14px);
+        font-family: 'Montserrat','Inter',system-ui,sans-serif;
+        font-weight: 500; font-size: clamp(8px,1.8vmin,12px);
+        letter-spacing: 0.38em; text-transform: uppercase;
+        color: rgba(255,178,80,0.42);
+        animation: spTextIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.75s both;
+      }
+
+      /* ── Pulsing dots ── */
+      .sp-dots {
+        position: fixed; bottom: max(34px, calc(env(safe-area-inset-bottom,0px) + 22px));
+        left: 50%; transform: translateX(-50%);
+        display: flex; gap: 6px;
+        animation: spTextIn 0.6s ease-out 1.0s both;
+      }
+      .sp-dot {
+        width: 5px; height: 5px; border-radius: 50%;
+        background: rgba(255,178,80,0.30);
+        animation: spDotPulse 1.5s ease-in-out infinite;
+      }
+      .sp-dot:first-child { background: rgba(255,200,120,0.85); }
+      .sp-dot:nth-child(2) { animation-delay: 0.3s; }
+      .sp-dot:nth-child(3) { animation-delay: 0.6s; }
+      @keyframes spDotPulse {
+        0%,100% { opacity: 0.35; transform: scale(1); }
+        50%     { opacity: 1;    transform: scale(1.45); }
+      }
+    </style>
   </head>
+
   <body>
+    <!-- ═══ Instant Splash — renders before ANY JS ═══ -->
+    <div id="sinemod-splash" aria-label="Sinemod yükleniyor" role="status">
+      <div class="sp-halo"></div>
+
+      <div class="sp-logo-wrap">
+        <div class="sp-glow"></div>
+        <img src="/sinemod-mark.png" alt="" class="sp-logo-img" draggable="false" />
+
+        <!-- SVG light-trace overlay on top of PNG -->
+        <svg class="sp-trace-svg" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="spBlur" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="4"/>
+            </filter>
+            <clipPath id="spClip"><rect width="512" height="512" rx="108"/></clipPath>
+          </defs>
+          <g clip-path="url(#spClip)">
+            <!-- 1) One-shot trace: light draws the S path -->
+            <path class="sp-trace-main"
+                  d="M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56"
+                  stroke="#FFFAF0" stroke-width="16" fill="none" stroke-linecap="round"
+                  opacity="0.75" filter="url(#spBlur)"/>
+            <!-- 2) Continuous flow streak 1 -->
+            <path class="sp-trace-flow1"
+                  d="M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56"
+                  stroke="#FFFAF2" stroke-width="18" fill="none" stroke-linecap="round"
+                  filter="url(#spBlur)"/>
+            <!-- 3) Continuous flow streak 2 (softer, offset) -->
+            <path class="sp-trace-flow2"
+                  d="M 168 454 C 40 392, 40 270, 230 244 C 420 218, 478 118, 366 56"
+                  stroke="#FFE0A0" stroke-width="10" fill="none" stroke-linecap="round"
+                  filter="url(#spBlur)"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="sp-wordmark">
+        <div class="sp-title">Sinemod</div>
+        <div class="sp-tagline">Bugün hangi mooddasın?</div>
+      </div>
+
+      <div class="sp-dots">
+        <span class="sp-dot"></span>
+        <span class="sp-dot"></span>
+        <span class="sp-dot"></span>
+      </div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -9,10 +9,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'audio/*.mp3'],
+      includeAssets: ['sinemod-mark.png', 'audio/*.mp3'],
       manifest: false, // public/manifest.json'u kullan
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,avif,webp}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
@@ -59,6 +59,51 @@ export default defineConfig({
       },
     }),
   ],
+
+  // ═══════════════════════════════════════════════════════════
+  // PRODUCTION BUILD OPTIMIZATION
+  // ═══════════════════════════════════════════════════════════
+  build: {
+    // Target modern browsers — enables native async/await, optional chaining,
+    // nullish coalescing without polyfills. Smaller bundle.
+    target: ['es2020', 'chrome87', 'firefox78', 'safari14', 'edge88'],
+
+    // Enable minification (Vite 8 uses oxc by default)
+    minify: true,
+
+    // Source maps only in development
+    sourcemap: false,
+
+    // Chunk splitting strategy for optimal caching
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/react-router')) {
+            return 'vendor-router';
+          }
+          if (id.includes('node_modules/framer-motion')) {
+            return 'vendor-motion';
+          }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
+        },
+      },
+    },
+
+    // Asset inlining threshold — inline small assets to reduce HTTP requests
+    assetsInlineLimit: 4096, // 4KB
+
+    // Chunk size warning
+    chunkSizeWarningLimit: 500,
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // DEV SERVER
+  // ═══════════════════════════════════════════════════════════
   server: {
     port: 3005,
     proxy: {

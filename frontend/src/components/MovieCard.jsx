@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, BookmarkPlus, Check, Eye, Star } from 'lucide-react';
 import { proxyImageUrl } from '../services/api';
+import OptimizedImage from './OptimizedImage';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
 
@@ -24,12 +25,13 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
     <div className="group cursor-pointer relative" onClick={() => onAnalyze(movie)}>
       <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
         {movie.poster_url || movie.poster_path
-          ? <img
-              src={proxyImageUrl(movie.poster_url || `${IMG_BASE}${movie.poster_path}`)}
-              className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
-              loading="lazy"
-              decoding="async"
+          ? <OptimizedImage
+              src={movie.poster_url || `${IMG_BASE}${movie.poster_path}`}
               alt={movie.title}
+              fallbackTitle={movie.title}
+              aspect="poster"
+              size="md"
+              className="w-full h-full transition-transform duration-700 md:group-hover:scale-105"
             />
           : <div className="artistic-fallback w-full h-full p-12">
               <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>

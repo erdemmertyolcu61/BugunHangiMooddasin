@@ -4,6 +4,7 @@ import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, streamConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
+import OptimizedImage from '../components/OptimizedImage';
 import { playMoodAudio } from '../utils/moodAudioManager';
 
 const SUGGESTIONS = [
@@ -410,7 +411,7 @@ export default function KafanMiKarisik() {
                       <motion.div
                         key={movie.id}
                         layout
-                        className={`rounded-[2rem] border overflow-hidden group transition-all cursor-pointer ${
+                        className={`movie-grid-item rounded-[2rem] border overflow-hidden group transition-all cursor-pointer ${
                           movie.is_primary_match
                             ? 'bg-amber-500/[0.08] border-amber/30 ring-1 ring-amber/20'
                             : 'bg-white/8 border-white/10 hover:border-amber/35'
@@ -418,12 +419,13 @@ export default function KafanMiKarisik() {
                         onClick={() => navigate(`/discover?analyze=${movie.id}`)}
                       >
                         <div className="aspect-[2/3] relative overflow-hidden">
-                          <img
-                            src={proxyImageUrl(movie.poster_url)}
+                          <OptimizedImage
+                            src={movie.poster_url}
                             alt={movie.title}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
+                            fallbackTitle={movie.title}
+                            aspect="poster"
+                            size="md"
+                            className="w-full h-full"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 

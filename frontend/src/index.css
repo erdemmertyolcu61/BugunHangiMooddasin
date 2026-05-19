@@ -325,3 +325,200 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   background: #ffbf00;
   cursor: pointer;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   CROSS-PLATFORM PERFORMANCE ARCHITECTURE
+   Hardware-accelerated utilities, cross-browser fixes, memory guards
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. OptimizedImage shimmer skeleton ─────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── 2. Hardware-Accelerated Ambient Glow System ────────────────── *
+ *  GPU-composited glow layers for the gold theme.
+ *  Uses radial-gradient on a pseudo-element promoted to its own
+ *  compositor layer — zero paint cost after initial rasterization.
+ *  Cross-browser: Blink (Chrome/Edge), WebKit (Safari), Gecko (Firefox).
+ */
+.ambient-glow {
+  position: relative;
+  isolation: isolate; /* new stacking context, prevents bleed */
+}
+.ambient-glow::after {
+  content: '';
+  position: absolute;
+  inset: -15%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 155, 50, 0.25) 0%,
+    rgba(255, 130, 20, 0.08) 40%,
+    transparent 70%
+  );
+  /* GPU layer promotion — same compositor trick across engines */
+  transform: translate3d(0, 0, 0);
+  will-change: opacity;
+  pointer-events: none;
+  /* WebKit bug: filter on promoted layer sometimes flickers on scroll.
+     Using opacity animation instead of filter for glow pulsing. */
+}
+
+/* Pulsing variant (for logo, featured cards) */
+.ambient-glow-pulse::after {
+  animation: ambientPulse 3.5s ease-in-out infinite;
+}
+@keyframes ambientPulse {
+  0%, 100% { opacity: 0.6; transform: translate3d(0,0,0) scale(1); }
+  50%      { opacity: 1;   transform: translate3d(0,0,0) scale(1.04); }
+}
+
+/* Static variant (for poster cards — no animation cost) */
+.ambient-glow-static::after {
+  opacity: 0.5;
+  transform: translate3d(0, 0, 0);
+  will-change: auto; /* no ongoing animation, release hint */
+}
+
+/* ── 3. Poster Container — locked aspect, GPU-composited hover ─── */
+.poster-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  /* GPU layer for smooth hover scale */
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  /* Contain paint — browser can skip repainting parent on child changes */
+  contain: layout style paint;
+}
+.poster-container:hover {
+  transform: translate3d(0, -4px, 0) scale(1.02);
+}
+/* Inner image uses its own layer for scale-on-hover */
+.poster-container > img {
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: auto; /* only promote during interaction */
+}
+.poster-container:hover > img {
+  transform: translate3d(0, 0, 0) scale(1.05);
+  will-change: transform;
+}
+
+/* ── 4. Safari / WebKit Cross-Browser Fixes ─────────────────────── */
+
+/* Safari struggles with backdrop-filter during scroll on promoted layers.
+   Force GPU compositing with explicit hint + vendor prefix. */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .backdrop-blur-md,
+  [class*="backdrop-blur-"] {
+    -webkit-backdrop-filter: var(--tw-backdrop-blur);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Firefox: backdrop-filter needs explicit support check.
+   Fallback to semi-opaque background when unsupported. */
+@supports not (backdrop-filter: blur(1px)) {
+  .backdrop-blur-md,
+  [class*="backdrop-blur-"] {
+    background-color: rgba(10, 8, 7, 0.92) !important;
+  }
+}
+
+/* ── 5. 120Hz ProMotion / High Refresh Rate Support ─────────────── *
+ *  By default CSS transitions are 60fps. On capable devices
+ *  (iPad Pro, iPhone 14+, flagship Android with 120Hz),
+ *  ensure animations run at native refresh rate.
+ *  The key: avoid layout-triggering properties (width, height, top, left),
+ *  use only compositor properties (transform, opacity).
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* Smooth scroll at native refresh rate */
+  html {
+    scroll-behavior: smooth;
+  }
+  /* Framer Motion elements: ensure hardware layer during animation */
+  [style*="will-change: transform"] {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .ambient-glow-pulse::after {
+    animation: none;
+  }
+}
+
+/* ── 6. Mobile Memory & Paint Guards ────────────────────────────── */
+@media (max-width: 767px) {
+  /* Disable continuous ambient animations on mobile.
+     Static glow is enough — saves GPU compositing budget. */
+  .ambient-glow-pulse::after {
+    animation: none;
+    opacity: 0.5;
+  }
+
+  /* Disable hover transforms on touch (prevents sticky hover states) */
+  .poster-container:hover {
+    transform: none;
+  }
+  .poster-container:hover > img {
+    transform: none;
+  }
+
+  /* Tighter containment on grid items for mobile scroll perf */
+  .poster-container {
+    contain: layout style paint size;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 200px 300px;
+  }
+}
+
+/* ── 7. Content Visibility — Offscreen Grid Items ───────────────── *
+ *  For long scrolling movie grids: items far below the viewport
+ *  skip rendering entirely. Browser auto-sizes the placeholder.
+ *  Massive scroll perf gain on mobile with 100+ poster cards.
+ */
+.movie-grid-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px 420px; /* estimated card dimensions */
+}
+
+/* ── 8. Safe Area Insets — Dynamic Island / Notch / Home Bar ────── *
+ *  Already defined as utilities (.pt-safe, .pb-safe, etc.)
+ *  Additional: full-bleed fixed elements must account for ALL insets.
+ */
+.safe-area-padded {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ── 9. Image Rendering Hints ───────────────────────────────────── */
+/* Poster images: smooth downscaling for crisp thumbnails */
+.optimized-image-container img {
+  image-rendering: auto;
+  /* Prevents iOS Safari from auto-darkening images in dark mode */
+  -webkit-color-scheme: dark;
+}
+
+/* ── 10. Touch Scroll Performance ───────────────────────────────── */
+/* Momentum scrolling on iOS + passive touch for Android */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}

@@ -1,26 +1,26 @@
 {
-  "name": "Film Eleştirmeni — Bugün Hangi Mooddasın?",
-  "short_name": "Film Eleştirmeni",
-  "description": "Ruh haline göre yapay zeka destekli film keşif platformu.",
+  "name": "Sinemod — Bugün Hangi Mooddasın?",
+  "short_name": "Sinemod",
+  "description": "Yapay zeka destekli film keşif platformu. Ruh haline göre film önerileri.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#120d0b",
-  "theme_color": "#120d0b",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "lang": "tr",
   "categories": ["entertainment", "lifestyle"],
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/sinemod-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/sinemod-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
