@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 import asyncio
 import aiosqlite
 from backend.database import cache, _get_connection as _db_conn
+from backend.services.streaming_links import build_streaming_availability
 from backend.services.tmdb_service import tmdb_service
 from backend.services.omdb_service import omdb_service
 from backend.services.claude_service import claude_service
@@ -1442,6 +1443,11 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
                 cached_data["watch_providers"] = wp
             except Exception:
                 cached_data["watch_providers"] = {"region": "TR", "link": None, "flatrate": [], "rent": [], "buy": [], "free": [], "ads": []}
+        cached_data["streaming_availability"] = build_streaming_availability(
+            cached_data.get("watch_providers"),
+            cached_data.get("title"),
+            cached_data.get("release_date"),
+        )
         return cached_data
 
     # 2. Fetch movie details from TMDB
@@ -1506,6 +1512,11 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
     except Exception as e:
         logger.warning(f"Watch providers unavailable for {movie_id}: {e}")
         enriched["watch_providers"] = {"region": "TR", "link": None, "flatrate": [], "rent": [], "buy": [], "free": [], "ads": []}
+    enriched["streaming_availability"] = build_streaming_availability(
+        enriched.get("watch_providers"),
+        enriched.get("title"),
+        enriched.get("release_date"),
+    )
 
     # 9. Cache result
     await cache.save_movie(movie_id, details["title"], enriched)
@@ -1575,13 +1586,26 @@ async def get_movie_watch_providers_endpoint(
 ):
     """Get watch providers for a movie in a specific region."""
     try:
+        # Film adı (deep-link için) — cache'deki analizden, ekstra TMDB çağrısı yok
+        _m = await cache.get_movie(movie_id)
+        _title = (_m or {}).get("title")
+        _rdate = (_m or {}).get("release_date")
+
         cached = await cache.get_watch_providers(movie_id, region)
         if cached:
-            return {"movie_id": movie_id, "watch_providers": cached}
+            return {
+                "movie_id": movie_id,
+                "watch_providers": cached,
+                "streaming_availability": build_streaming_availability(cached, _title, _rdate),
+            }
 
         providers = await tmdb_service.get_movie_watch_providers(movie_id, region=region)
         await cache.save_watch_providers(movie_id, region, providers)
-        return {"movie_id": movie_id, "watch_providers": providers}
+        return {
+            "movie_id": movie_id,
+            "watch_providers": providers,
+            "streaming_availability": build_streaming_availability(providers, _title, _rdate),
+        }
     except Exception as e:
         logger.error(f"Watch providers error for {movie_id}: {e}")
         return {
