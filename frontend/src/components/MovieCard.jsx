@@ -16,6 +16,7 @@ export default function MovieCard({ movie, onClick, width = 220 }) {
             src={movie.poster_url}
             alt={movie.title}
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
