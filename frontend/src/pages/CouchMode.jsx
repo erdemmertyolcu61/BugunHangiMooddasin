@@ -23,9 +23,10 @@ export default function CouchMode() {
     selectMood:        socketSelectMood,
     leaveRoom:         socketLeaveRoom,
     syncRoomMoodView,
-    startSharedSession,   // [FIX] replaces useSinemoodSocket's launchSharedSession
-    systemNotification,   // [NEW] "X kişisi odaya katıldı!" — 4s banner
-    mirroredAction,       // [NEW] Host hover/selection mirror for Guests
+    startSharedSession,     // emits host_start_session_signal
+    systemNotification,     // "X kişisi odaya katıldı!" — 4s banner
+    mirroredAction,         // Host hover/selection mirror for Guests
+    sendHostInteraction,    // broadcasts mood_hover etc. to Guests
   } = useSocket();
 
   const [phase, setPhase] = useState(PHASES.ENTRY);
@@ -75,7 +76,12 @@ export default function CouchMode() {
     }
   }, [activeMoodId, roomCode]);
 
-  const connectedUserCount = roomPresence?.connectedUsers?.length || 0;
+  // Use maximum of socket presence OR REST API member count — whichever is higher.
+  // This ensures the start button appears even if socket hasn't delivered presence yet.
+  const connectedUserCount = Math.max(
+    roomPresence?.connectedUsers?.length || 0,
+    (roomData?.members || []).length,
+  );
 
   // ── Auth guard (tüm hook'lardan sonra, render'dan önce) ──
   if (!user) {
@@ -379,12 +385,17 @@ export default function CouchMode() {
                 </div>
               </div>
 
-              {/* [FIX] Use connectedUserCount from live socket presence, not stale REST data */}
               {connectedUserCount >= 2 && (
                 (isHost || roomData?.is_host) ? (
                   <div className="text-center mt-6 max-w-sm mx-auto">
                     <button
-                      onClick={() => startSharedSession(roomCode)}
+                      onClick={() => {
+                        // Socket path: both users navigate to /moodlar simultaneously
+                        startSharedSession(roomCode);
+                        // Fallback: if socket fails (no redirect received after 1.5s),
+                        // advance to mood select within CouchMode so Host isn't stuck
+                        setTimeout(() => setPhase(PHASES.MOOD_SELECT), 1500);
+                      }}
                       className="couch-btn-accent w-full py-4 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:scale-[1.02] transition-all"
                     >
                       Seansı Başlat & Mood Seçimine Geç
@@ -414,7 +425,7 @@ export default function CouchMode() {
                   Bu Gece Ne Mood'dasınız?
                 </h2>
                 <p className="couch-muted text-xs font-serif font-light">
-                  {roomData?.is_host ? 'Mood seçimi sende — bilgece seç.' : 'Ev sahibi mood seçecek...'}
+                  {(isHost || roomData?.is_host) ? 'Mood seçimi sende — bilgece seç.' : 'Ev sahibi mood seçecek...'}
                 </p>
                 <div className="flex justify-center gap-2 mt-4">
                   {(roomData?.members || []).map((m) => (

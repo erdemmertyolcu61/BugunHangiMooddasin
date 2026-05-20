@@ -207,8 +207,10 @@ export function SocketProvider({ children }) {
     currentUserNameRef.current = userName || 'Sinemasever';
     setRoomId(rId);
     localStorage.setItem('activeRoomId', rId);
-    // Emit the canonical new event name; backend handles legacy alias too
-    socketRef.current?.emit('join_sinemood_session', {
+    // Use OLD event name for maximum backward compat during rolling deploys.
+    // New backend handles both join_sinemod_session AND join_sinemood_session.
+    // Old backend ONLY knows join_sinemod_session.
+    socketRef.current?.emit('join_sinemod_session', {
       roomId:   rId,
       userId,
       userName: userName || 'Sinemasever',
@@ -221,7 +223,7 @@ export function SocketProvider({ children }) {
     setMirroredAction(null);
     setSystemNotification('');
     localStorage.removeItem('activeRoomId');
-    socketRef.current?.emit('leave_sinemood_session', { roomId: rId, userId });
+    socketRef.current?.emit('leave_sinemod_session', { roomId: rId, userId });
   }, []);
 
   const selectMood = useCallback((rId, moodId) => {
