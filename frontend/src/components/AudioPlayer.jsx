@@ -78,9 +78,9 @@ export default function AudioPlayer() {
 
   if (!selectedMood || location.pathname === '/kafan-mi-karisik') return null;
 
-  // ═══════════════ MOBİL: dikey ses barı ═══════════════
+  // ═══════════════ MOBİL: plak (web'dekiyle aynı, sadece mute) ═══════════════
   if (isTouchOnly) {
-    return <MobileVolumeBar volume={volume} muted={muted} isPlaying={isPlaying} onChange={handleVolume} onToggleMute={toggleMute} />;
+    return <MobileVinyl muted={muted} isPlaying={isPlaying} volume={volume} mood={selectedMood} onToggleMute={toggleMute} />;
   }
 
   // ═══════════════ MASAÜSTÜ: plak + panel ═══════════════
@@ -221,102 +221,41 @@ export default function AudioPlayer() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MOBİL: Dikey Ses Barı — saf, sade, hızlı
+   MOBİL: Plak (web'dekiyle aynı tasarım, sadece mute)
+   Telefon ses tuşları donanımsal çalışır, gesture volume yok.
    ═══════════════════════════════════════════════════════════════ */
-function MobileVolumeBar({ volume, muted, isPlaying, onChange, onToggleMute }) {
-  const barRef = useRef(null);
-  const [dragging, setDragging] = useState(false);
-
-  const getVolFromY = useCallback((clientY) => {
-    if (!barRef.current) return volume;
-    const rect = barRef.current.getBoundingClientRect();
-    const y = clientY - rect.top;
-    return 1 - Math.max(0, Math.min(1, y / rect.height));
-  }, [volume]);
-
-  const handlePointerDown = useCallback((e) => {
-    e.preventDefault();
-    setDragging(true);
-    const vol = getVolFromY(e.clientY);
-    onChange(vol);
-    try { barRef.current?.setPointerCapture(e.pointerId); } catch {}
-  }, [getVolFromY, onChange]);
-
-  const handlePointerMove = useCallback((e) => {
-    if (!dragging) return;
-    e.preventDefault();
-    const vol = getVolFromY(e.clientY);
-    onChange(vol);
-  }, [dragging, getVolFromY, onChange]);
-
-  const handlePointerUp = useCallback(() => {
-    setDragging(false);
-  }, []);
-
-  const fillPercent = muted ? 0 : Math.round(volume * 100);
+function MobileVinyl({ muted, isPlaying, volume, mood, onToggleMute }) {
+  const glowIntensity = isPlaying && !muted ? volume : 0;
 
   return (
-    <div
-      className="fixed right-0 top-0 bottom-0 z-[95] flex flex-col items-center justify-end pointer-events-none"
-      style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))', paddingTop: 'env(safe-area-inset-top, 0px)' }}
-    >
-      {/* Dikey bar */}
-      <div
-        ref={barRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="relative w-5 flex-1 my-3 rounded-full pointer-events-auto touch-none cursor-pointer select-none"
-        style={{
-          background: 'rgba(255,255,255,0.06)',
-          boxShadow: 'inset 0 0 6px rgba(0,0,0,0.4)',
-        }}
-        role="slider"
-        aria-label="Ses seviyesi"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={fillPercent}
-      >
-        {/* Ses dolgusu — alttan yukarı amber */}
-        <div
-          className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75"
+    <div className="fixed right-4 bottom-24 z-[95]">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full pointer-events-none transition-all" style={{
+          boxShadow: glowIntensity > 0 ? `0 0 ${12 + glowIntensity * 20}px ${4 + glowIntensity * 8}px rgba(234,179,8,${0.08 + glowIntensity * 0.18})` : 'none',
+          transform: `scale(${1 + glowIntensity * 0.1})`,
+          transitionDuration: '500ms',
+        }} />
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
+          className={`group relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-500 active:scale-90 touch-none ${isPlaying && !muted ? 'animate-spin-vinyl' : ''}`}
           style={{
-            height: `${fillPercent}%`,
-            background: 'linear-gradient(to top, #ffbf00cc, #ffd700)',
-            boxShadow: '0 0 12px rgba(255,178,80,0.3)',
-            borderRadius: dragging ? '8px' : '8px 8px 4px 4px',
-          }}
-        />
-
-        {/* Ses seviyesi göstergesi (ortada) */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none font-bold text-[9px] tabular-nums"
-          style={{
-            top: '40%',
-            color: muted ? 'rgba(255,178,80,0.3)' : 'rgba(255,178,80,0.7)',
-            textShadow: '0 1px 6px rgba(0,0,0,0.8)',
-          }}
+            background: 'radial-gradient(circle at center, #d6a84f 0 10%, #1a1a1a 11% 35%, #0a0a0a 36% 100%)',
+            border: `2px solid rgba(234, 179, 8, ${glowIntensity > 0 ? 0.5 : 0.2})`,
+            boxShadow: isPlaying && !muted ? `0 0 20px ${mood?.auraColors?.[0] || 'rgba(214,168,79,0.4)'}60, 0 10px 30px rgba(0,0,0,0.5)` : '0 10px 30px rgba(0,0,0,0.4)',
+          }} title="Sesi aç/kapat"
         >
-          {fillPercent}
-        </div>
+          <div className="absolute inset-0 rounded-full opacity-20 pointer-events-none" style={{
+            background: 'repeating-radial-gradient(circle at center, transparent 0, transparent 2px, #fff 3px, transparent 4px)',
+            maskImage: 'radial-gradient(circle at center, transparent 35%, black 36%)', WebkitMaskImage: 'radial-gradient(circle at center, transparent 35%, black 36%)',
+          }} />
+          <div className="w-5 h-5 rounded-full flex items-center justify-center z-10 transition-colors duration-700" style={{ background: mood?.auraColors?.[0] || '#d6a84f' }}>
+            {mood?.icon ? <mood.icon size={10} strokeWidth={2} className="text-white/90" /> : <div className="w-1.5 h-1.5 rounded-full bg-[#12100e]" />}
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-active:opacity-100 transition-opacity duration-200 bg-black/40 rounded-full z-20">
+            {muted ? <Volume2 size={18} className="text-amber-500" /> : <VolumeX size={18} className="text-amber-500" />}
+          </div>
+        </button>
       </div>
-
-      {/* Sessize alma butonu */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
-        className="pointer-events-auto w-8 h-8 mb-2 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-        style={{
-          background: muted ? 'rgba(255,255,255,0.05)' : 'rgba(255,178,80,0.12)',
-          border: `1px solid ${muted ? 'rgba(255,255,255,0.1)' : 'rgba(255,178,80,0.25)'}`,
-        }}
-        aria-label={muted ? 'Sesi aç' : 'Sessize al'}
-      >
-        {muted || volume === 0
-          ? <VolumeX size={13} className="text-white/40" />
-          : <Volume2 size={13} className="text-amber-400" />
-        }
-      </button>
     </div>
   );
 }
