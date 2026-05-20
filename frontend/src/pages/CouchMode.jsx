@@ -17,10 +17,10 @@ export default function CouchMode() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom, syncRoomMoodView } = useSocket();
-  const { launchSharedSession } = useSinemoodSocket(roomCode, user?.id ? String(user.id) : null);
 
   const [phase, setPhase] = useState(PHASES.ENTRY);
   const [roomCode, setRoomCode] = useState('');
+  const { launchSharedSession } = useSinemoodSocket(roomCode, user?.id ? String(user.id) : null);
   const [roomData, setRoomData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
