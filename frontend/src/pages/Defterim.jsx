@@ -7,6 +7,16 @@ import { useAuth } from '../context/AuthContext';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
 
+/** ISO → clean Turkish date: "20 Mayıs 2026" */
+const formatDefterDate = (iso) => {
+  if (!iso) return '';
+  try {
+    const d = new Date(String(iso).trim().replace(' ', 'T'));
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  } catch { return ''; }
+};
+
 export default function Defterim() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -294,7 +304,7 @@ export default function Defterim() {
                         <div className="space-y-2 min-w-0">
                             <h3 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tighter leading-tight sm:leading-none group-hover:text-amber transition-colors duration-500 break-words">{movie.title}</h3>
                             <div className="flex items-center gap-4 opacity-30">
-                                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest">{movie.added_at?.split(' ')[0]} Tarihinde eklendi</span>
+                                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest">{formatDefterDate(movie.added_at)} tarihinde eklendi</span>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">

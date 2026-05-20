@@ -1219,15 +1219,23 @@ class MovieCache:
                 signals[tid]["score"] += 3
                 signals[tid]["sources"].append("note")
 
-        # ── Shared analysis pool (always local) ──────────────────────────
-        async with _get_connection(self.db_path) as db:
-            cursor = await db.execute("SELECT tmdb_id, data FROM movie_cache")
-            for row in await cursor.fetchall():
-                tid = row[0]
-                if tid not in signals:
-                    signals[tid] = {"score": 0, "sources": []}
-                signals[tid]["score"] += 1
-                signals[tid]["sources"].append("analyzed")
+        # ── Analysis bonus: only for movies the user already interacted with ──
+        # Previously this read the ENTIRE movie_cache table (shared pool),
+        # inflating taste scores for users with zero defter entries.
+        # Now: only give analysis bonus (+1) to movies already in the user's signals.
+        if signals:
+            user_tmdb_ids = list(signals.keys())
+            async with _get_connection(self.db_path) as db:
+                placeholders = ",".join("?" for _ in user_tmdb_ids)
+                cursor = await db.execute(
+                    f"SELECT tmdb_id FROM movie_cache WHERE tmdb_id IN ({placeholders})",
+                    user_tmdb_ids
+                )
+                for row in await cursor.fetchall():
+                    tid = row[0]
+                    if tid in signals:
+                        signals[tid]["score"] += 1
+                        signals[tid]["sources"].append("analyzed")
 
         return signals
 

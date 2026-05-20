@@ -18,12 +18,49 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
 
+/**
+ * ISO string → clean Turkish date: "20 Mayıs 2026"
+ * Handles: "2026-05-20T15:40:05.435Z", "2026-05-20 15:40:05", "2026-05-20"
+ * Never shows hours, timezones, or raw ISO characters.
+ */
 const formatDate = (iso) => {
   if (!iso) return 'Bilinmiyor';
-  const d = new Date(iso.replace(' ', 'T'));
-  if (isNaN(d)) return 'Bilinmiyor';
-  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+  try {
+    // Normalize: replace space separator with T, strip trailing non-date junk
+    const normalized = String(iso).trim().replace(' ', 'T');
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return 'Bilinmiyor';
+    return new Intl.DateTimeFormat('tr-TR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d);
+  } catch {
+    return 'Bilinmiyor';
+  }
 };
+
+/**
+ * Üstad'ın kişiselleştirilmiş yorumu — birincil mood'a göre.
+ * Yalnızca defterde gerçek film kaydı varsa gösterilir.
+ */
+const USTAD_MOOD_REVIEWS = {
+  battaniye:    'Sakin ve derinlikli hikayelere daha çok yaklaşıyorsun.',
+  gece:         'Gecenin sessizliğinde parlayan, karanlık anlatılara çekiliyorsun.',
+  gozyasi:      'Duygusal ve insani hikayelere kalbini açıyorsun.',
+  askbahcesi:   'Romantikte sıcak, kırılgan ve gerçekçi hikayelere daha çok yaklaşıyorsun.',
+  kahkaha:      'Hayatı hafifletmeyi seven, neşeli bir ruhun var.',
+  adrenalin:    'Daha güncel ve modern tempolu filmlere yakın duruyorsun.',
+  yolculuk:     'Sınırları zorlayan, ufuk açan yolculuklara düşkünsün.',
+  zamanyolcusu: 'Geçmişle gelecek arasındaki köprülere ilgi duyuyorsun.',
+  sessiz:       'Minimal ve sessiz anlatıların gücüne inanıyorsun.',
+  zihin:        'Zihnin labirentlerinde dolaşmayı seviyorsun.',
+  kalp:         'Festival sinemasının bağımsız ruhuna yakınsın.',
+  karmakar:     'Türleri karıştıran cesur hikayelere açıksın.',
+  retro:        'Klasik sinemanın altın çağına özlem duyuyorsun.',
+  'deep-chills':'Seni ürperten, derinden sarsan yapıtlara yöneliyorsun.',
+};
+const getUstadReview = (moodId) => USTAD_MOOD_REVIEWS[moodId] || '';
 
 function StatCard({ icon: Icon, label, value, accent }) {
   return (
@@ -52,6 +89,7 @@ export default function Profil() {
   const [savedCount, setSavedCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
   const [topMoods, setTopMoods] = useState([]);
+  const [ustadReview, setUstadReview] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,7 +106,19 @@ export default function Profil() {
         const movies = wl.movies || [];
         setSavedCount(movies.length);
         setWatchedCount(movies.filter((m) => m.watched).length);
-        if (tm?.top_moods) setTopMoods(tm.top_moods.slice(0, 3));
+
+        // Only populate taste data if user has REAL defter interactions
+        const totalSignals = tm?.signals?.watchlist_count || 0;
+        if (totalSignals > 0 && tm?.top_moods?.length > 0) {
+          setTopMoods(tm.top_moods.slice(0, 3));
+
+          // Dynamic Üstad review based on primary mood
+          const primaryMood = tm.top_moods[0]?.mood_id;
+          setUstadReview(getUstadReview(primaryMood));
+        } else {
+          setTopMoods([]);
+          setUstadReview('');
+        }
       } finally {
         setLoading(false);
       }
@@ -244,10 +294,10 @@ export default function Profil() {
                 )}
               </div>
 
-              {/* En Çok Tercih Edilen Modlar: yalnızca defter doluysa göster */}
-              {(savedCount > 0 || watchedCount > 0) && topMoods.length > 0 && (
-                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10">
-                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40 mb-4">
+              {/* Zevk Haritası: yalnızca defterde gerçek kayıt varsa göster */}
+              {topMoods.length > 0 && (
+                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 space-y-4">
+                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
                     En Çok Tercih Ettiğin Modlar
                   </p>
                   <div className="flex flex-wrap gap-3">
@@ -255,10 +305,17 @@ export default function Profil() {
                       <span key={m.mood_id}
                         className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber/10 border border-amber/20 font-sans text-xs font-semibold text-amber">
                         <Film size={12} /> {sanitize(m.title)}
-                        <span className="text-amber/50">{m.score}p</span>
+                        <span className="text-amber/50">{Math.round(m.score)}p</span>
                       </span>
                     ))}
                   </div>
+
+                  {/* Üstad'ın kişisel yorumu */}
+                  {ustadReview && (
+                    <p className="font-serif text-sm italic leading-relaxed text-ivory/50 border-t border-white/5 pt-4">
+                      "{ustadReview}"
+                    </p>
+                  )}
                 </div>
               )}
             </>
