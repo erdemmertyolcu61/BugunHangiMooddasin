@@ -19,6 +19,11 @@ export function SocketProvider({ children }) {
   const [activeMoodId, setActiveMoodId] = useState(null);
   const [roomId, setRoomId] = useState(() => localStorage.getItem('activeRoomId') || null);
 
+  const navigateRef = useRef(navigate);
+  const setGlobalMoodRef = useRef(setGlobalMood);
+  useEffect(() => { navigateRef.current = navigate; });
+  useEffect(() => { setGlobalMoodRef.current = setGlobalMood; });
+
   useEffect(() => {
     const isDev = import.meta.env.DEV;
     const serverUrl = isDev ? DIRECT_BASE : (import.meta.env.VITE_API_BASE_URL || DIRECT_BASE);
@@ -29,37 +34,54 @@ export function SocketProvider({ children }) {
       autoConnect: false,
     });
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
-
-    socket.on('room_presence_update', (data) => {
-      setRoomPresence(data);
-      if (data.activeMoodId) setActiveMoodId(data.activeMoodId);
-    });
-
-    socket.on('mood_changed_broadcast', (data) => {
-      setActiveMoodId(data.moodId);
-    });
-
-    socket.on('global_session_redirect', (data) => {
-      navigate(data.targetUrl || '/moodlar');
-    });
-
-    socket.on('sync_view_to_mood', (data) => {
-      if (data.moodId) {
-        setActiveMoodId(data.moodId);
-        setGlobalMood(data.moodId);
-        navigate('/discover');
-      }
-    });
-
     socket.connect();
     socketRef.current = socket;
 
     return () => {
       socket.disconnect();
     };
-  }, [navigate, setGlobalMood]);
+  }, []);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+    const onRoomPresenceUpdate = (data) => {
+      setRoomPresence(data);
+      if (data.activeMoodId) setActiveMoodId(data.activeMoodId);
+    };
+    const onMoodChangedBroadcast = (data) => {
+      setActiveMoodId(data.moodId);
+    };
+    const onGlobalSessionRedirect = (data) => {
+      navigateRef.current(data.targetUrl || '/moodlar');
+    };
+    const onSyncViewToMood = (data) => {
+      if (data.moodId) {
+        setActiveMoodId(data.moodId);
+        setGlobalMoodRef.current(data.moodId);
+        navigateRef.current('/discover');
+      }
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('room_presence_update', onRoomPresenceUpdate);
+    socket.on('mood_changed_broadcast', onMoodChangedBroadcast);
+    socket.on('global_session_redirect', onGlobalSessionRedirect);
+    socket.on('sync_view_to_mood', onSyncViewToMood);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('room_presence_update', onRoomPresenceUpdate);
+      socket.off('mood_changed_broadcast', onMoodChangedBroadcast);
+      socket.off('global_session_redirect', onGlobalSessionRedirect);
+      socket.off('sync_view_to_mood', onSyncViewToMood);
+    };
+  }, []);
 
   const joinRoom = (rId, userId, userName) => {
     setRoomId(rId);

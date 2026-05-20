@@ -76,18 +76,8 @@ export default function AudioPlayer() {
     else if (muted) setMuted(false);
   }, [muted]);
 
-  if (!selectedMood || location.pathname === '/kafan-mi-karisik') return null;
-
-  // ═══════════════ MOBİL: plak (web'dekiyle aynı, sadece mute) ═══════════════
-  if (isTouchOnly) {
-    return <MobileVinyl muted={muted} isPlaying={isPlaying} volume={volume} mood={selectedMood} onToggleMute={toggleMute} />;
-  }
-
-  // ═══════════════ MASAÜSTÜ: plak + panel ═══════════════
+  // ─── Masaüstü jest hook'ları — erken return'lerin ÜSTÜNDE olmalı (Rules of Hooks) ───
   const wasGestureDrag = useRef(false);
-
-  const handleVinylClick = () => { if (wasGestureDrag.current) { wasGestureDrag.current = false; return; } toggleMute(); };
-
   const [gestureActive, setGestureActive] = useState(false);
   const [gestureVolume, setGestureVolume] = useState(null);
   const gestureStartY = useRef(0);
@@ -122,6 +112,17 @@ export default function AudioPlayer() {
     setGestureActive(false); setGestureVolume(null);
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
   }, [gestureActive]);
+
+  // ─── Erken dönüşler (tüm hook'lardan SONRA) ───────────────────────────────
+  if (!selectedMood || location.pathname === '/kafan-mi-karisik') return null;
+
+  // ═══════════════ MOBİL: plak (web'dekiyle aynı, sadece mute) ═══════════════
+  if (isTouchOnly) {
+    return <MobileVinyl muted={muted} isPlaying={isPlaying} volume={volume} mood={selectedMood} onToggleMute={toggleMute} />;
+  }
+
+  // ═══════════════ MASAÜSTÜ: plak + panel ═══════════════
+  const handleVinylClick = () => { if (wasGestureDrag.current) { wasGestureDrag.current = false; return; } toggleMute(); };
 
   const glowIntensity = gestureActive ? (gestureVolume ?? volume) : (isPlaying && !muted ? volume : 0);
 

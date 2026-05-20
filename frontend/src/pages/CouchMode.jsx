@@ -32,20 +32,9 @@ export default function CouchMode() {
   const [quickSavedIds, setQuickSavedIds] = useState(new Set());
   const [quickWatchedIds, setQuickWatchedIds] = useState(new Set());
 
-  // ── Auth guard ──
-  if (!user) {
-    return (
-      <div className="couch-page min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-        <Sofa size={48} style={{ color: 'var(--couch-accent)' }} className="opacity-60" />
-        <p className="text-lg font-serif" style={{ color: 'var(--couch-text-muted)' }}>
-          Birlikte izlemek için giriş yapman gerekiyor.
-        </p>
-        <button onClick={() => navigate('/profil')} className="couch-btn-accent px-8 py-3 rounded-full text-xs uppercase tracking-widest">
-          Giriş Yap
-        </button>
-      </div>
-    );
-  }
+
+  // ── Auth guard (tüm hook'lardan SONRA kontrol edilmeli — Rules of Hooks) ──
+  // (Aşağıda connectedUserCount'tan sonra gerçek render'dan önce uygulanıyor)
 
   // ── Merge socket presence into roomData ──
   useEffect(() => {
@@ -74,6 +63,21 @@ export default function CouchMode() {
   }, [activeMoodId, roomCode]);
 
   const connectedUserCount = roomPresence?.connectedUsers?.length || 0;
+
+  // ── Auth guard (tüm hook'lardan sonra, render'dan önce) ──
+  if (!user) {
+    return (
+      <div className="couch-page min-h-screen flex flex-col items-center justify-center gap-6 px-4">
+        <Sofa size={48} style={{ color: 'var(--couch-accent)' }} className="opacity-60" />
+        <p className="text-lg font-serif" style={{ color: 'var(--couch-text-muted)' }}>
+          Birlikte izlemek için giriş yapman gerekiyor.
+        </p>
+        <button onClick={() => navigate('/profil')} className="couch-btn-accent px-8 py-3 rounded-full text-xs uppercase tracking-widest">
+          Giriş Yap
+        </button>
+      </div>
+    );
+  }
 
   // ── Helpers ──
   const fetchMoviesForMood = async (moodId) => {
