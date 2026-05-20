@@ -18,7 +18,7 @@ import { useEffect, useRef } from 'react';
  */
 
 const SPLASH_KEY = 'sinemod_splash_seen_v2';
-const MIN_DISPLAY_MS = 2200;   // Golden Ritual: ignition(0.4) + trace(1.5) + bloom(0.3) = 2.2s
+const MIN_DISPLAY_MS = 3400;   // Extended ritual: ignition(0.5) + trace(2.0) + bloom(0.5) + linger(0.4) = 3.4s
 const FADE_OUT_MS   = 550;     // matches .splash-exit transition (opacity + scale)
 
 function dismissSplash(immediate = false) {

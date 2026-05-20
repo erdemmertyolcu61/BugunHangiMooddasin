@@ -206,10 +206,16 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                       {movie.ai_analysis}
                     </p>
                   ) : (
-                    <div className="space-y-3 animate-pulse">
-                      <div className="h-4 w-full rounded bg-white/10" />
-                      <div className="h-4 w-11/12 rounded bg-white/10" />
-                      <div className="h-4 w-4/5 rounded bg-white/10" />
+                    <div className="ustad-loading">
+                      <div className="ustad-loading-quill">✦</div>
+                      <p className="ustad-loading-text">
+                        Üstad notlarını hazırlıyor<span className="ustad-loading-dots"></span>
+                      </p>
+                      <div className="ustad-loading-lines">
+                        <div className="ustad-loading-line" style={{ animationDelay: '0.2s' }} />
+                        <div className="ustad-loading-line" style={{ animationDelay: '0.5s', width: '85%' }} />
+                        <div className="ustad-loading-line" style={{ animationDelay: '0.8s', width: '60%' }} />
+                      </div>
                     </div>
                   )}
                 </div>
