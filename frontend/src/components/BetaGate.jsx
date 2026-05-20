@@ -69,27 +69,16 @@ export default function BetaGate({ children }) {
   }, [googleLogin]);
 
   useEffect(() => {
-    // Check if beta gate is needed
+    // Check if beta gate is needed — parallel checks
     const check = async () => {
-      // First try stored token
-      const valid = await verifyStoredToken();
-      if (valid) {
-        setAuthenticated(true);
-        return;
-      }
-      // Check if backend even requires beta auth
-      try {
-        const res = await fetch(getApiUrl('/api/health'));
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.beta_enabled) {
-            // No beta password configured — allow access
-            setAuthenticated(true);
-            return;
-          }
-        }
-      } catch {
-        // Backend unreachable — show gate anyway
+      const [valid, healthRes] = await Promise.all([
+        verifyStoredToken(),
+        fetch(getApiUrl('/api/health')).catch(() => null),
+      ]);
+      if (valid) { setAuthenticated(true); return; }
+      if (healthRes?.ok) {
+        const data = await healthRes.json().catch(() => ({}));
+        if (!data.beta_enabled) { setAuthenticated(true); return; }
       }
       setAuthenticated(false);
     };
@@ -156,7 +145,7 @@ export default function BetaGate({ children }) {
       >
         <div className="text-center mb-12">
           <img
-            src="/sinemod-mark.png"
+            src="/sinemod-mark.svg"
             alt="Sinemood"
             className="w-24 h-24 mx-auto mb-6 rounded-[1.2rem]"
             style={{ filter: 'drop-shadow(0 12px 40px rgba(255,178,80,0.18))' }}

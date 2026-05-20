@@ -66,14 +66,15 @@ export default function AudioPlayer() {
     }
   }, [selectedMood, location.pathname]);
 
-  // 2. Ses Durumu Takibi
+  // 2. Ses Durumu Takibi — yalnızca mood varsa polling yap
   useEffect(() => {
+    if (!selectedMood) return;
     const interval = setInterval(() => {
       const state = getCurrentMoodAudio();
       setIsPlaying(state.isPlaying);
     }, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedMood]);
 
   const toggleMute = () => {
     if (muted) {
@@ -178,7 +179,7 @@ export default function AudioPlayer() {
 
   return (
     <div
-      className="fixed right-4 bottom-[7.5rem] md:bottom-6 md:right-6 z-[95] flex items-end gap-3 mb-safe md:mb-0"
+      className="fixed right-3 md:right-6 bottom-[7.5rem] md:bottom-6 z-[95] flex md:items-end gap-3 mb-safe md:mb-0 flex-col-reverse md:flex-row items-end"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -186,15 +187,15 @@ export default function AudioPlayer() {
       <AnimatePresence>
         {showPanel && (
           <motion.div
-            initial={{ opacity: 0, width: 0, scale: 0.9, x: 20 }}
-            animate={{ opacity: 1, width: 'auto', scale: 1, x: 0 }}
-            exit={{ opacity: 0, width: 0, scale: 0.9, x: 20 }}
-            className="relative bg-gradient-to-br from-[#1a1410]/95 to-[#12100e]/95 backdrop-blur-xl border border-amber-500/40 rounded-full h-16 flex items-center pl-4 pr-5 overflow-hidden shadow-[0_15px_45px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,191,0,0.12)] mb-1 gap-3.5"
+            initial={{ opacity: 0, scale: 0.9, y: 10, x: 0 }}
+            animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10, x: 0 }}
+            className="relative bg-gradient-to-br from-[#1a1410]/95 to-[#12100e]/95 backdrop-blur-xl border border-amber-500/40 rounded-2xl md:rounded-full md:h-16 flex flex-col md:flex-row items-stretch md:items-center px-3 md:pl-4 md:pr-5 py-3 md:py-0 overflow-hidden shadow-[0_15px_45px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,191,0,0.12)] mb-1 gap-3 md:gap-3.5 min-w-0"
           >
             {/* Plak kenarı parıltısı — üstte ince altın çizgi */}
-            <div className="absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent pointer-events-none hidden md:block" />
 
-            {/* Mute / hoparlör — yuvarlak plak düğmesi hissi */}
+            {/* Mute / hoparlör */}
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); toggleMute(); }}
@@ -206,10 +207,9 @@ export default function AudioPlayer() {
               }
             </button>
 
-            {/* Şimdi çalıyor — mood adı + ince eşitleyici çubukları */}
+            {/* Şimdi çalıyor */}
             <div className="flex flex-col justify-center min-w-0 max-w-[120px]">
               <div className="flex items-center gap-1.5">
-                {/* Mini equalizer — çalarken animasyonlu */}
                 <span className="flex items-end gap-[2px] h-3">
                   {[0, 1, 2].map(i => (
                     <span
@@ -245,7 +245,7 @@ export default function AudioPlayer() {
                   clearTimeout(closeTimer.current);
                   closeTimer.current = setTimeout(() => setPanelOpen(false), 1200);
                 }}
-                className="vinyl-slider w-20 sm:w-24 cursor-pointer"
+                className="vinyl-slider w-16 md:w-24 cursor-pointer"
               />
               <span className="text-[10px] font-bold text-amber-500/55 tabular-nums shrink-0 w-7 text-right">
                 {muted ? '0' : Math.round(volume * 100)}
@@ -253,7 +253,7 @@ export default function AudioPlayer() {
             </div>
 
             {isIOS && (
-              <span className="text-[7px] text-amber-500/30 uppercase tracking-wider whitespace-nowrap">
+              <span className="text-[7px] text-amber-500/30 uppercase tracking-wider whitespace-nowrap hidden md:block">
                 iOS: hw
               </span>
             )}

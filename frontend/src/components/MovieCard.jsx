@@ -45,33 +45,33 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         </div>
 
         {/* Hızlı Eylem Butonları */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
+        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-1 sm:gap-2 p-1.5 sm:p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
           <button
             onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
             title="Deftere Ekle"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
               ${isSaved
                 ? 'bg-amber/90 border-amber/60 text-black'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
               }`}
           >
             {isSaved
-              ? <><Check size={10} /> Eklendi</>
-              : <><BookmarkPlus size={10} /> Deftere</>
+              ? <><Check size={8} /> Eklendi</>
+              : <><BookmarkPlus size={8} /> Deftere</>
             }
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
             title="İzledim"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
               ${isWatched
                 ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
               }`}
           >
             {isWatched
-              ? <><Check size={10} /> İzledim</>
-              : <><Eye size={10} /> İzledim</>
+              ? <><Check size={8} /> İzledim</>
+              : <><Eye size={8} /> İzledim</>
             }
           </button>
         </div>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Playfair+Display:wght@500;600&display=swap');
+/* Fonts loaded via <link> in index.html for faster parallel download */
 
 @import "tailwindcss";
 
@@ -99,9 +99,11 @@
   background-color: #f3ecdb !important;
 }
 
-/* backdrop-filter scroll stabilitesi — Safari/WebKit'te scroll'da
-   görüntü düşmesini (backdrop-filter kaybolması) engeller */
-[class*="backdrop-blur-"] {
+/* backdrop-filter scroll stabilitesi — yalnızca sticky/fixed elemanlarda
+   GPU katmanı oluştur, diğer backdrop-blur'ları her karede composit etme */
+header.sticky,
+nav.sticky,
+.fixed[class*="backdrop-blur-"] {
   will-change: backdrop-filter;
 }
 
