@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Sofa } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -705,6 +705,11 @@ export default function Discover() {
               className="hidden md:flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
               <Brain size={16} className="text-bg/80 shrink-0" />
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
+            </button>
+            <button onClick={() => navigate('/couch')} title="Birlikte İzle"
+              className="couch-headbar-btn hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full">
+              <Sofa size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Birlikte İzle</span>
             </button>
             <button onClick={() => navigate('/listeler')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
               <BookOpen size={16} className="text-amber group-hover:scale-110 transition-transform" />
