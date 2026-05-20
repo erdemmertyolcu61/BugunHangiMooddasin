@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Copy, Check, Users, Sofa, Crown, UserPlus, Sparkles, Star, Eye, BookmarkPlus, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useSinemoodSocket } from '../context/SinemoodSocketContext';
 import { MOODS } from '../context/MoodContext';
 import { couchCreate, couchJoin, couchStatus, couchSelectMood, couchMovies, couchLeave, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
@@ -15,7 +16,8 @@ const moodList = Object.values(MOODS);
 export default function CouchMode() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom, startSharedSession, syncRoomMoodView } = useSocket();
+  const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom, syncRoomMoodView } = useSocket();
+  const { launchSharedSession } = useSinemoodSocket(roomCode, user?.id ? String(user.id) : null);
 
   const [phase, setPhase] = useState(PHASES.ENTRY);
   const [roomCode, setRoomCode] = useState('');
@@ -345,7 +347,7 @@ export default function CouchMode() {
                 roomData?.is_host ? (
                   <div className="text-center mt-6 max-w-sm mx-auto">
                     <button
-                      onClick={() => startSharedSession(roomCode)}
+                      onClick={() => launchSharedSession()}
                       className="couch-btn-accent w-full py-4 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:scale-[1.02] transition-all"
                     >
                       Seansı Başlat & Mood Seçimine Geç

@@ -84,20 +84,36 @@ async def select_session_mood(sid, data):
 
 
 @sio.event
-async def host_initiated_start(sid, data):
+async def host_start_session_signal(sid, data):
+    """
+    THE CRITICAL FIX: The Global Navigation Pulse Engine.
+    Receives the Host's ignition signal and broadcasts a
+    force_global_redirect to ALL sockets in the room (including the Host).
+    """
     room_id = data.get("roomId")
     if not room_id:
+        logger.error("[Socket] Session signal aborted: Missing Room ID")
         return
 
-    room = active_rooms.get(room_id)
-    if not room or len(room.get("users", [])) < 2:
-        logger.warning(f"[Socket] host_initiated_start failed: room {room_id} has < 2 users")
-        return
-
+    room = _get_or_create_room(room_id)
     room["isLive"] = True
-    logger.info(f"[Socket] Session started for room: {room_id} ({len(room['users'])} users)")
 
-    await sio.emit("global_session_redirect", {"targetUrl": "/moodlar"}, room=room_id)
+    logger.info(f"[Socket] Host authorized launch sequence. Flushing room: {room_id}")
+
+    # FORCE REDIRECT COMMAND TO ALL PIPES INSIDE THIS ROOM INSTANTLY
+    # io.to(roomId).emit('force_global_redirect', ...) in python-socketio:
+    await sio.emit(
+        "force_global_redirect",
+        {
+            "url": "/moodlar",
+            "timestamp": __import__('time').time(),
+        },
+        room=room_id,
+    )
+
+
+# Keep legacy event name for backward compatibility
+host_initiated_start = host_start_session_signal
 
 
 @sio.event

@@ -19,11 +19,17 @@ export function SocketProvider({ children }) {
   const [activeMoodId, setActiveMoodId] = useState(null);
   const [roomId, setRoomId] = useState(() => localStorage.getItem('activeRoomId') || null);
 
+  // Stable refs for callbacks used inside socket event handlers.
+  // These are kept in sync via useEffects below so that the listener
+  // registration useEffect never needs to re-run.
   const navigateRef = useRef(navigate);
   const setGlobalMoodRef = useRef(setGlobalMood);
   useEffect(() => { navigateRef.current = navigate; });
   useEffect(() => { setGlobalMoodRef.current = setGlobalMood; });
 
+  // ─────────────────────────────────────────────────────────────────
+  // EFFECT 1: Socket creation & connection — runs exactly once.
+  // ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const isDev = import.meta.env.DEV;
     const serverUrl = isDev ? DIRECT_BASE : (import.meta.env.VITE_API_BASE_URL || DIRECT_BASE);
@@ -42,22 +48,41 @@ export function SocketProvider({ children }) {
     };
   }, []);
 
+  // ─────────────────────────────────────────────────────────────────
+  // EFFECT 2: Listener attachment — runs exactly once.
+  // All callbacks reference the stable refs above so navigating /
+  // setting global mood never triggers a teardown & reconnect.
+  // ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
 
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
+
     const onRoomPresenceUpdate = (data) => {
       setRoomPresence(data);
       if (data.activeMoodId) setActiveMoodId(data.activeMoodId);
     };
+
     const onMoodChangedBroadcast = (data) => {
       setActiveMoodId(data.moodId);
     };
-    const onGlobalSessionRedirect = (data) => {
-      navigateRef.current(data.targetUrl || '/moodlar');
+
+    // THE GLOBAL NAVIGATION PULSE ENGINE
+    // Both the Host and every Guest receive this simultaneously
+    // from the server, guaranteeing all clients navigate together.
+    const onForceGlobalRedirect = (data) => {
+      const url = data.url || '/moodlar';
+      navigateRef.current(url);
     };
+
+    // Legacy redirect event (backward compatibility)
+    const onGlobalSessionRedirect = (data) => {
+      const url = data.targetUrl || data.url || '/moodlar';
+      navigateRef.current(url);
+    };
+
     const onSyncViewToMood = (data) => {
       if (data.moodId) {
         setActiveMoodId(data.moodId);
@@ -70,6 +95,7 @@ export function SocketProvider({ children }) {
     socket.on('disconnect', onDisconnect);
     socket.on('room_presence_update', onRoomPresenceUpdate);
     socket.on('mood_changed_broadcast', onMoodChangedBroadcast);
+    socket.on('force_global_redirect', onForceGlobalRedirect);
     socket.on('global_session_redirect', onGlobalSessionRedirect);
     socket.on('sync_view_to_mood', onSyncViewToMood);
 
@@ -78,10 +104,15 @@ export function SocketProvider({ children }) {
       socket.off('disconnect', onDisconnect);
       socket.off('room_presence_update', onRoomPresenceUpdate);
       socket.off('mood_changed_broadcast', onMoodChangedBroadcast);
+      socket.off('force_global_redirect', onForceGlobalRedirect);
       socket.off('global_session_redirect', onGlobalSessionRedirect);
       socket.off('sync_view_to_mood', onSyncViewToMood);
     };
   }, []);
+
+  // ─────────────────────────────────────────────────────────────────
+  // Public API — exposed through context
+  // ─────────────────────────────────────────────────────────────────
 
   const joinRoom = (rId, userId, userName) => {
     setRoomId(rId);
@@ -101,7 +132,7 @@ export function SocketProvider({ children }) {
   };
 
   const startSharedSession = (rId) => {
-    socketRef.current?.emit('host_initiated_start', { roomId: rId });
+    socketRef.current?.emit('host_start_session_signal', { roomId: rId });
   };
 
   const syncRoomMoodView = (rId, selection) => {
