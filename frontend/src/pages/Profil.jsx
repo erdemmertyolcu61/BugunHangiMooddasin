@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, LogOut, Film, Eye, Sparkles, CalendarDays, Mail, User } from 'lucide-react';
+import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getWatchlist, getTasteMap } from '../services/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -219,18 +219,33 @@ export default function Profil() {
           className="space-y-5"
         >
           <h2 className="font-serif text-2xl font-bold tracking-tight text-ivory/80 flex items-center gap-3">
-            <Sparkles size={20} className="text-amber" /> İzleme İstatistiklerin
+            <Clapperboard size={20} className="text-amber" /> İzleme İstatistiklerin
           </h2>
           {loading ? (
-            <p className="font-sans text-sm text-ivory/30 italic">İstatistikler hesaplanıyor...</p>
+            <div className="flex items-center justify-center py-10">
+              <div className="sinemod-spinner" />
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap gap-4">
-                <StatCard icon={Film} label="Deftere Kayıtlı" value={savedCount} accent="#fbbf24" />
+                <StatCard icon={Bookmark} label="Deftere Kayıtlı" value={savedCount} accent="#fbbf24" />
                 <StatCard icon={Eye} label="İzlenen Film" value={watchedCount} accent="#34d399" />
-                <StatCard icon={Sparkles} label="Favori Mod" value={topMoods[0]?.title || '—'} accent="#a78bfa" />
+
+                {/* Favori Mod: yalnızca gerçek etkileşim varsa göster */}
+                {(savedCount > 0 || watchedCount > 0) && topMoods.length > 0 ? (
+                  <StatCard icon={Film} label="Favori Mod" value={topMoods[0]?.title || '—'} accent="#a78bfa" />
+                ) : (
+                  <div className="flex-1 min-w-[140px] p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 flex flex-col items-center justify-center text-center">
+                    <Clapperboard size={22} className="text-amber/30 mb-3" />
+                    <p className="font-serif text-sm italic leading-relaxed text-ivory/35">
+                      Henüz defterine film eklememişsin evlat. İlk keşfini yap, zevk haritanı buraya nakşedeyim.
+                    </p>
+                  </div>
+                )}
               </div>
-              {topMoods.length > 0 && (
+
+              {/* En Çok Tercih Edilen Modlar: yalnızca defter doluysa göster */}
+              {(savedCount > 0 || watchedCount > 0) && topMoods.length > 0 && (
                 <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10">
                   <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40 mb-4">
                     En Çok Tercih Ettiğin Modlar
@@ -239,7 +254,7 @@ export default function Profil() {
                     {topMoods.map((m) => (
                       <span key={m.mood_id}
                         className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber/10 border border-amber/20 font-sans text-xs font-semibold text-amber">
-                        <User size={12} /> {sanitize(m.title)}
+                        <Film size={12} /> {sanitize(m.title)}
                         <span className="text-amber/50">{m.score}p</span>
                       </span>
                     ))}

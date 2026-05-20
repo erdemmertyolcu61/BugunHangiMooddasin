@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, BookmarkPlus, Check, Eye, Star } from 'lucide-react';
+import { Clapperboard, BookmarkPlus, Check, Eye, Star } from 'lucide-react';
 import { proxyImageUrl } from '../services/api';
 import OptimizedImage from './OptimizedImage';
 
@@ -40,7 +40,7 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         {/* Mood Uyum Overlay */}
         <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
-            <Sparkles size={10} /> %{movie.mood_score || movie.match}
+            <Clapperboard size={10} /> %{movie.mood_score || movie.match}
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, BookOpen, Sparkles, Star, Check, BookmarkPlus, Eye, Film } from 'lucide-react';
+import { ChevronLeft, BookOpen, Star, Check, BookmarkPlus, Eye, Film } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getApiUrl } from '../utils/apiConfig';
 import { proxyImageUrl, addToWatchlist, removeFromWatchlist, toggleWatched } from '../services/api';
@@ -172,7 +172,7 @@ function ListeDetay() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Sparkles size={32} className="text-amber animate-spin" />
+        <div className="sinemod-spinner" />
       </div>
     );
   }

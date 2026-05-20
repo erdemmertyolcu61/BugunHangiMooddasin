@@ -524,29 +524,78 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ÜSTAD LOADING — Elegant loading state for AI analysis
+   ÜSTAD LOADING — Cinematic golden-aura pulse
+   Inspired by the brand S-curve ribbon's volumetric glow.
+   Rhythm: ~2.5s breathing cycle (human heart-rate tempo).
    ═══════════════════════════════════════════════════════════ */
 .ustad-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 20px 0;
+  gap: 20px;
+  padding: 24px 0;
 }
 
-/* Rotating golden quill symbol */
-.ustad-loading-quill {
-  font-size: 28px;
-  color: #ffbf00;
-  animation: ustadQuillPulse 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 12px rgba(255,191,0,0.3));
+/* ── Brand Aura Ring — replaces the old ✦ star ── */
+.ustad-loading-aura {
+  position: relative;
+  width: 52px;
+  height: 52px;
 }
-@keyframes ustadQuillPulse {
-  0%, 100% { opacity: 0.5; transform: scale(1) rotate(0deg); }
-  50%      { opacity: 1;   transform: scale(1.15) rotate(8deg); }
+/* Outer glow ring */
+.ustad-loading-aura::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255,191,0,0.25);
+  box-shadow:
+    0 0 20px rgba(255,191,0,0.12),
+    0 0 40px rgba(200,130,30,0.08),
+    inset 0 0 15px rgba(255,191,0,0.06);
+  animation: ustadAuraBreathe 2.5s ease-in-out infinite;
+}
+/* Inner bright core */
+.ustad-loading-aura::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255,208,112,0.30) 0%,
+    rgba(255,191,0,0.12) 50%,
+    transparent 100%
+  );
+  animation: ustadAuraCore 2.5s ease-in-out infinite;
+}
+/* S-curve golden ribbon inside the ring (brand DNA) */
+.ustad-loading-aura svg {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  animation: ustadAuraBreathe 2.5s ease-in-out infinite;
 }
 
-/* Loading text with animated dots */
+@keyframes ustadAuraBreathe {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(255,191,0,0.15));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 18px rgba(255,191,0,0.30));
+  }
+}
+@keyframes ustadAuraCore {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50%      { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* ── Loading text with animated dots ── */
 .ustad-loading-text {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
@@ -565,7 +614,7 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   75% { content: '...'; }
 }
 
-/* Shimmer lines — elegant golden sweep */
+/* ── Shimmer lines — elegant golden sweep ── */
 .ustad-loading-lines {
   width: 100%;
   display: flex;
@@ -586,10 +635,9 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
     rgba(255,191,0,0.0) 100%
   );
   background-size: 200% 100%;
-  animation: ustadLineShimmer 2s ease-in-out infinite;
   opacity: 0;
   animation: ustadLineIn 0.5s ease-out forwards,
-             ustadLineShimmer 2s ease-in-out 0.5s infinite;
+             ustadLineShimmer 2.2s ease-in-out 0.5s infinite;
 }
 @keyframes ustadLineIn {
   0%   { opacity: 0; transform: scaleX(0.3); }
@@ -600,9 +648,51 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   100% { background-position: -200% 0; }
 }
 
-/* Light theme override */
+/* ── Page-level spinner (replaces old Sparkles animate-spin) ── */
+.sinemod-spinner {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+.sinemod-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255,191,0,0.15);
+  border-top-color: rgba(255,191,0,0.7);
+  animation: sinemodSpin 1.4s linear infinite;
+}
+.sinemod-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,208,112,0.15) 0%, transparent 70%);
+  animation: ustadAuraCore 2.5s ease-in-out infinite;
+}
+@keyframes sinemodSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Light theme overrides */
 [data-theme="light"] .ustad-loading-text {
   color: rgba(42,32,23,0.45);
+}
+[data-theme="light"] .ustad-loading-aura::before {
+  border-color: rgba(180,130,30,0.30);
+  box-shadow:
+    0 0 20px rgba(180,130,30,0.10),
+    0 0 40px rgba(150,100,20,0.06),
+    inset 0 0 15px rgba(180,130,30,0.05);
+}
+[data-theme="light"] .ustad-loading-aura::after {
+  background: radial-gradient(
+    circle,
+    rgba(200,160,60,0.25) 0%,
+    rgba(180,130,30,0.10) 50%,
+    transparent 100%
+  );
 }
 [data-theme="light"] .ustad-loading-line {
   background: linear-gradient(
@@ -615,11 +705,19 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   );
   background-size: 200% 100%;
 }
+[data-theme="light"] .sinemod-spinner::before {
+  border-color: rgba(180,130,30,0.15);
+  border-top-color: rgba(180,130,30,0.7);
+}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .ustad-loading-quill,
-  .ustad-loading-line {
+  .ustad-loading-aura::before,
+  .ustad-loading-aura::after,
+  .ustad-loading-aura svg,
+  .ustad-loading-line,
+  .sinemod-spinner::before,
+  .sinemod-spinner::after {
     animation: none !important;
     opacity: 0.6 !important;
   }

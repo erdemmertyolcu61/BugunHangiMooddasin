@@ -207,7 +207,22 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                     </p>
                   ) : (
                     <div className="ustad-loading">
-                      <div className="ustad-loading-quill">✦</div>
+                      <div className="ustad-loading-aura">
+                        {/* Brand S-curve ribbon — scaled from sinemod-mark.svg */}
+                        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <defs>
+                            <linearGradient id="ustad-rg" x1="0.18" y1="0.9" x2="0.82" y2="0.1">
+                              <stop offset="0%" stopColor="#7A4A0E"/>
+                              <stop offset="40%" stopColor="#F0A830"/>
+                              <stop offset="100%" stopColor="#FFF0D8"/>
+                            </linearGradient>
+                          </defs>
+                          <path d="M 10 30 C 3 26, 3 18, 16 16.2 C 29 14.4, 33 8, 25 4"
+                                stroke="url(#ustad-rg)" strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.85"/>
+                          <path d="M 10 30 C 3 26, 3 18, 16 16.2 C 29 14.4, 33 8, 25 4"
+                                stroke="#FFF8F0" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.45"/>
+                        </svg>
+                      </div>
                       <p className="ustad-loading-text">
                         Üstad notlarını hazırlıyor<span className="ustad-loading-dots"></span>
                       </p>
