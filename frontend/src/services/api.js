@@ -254,6 +254,21 @@ export async function getTasteMap() {
   return res.json();
 }
 
+/**
+ * Quick mood mix — rule-based, no Claude API.
+ * @param {Array} moodMix - [{mood_id, percentage}, ...]
+ * @param {Object} opts
+ */
+export async function quickMoodMix(moodMix, { limit = 6, minVote = 5.0, excludeIds = [] } = {}) {
+  const res = await fetch(`${BASE}/recommend/quick-mix`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mood_mix: moodMix, limit, min_vote: minVote, exclude_ids: excludeIds })
+  });
+  if (!res.ok) throw new Error(`Hızlı öneri alınamadı (${res.status})`);
+  return res.json();
+}
+
 export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0, excludeIds = []) {
   const res = await fetch(`${BASE}/recommend/confused`, {
     method: 'POST',

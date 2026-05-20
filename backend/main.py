@@ -2034,6 +2034,12 @@ class ConfusedRequest(BaseModel):
     min_mood_score: float = 0.0
     exclude_ids: list = []  # Session-based anti-repetition
 
+class QuickMoodMixRequest(BaseModel):
+    mood_mix: list  # [{"mood_id": "battaniye", "percentage": 50}, ...]
+    limit: int = 6
+    min_vote: float = 5.0
+    exclude_ids: list = []
+
 class RandomRecommendRequest(BaseModel):
     mood_id: str = None
     mood_mix: list = None
@@ -2187,6 +2193,128 @@ async def post_random_recommendation(req: RandomRecommendRequest):
         "message": "Bu gece için sana 3 sürpriz film seçtim.",
         "mode": "random",
         "movies": unique[:limit],
+    }
+
+
+@app.post("/api/recommend/quick-mix")
+async def post_quick_mood_mix(req: QuickMoodMixRequest):
+    """
+    Hızlı mood karışımı — Claude API KULLANMAZ.
+    Ön tanımlı mood_mix ile birden fazla mood'dan film havuzu oluşturur,
+    karıştırır ve döndürür. Kural tabanlı, anında çalışır.
+    """
+    import random as rnd
+    from backend.mood_scoring import calculate_mood_scores
+
+    limit = max(3, min(req.limit, 12))
+    min_vote = max(4.0, min(req.min_vote, 10.0))
+    exclude_ids = set(int(x) for x in req.exclude_ids if str(x).isdigit()) if req.exclude_ids else set()
+
+    mood_mix = req.mood_mix
+    if not mood_mix or len(mood_mix) == 0:
+        raise HTTPException(400, "mood_mix gerekli")
+
+    # Gather candidates from each mood proportionally
+    candidates = []
+    seen_ids = set(exclude_ids)
+    CANDIDATE_TARGET = 60
+
+    for mix_item in mood_mix:
+        mood_id = mix_item.get("mood_id")
+        pct = mix_item.get("percentage", 50)
+        if not mood_id:
+            continue
+        count = max(4, round(CANDIDATE_TARGET * pct / 100))
+        try:
+            result = await cache.get_all_repository_movies_by_mood(mood_id, min_vote=min_vote)
+            scored = []
+            for m in result:
+                mid = m.get("id") or m.get("tmdb_id")
+                if mid in seen_ids:
+                    continue
+                genre_ids = m.get("genre_ids", [])
+                scores = calculate_mood_scores(
+                    genre_ids, m.get("vote_average"),
+                    overview=m.get("overview"),
+                    release_date=m.get("release_date"),
+                )
+                ms = scores.get(mood_id, 0)
+                m_copy = dict(m)
+                m_copy["mood_score"] = round(ms, 1)
+                m_copy["matched_mood"] = mood_id
+                m_copy["reason"] = REASON_MAP.get(mood_id, "Ruh haline uygun bir seçim.")
+                scored.append(m_copy)
+            scored.sort(key=lambda x: (-x["mood_score"], -x.get("vote_average", 0)))
+
+            for m in scored[:count]:
+                mid = m.get("id") or m.get("tmdb_id")
+                if mid not in seen_ids:
+                    seen_ids.add(mid)
+                    candidates.append(m)
+        except Exception:
+            continue
+
+    # Sort by mood_score, add randomization to avoid always same top films
+    candidates.sort(key=lambda x: (-x.get("mood_score", 0), -x.get("vote_average", 0)))
+
+    # Weighted random selection from top candidates
+    top_pool = candidates[:max(limit * 4, 24)]
+    if len(top_pool) > limit:
+        weights = [max(1, len(top_pool) - i) for i in range(len(top_pool))]
+        selected = []
+        pool = list(top_pool)
+        w = list(weights)
+        for _ in range(min(limit, len(pool))):
+            picks = rnd.choices(range(len(pool)), weights=w, k=1)
+            idx = picks[0]
+            selected.append(pool.pop(idx))
+            w.pop(idx)
+        final = selected
+    else:
+        final = top_pool[:limit]
+
+    # Build mood_mix titles for response
+    mood_mix_titled = []
+    for mix_item in mood_mix:
+        mid = mix_item.get("mood_id")
+        mood_mix_titled.append({
+            "mood_id": mid,
+            "title": MOOD_NAMES.get(mid, mid),
+            "percentage": mix_item.get("percentage", 50),
+        })
+
+    # Generate a fitting ustad line from the primary mood
+    primary_mood = mood_mix[0]["mood_id"] if mood_mix else "battaniye"
+    messages = {
+        "sessiz": "Bu gece sessiz bir hikaye seni bekliyor.",
+        "kalp": "Kalbin sana söyleyecek bir şeyler var bu gece.",
+        "battaniye": "Rahatla, bu gece seni saran filmler seçtim.",
+        "zihin": "Düşünmeye hazır mısın? Bu filmler zihnini açacak.",
+        "deep-chills": "Ürpertici bir atmosfere hazırlan.",
+        "gece": "Karanlık bir gece, karanlık bir hikaye.",
+        "kahkaha": "Bu gece gülmek serbest.",
+        "gozyasi": "Derin duygulara hazır mısın?",
+        "adrenalin": "Koltuktan kalkamayacaksın.",
+        "askbahcesi": "Romantik bir akşam için biçilmiş kaftan.",
+        "yolculuk": "Yeni ufuklara doğru yola çıkıyoruz.",
+        "zamanyolcusu": "Nostaljinin büyüsüne kapılmaya hazır mısın?",
+        "karmakar": "Alışılmışın dışında bir gece seni bekliyor.",
+        "Retro": "Neon ışıklar ve synthwave — zamanda yolculuğa çıkıyoruz.",
+    }
+    ustad_line = messages.get(primary_mood, "Bu gece için özel bir seçim hazırladım.")
+
+    # Ensure poster_url
+    for m in final:
+        if not m.get("poster_url") and m.get("poster_path"):
+            m["poster_url"] = f"https://image.tmdb.org/t/p/w500{m['poster_path']}"
+
+    return {
+        "message": ustad_line,
+        "ustad_line": ustad_line,
+        "mood_mix": mood_mix_titled,
+        "movies": final,
+        "mode": "quick_mix",
+        "query_understanding": None,
     }
 
 

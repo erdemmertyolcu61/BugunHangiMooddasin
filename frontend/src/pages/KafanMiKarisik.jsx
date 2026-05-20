@@ -3,18 +3,67 @@ import { useNavigate } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postConfusedRecommendation, streamConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
+import { postConfusedRecommendation, streamConfusedRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
 import { playMoodAudio } from '../utils/moodAudioManager';
 
 const QUICK_MOODS = [
-  { label: "Yorgunum, rahatlatıcı bir şey",   mood_id: "battaniye" },
-  { label: "Gülmek istiyorum",                 mood_id: "kahkaha" },
-  { label: "Karanlık ama kaliteli",             mood_id: "gece" },
-  { label: "Romantik ama klişe olmasın",        mood_id: "kalp" },
-  { label: "Düşündüren bir film",               mood_id: "zihin" },
-  { label: "Gerilim & heyecan",                mood_id: "adrenalin" },
-  { label: "Nostaljik bir akşam",              mood_id: "zamanyolcusu" },
+  {
+    label: "Yorgunum, rahatlatıcı bir şey",
+    mood_mix: [
+      { mood_id: "battaniye", percentage: 50 },
+      { mood_id: "kalp",      percentage: 30 },
+      { mood_id: "sessiz",    percentage: 20 },
+    ],
+  },
+  {
+    label: "Gülmek istiyorum",
+    mood_mix: [
+      { mood_id: "kahkaha",   percentage: 55 },
+      { mood_id: "battaniye", percentage: 25 },
+      { mood_id: "askbahcesi",percentage: 20 },
+    ],
+  },
+  {
+    label: "Karanlık ama kaliteli",
+    mood_mix: [
+      { mood_id: "gece",        percentage: 45 },
+      { mood_id: "deep-chills", percentage: 35 },
+      { mood_id: "zihin",       percentage: 20 },
+    ],
+  },
+  {
+    label: "Romantik ama klişe olmasın",
+    mood_mix: [
+      { mood_id: "kalp",        percentage: 40 },
+      { mood_id: "sessiz",      percentage: 35 },
+      { mood_id: "askbahcesi",  percentage: 25 },
+    ],
+  },
+  {
+    label: "Düşündüren bir film",
+    mood_mix: [
+      { mood_id: "zihin",       percentage: 50 },
+      { mood_id: "sessiz",      percentage: 25 },
+      { mood_id: "karmakar",    percentage: 25 },
+    ],
+  },
+  {
+    label: "Gerilim & heyecan",
+    mood_mix: [
+      { mood_id: "adrenalin",   percentage: 50 },
+      { mood_id: "gece",        percentage: 30 },
+      { mood_id: "deep-chills", percentage: 20 },
+    ],
+  },
+  {
+    label: "Nostaljik bir akşam",
+    mood_mix: [
+      { mood_id: "zamanyolcusu", percentage: 45 },
+      { mood_id: "battaniye",    percentage: 30 },
+      { mood_id: "gozyasi",      percentage: 25 },
+    ],
+  },
 ];
 
 const LOADING_PHRASES = [
@@ -104,8 +153,27 @@ export default function KafanMiKarisik() {
     }
   };
 
-  const handleQuickMood = (moodId) => {
-    goToMood(moodId);
+  const handleQuickMood = async (moodMix) => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setEarlyIntent(null);
+    try {
+      const data = await quickMoodMix(moodMix, {
+        limit: 6,
+        minVote: 5.0,
+        excludeIds: sessionExcludeIds,
+      });
+      setResult(data);
+      if (data.movies) {
+        const newIds = data.movies.map(m => m.id).filter(Boolean);
+        setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
+      }
+    } catch (err) {
+      setError(err.message || 'Bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFeedback = (feedbackText) => {
@@ -216,10 +284,10 @@ export default function KafanMiKarisik() {
             <div className="max-w-2xl mx-auto">
               <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60 mb-4">YA DA HIZLI ÖNERİ</p>
               <div className="flex flex-wrap gap-2.5">
-                {QUICK_MOODS.map((qm) => (
+                {QUICK_MOODS.map((qm, idx) => (
                   <button
-                    key={qm.mood_id}
-                    onClick={() => handleQuickMood(qm.mood_id)}
+                    key={idx}
+                    onClick={() => handleQuickMood(qm.mood_mix)}
                     className="quick-mood-chip px-4 py-2.5 rounded-full bg-white/10 border border-white/20 hover:bg-amber-500/15 hover:border-amber-400/50 transition-all text-[12px] font-semibold font-serif text-[#f5f2eb] dark:text-[#f5f2eb] hover:text-[#ffbf00]"
                   >
                     {qm.label}
