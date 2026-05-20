@@ -58,13 +58,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.3,
             "nostalgia": 0.5,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "27,53,80,10752",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "yolculuk": {
@@ -91,13 +90,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.2,
             "nostalgia": 0.3,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "27,9648,10749",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "gece": {
@@ -124,13 +122,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.8,
             "nostalgia": 0.2,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "10749,35,10751,16,10402",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "kahkaha": {
@@ -157,13 +154,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.1,
             "nostalgia": 0.2,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "27,53,10752,9648,16",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "gozyasi": {
@@ -191,13 +187,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.4,
             "nostalgia": 0.4,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "35,28,878,27,80,9648",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.5,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "adrenalin": {
@@ -224,13 +219,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.9,
             "nostalgia": 0.0,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "18,10749,36,99,10751,16,10402",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "askbahcesi": {
@@ -258,13 +252,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.1,
             "nostalgia": 0.3,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "27,53,80,28,878,10752",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "zamanyolcusu": {
@@ -292,13 +285,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.2,
             "nostalgia": 1.0,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "878,27,28,14,53,9648",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.5,
-            "min_vote_count": 50,
-            "max_vote_count": 25000,
+            "min_vote_count": 100,
             "primary_release_date_lte": "1990-12-31",
         },
         "turkish_seed_params": {
@@ -365,13 +357,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.7,
             "nostalgia": 0.1,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "10749,35,10751,16,10402,36",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.5,
             "min_vote_count": 50,
-            "max_vote_count": 25000,
         },
     },
     "kalp": {
@@ -462,13 +453,12 @@ MOOD_PROFILES = {
             "romance_thriller": 0.5,
             "nostalgia": 0.9,
         },
-        "popularity_policy": "hidden_gem",
+        "popularity_policy": "no_restriction",
         "tmdb_params": {
             "without_genres": "18,36,99,10751,10749,16,10402,10752,37",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 5.5,
             "min_vote_count": 30,
-            "max_vote_count": 25000,
             "primary_release_date_lte": "1995-12-31",
             "primary_release_date_gte": "1977-01-01",
         },
@@ -520,14 +510,10 @@ GENRE_NAMES = {
 }
 
 # ─── Hidden Gem Politikası ───
-# Tüm mood'lar artık hidden-gem felsefesiyle çalışır:
-# Mainstream blockbuster'lar dışlanır, festival/bağımsız/uluslararası sinema öne çıkar.
-# Eski BOUTIQUE_MOODS sadece 5 mood'u kapsıyordu; artık HER mood hidden-gem filtresi uygular.
-BOUTIQUE_MOODS = {
-    "kalp", "sessiz", "karmakar", "zamanyolcusu", "deep-chills",
-    "battaniye", "yolculuk", "gece", "kahkaha", "gozyasi",
-    "adrenalin", "askbahcesi", "zihin", "Retro",
-}
+# Butik mood'lar: blockbuster dışlama + sert popülerlik cezası.
+# Diğer mood'lar: "no_restriction" ama scoring katmanında hidden_gem_boost ile
+# sayfa başına 2-3 keşfedilmemiş film doğal olarak yüzeye çıkar.
+BOUTIQUE_MOODS = {"kalp", "sessiz", "karmakar", "zamanyolcusu", "deep-chills"}
 
 # Blockbuster eşiği — 15K'ya düşürüldü (daha agresif hidden-gem filtresi)
 BLOCKBUSTER_VOTE_THRESHOLD = 15000

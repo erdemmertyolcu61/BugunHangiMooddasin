@@ -278,37 +278,22 @@ def _overview_keyword_score(overview: str, mood_id: str) -> float:
 
 def _popularity_adjustment(popularity_policy: str, vote_count: int = None, vote_average: float = None) -> float:
     """
-    Popülerite politikasına göre adjustment faktörü (0.0 - 1.0).
-    hidden_gem: tüm mood'lar için varsayılan — yüksek oy = ceza, keşfedilmemiş = ödül
+    Popülerite politikasına göre adjustment faktörü (0.0 - 1.0+).
     strict_boutique: blockbuster cezası çok sert (kalp)
     boutique: orta ceza (karmakar)
     boutique_indie: indie/boutique ceza (sessiz)
     boutique_horror: korku butik ceza (deep-chills)
-    no_restriction: ceza yok (artık kullanılmıyor)
+    no_restriction: ceza yok (mainstream mood'lar)
+
+    NOT: Hidden gem etkisi artık _popularity_adjustment'ta değil,
+    calculate_mood_scores() içindeki "Hidden Gem Boost" adımında
+    additif bonus olarak uygulanıyor. Bu sayede mainstream filmler
+    cezalanmıyor, sadece kaliteli keşfedilmemiş filmler öne çıkıyor.
     """
     if not vote_count:
         return 1.0
 
-    if popularity_policy == "hidden_gem":
-        # Hidden Gem: tüm mood'lar için — mainstream filmler cezalandırılır,
-        # az bilinen kaliteli filmler ödüllendirilir.
-        # 25K+ oy → ağır ceza (herkes biliyor), 10K-25K → orta ceza,
-        # 3K-10K → hafif ceza, <3K → bonus (gerçek hidden gem)
-        if vote_count >= 25000:
-            return 0.15
-        elif vote_count >= 15000:
-            return 0.35
-        elif vote_count >= 10000:
-            return 0.55
-        elif vote_count >= 5000:
-            return 0.75
-        elif vote_count >= 3000:
-            return 0.90
-        elif vote_count < 1000 and vote_average and vote_average >= 7.0:
-            return 1.15  # Gerçek hidden gem: az oy + yüksek kalite → bonus
-        return 1.0
-
-    elif popularity_policy == "strict_boutique":
+    if popularity_policy == "strict_boutique":
         # Kalp: çok sert - 2000 oy üstü ceza başlar, 20000+ %90 ceza
         if vote_count >= 20000:
             return 0.1
@@ -735,6 +720,17 @@ def calculate_mood_scores(genre_ids: list, vote_average: float = None,
                 final_score *= 0.90  # Korece: hafif ceza (kaliteli K-drama dengesi)
             elif original_language == "zh" or original_language == "cn":
                 final_score *= 0.88  # Çince: hafif ceza
+
+        # 11. Hidden Gem Boost (tüm mood'lar — sayfa başına 2-3 keşfedilmemiş film)
+        # Mainstream'e ceza YOK, sadece az bilinen kaliteli filmlere bonus.
+        # Bu sayede sıralama organik kalır: çoğu film tanınmış, araya 2-3 gem sızar.
+        if vote_count and vote_average:
+            if vote_count < 2000 and vote_average >= 7.5:
+                final_score += 8.0   # Altın gem: çok az oy, çok yüksek kalite
+            elif vote_count < 3000 and vote_average >= 7.0:
+                final_score += 5.0   # Gümüş gem: az oy, yüksek kalite
+            elif vote_count < 5000 and vote_average >= 7.5:
+                final_score += 3.0   # Bronz gem: orta-düşük oy, mükemmel kalite
 
         # Genre çeşitliliği bonusu — 3+ uyumlu tür → daha zengin film deneyimi
         matched_positive_count = sum(1 for g in genre_ids if weights.get(g, 0) >= 0.5)
