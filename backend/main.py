@@ -453,6 +453,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ─── Socket.IO ────────────────
+from socketio import ASGIApp
+from backend.services.session_socket import sio
+app.mount('/ws', ASGIApp(sio))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

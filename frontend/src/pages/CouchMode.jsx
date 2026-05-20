@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Copy, Check, Users, Sofa, Crown, UserPlus, Sparkles, Star, Eye, BookmarkPlus, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { MOODS } from '../context/MoodContext';
 import { couchCreate, couchJoin, couchStatus, couchSelectMood, couchMovies, couchLeave, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
@@ -14,6 +15,7 @@ const moodList = Object.values(MOODS);
 export default function CouchMode() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom } = useSocket();
 
   const [phase, setPhase] = useState(PHASES.ENTRY);
   const [roomCode, setRoomCode] = useState('');
@@ -29,7 +31,6 @@ export default function CouchMode() {
   const [detailInitialMovie, setDetailInitialMovie] = useState(null);
   const [quickSavedIds, setQuickSavedIds] = useState(new Set());
   const [quickWatchedIds, setQuickWatchedIds] = useState(new Set());
-  const pollRef = useRef(null);
 
   // ── Auth guard ──
   if (!user) {
@@ -46,14 +47,77 @@ export default function CouchMode() {
     );
   }
 
+  // ── Merge socket presence into roomData ──
+  useEffect(() => {
+    if (!roomPresence || !roomCode) return;
+    setRoomData(prev => {
+      if (!prev) return prev;
+      const members = (roomPresence.connectedUsers || []).map((su, i) => {
+        const existing = (prev.members || []).find(m => String(m.user_id) === String(su.id));
+        return {
+          user_id: su.id,
+          name: su.name,
+          picture: existing?.picture || null,
+          role: existing?.role || (i === 0 ? 'host' : 'guest'),
+        };
+      });
+      return { ...prev, members };
+    });
+  }, [roomPresence, roomCode]);
+
+  // ── Socket-driven phase transitions ──
+  useEffect(() => {
+    if (!activeMoodId || !roomCode) return;
+    if (phase === PHASES.LOBBY || phase === PHASES.MOOD_SELECT) {
+      fetchMoviesForMood(activeMoodId);
+    }
+  }, [activeMoodId, roomCode]);
+
+  const connectedUserCount = roomPresence?.connectedUsers?.length || 0;
+
+  useEffect(() => {
+    if (connectedUserCount >= 2 && phase === PHASES.LOBBY) {
+      setPhase(PHASES.MOOD_SELECT);
+    }
+  }, [connectedUserCount, phase]);
+
+  // ── Cleanup on unmount ──
+  const cleanupRef = useRef(null);
+  useEffect(() => {
+    cleanupRef.current = () => {
+      if (roomCode && user?.id) {
+        socketLeaveRoom(roomCode, String(user.id));
+      }
+    };
+    return () => cleanupRef.current?.();
+  }, [roomCode, user]);
+
+  // ── Helpers ──
+  const fetchMoviesForMood = async (moodId) => {
+    try {
+      const result = await couchMovies(roomCode);
+      setMovies(result.movies || []);
+      setUstadNote(result.ustad_notu || '');
+      setMoodName(result.mood_name || '');
+      setPhase(PHASES.RESULTS);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   // ── Handlers ──
   const handleCreateRoom = async () => {
     setLoading(true); setError(null);
     try {
       const data = await couchCreate();
       setRoomCode(data.room_code);
+      const roomInfo = await couchStatus(data.room_code);
+      setRoomData(roomInfo);
+      const myUser = roomInfo.members?.find(m => m.role === 'host');
+      if (myUser) {
+        socketJoinRoom(data.room_code, String(myUser.user_id), myUser.name || user?.name || 'Sinemasever');
+      }
       setPhase(PHASES.LOBBY);
-      startPolling(data.room_code);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
@@ -64,8 +128,13 @@ export default function CouchMode() {
     try {
       const data = await couchJoin(joinCode.trim().toUpperCase());
       setRoomCode(data.room_code);
+      const roomInfo = await couchStatus(data.room_code);
+      setRoomData(roomInfo);
+      const myUser = roomInfo.members?.find(m => String(m.user_id) === String(user?.id));
+      if (myUser) {
+        socketJoinRoom(data.room_code, String(myUser.user_id), myUser.name || user?.name || 'Sinemasever');
+      }
       setPhase(PHASES.LOBBY);
-      startPolling(data.room_code);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
@@ -74,19 +143,21 @@ export default function CouchMode() {
     setLoading(true); setError(null);
     try {
       await couchSelectMood(roomCode, moodId);
+      socketSelectMood(roomCode, moodId);
       const result = await couchMovies(roomCode);
       setMovies(result.movies || []);
       setUstadNote(result.ustad_notu || '');
       setMoodName(result.mood_name || '');
       setPhase(PHASES.RESULTS);
-      stopPolling();
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
 
   const handleLeaveRoom = async () => {
     try { await couchLeave(roomCode); } catch {}
-    stopPolling();
+    if (roomCode && user?.id) {
+      socketLeaveRoom(roomCode, String(user.id));
+    }
     setPhase(PHASES.ENTRY);
     setRoomCode(''); setRoomData(null); setMovies([]);
   };
@@ -118,40 +189,6 @@ export default function CouchMode() {
     }
     try { await toggleWatched(movie.id); } catch {}
   };
-
-  // ── Polling ──
-  const startPolling = useCallback((code) => {
-    stopPolling();
-    const poll = async () => {
-      try {
-        const data = await couchStatus(code);
-        setRoomData(data);
-        if (data.selected_mood && phase !== PHASES.RESULTS) {
-          const result = await couchMovies(code);
-          setMovies(result.movies || []);
-          setUstadNote(result.ustad_notu || '');
-          setMoodName(result.mood_name || '');
-          setPhase(PHASES.RESULTS);
-          stopPolling();
-          return;
-        }
-        if (data.members?.length >= 2 && phase === PHASES.LOBBY) {
-          setPhase(PHASES.MOOD_SELECT);
-        }
-      } catch {}
-    };
-    poll();
-    pollRef.current = setInterval(poll, 3000);
-  }, [phase]);
-
-  const stopPolling = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-  };
-
-  useEffect(() => () => stopPolling(), []);
-  useEffect(() => {
-    if (roomCode && (phase === PHASES.LOBBY || phase === PHASES.MOOD_SELECT)) startPolling(roomCode);
-  }, [phase, roomCode, startPolling]);
 
   // ── Render ──
   return (
@@ -303,7 +340,7 @@ export default function CouchMode() {
                     </div>
                   ))}
 
-                  {(!roomData?.members || roomData.members.length < 2) && (
+                  {(roomData?.members || []).length < 2 && (
                     <div className="flex items-center gap-4 p-4 rounded-2xl border border-dashed" style={{ borderColor: 'var(--couch-member-border)' }}>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center couch-avatar-ring couch-glow-pulse" style={{ background: 'var(--couch-input-bg)' }}>
                         <UserPlus size={16} className="couch-subtitle" />

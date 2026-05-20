@@ -7,7 +7,7 @@
 // Vite dev'de proxy kullan (relative path -> ayni origin -> CORS yok)
 // Production'da VITE_API_BASE_URL ile backend adresini set et
 const PROXY_BASE = "";  // relative: /api/movies/turkish gibi
-const DIRECT_BASE = "http://127.0.0.1:8002";
+export const DIRECT_BASE = "http://127.0.0.1:8002";
 
 // Vite dev server'da proxy calisir, production'da direkt baglanti gerekir
 const isDev = import.meta.env.DEV;

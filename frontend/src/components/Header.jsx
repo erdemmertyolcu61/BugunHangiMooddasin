@@ -1,5 +1,9 @@
-// Header — vinyl record shop branding
+import { useSocket } from '../context/SocketContext';
+
 export default function Header({ query, onQuery }) {
+  const { roomPresence } = useSocket();
+  const friendConnected = roomPresence?.connectedUsers?.length >= 2;
+
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-paper-warm/85 backdrop-blur-xl">
       <div className="mx-auto grid max-w-[1380px] grid-cols-[auto_1fr_auto] items-center gap-8 px-8 py-4">
@@ -13,6 +17,19 @@ export default function Header({ query, onQuery }) {
             <div className="font-mono text-[10px] tracking-[0.3px] text-ink-mute">A small record shop for cinema · Est. 2025</div>
           </div>
         </div>
+
+        {/* Presence indicator */}
+        {friendConnected && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+            <span className="text-[10px] font-bold tracking-wide text-emerald-400 whitespace-nowrap">
+              Arkadaşın Odada · Senkronize
+            </span>
+          </div>
+        )}
 
         {/* Search */}
         <div className="flex items-center gap-2.5 rounded-full border border-line bg-white/35 px-4 py-2 focus-within:border-ink focus-within:bg-white/55">
