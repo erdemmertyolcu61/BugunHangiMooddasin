@@ -41,20 +41,15 @@ export function SocketProvider({ children }) {
       setActiveMoodId(data.moodId);
     });
 
-    socket.on('Maps_to_moods', () => {
-      navigate('/moodlar');
+    socket.on('global_session_redirect', (data) => {
+      navigate(data.targetUrl || '/moodlar');
     });
 
-    socket.on('navigate_to_moods', () => {
-      navigate('/moodlar');
-    });
-
-    socket.on('room_mood_view_synced', (data) => {
+    socket.on('sync_view_to_mood', (data) => {
       if (data.moodId) {
+        setActiveMoodId(data.moodId);
         setGlobalMood(data.moodId);
         navigate('/discover');
-      } else if (data.quickMoodId) {
-        navigate('/kafan-mi-karisik', { state: { quickMoodId: data.quickMoodId } });
       }
     });
 
@@ -84,11 +79,11 @@ export function SocketProvider({ children }) {
   };
 
   const startSharedSession = (rId) => {
-    socketRef.current?.emit('start_shared_session', { roomId: rId });
+    socketRef.current?.emit('host_initiated_start', { roomId: rId });
   };
 
   const syncRoomMoodView = (rId, selection) => {
-    socketRef.current?.emit('sync_room_mood_view', { roomId: rId, ...selection });
+    socketRef.current?.emit('client_mood_interaction', { roomId: rId, ...selection });
   };
 
   return (

@@ -36,7 +36,7 @@ export default function MoodSelector() {
 
   const handleMoodClick = useCallback(async (mood) => {
     if (roomId) {
-      syncRoomMoodView(roomId, { moodId: mood.id });
+      syncRoomMoodView(roomId, { moodId: mood.id, moodTitle: mood.title });
     } else {
       try { playMoodAudio(mood.id); } catch(e) {}
       selectMood(mood.id);
@@ -97,7 +97,8 @@ export default function MoodSelector() {
 
   const navigateToMood = (moodId) => {
     if (roomId) {
-      syncRoomMoodView(roomId, { moodId });
+      const mood = moodList.find(m => m.id === moodId);
+      syncRoomMoodView(roomId, { moodId, moodTitle: mood?.title || '' });
       setQuizOpen(false);
     } else {
       try { playMoodAudio(moodId); } catch(e) {}
