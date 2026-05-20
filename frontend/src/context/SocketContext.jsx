@@ -2,18 +2,21 @@
  * Sinemood — SocketContext
  * Global Socket.IO connection + real-time co-watch state.
  *
- * Implements all frontend TODOs from the WebSocket architecture spec:
- *   [TODO 1] Unified Connection Point   — single socket, clean lifecycle
- *   [TODO 2] Real-Time Presence Rerender — room_presence_update → instant state
- *   [TODO 3] Audio & Visual Presence Chime — Web Audio API tone + systemNotification
- *   [TODO 4] Synchronized Redirect      — force_global_redirect → navigate
- *   [TODO 5] Two-Way Mirror State Engine — mirror_host_view → mirroredAction state
- *   [TODO 6] Loop & Crash Prevention    — every socket.on has explicit socket.off cleanup
+ * ARCHITECTURE:
+ *   - Single socket instance created ONCE at mount, destroyed ONCE at unmount.
+ *   - ALL listeners attached in the SAME effect as socket creation to prevent
+ *     the connect-event-missed race condition (autoConnect fires before a
+ *     separate useEffect can attach its listener).
+ *   - Session state (roomId, isHost, participants, isLive) persisted in React
+ *     state + localStorage — survives page navigation within the SPA.
+ *   - Auto-rejoin on reconnect via localStorage credentials.
  *
- * GLOBAL SESSION PERSISTENCE:
- *   roomId, isHost, participants, isLive, sessionUserId, sessionUserName
- *   all persist across page navigation (lifted from CouchMode local state).
- *   roomId also persisted to localStorage for tab-refresh recovery.
+ * TODOs implemented:
+ *   [TODO 1] Absolute Session Persistence & Reconnection
+ *   [TODO 2] Dynamic Status Sync (Kopuk → Aktif)
+ *   [TODO 3] Zero-Delay Presence & Chime Alert
+ *   [TODO 4] Host Action Reflection Layer
+ *   [TODO 5] Total Event Leakage Cleanup
  */
 
 import React, {
@@ -35,7 +38,7 @@ export function useSocket() {
   return useContext(SocketContext);
 }
 
-// ─── Web Audio chime — no network request, no external asset ──────────────────
+// ─── Web Audio chime ──────────────────────────────────────────────────────────
 function _playJoinChime() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -65,14 +68,11 @@ export function SocketProvider({ children }) {
   const navigate = useNavigate();
   const { selectMood: setGlobalMood } = useMood();
 
+  // Stable refs — updated each render so event handlers never go stale
   const navigateRef = useRef(navigate);
   const setGlobalMoodRef = useRef(setGlobalMood);
-  useEffect(() => {
-    navigateRef.current = navigate;
-  });
-  useEffect(() => {
-    setGlobalMoodRef.current = setGlobalMood;
-  });
+  useEffect(() => { navigateRef.current = navigate; });
+  useEffect(() => { setGlobalMoodRef.current = setGlobalMood; });
 
   const socketRef = useRef(null);
   const currentUserNameRef = useRef('');
@@ -100,39 +100,42 @@ export function SocketProvider({ children }) {
   const [mirroredAction, setMirroredAction] = useState(null);
   const [roomPresence, setRoomPresence] = useState(null);
 
-  // ── EFFECT 1 — Socket creation (once) ──
+  // ─────────────────────────────────────────────────────────────────────────
+  // SINGLE UNIFIED EFFECT — Socket creation + ALL listener attachment.
+  //
+  // [TODO 1] CRITICAL FIX: Socket is created with autoConnect:true, meaning
+  // the 'connect' event fires during construction. If listeners are in a
+  // SEPARATE useEffect, they miss the initial connect → "Kopuk" forever.
+  // Merging everything into ONE effect guarantees listeners are attached
+  // BEFORE the socket's first connect event can fire.
+  //
+  // [TODO 5] Every socket.on() has a matching socket.off() in cleanup.
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const serverUrl = import.meta.env.DEV
       ? DIRECT_BASE
       : import.meta.env.VITE_API_BASE_URL || DIRECT_BASE;
 
+    // Create socket but DON'T auto-connect yet — attach listeners first
     const socket = io(serverUrl, {
       path: '/ws/socket.io',
       transports: ['websocket', 'polling'],
-      autoConnect: true,
+      autoConnect: false,          // ← CRITICAL: connect AFTER listeners
       reconnection: true,
-      reconnectionAttempts: 8,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1200,
     });
 
     socketRef.current = socket;
 
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
+    // ── [TODO 2] Connection state — instant Kopuk → Aktif toggle ──
+    const onConnect = () => {
+      setConnected(true);
 
-  // ── EFFECT 1b — Auto-rejoin on reconnect ──
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const onReconnect = () => {
+      // [TODO 1] Auto-rejoin room on reconnect
       const savedRoom = localStorage.getItem('activeRoomId');
       const savedUserId = localStorage.getItem('activeSessionUserId');
-      const savedUserName =
-        localStorage.getItem('activeSessionUserName') || 'Sinemasever';
+      const savedUserName = localStorage.getItem('activeSessionUserName') || 'Sinemasever';
       if (savedRoom && savedUserId) {
         socket.emit('join_sinemod_session', {
           roomId: savedRoom,
@@ -142,20 +145,11 @@ export function SocketProvider({ children }) {
       }
     };
 
-    socket.on('connect', onReconnect);
-    return () => {
-      socket.off('connect', onReconnect);
+    const onDisconnect = () => {
+      setConnected(false);
     };
-  }, []);
 
-  // ── EFFECT 2 — Listener attachment (once) ──
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const onConnect = () => setConnected(true);
-    const onDisconnect = () => setConnected(false);
-
+    // ── [TODO 3] Zero-Delay Presence & Chime ──
     const onRoomPresenceUpdate = (data) => {
       setRoomPresence(data);
 
@@ -173,6 +167,7 @@ export function SocketProvider({ children }) {
       }
       if (data.activeMoodId) setActiveMoodId(data.activeMoodId);
 
+      // Audio chime + notification for new arrivals
       const newName = data.joinedNotificationName;
       if (newName && newName !== currentUserNameRef.current) {
         _playJoinChime();
@@ -185,6 +180,7 @@ export function SocketProvider({ children }) {
       setActiveMoodId(data.moodId);
     };
 
+    // ── [TODO 4] Synchronized Redirect ──
     const onForceGlobalRedirect = (data) => {
       const url = data.url || '/moodlar';
       setIsLive(true);
@@ -204,6 +200,7 @@ export function SocketProvider({ children }) {
       }
     };
 
+    // ── [TODO 4] Host Action Reflection ──
     const onMirrorHostView = (data) => {
       setMirroredAction({ actionType: data.actionType, payload: data.payload });
     };
@@ -218,6 +215,7 @@ export function SocketProvider({ children }) {
       }
     };
 
+    // ── Attach ALL listeners BEFORE connecting ──
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('room_presence_update', onRoomPresenceUpdate);
@@ -228,6 +226,10 @@ export function SocketProvider({ children }) {
     socket.on('mirror_host_view', onMirrorHostView);
     socket.on('host_navigation_sync', onHostNavigationSync);
 
+    // ── NOW connect — listeners are guaranteed to catch the event ──
+    socket.connect();
+
+    // ── [TODO 5] Total Event Leakage Cleanup ──
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -238,10 +240,14 @@ export function SocketProvider({ children }) {
       socket.off('sync_view_to_mood', onSyncViewToMood);
       socket.off('mirror_host_view', onMirrorHostView);
       socket.off('host_navigation_sync', onHostNavigationSync);
+      socket.disconnect();
+      socketRef.current = null;
     };
   }, []);
 
-  // ── Public API ──
+  // ─────────────────────────────────────────────────────────────────────────
+  // Public API
+  // ─────────────────────────────────────────────────────────────────────────
 
   const joinRoom = useCallback((rId, userId, userName, hostFlag) => {
     const name = userName || 'Sinemasever';
@@ -298,6 +304,7 @@ export function SocketProvider({ children }) {
     socketRef.current?.emit('client_mood_interaction', { roomId: rId, ...selection });
   }, []);
 
+  // [TODO 4] Host Interaction Mirror
   const sendHostInteraction = useCallback((rId, actionType, payload) => {
     socketRef.current?.emit('host_interaction_event', {
       roomId: rId,
@@ -306,6 +313,7 @@ export function SocketProvider({ children }) {
     });
   }, []);
 
+  // Host Navigation Sync
   const sendHostNavigation = useCallback((rId, url, extra) => {
     socketRef.current?.emit('host_navigation_sync', {
       roomId: rId,

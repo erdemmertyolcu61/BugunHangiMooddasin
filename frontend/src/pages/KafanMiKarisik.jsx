@@ -136,6 +136,9 @@ export default function KafanMiKarisik() {
   const analyze = async (inputText, feedbackMode = false) => {
     const txt = inputText || text;
     if (!txt.trim()) return;
+
+    // [CRITICAL FIX] Instant visual flush — clear ALL previous results
+    // the exact millisecond the user submits. No random/stale movies leak.
     setLoading(true);
     setError(null);
     setResult(null);
@@ -143,51 +146,27 @@ export default function KafanMiKarisik() {
     if (!feedbackMode) setLastQuery(txt);
 
     try {
-      // ── Phase 0: Fast vector path (<300ms) ──────────────────────────────
-      // Show results immediately without any LLM calls.
-      let fastShown = false;
-      try {
-        const fast = await postFastRecommendation(txt, 6, 5.0, sessionExcludeIds);
-        if (fast?.movies?.length) {
-          setResult(fast);
-          setLoading(false); // unblock UI immediately
-          fastShown = true;
-          if (fast.movies) {
-            const newIds = fast.movies.map(m => m.id).filter(Boolean);
-            setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
-          }
-        }
-      } catch (fastErr) {
-        // Fast path failed — continue to SSE path, still loading
-      }
+      // ── SSE pipeline — intent-aware results only ───────────────────────
+      // We do NOT show fast vector results anymore because they appear as
+      // "random films" to the user. The SSE pipeline returns intent-analyzed,
+      // properly matched results. Loading spinner stays until these arrive.
+      const data = await streamConfusedRecommendation(txt, {
+        limit: 6,
+        minVote: 5.0,
+        excludeIds: sessionExcludeIds,
+        onIntent: (intentData) => {
+          setEarlyIntent(intentData);
+        },
+        onError: (err) => {
+          setError(err.message || 'Bir hata oluştu');
+        },
+      });
 
-      // ── Phase 1+: SSE pipeline — upgrades with intent + reranked results ─
-      // Runs in background even if fast results are already shown.
-      try {
-        const data = await streamConfusedRecommendation(txt, {
-          limit: 6,
-          minVote: 5.0,
-          excludeIds: sessionExcludeIds,
-          onIntent: (intentData) => {
-            setEarlyIntent(intentData);
-          },
-          onError: (err) => {
-            if (!fastShown) setError(err.message || 'Bir hata oluştu');
-          },
-        });
-
-        // SSE returned a 'fast' phase with vector results — fast_search_engine
-        // is also wired into the SSE stream now, so we get best-of-both.
-        if (data?.movies?.length) {
-          setResult(data);
-          setEarlyIntent(null);
-          if (data.movies) {
-            const newIds = data.movies.map(m => m.id).filter(Boolean);
-            setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
-          }
-        }
-      } catch (sseErr) {
-        if (!fastShown) setError(sseErr.message || 'Bir hata oluştu');
+      if (data?.movies?.length) {
+        setResult(data);
+        setEarlyIntent(null);
+        const newIds = data.movies.map(m => m.id).filter(Boolean);
+        setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
       }
     } catch (err) {
       setError(err.message || 'Bir hata oluştu');
