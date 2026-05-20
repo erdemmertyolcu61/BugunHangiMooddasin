@@ -425,6 +425,26 @@ export async function streamConfusedRecommendation(text, {
   return finalResult;
 }
 
+/**
+ * Ultra-fast semantic öneri — Gemini embedding + numpy cosine, <300ms.
+ * Hiçbir LLM çağrısı yapmaz. Fast Search Engine hazır değilse kural tabanlı fallback döner.
+ *
+ * @param {string} text   - Kullanıcının doğal dil isteği
+ * @param {number} limit  - Kaç film isteniyor (3-12)
+ * @param {number} minVote
+ * @param {number[]} excludeIds - Anti-repetition için dışlanacak tmdb_id'ler
+ * @returns {Promise<{ok, source, elapsed_ms, movies}>}
+ */
+export async function postFastRecommendation(text, limit = 6, minVote = 5.5, excludeIds = []) {
+  const res = await fetch(`${BASE}/recommend/fast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ text, limit, min_vote: minVote, exclude_ids: excludeIds }),
+  });
+  if (!res.ok) throw new Error(`Hızlı öneri alınamadı (${res.status})`);
+  return res.json();
+}
+
 export async function getConfusedRecommendation(mood = null) {
   const url = mood ? `${BASE}/recommend/confused?mood=${mood}` : `${BASE}/recommend/confused`;
   const res = await fetch(url);

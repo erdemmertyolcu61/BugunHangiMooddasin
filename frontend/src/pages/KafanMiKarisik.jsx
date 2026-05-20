@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postConfusedRecommendation, streamConfusedRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
+import { postConfusedRecommendation, streamConfusedRecommendation, postFastRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { playMoodAudio } from '../utils/moodAudioManager';
@@ -138,25 +138,53 @@ export default function KafanMiKarisik() {
     setResult(null);
     setEarlyIntent(null);
     if (!feedbackMode) setLastQuery(txt);
+
     try {
-      const data = await streamConfusedRecommendation(txt, {
-        limit: 6,
-        minVote: 5.0,
-        excludeIds: sessionExcludeIds,
-        onIntent: (intentData) => {
-          // Show ustad_line + mood_mix instantly while movies load
-          setEarlyIntent(intentData);
-        },
-        onError: (err) => {
-          setError(err.message || 'Bir hata oluştu');
-        },
-      });
-      setResult(data);
-      setEarlyIntent(null); // clear early state, full result is here
-      // Track recommended movie IDs for anti-repetition
-      if (data.movies) {
-        const newIds = data.movies.map(m => m.id).filter(Boolean);
-        setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
+      // ── Phase 0: Fast vector path (<300ms) ──────────────────────────────
+      // Show results immediately without any LLM calls.
+      let fastShown = false;
+      try {
+        const fast = await postFastRecommendation(txt, 6, 5.0, sessionExcludeIds);
+        if (fast?.movies?.length) {
+          setResult(fast);
+          setLoading(false); // unblock UI immediately
+          fastShown = true;
+          if (fast.movies) {
+            const newIds = fast.movies.map(m => m.id).filter(Boolean);
+            setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
+          }
+        }
+      } catch (fastErr) {
+        // Fast path failed — continue to SSE path, still loading
+      }
+
+      // ── Phase 1+: SSE pipeline — upgrades with intent + reranked results ─
+      // Runs in background even if fast results are already shown.
+      try {
+        const data = await streamConfusedRecommendation(txt, {
+          limit: 6,
+          minVote: 5.0,
+          excludeIds: sessionExcludeIds,
+          onIntent: (intentData) => {
+            setEarlyIntent(intentData);
+          },
+          onError: (err) => {
+            if (!fastShown) setError(err.message || 'Bir hata oluştu');
+          },
+        });
+
+        // SSE returned a 'fast' phase with vector results — fast_search_engine
+        // is also wired into the SSE stream now, so we get best-of-both.
+        if (data?.movies?.length) {
+          setResult(data);
+          setEarlyIntent(null);
+          if (data.movies) {
+            const newIds = data.movies.map(m => m.id).filter(Boolean);
+            setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
+          }
+        }
+      } catch (sseErr) {
+        if (!fastShown) setError(sseErr.message || 'Bir hata oluştu');
       }
     } catch (err) {
       setError(err.message || 'Bir hata oluştu');

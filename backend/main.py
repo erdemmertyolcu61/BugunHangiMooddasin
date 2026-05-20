@@ -16,8 +16,10 @@ from backend.dns_resolver import setup_dns_bypass, refresh_dns
 from backend.config import (
     ALLOWED_ORIGINS, BETA_PASSWORD, ADMIN_PASSWORD, JWT_SECRET,
     IS_PRODUCTION, ENVIRONMENT, RATE_LIMIT_GENERAL, RATE_LIMIT_AI,
-    TMDB_API_KEY, ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID,
+    TMDB_API_KEY, ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GEMINI_API_KEY,
 )
+from backend.services.embedding_service import embedding_service
+from backend.services.fast_search import fast_search_engine
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, StreamingResponse
@@ -341,6 +343,94 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(auto_seed())
 
+    # ── Fast Search Engine: load pre-computed embeddings into memory ──────────
+    try:
+        n = await fast_search_engine.load_from_db(cache)
+        if n > 0:
+            logger.info(f"[FastSearch] {n} film embeddingi belleğe yüklendi.")
+        else:
+            logger.info("[FastSearch] Henüz embedding yok — arka planda oluşturulacak.")
+    except Exception as e:
+        logger.error(f"[FastSearch] Yükleme hatası: {e}")
+
+    # ── Background embedding job: vectorize movies that lack embeddings ────────
+    async def _embed_movies_bg():
+        """
+        Embed unprocessed movies in batches, then reload the in-memory matrix.
+        Runs once at startup (deferred 15s) and is safe to call repeatedly.
+        """
+        await asyncio.sleep(15)  # Let the server fully start first
+
+        if not embedding_service.is_available:
+            logger.warning("[EmbedJob] GEMINI_API_KEY yok — embedding atlanıyor.")
+            return
+
+        try:
+            batch = await cache.get_unembedded_movies(limit=300)
+            if not batch:
+                logger.info("[EmbedJob] Tüm filmler zaten embed edilmiş.")
+                return
+
+            logger.info(f"[EmbedJob] {len(batch)} film embed edilecek...")
+            embedded = 0
+            failed = 0
+
+            for movie in batch:
+                try:
+                    # Build search document: Title + overview + genres
+                    from backend.services.fast_search import _GENRE_NAMES, _build_ustad_notu
+                    genre_ids = movie.get("genre_ids", [])
+                    genre_names = [_GENRE_NAMES.get(g, "") for g in genre_ids if g in _GENRE_NAMES]
+                    genre_str = ", ".join(genre_names) if genre_names else "film"
+                    title = movie.get("title", "")
+                    overview = (movie.get("overview") or "")[:400]
+                    release_year = (movie.get("release_date") or "")[:4]
+                    doc = f"Title: {title}. Year: {release_year}. Genres: {genre_str}. {overview}"
+
+                    vec = await embedding_service.get_embedding_safe(doc)
+                    if vec is None:
+                        failed += 1
+                        continue
+
+                    from backend.services.embedding_service import encode_embedding
+                    blob = encode_embedding(vec)
+                    ustad = _build_ustad_notu(title, genre_ids, movie.get("release_date", ""))
+
+                    # Determine primary mood from mood_classification
+                    primary_mood = await cache.get_mood_for_movie(movie.get("id"))
+
+                    await cache.save_fast_search_row(
+                        tmdb_id=movie["id"],
+                        embedding_data=blob,
+                        search_document=doc,
+                        ustad_notu=ustad,
+                        title=title,
+                        poster_url=movie.get("poster_url"),
+                        backdrop_url=movie.get("backdrop_url"),
+                        overview=overview,
+                        release_date=movie.get("release_date", ""),
+                        vote_average=movie.get("vote_average", 0.0),
+                        genre_ids=genre_ids,
+                        primary_mood_id=primary_mood or "",
+                    )
+                    embedded += 1
+                    await asyncio.sleep(0.05)  # ~20 req/s, well within free tier limits
+                except Exception as e:
+                    failed += 1
+                    logger.debug(f"[EmbedJob] Film {movie.get('id')} hata: {e}")
+
+            logger.info(f"[EmbedJob] Tamamlandı: {embedded} embed, {failed} hata.")
+
+            # Reload in-memory matrix with new embeddings
+            if embedded > 0:
+                n = await fast_search_engine.load_from_db(cache)
+                logger.info(f"[FastSearch] Matrix yenilendi: {n} film.")
+
+        except Exception as e:
+            logger.error(f"[EmbedJob] Genel hata: {e}")
+
+    asyncio.create_task(_embed_movies_bg())
+
     yield
 
     # Cleanup persistent TMDB client
@@ -352,6 +442,8 @@ async def lifespan(app: FastAPI):
             await _tc.aclose()
         except Exception:
             pass
+    # Cleanup Gemini embedding client
+    await embedding_service.close()
 
 
 app = FastAPI(
@@ -2672,6 +2764,100 @@ async def post_quick_mood_mix(req: QuickMoodMixRequest):
     }
 
 
+@app.post("/api/recommend/fast", dependencies=[Depends(rate_limit_ai)])
+async def post_fast_recommendation(request: Request):
+    """
+    Ultra-fast semantic film önerisi — <300ms hedef.
+
+    Adımlar:
+      1. Kullanıcı metnini Gemini text-embedding-004 ile vektörleştir (<100ms)
+      2. Pre-loaded numpy matrisinde cosine similarity ile top-k bul (<5ms)
+      3. Sonuçları hemen döndür — hiçbir LLM çağrısı yok
+
+    Fallback: fast_search_engine hazır değilse (embedding yüklenmemişse)
+    kural tabanlı öneri ile yanıt verir.
+    """
+    import time as _time
+    t0 = _time.monotonic()
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz istek gövdesi")
+
+    text = (body.get("text") or "").strip()
+    limit = max(3, min(int(body.get("limit", 6)), 12))
+    min_vote = max(4.0, min(float(body.get("min_vote", 5.5)), 10.0))
+    exclude_ids = set(int(x) for x in body.get("exclude_ids", []) if str(x).isdigit())
+
+    if not text:
+        raise HTTPException(status_code=400, detail="text alanı boş olamaz")
+
+    # ── Phase 1: Vectorize query ──────────────────────────────────────────────
+    query_vec = None
+    if embedding_service.is_available:
+        try:
+            query_vec = await asyncio.wait_for(
+                embedding_service.get_embedding(text), timeout=8.0
+            )
+        except Exception as e:
+            logger.warning(f"[FastRec] Embedding hatası: {e}")
+
+    # ── Phase 2: Vector similarity search ────────────────────────────────────
+    movies = []
+    source = "rule_based"
+
+    if query_vec and fast_search_engine.is_ready:
+        movies = fast_search_engine.search(
+            query_vec=query_vec,
+            limit=limit,
+            exclude_ids=exclude_ids,
+            min_vote=min_vote,
+        )
+        source = "fast_vector"
+
+    # ── Fallback: rule-based random pick ─────────────────────────────────────
+    if not movies:
+        try:
+            fallback = _rule_based_confused_analysis(text)
+            mood_mix = fallback.get("mood_mix", [{"mood_id": "battaniye", "weight": 1.0}])
+            top_mood = mood_mix[0]["mood_id"] if mood_mix else "battaniye"
+            repo_result = await cache.get_repository_movies_paginated(
+                top_mood, page=1, per_page=limit * 3, min_vote=min_vote,
+            )
+            repo_movies = repo_result.get("movies", []) if isinstance(repo_result, dict) else repo_result
+            import random as _rnd
+            _rnd.shuffle(repo_movies)
+            for m in repo_movies[:limit]:
+                movies.append({
+                    "id": m["id"],
+                    "title": m.get("title", ""),
+                    "poster_url": m.get("poster_url"),
+                    "backdrop_url": m.get("backdrop_url"),
+                    "vote_average": m.get("vote_average", 0.0),
+                    "genre_ids": m.get("genre_ids", []),
+                    "overview": m.get("overview", ""),
+                    "release_date": m.get("release_date", ""),
+                    "mood_score": m.get("mood_score", 50.0),
+                    "matched_moods": [top_mood],
+                    "reason": REASON_MAP.get(top_mood, "Bu ruh haline uygun seçildi."),
+                    "ustad_notu": "",
+                })
+        except Exception as e:
+            logger.error(f"[FastRec] Fallback hatası: {e}")
+
+    elapsed_ms = round((time.monotonic() - t0) * 1000, 1)
+    logger.info(f"[FastRec] '{text[:40]}' → {len(movies)} film, {elapsed_ms}ms ({source})")
+
+    return {
+        "ok": True,
+        "source": source,
+        "elapsed_ms": elapsed_ms,
+        "fast_search_ready": fast_search_engine.is_ready,
+        "movies": movies,
+    }
+
+
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
@@ -2724,7 +2910,37 @@ async def post_confused_recommendation_stream(req: ConfusedRequest):
 
         engine = ChatEngine(db=cache, tmdb_service=tmdb_service, confusion_service=confusion_service)
 
-        # ── Phase 1: Intent extraction (fast — Haiku or semantic cache) ──
+        # ── Phase 0: Fast vector result — emit immediately (<300ms) ──────────
+        # Try Gemini embedding + numpy cosine similarity first.
+        # Frontend shows these movies instantly while the LLM pipeline runs.
+        fast_emitted = False
+        if fast_search_engine.is_ready and embedding_service.is_available:
+            try:
+                qvec = await asyncio.wait_for(
+                    embedding_service.get_embedding(text), timeout=5.0
+                )
+                fast_movies = fast_search_engine.search(
+                    query_vec=qvec,
+                    limit=limit,
+                    exclude_ids=set(exclude_ids),
+                    min_vote=min_vote,
+                )
+                if fast_movies:
+                    rule_fb = _rule_based_confused_analysis(text)
+                    fast_result = {
+                        "ok": True,
+                        "source": "fast_vector",
+                        "movies": fast_movies,
+                        "mood_mix": rule_fb.get("mood_mix", []),
+                        "message": rule_fb.get("message", ""),
+                        "ustad_line": "",
+                    }
+                    yield f"event: phase\ndata: {_json.dumps({'phase': 'fast', 'data': fast_result}, ensure_ascii=False)}\n\n"
+                    fast_emitted = True
+            except Exception as e:
+                logger.debug(f"[SSE] Fast phase skipped: {e}")
+
+        # ── Phase 1: Intent extraction (fast — Haiku or semantic cache) ──────
         intent_data = {}
         try:
             from backend.services import semantic_cache
@@ -2752,7 +2968,7 @@ async def post_confused_recommendation_stream(req: ConfusedRequest):
         except Exception as e:
             logger.warning(f"[SSE] Intent phase failed: {e}")
 
-        # ── Phase 2+3: Full pipeline (candidates + rerank) ──
+        # ── Phase 2+3: Full pipeline (candidates + rerank) ───────────────────
         try:
             result = await engine.process(
                 text=text,
@@ -2763,7 +2979,9 @@ async def post_confused_recommendation_stream(req: ConfusedRequest):
             yield f"event: phase\ndata: {_json.dumps({'phase': 'result', 'data': result}, ensure_ascii=False)}\n\n"
         except Exception as e:
             logger.error(f"[SSE] Full pipeline failed: {e}")
-            yield f"event: phase\ndata: {_json.dumps({'phase': 'error', 'data': {'message': str(e)}}, ensure_ascii=False)}\n\n"
+            # If fast phase already gave movies, emit a softer error — don't overwrite good data
+            if not fast_emitted:
+                yield f"event: phase\ndata: {_json.dumps({'phase': 'error', 'data': {'message': str(e)}}, ensure_ascii=False)}\n\n"
 
         yield f"event: done\ndata: {_json.dumps({'ok': True})}\n\n"
 

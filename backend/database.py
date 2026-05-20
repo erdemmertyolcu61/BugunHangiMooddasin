@@ -469,6 +469,30 @@ class MovieCache:
                 CREATE INDEX IF NOT EXISTS idx_mqc_recent
                 ON mood_query_cache(last_used DESC)
             """)
+            # ── Fast Vector Search table ──────────────────────────────────────────
+            # Stores pre-computed Gemini text-embedding-004 vectors (768 dims).
+            # Enables <120ms end-to-end recommendations with zero LLM calls.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS movie_fast_search (
+                    tmdb_id       INTEGER PRIMARY KEY,
+                    embedding_data BLOB NOT NULL,
+                    search_document TEXT NOT NULL DEFAULT '',
+                    ustad_notu    TEXT  NOT NULL DEFAULT '',
+                    title         TEXT  NOT NULL DEFAULT '',
+                    poster_url    TEXT,
+                    backdrop_url  TEXT,
+                    overview      TEXT  DEFAULT '',
+                    release_date  TEXT  DEFAULT '',
+                    vote_average  REAL  DEFAULT 0.0,
+                    genre_ids     TEXT  DEFAULT '[]',
+                    primary_mood_id TEXT DEFAULT '',
+                    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_fast_search_vote
+                ON movie_fast_search(vote_average DESC)
+            """)
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -1560,6 +1584,144 @@ class MovieCache:
                 (limit,)
             )
             return await cursor.fetchall()
+
+    # ──────────── FAST VECTOR SEARCH ─────────────────────────────────────────
+
+    async def save_fast_search_row(
+        self,
+        tmdb_id: int,
+        embedding_data: bytes,
+        search_document: str,
+        ustad_notu: str,
+        title: str,
+        poster_url: str,
+        backdrop_url: str,
+        overview: str,
+        release_date: str,
+        vote_average: float,
+        genre_ids: list,
+        primary_mood_id: str,
+    ) -> None:
+        """
+        Upsert a movie embedding row into movie_fast_search.
+        Idempotent — safe to call multiple times for the same tmdb_id.
+        """
+        async with _get_connection(self.db_path) as db:
+            await db.execute(
+                """INSERT INTO movie_fast_search (
+                       tmdb_id, embedding_data, search_document, ustad_notu,
+                       title, poster_url, backdrop_url, overview, release_date,
+                       vote_average, genre_ids, primary_mood_id, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                   ON CONFLICT(tmdb_id) DO UPDATE SET
+                       embedding_data  = excluded.embedding_data,
+                       search_document = excluded.search_document,
+                       ustad_notu      = excluded.ustad_notu,
+                       title           = excluded.title,
+                       poster_url      = excluded.poster_url,
+                       backdrop_url    = excluded.backdrop_url,
+                       overview        = excluded.overview,
+                       release_date    = excluded.release_date,
+                       vote_average    = excluded.vote_average,
+                       genre_ids       = excluded.genre_ids,
+                       primary_mood_id = excluded.primary_mood_id,
+                       updated_at      = CURRENT_TIMESTAMP
+                """,
+                (
+                    tmdb_id, embedding_data, search_document, ustad_notu,
+                    title, poster_url, backdrop_url, overview, release_date,
+                    vote_average,
+                    json.dumps(genre_ids, ensure_ascii=False),
+                    primary_mood_id,
+                ),
+            )
+            await db.commit()
+
+    async def get_all_fast_search_rows(self) -> list[dict]:
+        """
+        Load all rows from movie_fast_search for in-memory embedding matrix.
+        Returns list of dicts with raw embedding_data BLOBs.
+        """
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                """SELECT tmdb_id, embedding_data, ustad_notu, title,
+                          poster_url, backdrop_url, overview, release_date,
+                          vote_average, genre_ids, primary_mood_id
+                   FROM movie_fast_search
+                   WHERE embedding_data IS NOT NULL
+                   ORDER BY vote_average DESC"""
+            )
+            rows = await cursor.fetchall()
+
+        result = []
+        for r in rows:
+            genre_ids = []
+            try:
+                genre_ids = json.loads(r[9]) if r[9] else []
+            except Exception:
+                pass
+            result.append({
+                "tmdb_id":        r[0],
+                "embedding_data": r[1],
+                "ustad_notu":     r[2] or "",
+                "title":          r[3] or "",
+                "poster_url":     r[4],
+                "backdrop_url":   r[5],
+                "overview":       r[6] or "",
+                "release_date":   r[7] or "",
+                "vote_average":   r[8] or 0.0,
+                "genre_ids":      genre_ids,
+                "primary_mood_id": r[10] or "",
+            })
+        return result
+
+    async def count_fast_search_rows(self) -> int:
+        """Number of movies already embedded."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM movie_fast_search")
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+    async def get_unembedded_movies(self, limit: int = 200) -> list[dict]:
+        """
+        Return movies from movie_repository not yet present in movie_fast_search.
+        Used by the background embedding job to find work.
+        """
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                """SELECT DISTINCT r.tmdb_id, r.title, r.poster_url, r.backdrop_url,
+                          r.overview, r.release_date, r.vote_average, r.genre_ids,
+                          r.mood_id
+                   FROM movie_repository r
+                   LEFT JOIN movie_fast_search fs ON r.tmdb_id = fs.tmdb_id
+                   WHERE fs.tmdb_id IS NULL
+                     AND r.title IS NOT NULL
+                     AND r.title != ''
+                   ORDER BY r.vote_average DESC
+                   LIMIT ?""",
+                (limit,),
+            )
+            rows = await cursor.fetchall()
+
+        result = []
+        for r in rows:
+            genre_ids = []
+            try:
+                genre_ids = json.loads(r[7]) if r[7] else []
+            except Exception:
+                pass
+            result.append({
+                "tmdb_id":      r[0],
+                "title":        r[1] or "",
+                "poster_url":   r[2],
+                "backdrop_url": r[3],
+                "overview":     r[4] or "",
+                "release_date": r[5] or "",
+                "vote_average": r[6] or 0.0,
+                "genre_ids":    genre_ids,
+                "mood_id":      r[8] or "",
+            })
+        return result
 
 
 cache = MovieCache()

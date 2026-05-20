@@ -45,6 +45,10 @@ JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
 # audience eşleşmesini bozuyordu — temizle.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 
+# ─── Google Gemini (embedding + optional generative) ───
+# Used by embedding_service.py for text-embedding-004 (<100ms per call)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+
 # ─── Rate Limiting ───
 RATE_LIMIT_GENERAL = int(os.getenv("RATE_LIMIT_GENERAL", "60"))   # per minute per IP
 RATE_LIMIT_AI = int(os.getenv("RATE_LIMIT_AI", "20"))             # per minute per IP
