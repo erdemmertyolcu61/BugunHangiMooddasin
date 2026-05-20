@@ -5,11 +5,13 @@ import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, Book
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, streamConfusedRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
+import FilmDetailModal from '../components/FilmDetailModal';
 import { playMoodAudio } from '../utils/moodAudioManager';
 
 const QUICK_MOODS = [
   {
-    label: "Yorgunum, rahatlatıcı bir şey",
+    id: "relaxing_cinema",
+    label: "Günün yorgunluğunu silecek yumuşacık filmler",
     mood_mix: [
       { mood_id: "battaniye", percentage: 50 },
       { mood_id: "kalp",      percentage: 30 },
@@ -17,7 +19,8 @@ const QUICK_MOODS = [
     ],
   },
   {
-    label: "Gülmek istiyorum",
+    id: "high_joy",
+    label: "Modu anında yükselten neşeli reçeteler",
     mood_mix: [
       { mood_id: "kahkaha",   percentage: 55 },
       { mood_id: "battaniye", percentage: 25 },
@@ -25,7 +28,8 @@ const QUICK_MOODS = [
     ],
   },
   {
-    label: "Karanlık ama kaliteli",
+    id: "premium_dark",
+    label: "Gözünü kırpmadan izleyeceğin karanlık işler",
     mood_mix: [
       { mood_id: "gece",        percentage: 45 },
       { mood_id: "deep-chills", percentage: 35 },
@@ -33,7 +37,8 @@ const QUICK_MOODS = [
     ],
   },
   {
-    label: "Romantik ama klişe olmasın",
+    id: "organic_romance",
+    label: "İçini kıpır kıpır edecek ama klişesiz",
     mood_mix: [
       { mood_id: "kalp",        percentage: 40 },
       { mood_id: "sessiz",      percentage: 35 },
@@ -41,7 +46,8 @@ const QUICK_MOODS = [
     ],
   },
   {
-    label: "Düşündüren bir film",
+    id: "deep_intellect",
+    label: "Bittiğinde bile saatlerce kafanda yaşayacaklar",
     mood_mix: [
       { mood_id: "zihin",       percentage: 50 },
       { mood_id: "sessiz",      percentage: 25 },
@@ -49,7 +55,8 @@ const QUICK_MOODS = [
     ],
   },
   {
-    label: "Gerilim & heyecan",
+    id: "high_tension",
+    label: "Koltukta dikilerek izletecek yüksek tansiyon",
     mood_mix: [
       { mood_id: "adrenalin",   percentage: 50 },
       { mood_id: "gece",        percentage: 30 },
@@ -57,7 +64,8 @@ const QUICK_MOODS = [
     ],
   },
   {
-    label: "Nostaljik bir akşam",
+    id: "timeless_vintage",
+    label: "Eski güzel günlerin o sıcacık sinema kokusu",
     mood_mix: [
       { mood_id: "zamanyolcusu", percentage: 45 },
       { mood_id: "battaniye",    percentage: 30 },
@@ -102,6 +110,10 @@ export default function KafanMiKarisik() {
   // Quick-action states for card buttons
   const [quickSavedIds, setQuickSavedIds] = useState(new Set());
   const [quickWatchedIds, setQuickWatchedIds] = useState(new Set());
+
+  // Film detail modal — opens in-place instead of navigating away
+  const [detailMovieId, setDetailMovieId] = useState(null);
+  const [detailInitialMovie, setDetailInitialMovie] = useState(null);
 
   useEffect(() => {
     if (loading) {
@@ -284,9 +296,9 @@ export default function KafanMiKarisik() {
             <div className="max-w-2xl mx-auto">
               <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60 mb-4">YA DA HIZLI ÖNERİ</p>
               <div className="flex flex-wrap gap-2.5">
-                {QUICK_MOODS.map((qm, idx) => (
+                {QUICK_MOODS.map((qm) => (
                   <button
-                    key={idx}
+                    key={qm.id}
                     onClick={() => handleQuickMood(qm.mood_mix)}
                     className="quick-mood-chip px-4 py-2.5 rounded-full bg-white/10 border border-white/20 hover:bg-amber-500/15 hover:border-amber-400/50 transition-all text-[12px] font-semibold font-serif text-[#f5f2eb] dark:text-[#f5f2eb] hover:text-[#ffbf00]"
                   >
@@ -485,7 +497,7 @@ export default function KafanMiKarisik() {
                             ? 'bg-amber-500/[0.08] border-amber/30 ring-1 ring-amber/20'
                             : 'bg-white/8 border-white/10 hover:border-amber/35'
                         }`}
-                        onClick={() => navigate(`/discover?analyze=${movie.id}`)}
+                        onClick={() => { setDetailInitialMovie(movie); setDetailMovieId(movie.id); }}
                       >
                         <div className="aspect-[2/3] relative overflow-hidden">
                           <OptimizedImage
@@ -618,6 +630,15 @@ export default function KafanMiKarisik() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Film Detail Modal — opens in-place, no navigation away */}
+      {detailMovieId && (
+        <FilmDetailModal
+          movieId={detailMovieId}
+          initialMovie={detailInitialMovie}
+          onClose={() => { setDetailMovieId(null); setDetailInitialMovie(null); }}
+        />
+      )}
     </div>
   );
 }
