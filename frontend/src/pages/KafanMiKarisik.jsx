@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { useSocket } from '../context/SocketContext';
@@ -93,21 +93,6 @@ const FEEDBACK_BUTTONS = [
   { label: "Az Bilinen", text: "daha az bilinen", icon: TrendingDown },
 ];
 
-const DEBOUNCE_MS = 400;
-
-function SkeletonCard() {
-  return (
-    <div className="rounded-[2rem] overflow-hidden bg-white/5 border border-white/5 animate-pulse">
-      <div className="aspect-[2/3] bg-white/8" />
-      <div className="p-5 space-y-3">
-        <div className="h-4 bg-white/10 rounded-full w-3/4" />
-        <div className="h-3 bg-white/8 rounded-full w-1/2" />
-        <div className="h-3 bg-white/8 rounded-full w-full" />
-      </div>
-    </div>
-  );
-}
-
 export default function KafanMiKarisik() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -120,7 +105,6 @@ export default function KafanMiKarisik() {
   const [result, setResult] = useState(null);
   const inputRef = useRef(null);
   const phraseTimer = useRef(null);
-  const debounceTimer = useRef(null);
 
   // Session tracking — exclude already recommended movies
   const [sessionExcludeIds, setSessionExcludeIds] = useState([]);
@@ -149,36 +133,36 @@ export default function KafanMiKarisik() {
   // Early intent data — shown while full results load
   const [earlyIntent, setEarlyIntent] = useState(null);
 
-  const analyzeRef = useRef(null);
-
   const analyze = async (inputText, feedbackMode = false) => {
     const txt = inputText || text;
     if (!txt.trim()) return;
-
-    // [TODO 2] Instant State Flush — clear everything the millisecond a new query starts
     setLoading(true);
+    setError(null);
     setResult(null);
     setEarlyIntent(null);
-    setError(null);
     if (!feedbackMode) setLastQuery(txt);
 
     try {
-      // Phase 0: Fast vector path (<300ms) — saved as fallback only
-      let fastResult = null;
+      // ── Phase 0: Fast vector path (<300ms) ──────────────────────────────
+      // Show results immediately without any LLM calls.
+      let fastShown = false;
       try {
         const fast = await postFastRecommendation(txt, 6, 5.0, sessionExcludeIds);
         if (fast?.movies?.length) {
-          fastResult = fast;
+          setResult(fast);
+          setLoading(false); // unblock UI immediately
+          fastShown = true;
           if (fast.movies) {
             const newIds = fast.movies.map(m => m.id).filter(Boolean);
             setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
           }
         }
       } catch (fastErr) {
-        // Fast path failed — continue to SSE, still loading
+        // Fast path failed — continue to SSE path, still loading
       }
 
-      // Phase 1+: SSE pipeline — runs in background, this is the definitive result
+      // ── Phase 1+: SSE pipeline — upgrades with intent + reranked results ─
+      // Runs in background even if fast results are already shown.
       try {
         const data = await streamConfusedRecommendation(txt, {
           limit: 6,
@@ -188,10 +172,12 @@ export default function KafanMiKarisik() {
             setEarlyIntent(intentData);
           },
           onError: (err) => {
-            // Don't surface error yet — we may have fast fallback
+            if (!fastShown) setError(err.message || 'Bir hata oluştu');
           },
         });
 
+        // SSE returned a 'fast' phase with vector results — fast_search_engine
+        // is also wired into the SSE stream now, so we get best-of-both.
         if (data?.movies?.length) {
           setResult(data);
           setEarlyIntent(null);
@@ -199,54 +185,22 @@ export default function KafanMiKarisik() {
             const newIds = data.movies.map(m => m.id).filter(Boolean);
             setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
           }
-          // SSE returned definitive results — keep loading false only now
-          setLoading(false);
-          return;
         }
       } catch (sseErr) {
-        // SSE failed — fall through to fast fallback
+        if (!fastShown) setError(sseErr.message || 'Bir hata oluştu');
       }
-
-      // Fallback: if SSE failed but fast vector had results, show those
-      if (fastResult) {
-        setResult(fastResult);
-        setLoading(false);
-        return;
-      }
-
-      // Both paths failed
-      setError('Bir hata oluştu. Lütfen tekrar dene.');
     } catch (err) {
-      setError(err.message || 'Bir hata oluştu. Lütfen tekrar dene.');
+      setError(err.message || 'Bir hata oluştu');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
-
-  analyzeRef.current = analyze;
-
-  // [TODO 1] Input Debouncing — debounce auto-search on text input
-  useEffect(() => {
-    if (!text.trim()) return;
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      analyzeRef.current(text, false);
-    }, DEBOUNCE_MS);
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, [text]);
-
-  const handleSubmit = useCallback(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    analyzeRef.current(text, false);
-  }, [text]);
 
   const handleQuickMood = async (moodMix) => {
     setLoading(true);
+    setError(null);
     setResult(null);
     setEarlyIntent(null);
-    setError(null);
     try {
       const data = await quickMoodMix(moodMix, {
         limit: 6,
@@ -259,7 +213,7 @@ export default function KafanMiKarisik() {
         setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
       }
     } catch (err) {
-      setError(err.message || 'Bir hata oluştu. Lütfen tekrar dene.');
+      setError(err.message || 'Bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -332,8 +286,8 @@ export default function KafanMiKarisik() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10 pb-nav">
-        {/* ─── Input area — only when idle (no loading, no result, no text) ─── */}
-        {!loading && !result && text === '' && (
+        {/* Input area — show when no result and not loading */}
+        {!result && !loading && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             <p className="text-lg md:text-xl font-serif font-medium text-amber-100/90 leading-relaxed text-center max-w-2xl mx-auto drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               Film adı, yönetmen, oyuncu veya ruh halini yaz — sana en uygun filmleri bulalım.
@@ -347,12 +301,12 @@ export default function KafanMiKarisik() {
                 placeholder={'Örn: "Interstellar gibi", "Tom Hanks filmi", "Kafam dağılsın hafif bir şey"'}
                 className="w-full h-32 bg-white/8 border border-white/15 rounded-[2rem] p-8 text-lg font-serif font-semibold text-[#f5f2eb]/90 placeholder:text-[#f5f2eb]/50 focus:outline-none focus:border-amber/50 transition-all resize-none no-scrollbar"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
                 }}
               />
               <button
-                onClick={handleSubmit}
-                disabled={!text.trim() || loading}
+                onClick={() => analyze()}
+                disabled={!text.trim()}
                 className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-[#ffbf00] hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all shadow-[0_0_20px_rgba(255,191,0,0.3)]"
               >
                 <Send size={18} className="text-[#120d0b]" />
@@ -363,8 +317,8 @@ export default function KafanMiKarisik() {
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center justify-center gap-4 flex-wrap">
                 <button
-                  onClick={handleSubmit}
-                  disabled={!text.trim() || loading}
+                  onClick={() => analyze()}
+                  disabled={!text.trim()}
                   className="px-8 py-4 bg-[#ffbf00] hover:bg-amber-400 disabled:opacity-30 text-[#120d0b] rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all shadow-[0_0_20px_rgba(255,191,0,0.2)] disabled:cursor-not-allowed"
                 >
                   Bana Film Seç
@@ -403,77 +357,60 @@ export default function KafanMiKarisik() {
           </motion.div>
         )}
 
-        {/* ─── Loading state — shimmer skeleton (NO stale movies leak) ─── */}
-        {loading && !error && (
+        {/* Loading */}
+        {loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="space-y-10"
+            className="flex flex-col items-center justify-center py-20 gap-8"
           >
-            {/* Loading spinner with rotating phrases */}
-            <div className="flex flex-col items-center justify-center py-12 gap-8">
-              <div className="relative w-20 h-20">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-                  className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-[#ffbf00] shadow-[0_0_30px_rgba(255,191,0,0.15)]"
-                />
-                <motion.div
-                  animate={{ rotate: -360 }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
-                  className="absolute inset-3 rounded-full border border-amber/10 border-b-amber/50"
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Brain size={20} className="text-amber/40" />
-                </div>
+            <div className="relative w-20 h-20">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-[#ffbf00] shadow-[0_0_30px_rgba(255,191,0,0.15)]"
+              />
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-3 rounded-full border border-amber/10 border-b-amber/50"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Brain size={20} className="text-amber/40" />
               </div>
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={earlyIntent ? 'intent' : phraseIdx}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.35 }}
-                  className="text-lg font-serif italic text-amber-200/70 font-medium text-center max-w-sm"
-                >
-                  {earlyIntent?.ustad_line || LOADING_PHRASES[phraseIdx]}
-                </motion.p>
-              </AnimatePresence>
-              {/* Early mood_mix badges while movies load */}
-              {earlyIntent?.mood_mix?.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.15 }}
-                  className="flex flex-wrap justify-center gap-2 mt-3"
-                >
-                  {earlyIntent.mood_mix.slice(0, 3).map((m, i) => (
-                    <span key={m.mood_id || i}
-                      className="px-3 py-1 rounded-full bg-amber/10 border border-amber/20 text-amber-200/80 text-[10px] font-sans font-medium uppercase tracking-wider">
-                      {m.title} {m.percentage}%
-                    </span>
-                  ))}
-                </motion.div>
-              )}
             </div>
-
-            {/* Shimmer skeleton grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                >
-                  <SkeletonCard />
-                </motion.div>
-              ))}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={earlyIntent ? 'intent' : phraseIdx}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.35 }}
+                className="text-lg font-serif italic text-amber-200/70 font-medium text-center max-w-sm"
+              >
+                {earlyIntent?.ustad_line || LOADING_PHRASES[phraseIdx]}
+              </motion.p>
+            </AnimatePresence>
+            {/* Early mood_mix badges while movies load */}
+            {earlyIntent?.mood_mix?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.15 }}
+                className="flex flex-wrap justify-center gap-2 mt-3"
+              >
+                {earlyIntent.mood_mix.slice(0, 3).map((m, i) => (
+                  <span key={m.mood_id || i}
+                    className="px-3 py-1 rounded-full bg-amber/10 border border-amber/20 text-amber-200/80 text-[10px] font-sans font-medium uppercase tracking-wider">
+                    {m.title} {m.percentage}%
+                  </span>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
         )}
 
-        {/* ─── Error — no results, no loading ─── */}
+        {/* Error */}
         {error && !loading && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -482,7 +419,7 @@ export default function KafanMiKarisik() {
           >
             <p className="text-rose-400 text-xl font-serif italic">{error}</p>
             <button
-              onClick={() => { setError(null); setResult(null); setText(''); }}
+              onClick={() => { setError(null); setResult(null); }}
               className="px-8 py-4 border border-amber/40 text-[#ffbf00] rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-amber/5 transition-all"
             >
               Tekrar Dene
@@ -490,9 +427,9 @@ export default function KafanMiKarisik() {
           </motion.div>
         )}
 
-        {/* ─── Results — ONLY shown when definitive result is ready, never during loading ─── */}
+        {/* Results */}
         <AnimatePresence>
-          {result && !loading && !error && (
+          {result && !loading && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -716,7 +653,7 @@ export default function KafanMiKarisik() {
               {/* Bottom actions */}
               <div className="flex flex-wrap gap-4 justify-center pb-12">
                 <button
-                  onClick={() => { setResult(null); setText(''); setError(null); }}
+                  onClick={() => { setResult(null); setText(''); }}
                   className="flex items-center gap-2 px-8 py-4 bg-[#ffbf00] hover:bg-amber-400 text-[#120d0b] rounded-full text-[10px] font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,191,0,0.25)]"
                 >
                   <RefreshCw size={14} /> Yeni Soru Sor

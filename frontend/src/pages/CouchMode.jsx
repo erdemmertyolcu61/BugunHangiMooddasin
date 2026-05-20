@@ -23,16 +23,27 @@ export default function CouchMode() {
     selectMood:        socketSelectMood,
     leaveRoom:         socketLeaveRoom,
     syncRoomMoodView,
-    startSharedSession,     // emits host_start_session_signal
-    systemNotification,     // "X kişisi odaya katıldı!" — 4s banner
-    mirroredAction,         // Host hover/selection mirror for Guests
-    sendHostInteraction,    // broadcasts mood_hover etc. to Guests
+    startSharedSession,
+    systemNotification,
+    mirroredAction,
+    sendHostInteraction,
+    sendHostNavigation,
+    // Global session state (persists across navigation)
+    roomId:       globalRoomId,
+    isHost:       globalIsHost,
+    isLive:       globalIsLive,
+    participants: globalParticipants,
   } = useSocket();
 
-  const [phase, setPhase] = useState(PHASES.ENTRY);
-  const [roomCode, setRoomCode] = useState('');
-  // [FIX] Track host status locally — don't depend on REST API is_host field
-  const [isHost, setIsHost] = useState(false);
+  // ── Local UI state ──
+  // Phase recovers from global state on re-mount
+  const [phase, setPhase] = useState(() => {
+    if (globalRoomId && globalIsLive) return PHASES.MOOD_SELECT;
+    if (globalRoomId) return PHASES.LOBBY;
+    return PHASES.ENTRY;
+  });
+  const [roomCode, setRoomCode] = useState(globalRoomId || '');
+  const [isHost, setIsHost] = useState(globalIsHost);
   const [roomData, setRoomData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -46,13 +57,38 @@ export default function CouchMode() {
   const [quickSavedIds, setQuickSavedIds] = useState(new Set());
   const [quickWatchedIds, setQuickWatchedIds] = useState(new Set());
 
+  // ── Recover session on re-mount (navigated away and came back) ──
+  useEffect(() => {
+    if (globalRoomId && !roomCode) {
+      setRoomCode(globalRoomId);
+      setIsHost(globalIsHost);
+      if (globalIsLive) {
+        setPhase(PHASES.MOOD_SELECT);
+      } else {
+        setPhase(PHASES.LOBBY);
+      }
+    }
+  }, [globalRoomId, globalIsHost, globalIsLive]);
 
-  // ── Auth guard (tüm hook'lardan SONRA kontrol edilmeli — Rules of Hooks) ──
-  // (Aşağıda connectedUserCount'tan sonra gerçek render'dan önce uygulanıyor)
+  // ── Sync global participants into local roomData for rendering ──
+  useEffect(() => {
+    if (globalParticipants.length > 0) {
+      setRoomData(prev => {
+        const members = globalParticipants.map((p) => ({
+          user_id: p.userId,
+          name: p.name,
+          picture: prev?.members?.find(m => String(m.user_id) === String(p.userId))?.picture || null,
+          role: (p.role || 'GUEST').toLowerCase(),
+        }));
+        return { ...(prev || {}), members };
+      });
+    }
+  }, [globalParticipants]);
 
-  // ── Merge socket presence into roomData ──
+  // ── Also merge legacy roomPresence (fallback) ──
   useEffect(() => {
     if (!roomPresence || !roomCode) return;
+    if (globalParticipants.length > 0) return; // prefer global
     setRoomData(prev => {
       if (!prev) return prev;
       const members = (roomPresence.connectedUsers || []).map((su, i) => {
@@ -66,7 +102,7 @@ export default function CouchMode() {
       });
       return { ...prev, members };
     });
-  }, [roomPresence, roomCode]);
+  }, [roomPresence, roomCode, globalParticipants.length]);
 
   // ── Socket-driven phase transitions ──
   useEffect(() => {
@@ -76,9 +112,16 @@ export default function CouchMode() {
     }
   }, [activeMoodId, roomCode]);
 
-  // Use maximum of socket presence OR REST API member count — whichever is higher.
-  // This ensures the start button appears even if socket hasn't delivered presence yet.
+  // ── When globalIsLive flips to true, advance to MOOD_SELECT ──
+  useEffect(() => {
+    if (globalIsLive && roomCode && (phase === PHASES.LOBBY || phase === PHASES.ENTRY)) {
+      setPhase(PHASES.MOOD_SELECT);
+    }
+  }, [globalIsLive, roomCode]);
+
+  // Use maximum of socket presence OR REST API member count
   const connectedUserCount = Math.max(
+    globalParticipants.length,
     roomPresence?.connectedUsers?.length || 0,
     (roomData?.members || []).length,
   );
@@ -119,9 +162,9 @@ export default function CouchMode() {
       setRoomCode(data.room_code);
       const roomInfo = await couchStatus(data.room_code);
       setRoomData(roomInfo);
-      // [FIX] Always join with current user — don't depend on API member lookup
       setIsHost(true);
-      socketJoinRoom(data.room_code, String(user.id), user?.name || 'Sinemasever');
+      // Pass hostFlag=true so global context persists it
+      socketJoinRoom(data.room_code, String(user.id), user?.name || 'Sinemasever', true);
       setPhase(PHASES.LOBBY);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -135,9 +178,9 @@ export default function CouchMode() {
       setRoomCode(data.room_code);
       const roomInfo = await couchStatus(data.room_code);
       setRoomData(roomInfo);
-      // [FIX] Always join with current user — don't depend on API member lookup
       setIsHost(false);
-      socketJoinRoom(data.room_code, String(user.id), user?.name || 'Sinemasever');
+      // Pass hostFlag=false
+      socketJoinRoom(data.room_code, String(user.id), user?.name || 'Sinemasever', false);
       setPhase(PHASES.LOBBY);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -148,6 +191,10 @@ export default function CouchMode() {
     try {
       await couchSelectMood(roomCode, moodId);
       socketSelectMood(roomCode, moodId);
+      // If host, sync navigation to guests
+      if (isHost) {
+        sendHostNavigation(roomCode, '/discover', { moodId });
+      }
       const result = await couchMovies(roomCode);
       setMovies(result.movies || []);
       setUstadNote(result.ustad_notu || '');
@@ -390,10 +437,7 @@ export default function CouchMode() {
                   <div className="text-center mt-6 max-w-sm mx-auto">
                     <button
                       onClick={() => {
-                        // Socket path: both users navigate to /moodlar simultaneously
                         startSharedSession(roomCode);
-                        // Fallback: if socket fails (no redirect received after 1.5s),
-                        // advance to mood select within CouchMode so Host isn't stuck
                         setTimeout(() => setPhase(PHASES.MOOD_SELECT), 1500);
                       }}
                       className="couch-btn-accent w-full py-4 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:scale-[1.02] transition-all"
@@ -441,7 +485,6 @@ export default function CouchMode() {
                 {moodList.map((mood, i) => {
                   const Icon = mood.icon;
                   const canSelect = isHost || roomData?.is_host;
-                  // [TODO 5] Highlight mood the Host is hovering (visible to Guests)
                   const isMirrored = mirroredAction?.actionType === 'mood_hover'
                     && mirroredAction?.payload?.moodId === mood.id;
                   return (
@@ -452,7 +495,6 @@ export default function CouchMode() {
                       transition={{ delay: i * 0.04 }}
                       onClick={() => canSelect && handleSelectMood(mood.id)}
                       onMouseEnter={() => {
-                        // [TODO 4] Broadcast Host hover to Guests in real-time
                         if (canSelect) sendHostInteraction(roomCode, 'mood_hover', { moodId: mood.id });
                       }}
                       onMouseLeave={() => {

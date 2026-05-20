@@ -196,6 +196,11 @@ export default function Discover() {
     return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleEsc); };
   }, [sortOpen]);
 
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(searchTimeout.current);
+  }, []);
+
   const SORT_OPTIONS = [
     { value: 'recommended', label: 'Önerilen' },
     { value: 'rating_desc', label: 'Puan: Yüksekten Düşüğe' },
@@ -314,12 +319,25 @@ export default function Discover() {
     }
   }, []);
 
-  const handleSearch = (query) => {
+  // [CRITICAL FIX] Persistent debounce ref + instant visual flush
+  const handleSearch = useCallback((query) => {
     setSearchQuery(query);
     clearTimeout(searchTimeout.current);
-    if (!query.trim()) { setSearchResults(null); return; }
+
+    if (!query.trim()) {
+      // User cleared the input — restore mood movies
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    // [CRITICAL FIX 2] Instant visual flush the EXACT millisecond text changes:
+    // Clear stale results immediately so mood/random movies never leak through.
+    setSearchResults([]);
+    setSearchLoading(true);
+
+    // [CRITICAL FIX 1] Debounce: API fires 400ms after LAST keystroke only.
     searchTimeout.current = setTimeout(async () => {
-      setSearchLoading(true);
       try {
         const data = await searchMovies(query);
         const enriched = (data.movies || []).map(m => ({
@@ -330,7 +348,7 @@ export default function Discover() {
       } catch { setSearchResults([]); }
       finally { setSearchLoading(false); }
     }, 400);
-  };
+  }, [selectedMood?.id]);
 
   const handleSaveToJournal = async () => {
     if (!selectedMovie) return;
@@ -511,7 +529,11 @@ export default function Discover() {
   }, []);
 
 
-  const displayMovies = searchResults !== null ? searchResults : movies;
+  // [CRITICAL FIX 3] Fortress gate: if user has typed ANYTHING or search is loading,
+  // mood/random movies are completely suppressed from the virtual DOM.
+  const displayMovies = searchQuery.trim() !== ''
+    ? (searchResults || [])   // During typing/loading: empty array (skeletons shown via searchLoading)
+    : movies;                 // Only show mood movies when search input is truly empty
 
   // 1. Loading State (Initial)
   if (loading && movies.length === 0 && !error && selectedMood) {
@@ -825,8 +847,12 @@ export default function Discover() {
           {/* Frosted glass container — tıpkı Gurme kartı gibi, blur efektini scroll boyunca sürdürür */}
           <div className="p-4 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[3rem] bg-surface/5 border border-white/5">
             <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-10 gap-y-8 sm:gap-y-16">
-              {loading && searchResults === null
-                ? [...Array(10)].map((_, i) => <div key={i} className="aspect-[2/3] bg-white/5 rounded-[2.5rem] animate-pulse" />)
+              {(loading && searchQuery.trim() === '') || searchLoading
+                ? [...Array(10)].map((_, i) => (
+                    <div key={i} className="aspect-[2/3] rounded-[2.5rem] animate-pulse overflow-hidden" style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.08)' }}>
+                      <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.06) 0%, rgba(0,0,0,0.3) 50%, rgba(212,175,55,0.06) 100%)', backgroundSize: '200% 200%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
+                    </div>
+                  ))
                 : displayMovies.length === 0
                   ? <div className="col-span-5 py-40 text-center">
                       {error ? (

@@ -6,6 +6,7 @@ Implements:
   [TODO 2] Dynamic Presence       — immediate room_presence_update broadcast on join
   [TODO 3] Global Session Ignition — host_start_session_signal → io.to(room).emit
   [TODO 4] Interactive Action Sync — host_interaction_event → mirror_host_view to guests
+  [TODO 5] Host Navigation Sync   — host_navigation_sync → guests mirror Host's page
 
 Event name policy:
   Canonical (new):  join_sinemood_session   / leave_sinemood_session
@@ -232,6 +233,52 @@ async def host_interaction_event(sid, data):
     await sio.emit(
         "mirror_host_view",
         {"actionType": action_type, "payload": payload},
+        room=room_id,
+        skip_sid=sid,
+    )
+
+
+# ─── [TODO 5] Host Navigation Sync ──────────────────────────────────────────
+
+@sio.event
+async def host_navigation_sync(sid, data):
+    """
+    HOST NAVIGATION MIRROR.
+
+    When the Host navigates to a new page or selects a mood at /moodlar,
+    this event mirrors the navigation to all Guests in the room.
+
+    Uses skip_sid=sid so the Host (sender) does NOT receive its own echo.
+    Only fires when the session isLive.
+    """
+    room_id = data.get("roomId")
+    url = data.get("url")
+    mood_id = data.get("moodId")
+
+    if not room_id:
+        return
+
+    room = active_rooms.get(room_id)
+    if not room or not room.get("isLive"):
+        return
+
+    payload = {}
+    if url:
+        payload["url"] = url
+    if mood_id:
+        payload["moodId"] = mood_id
+        room["activeMoodId"] = mood_id
+
+    if not payload:
+        return
+
+    logger.info(
+        f"[Socket] Host navigation sync — room={room_id} url={url} mood={mood_id}"
+    )
+
+    await sio.emit(
+        "host_navigation_sync",
+        payload,
         room=room_id,
         skip_sid=sid,
     )

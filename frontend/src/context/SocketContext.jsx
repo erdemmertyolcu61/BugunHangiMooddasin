@@ -2,16 +2,28 @@
  * Sinemood — SocketContext
  * Global Socket.IO connection + real-time co-watch state.
  *
- * Implements all six frontend TODOs from the WebSocket architecture spec:
+ * Implements all frontend TODOs from the WebSocket architecture spec:
  *   [TODO 1] Unified Connection Point   — single socket, clean lifecycle
  *   [TODO 2] Real-Time Presence Rerender — room_presence_update → instant state
  *   [TODO 3] Audio & Visual Presence Chime — Web Audio API tone + systemNotification
  *   [TODO 4] Synchronized Redirect      — force_global_redirect → navigate
  *   [TODO 5] Two-Way Mirror State Engine — mirror_host_view → mirroredAction state
  *   [TODO 6] Loop & Crash Prevention    — every socket.on has explicit socket.off cleanup
+ *
+ * GLOBAL SESSION PERSISTENCE:
+ *   roomId, isHost, participants, isLive, sessionUserId, sessionUserName
+ *   all persist across page navigation (lifted from CouchMode local state).
+ *   roomId also persisted to localStorage for tab-refresh recovery.
  */
 
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { io } from 'socket.io-client';
 import { DIRECT_BASE } from '../utils/apiConfig';
 import { useMood } from './MoodContext';
@@ -23,77 +35,84 @@ export function useSocket() {
   return useContext(SocketContext);
 }
 
-// ─── [TODO 3] Web Audio chime — no network request, no external asset ─────────
-// Two-note ascending ding (880 Hz → 1100 Hz) that lasts ~450ms.
+// ─── Web Audio chime — no network request, no external asset ──────────────────
 function _playJoinChime() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc  = ctx.createOscillator();
+    const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.type = 'sine';
-    // Frequency envelope: 880 Hz for first 120ms, then jump to 1100 Hz
-    osc.frequency.setValueAtTime(880,  ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
     osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.12);
-    // Amplitude envelope: fade in → sustain → fade out
-    gain.gain.setValueAtTime(0,    ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.03);
     gain.gain.setValueAtTime(0.22, ctx.currentTime + 0.30);
-    gain.gain.linearRampToValueAtTime(0,   ctx.currentTime + 0.45);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.45);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.50);
   } catch (_) {
-    // Web Audio API unavailable (old browser, SSR) — silent fallback
+    /* silent fallback */
   }
 }
-
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function SocketProvider({ children }) {
-  const navigate     = useNavigate();
+  const navigate = useNavigate();
   const { selectMood: setGlobalMood } = useMood();
 
-  // ── Stable refs — updated each render so event handlers never go stale ──────
-  const navigateRef     = useRef(navigate);
+  const navigateRef = useRef(navigate);
   const setGlobalMoodRef = useRef(setGlobalMood);
-  useEffect(() => { navigateRef.current = navigate; });
-  useEffect(() => { setGlobalMoodRef.current = setGlobalMood; });
+  useEffect(() => {
+    navigateRef.current = navigate;
+  });
+  useEffect(() => {
+    setGlobalMoodRef.current = setGlobalMood;
+  });
 
-  const socketRef          = useRef(null);
-  const currentUserNameRef = useRef('');  // used to filter own-join notifications
+  const socketRef = useRef(null);
+  const currentUserNameRef = useRef('');
 
-  // ── State ────────────────────────────────────────────────────────────────────
-  const [connected,          setConnected]          = useState(false);
-  const [roomPresence,       setRoomPresence]        = useState(null);
-  const [activeMoodId,       setActiveMoodId]        = useState(null);
-  const [roomId,             setRoomId]              = useState(
-    () => localStorage.getItem('activeRoomId') || null
+  // ── Core Connection State ──
+  const [connected, setConnected] = useState(false);
+
+  // ── GLOBAL SESSION STATE (persists across navigation) ──
+  const [roomId, setRoomId] = useState(
+    () => localStorage.getItem('activeRoomId') || null,
   );
-  // [TODO 3] Notification banner — "X kişisi odaya katıldı!" — clears after 4s
+  const [isHost, setIsHost] = useState(
+    () => localStorage.getItem('activeRoomIsHost') === 'true',
+  );
+  const [isLive, setIsLive] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [sessionUserId, setSessionUserId] = useState(
+    () => localStorage.getItem('activeSessionUserId') || null,
+  );
+  const [sessionUserName, setSessionUserName] = useState(
+    () => localStorage.getItem('activeSessionUserName') || '',
+  );
+  const [activeMoodId, setActiveMoodId] = useState(null);
   const [systemNotification, setSystemNotification] = useState('');
-  // [TODO 5] Mirror state — what the Host is hovering / selecting right now
-  const [mirroredAction,     setMirroredAction]     = useState(null);
+  const [mirroredAction, setMirroredAction] = useState(null);
+  const [roomPresence, setRoomPresence] = useState(null);
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // EFFECT 1 — [TODO 1] Socket creation.
-  // Runs exactly once on mount. Socket is destroyed on unmount.
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── EFFECT 1 — Socket creation (once) ──
   useEffect(() => {
     const serverUrl = import.meta.env.DEV
       ? DIRECT_BASE
-      : (import.meta.env.VITE_API_BASE_URL || DIRECT_BASE);
+      : import.meta.env.VITE_API_BASE_URL || DIRECT_BASE;
 
     const socket = io(serverUrl, {
-      path:               '/ws/socket.io',
-      transports:         ['websocket', 'polling'],
-      autoConnect:        true,     // connect immediately on construction
-      reconnection:       true,
+      path: '/ws/socket.io',
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+      reconnection: true,
       reconnectionAttempts: 8,
-      reconnectionDelay:  1200,
+      reconnectionDelay: 1200,
     });
 
     socketRef.current = socket;
@@ -104,35 +123,60 @@ export function SocketProvider({ children }) {
     };
   }, []);
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // EFFECT 2 — Listener attachment.
-  // Runs exactly once. All callbacks reference stable refs above so navigating
-  // or changing global mood never triggers a teardown & reconnect cycle.
-  //
-  // [TODO 6] EVERY socket.on() has a matching socket.off() in the cleanup block.
-  //          This permanently prevents React Error #300 and #310 loops.
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── EFFECT 1b — Auto-rejoin on reconnect ──
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
 
-    // ── [TODO 1] Connection state ─────────────────────────────────────────────
-    const onConnect    = () => setConnected(true);
+    const onReconnect = () => {
+      const savedRoom = localStorage.getItem('activeRoomId');
+      const savedUserId = localStorage.getItem('activeSessionUserId');
+      const savedUserName =
+        localStorage.getItem('activeSessionUserName') || 'Sinemasever';
+      if (savedRoom && savedUserId) {
+        socket.emit('join_sinemod_session', {
+          roomId: savedRoom,
+          userId: savedUserId,
+          userName: savedUserName,
+        });
+      }
+    };
+
+    socket.on('connect', onReconnect);
+    return () => {
+      socket.off('connect', onReconnect);
+    };
+  }, []);
+
+  // ── EFFECT 2 — Listener attachment (once) ──
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
 
-    // ── [TODO 2] Real-Time UI Rerender — no refresh needed ───────────────────
     const onRoomPresenceUpdate = (data) => {
       setRoomPresence(data);
+
+      const newParticipants = (data.participants || data.connectedUsers || []).map(
+        (p, i) => ({
+          userId: p.userId || p.id,
+          name: p.name,
+          role: p.role || (i === 0 ? 'HOST' : 'GUEST'),
+        }),
+      );
+      setParticipants(newParticipants);
+
+      if (typeof data.isLive === 'boolean') {
+        setIsLive(data.isLive);
+      }
       if (data.activeMoodId) setActiveMoodId(data.activeMoodId);
 
-      // ── [TODO 3] Audio + Visual Presence Chime ───────────────────────────
-      // `joinedNotificationName` is set by the server ONLY when a brand-new
-      // user enters. Empty string on reconnects or leave events.
       const newName = data.joinedNotificationName;
       if (newName && newName !== currentUserNameRef.current) {
         _playJoinChime();
-        setSystemNotification(`${newName} odaya katıldı!`);
-        // Auto-clear after 4 seconds
+        setSystemNotification(newName + ' odaya katıldı!');
         setTimeout(() => setSystemNotification(''), 4000);
       }
     };
@@ -141,21 +185,17 @@ export function SocketProvider({ children }) {
       setActiveMoodId(data.moodId);
     };
 
-    // ── [TODO 4] Synchronized Redirect ────────────────────────────────────────
-    // Both Host and Guest receive this simultaneously from the server,
-    // guaranteeing all clients navigate at the exact same millisecond.
     const onForceGlobalRedirect = (data) => {
       const url = data.url || '/moodlar';
+      setIsLive(true);
       navigateRef.current(url);
     };
 
-    // Legacy event (backward compat with older server versions)
     const onGlobalSessionRedirect = (data) => {
       const url = data.targetUrl || data.url || '/moodlar';
       navigateRef.current(url);
     };
 
-    // Host picks final mood at /moodlar → Guest navigates to /discover
     const onSyncViewToMood = (data) => {
       if (data.moodId) {
         setActiveMoodId(data.moodId);
@@ -164,56 +204,65 @@ export function SocketProvider({ children }) {
       }
     };
 
-    // ── [TODO 5] Two-Way Mirror State Engine ─────────────────────────────────
-    // Receives Host interaction events; exposes mirroredAction for Guest UI.
     const onMirrorHostView = (data) => {
       setMirroredAction({ actionType: data.actionType, payload: data.payload });
     };
 
-    // Register all listeners
-    socket.on('connect',                onConnect);
-    socket.on('disconnect',             onDisconnect);
-    socket.on('room_presence_update',   onRoomPresenceUpdate);
-    socket.on('mood_changed_broadcast', onMoodChangedBroadcast);
-    socket.on('force_global_redirect',  onForceGlobalRedirect);
-    socket.on('global_session_redirect', onGlobalSessionRedirect);
-    socket.on('sync_view_to_mood',      onSyncViewToMood);
-    socket.on('mirror_host_view',       onMirrorHostView);
+    const onHostNavigationSync = (data) => {
+      if (data.url) {
+        navigateRef.current(data.url);
+      }
+      if (data.moodId) {
+        setActiveMoodId(data.moodId);
+        setGlobalMoodRef.current(data.moodId);
+      }
+    };
 
-    // ── [TODO 6] Explicit teardown — prevents listener accumulation ───────────
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('room_presence_update', onRoomPresenceUpdate);
+    socket.on('mood_changed_broadcast', onMoodChangedBroadcast);
+    socket.on('force_global_redirect', onForceGlobalRedirect);
+    socket.on('global_session_redirect', onGlobalSessionRedirect);
+    socket.on('sync_view_to_mood', onSyncViewToMood);
+    socket.on('mirror_host_view', onMirrorHostView);
+    socket.on('host_navigation_sync', onHostNavigationSync);
+
     return () => {
-      socket.off('connect',                onConnect);
-      socket.off('disconnect',             onDisconnect);
-      socket.off('room_presence_update',   onRoomPresenceUpdate);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('room_presence_update', onRoomPresenceUpdate);
       socket.off('mood_changed_broadcast', onMoodChangedBroadcast);
-      socket.off('force_global_redirect',  onForceGlobalRedirect);
+      socket.off('force_global_redirect', onForceGlobalRedirect);
       socket.off('global_session_redirect', onGlobalSessionRedirect);
-      socket.off('sync_view_to_mood',      onSyncViewToMood);
-      socket.off('mirror_host_view',       onMirrorHostView);
+      socket.off('sync_view_to_mood', onSyncViewToMood);
+      socket.off('mirror_host_view', onMirrorHostView);
+      socket.off('host_navigation_sync', onHostNavigationSync);
     };
   }, []);
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Public API
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Public API ──
 
-  /**
-   * [TODO 1] Join a room — single unified connection point.
-   * Passes roomId, userId, userName immediately.
-   * Socket.IO buffers the emit if the TCP handshake isn't done yet,
-   * so there is no race condition to guard against.
-   */
-  const joinRoom = useCallback((rId, userId, userName) => {
-    currentUserNameRef.current = userName || 'Sinemasever';
+  const joinRoom = useCallback((rId, userId, userName, hostFlag) => {
+    const name = userName || 'Sinemasever';
+    currentUserNameRef.current = name;
+
     setRoomId(rId);
+    setSessionUserId(userId);
+    setSessionUserName(name);
+    setIsHost(!!hostFlag);
+    setIsLive(false);
+    setMirroredAction(null);
+
     localStorage.setItem('activeRoomId', rId);
-    // Use OLD event name for maximum backward compat during rolling deploys.
-    // New backend handles both join_sinemod_session AND join_sinemood_session.
-    // Old backend ONLY knows join_sinemod_session.
+    localStorage.setItem('activeSessionUserId', userId);
+    localStorage.setItem('activeSessionUserName', name);
+    localStorage.setItem('activeRoomIsHost', String(!!hostFlag));
+
     socketRef.current?.emit('join_sinemod_session', {
-      roomId:   rId,
-      userId,
-      userName: userName || 'Sinemasever',
+      roomId: rId,
+      userId: userId,
+      userName: name,
     });
   }, []);
 
@@ -222,19 +271,25 @@ export function SocketProvider({ children }) {
     setRoomPresence(null);
     setMirroredAction(null);
     setSystemNotification('');
+    setParticipants([]);
+    setIsHost(false);
+    setIsLive(false);
+    setActiveMoodId(null);
+    setSessionUserId(null);
+    setSessionUserName('');
+
     localStorage.removeItem('activeRoomId');
-    socketRef.current?.emit('leave_sinemod_session', { roomId: rId, userId });
+    localStorage.removeItem('activeSessionUserId');
+    localStorage.removeItem('activeSessionUserName');
+    localStorage.removeItem('activeRoomIsHost');
+
+    socketRef.current?.emit('leave_sinemod_session', { roomId: rId, userId: userId });
   }, []);
 
   const selectMood = useCallback((rId, moodId) => {
-    socketRef.current?.emit('select_session_mood', { roomId: rId, moodId });
+    socketRef.current?.emit('select_session_mood', { roomId: rId, moodId: moodId });
   }, []);
 
-  /**
-   * [TODO 3] Session Ignition — emits host_start_session_signal.
-   * Backend receives this and calls io.to(roomId).emit('force_global_redirect')
-   * so BOTH Host and Guest navigate simultaneously (see TODO 4 handler above).
-   */
   const startSharedSession = useCallback((rId) => {
     socketRef.current?.emit('host_start_session_signal', { roomId: rId });
   }, []);
@@ -243,36 +298,45 @@ export function SocketProvider({ children }) {
     socketRef.current?.emit('client_mood_interaction', { roomId: rId, ...selection });
   }, []);
 
-  /**
-   * [TODO 4] Host Interaction Mirror — fires host_interaction_event.
-   * Backend echoes it back as mirror_host_view to all Guests (skip_sid = Host).
-   * Use this for hover highlights, selection previews, etc.
-   */
-  const sendHostInteraction = useCallback((rId, actionType, payload = {}) => {
+  const sendHostInteraction = useCallback((rId, actionType, payload) => {
     socketRef.current?.emit('host_interaction_event', {
       roomId: rId,
-      actionType,
-      payload,
+      actionType: actionType,
+      payload: payload || {},
+    });
+  }, []);
+
+  const sendHostNavigation = useCallback((rId, url, extra) => {
+    socketRef.current?.emit('host_navigation_sync', {
+      roomId: rId,
+      url: url,
+      ...(extra || {}),
     });
   }, []);
 
   return (
-    <SocketContext.Provider value={{
-      // State
-      connected,
-      roomPresence,
-      activeMoodId,
-      roomId,
-      systemNotification,   // [TODO 3] "X odaya katıldı!" — 4s banner
-      mirroredAction,       // [TODO 5] { actionType, payload } from Host
-      // Actions
-      joinRoom,
-      leaveRoom,
-      selectMood,
-      startSharedSession,   // [TODO 3] ignition — was broken via useSinemoodSocket
-      syncRoomMoodView,
-      sendHostInteraction,  // [TODO 4] host UI mirror emitter
-    }}>
+    <SocketContext.Provider
+      value={{
+        connected,
+        roomId,
+        isHost,
+        isLive,
+        participants,
+        sessionUserId,
+        sessionUserName,
+        activeMoodId,
+        roomPresence,
+        systemNotification,
+        mirroredAction,
+        joinRoom,
+        leaveRoom,
+        selectMood,
+        startSharedSession,
+        syncRoomMoodView,
+        sendHostInteraction,
+        sendHostNavigation,
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );

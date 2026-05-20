@@ -12,6 +12,7 @@ import BottomNav from './components/BottomNav';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
+import ActiveSessionWidget from './components/ActiveSessionWidget';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -103,6 +104,7 @@ function AppContent() {
       <ThemeToggle />
       <AudioPlayer />
       <PersistentSidebar />
+      <ActiveSessionWidget />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Main Flow */}
