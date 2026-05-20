@@ -8,21 +8,21 @@ import { useEffect, useRef } from 'react';
  * splash once React is hydrated and the router has mounted.
  *
  * Flow:
- *   1. index.html renders #sinemod-splash immediately (CSS-only)
+ *   1. index.html renders #sinemood-splash immediately (CSS-only)
  *   2. React boots → this component mounts
  *   3. After a minimum display time (lets animations complete), we:
  *      a. Add .splash-exit class → triggers opacity fade-out (0.55s CSS transition)
- *      b. After transition ends, remove #sinemod-splash from DOM entirely
- *      c. Remove the <style id="sinemod-splash-styles"> tag to free memory
+ *      b. After transition ends, remove #sinemood-splash from DOM entirely
+ *      c. Remove the <style id="sinemood-splash-styles"> tag to free memory
  *   4. On repeat visits within the same session, splash is removed instantly
  */
 
-const SPLASH_KEY = 'sinemod_splash_seen_v2';
+const SPLASH_KEY = 'sinemood_splash_seen_v2';
 const MIN_DISPLAY_MS = 3400;   // Extended ritual: ignition(0.5) + trace(2.0) + bloom(0.5) + linger(0.4) = 3.4s
 const FADE_OUT_MS   = 550;     // matches .splash-exit transition (opacity + scale)
 
 function dismissSplash(immediate = false) {
-  const el = document.getElementById('sinemod-splash');
+  const el = document.getElementById('sinemood-splash');
   if (!el) return;
 
   if (immediate) {
@@ -42,7 +42,7 @@ function dismissSplash(immediate = false) {
 }
 
 function removeSplashStyles() {
-  const style = document.getElementById('sinemod-splash-styles');
+  const style = document.getElementById('sinemood-splash-styles');
   if (style) style.remove();
 }
 
@@ -56,7 +56,7 @@ export default function SplashScreen() {
     if (handled.current) return;
     handled.current = true;
 
-    const splashEl = document.getElementById('sinemod-splash');
+    const splashEl = document.getElementById('sinemood-splash');
 
     // No splash element → nothing to do (already removed)
     if (!splashEl) return;

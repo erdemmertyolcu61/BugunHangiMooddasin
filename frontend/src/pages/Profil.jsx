@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User } from 'lucide-react';
+import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getWatchlist, getTasteMap } from '../services/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -90,6 +90,9 @@ export default function Profil() {
   const [watchedCount, setWatchedCount] = useState(0);
   const [topMoods, setTopMoods] = useState([]);
   const [ustadReview, setUstadReview] = useState('');
+  const [totalSignals, setTotalSignals] = useState(0);
+  const [tasteStatus, setTasteStatus] = useState('empty'); // 'empty' | 'forming' | 'mature'
+  const [summaryTexts, setSummaryTexts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -107,17 +110,41 @@ export default function Profil() {
         setSavedCount(movies.length);
         setWatchedCount(movies.filter((m) => m.watched).length);
 
-        // Only populate taste data if user has REAL defter interactions
-        const totalSignals = tm?.signals?.watchlist_count || 0;
-        if (totalSignals > 0 && tm?.top_moods?.length > 0) {
-          setTopMoods(tm.top_moods.slice(0, 3));
+        // Taste Matrix Progression Engine — 3-state system
+        const signals = tm?.signals?.total_movies || 0;
+        setTotalSignals(signals);
 
-          // Dynamic Üstad review based on primary mood
-          const primaryMood = tm.top_moods[0]?.mood_id;
-          setUstadReview(getUstadReview(primaryMood));
-        } else {
+        if (signals === 0) {
+          // State A: Empty — no defter interactions at all
+          setTasteStatus('empty');
           setTopMoods([]);
           setUstadReview('');
+          setSummaryTexts([]);
+        } else if (signals <= 5) {
+          // State B: Forming (Oluşuyor) — early interactions, show badge + counter
+          setTasteStatus('forming');
+          if (tm?.top_moods?.length > 0) {
+            setTopMoods(tm.top_moods.slice(0, 3));
+            const primaryMood = tm.top_moods[0]?.mood_id;
+            setUstadReview(getUstadReview(primaryMood));
+          } else {
+            setTopMoods([]);
+            setUstadReview('');
+          }
+          // Use backend summary array for contextual Üstad notes
+          setSummaryTexts(Array.isArray(tm?.summary) ? tm.summary : []);
+        } else {
+          // State C: Mature (Olgun) — full analytical matrix, no badge
+          setTasteStatus('mature');
+          if (tm?.top_moods?.length > 0) {
+            setTopMoods(tm.top_moods.slice(0, 3));
+            const primaryMood = tm.top_moods[0]?.mood_id;
+            setUstadReview(getUstadReview(primaryMood));
+          } else {
+            setTopMoods([]);
+            setUstadReview('');
+          }
+          setSummaryTexts(Array.isArray(tm?.summary) ? tm.summary : []);
         }
       } finally {
         setLoading(false);
@@ -273,16 +300,17 @@ export default function Profil() {
           </h2>
           {loading ? (
             <div className="flex items-center justify-center py-10">
-              <div className="sinemod-spinner" />
+              <div className="sinemood-spinner" />
             </div>
           ) : (
             <>
+              {/* Stat cards row */}
               <div className="flex flex-wrap gap-4">
                 <StatCard icon={Bookmark} label="Deftere Kayıtlı" value={savedCount} accent="#fbbf24" />
                 <StatCard icon={Eye} label="İzlenen Film" value={watchedCount} accent="#34d399" />
 
-                {/* Favori Mod: yalnızca gerçek etkileşim varsa göster */}
-                {(savedCount > 0 || watchedCount > 0) && topMoods.length > 0 ? (
+                {/* Favori Mod: show only when taste data exists */}
+                {tasteStatus !== 'empty' && topMoods.length > 0 ? (
                   <StatCard icon={Film} label="Favori Mod" value={topMoods[0]?.title || '—'} accent="#a78bfa" />
                 ) : (
                   <div className="flex-1 min-w-[140px] p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 flex flex-col items-center justify-center text-center">
@@ -294,27 +322,115 @@ export default function Profil() {
                 )}
               </div>
 
-              {/* Zevk Haritası: yalnızca defterde gerçek kayıt varsa göster */}
-              {topMoods.length > 0 && (
-                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 space-y-4">
-                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
-                    En Çok Tercih Ettiğin Modlar
+              {/* ═══ Taste Matrix Progression ═══ */}
+
+              {/* State A: Empty — no signals at all */}
+              {tasteStatus === 'empty' && (
+                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 text-center">
+                  <Clapperboard size={28} className="text-amber/20 mx-auto mb-4" />
+                  <p className="font-serif text-base italic leading-relaxed text-ivory/40">
+                    Zevk haritanı çizmeye henüz başlayamadım evlat.<br />
+                    Defterine birkaç film ekle, senin sinema ruhunu keşfedeyim.
                   </p>
-                  <div className="flex flex-wrap gap-3">
-                    {topMoods.map((m) => (
-                      <span key={m.mood_id}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber/10 border border-amber/20 font-sans text-xs font-semibold text-amber">
-                        <Film size={12} /> {sanitize(m.title)}
-                        <span className="text-amber/50">{Math.round(m.score)}p</span>
+                </div>
+              )}
+
+              {/* State B: Forming (Oluşuyor) — 1-5 signals */}
+              {tasteStatus === 'forming' && (
+                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 space-y-5">
+                  {/* Status badge + signal counter */}
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber/15 border border-amber/25 font-sans text-xs font-bold uppercase tracking-[0.15em] text-amber">
+                        <Activity size={12} /> Oluşuyor
                       </span>
-                    ))}
+                    </div>
+                    <p className="font-sans text-xs font-semibold text-ivory/35 tracking-wide">
+                      {totalSignals} film sinyali
+                    </p>
                   </div>
 
-                  {/* Üstad'ın kişisel yorumu */}
-                  {ustadReview && (
-                    <p className="font-serif text-sm italic leading-relaxed text-ivory/50 border-t border-white/5 pt-4">
-                      "{ustadReview}"
+                  {/* Mood points if available */}
+                  {topMoods.length > 0 && (
+                    <>
+                      <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
+                        En Çok Tercih Ettiğin Modlar
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {topMoods.map((m) => (
+                          <span key={m.mood_id}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber/10 border border-amber/20 font-sans text-xs font-semibold text-amber">
+                            <Film size={12} /> {sanitize(m.title)}
+                            <span className="text-amber/50">{Math.round(m.score)}p</span>
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Üstad notes from backend summary OR fallback to mood-based review */}
+                  {(summaryTexts.length > 0 || ustadReview) && (
+                    <div className="border-t border-white/5 pt-4 space-y-2">
+                      {summaryTexts.length > 0 ? (
+                        summaryTexts.map((text, i) => (
+                          <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/50">
+                            "{sanitize(text)}"
+                          </p>
+                        ))
+                      ) : ustadReview ? (
+                        <p className="font-serif text-sm italic leading-relaxed text-ivory/50">
+                          "{ustadReview}"
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* Progression hint */}
+                  <p className="font-sans text-[10px] text-ivory/20 text-center pt-1">
+                    Birkaç film daha ekle — zevk haritanın tam analizi açılsın.
+                  </p>
+                </div>
+              )}
+
+              {/* State C: Mature (Olgun) — full analytical matrix, no badge */}
+              {tasteStatus === 'mature' && (
+                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
+                      En Çok Tercih Ettiğin Modlar
                     </p>
+                    <p className="font-sans text-[10px] font-semibold text-ivory/25 tracking-wide">
+                      {totalSignals} film sinyali
+                    </p>
+                  </div>
+
+                  {topMoods.length > 0 && (
+                    <div className="flex flex-wrap gap-3">
+                      {topMoods.map((m) => (
+                        <span key={m.mood_id}
+                          className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber/10 border border-amber/20 font-sans text-xs font-semibold text-amber">
+                          <Film size={12} /> {sanitize(m.title)}
+                          <span className="text-amber/50">{Math.round(m.score)}p</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Full Üstad analysis from backend summary */}
+                  {(summaryTexts.length > 0 || ustadReview) && (
+                    <div className="border-t border-white/5 pt-4 space-y-2">
+                      {summaryTexts.length > 0 ? (
+                        summaryTexts.map((text, i) => (
+                          <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/50">
+                            "{sanitize(text)}"
+                          </p>
+                        ))
+                      ) : ustadReview ? (
+                        <p className="font-serif text-sm italic leading-relaxed text-ivory/50">
+                          "{ustadReview}"
+                        </p>
+                      ) : null}
+                    </div>
                   )}
                 </div>
               )}

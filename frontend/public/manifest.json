@@ -1,6 +1,6 @@
 {
-  "name": "Sinemod — Bugün Hangi Mooddasın?",
-  "short_name": "Sinemod",
+  "name": "Sinemood — Bugün Hangi Mooddasın?",
+  "short_name": "Sinemood",
   "description": "Yapay zeka destekli film keşif platformu. Ruh haline göre film önerileri.",
   "start_url": "/",
   "scope": "/",

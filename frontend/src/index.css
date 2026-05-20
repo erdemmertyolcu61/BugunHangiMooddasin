@@ -717,21 +717,21 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
 }
 
 /* ── Page-level spinner (replaces old Sparkles animate-spin) ── */
-.sinemod-spinner {
+.sinemood-spinner {
   position: relative;
   width: 40px;
   height: 40px;
 }
-.sinemod-spinner::before {
+.sinemood-spinner::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 50%;
   border: 2px solid rgba(255,191,0,0.15);
   border-top-color: rgba(255,191,0,0.7);
-  animation: sinemodSpin 1.4s linear infinite;
+  animation: sinemoodSpin 1.4s linear infinite;
 }
-.sinemod-spinner::after {
+.sinemood-spinner::after {
   content: '';
   position: absolute;
   inset: 6px;
@@ -739,7 +739,7 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   background: radial-gradient(circle, rgba(255,208,112,0.15) 0%, transparent 70%);
   animation: ustadAuraCore 2.5s ease-in-out infinite;
 }
-@keyframes sinemodSpin {
+@keyframes sinemoodSpin {
   to { transform: rotate(360deg); }
 }
 
@@ -773,7 +773,7 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   );
   background-size: 200% 100%;
 }
-[data-theme="light"] .sinemod-spinner::before {
+[data-theme="light"] .sinemood-spinner::before {
   border-color: rgba(180,130,30,0.15);
   border-top-color: rgba(180,130,30,0.7);
 }
@@ -784,8 +784,8 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   .ustad-loading-aura::after,
   .ustad-loading-aura svg,
   .ustad-loading-line,
-  .sinemod-spinner::before,
-  .sinemod-spinner::after {
+  .sinemood-spinner::before,
+  .sinemood-spinner::after {
     animation: none !important;
     opacity: 0.6 !important;
   }

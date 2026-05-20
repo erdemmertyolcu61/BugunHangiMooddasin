@@ -270,7 +270,7 @@ export default function CouchMode() {
 
                 <div className="flex justify-center gap-3">
                   <button onClick={() => {
-                    const text = `Sinemod'da seninle film seçmek istiyorum! Oda kodum: ${roomCode}`;
+                    const text = `Sinemood'da seninle film seçmek istiyorum! Oda kodum: ${roomCode}`;
                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                   }} className="px-5 py-2.5 rounded-full bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold uppercase tracking-wider hover:bg-emerald-600/30 transition-all">
                     WhatsApp ile Paylaş

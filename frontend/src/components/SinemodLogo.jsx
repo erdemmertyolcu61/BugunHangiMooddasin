@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function SinemodLogo({ variant = 'logo', size = 'md', className = '' }) {
+export default function SinemoodLogo({ variant = 'logo', size = 'md', className = '' }) {
   const dims = {
     sm: { w: 22, text: 'text-[10px]', gap: 1.5 },
     md: { w: 30, text: 'text-xs', gap: 2 },
@@ -12,7 +12,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
   const mark = (
     <img
       src="/sinemod-mark.png"
-      alt="Sinemod"
+      alt="Sinemood"
       width={d.w}
       height={d.w}
       className={`shrink-0 ${className}`}
@@ -26,7 +26,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
         {mark}
         <span className={`font-serif font-semibold tracking-wide text-amber ${d.text}`}
           style={{ textShadow: '0 0 20px rgba(255,178,80,0.2)' }}>
-          Sinemod
+          Sinemood
         </span>
       </div>
     );
@@ -46,7 +46,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
       >
         <img
           src="/sinemod-mark.png"
-          alt="Sinemod"
+          alt="Sinemood"
           width={d.w}
           height={d.w}
           style={{ borderRadius: d.w * 0.1875 }}
@@ -80,7 +80,7 @@ export default function SinemodLogo({ variant = 'logo', size = 'md', className =
         >
           <img
             src="/sinemod-mark.png"
-            alt="Sinemod"
+            alt="Sinemood"
             width={d.w}
             height={d.w}
             style={{ borderRadius: d.w * 0.1875 }}

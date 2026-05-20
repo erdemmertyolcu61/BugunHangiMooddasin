@@ -157,13 +157,13 @@ export default function BetaGate({ children }) {
         <div className="text-center mb-12">
           <img
             src="/sinemod-mark.png"
-            alt="Sinemod"
+            alt="Sinemood"
             className="w-24 h-24 mx-auto mb-6 rounded-[1.2rem]"
             style={{ filter: 'drop-shadow(0 12px 40px rgba(255,178,80,0.18))' }}
           />
           <h1 className="text-4xl font-serif font-bold text-[#f5f2eb] tracking-tight mb-3"
               style={{ textShadow: '0 0 24px rgba(255,178,80,0.12)' }}>
-            Sinemod
+            Sinemood
           </h1>
           <p className="text-[#f5f2eb]/40 text-sm font-sans">
             Beta Erisimine Hosgeldiniz
