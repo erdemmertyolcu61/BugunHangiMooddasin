@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Copy, Check, Users, Sofa, Crown, UserPlus, Sparkles, Star, Eye, BookmarkPlus, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { useSinemoodSocket } from '../context/SinemoodSocketContext';
 import { MOODS } from '../context/MoodContext';
 import { couchCreate, couchJoin, couchStatus, couchSelectMood, couchMovies, couchLeave, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
@@ -16,11 +15,23 @@ const moodList = Object.values(MOODS);
 export default function CouchMode() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom, syncRoomMoodView } = useSocket();
+  const {
+    connected: socketConnected,
+    roomPresence,
+    activeMoodId,
+    joinRoom:          socketJoinRoom,
+    selectMood:        socketSelectMood,
+    leaveRoom:         socketLeaveRoom,
+    syncRoomMoodView,
+    startSharedSession,   // [FIX] replaces useSinemoodSocket's launchSharedSession
+    systemNotification,   // [NEW] "X kişisi odaya katıldı!" — 4s banner
+    mirroredAction,       // [NEW] Host hover/selection mirror for Guests
+  } = useSocket();
 
   const [phase, setPhase] = useState(PHASES.ENTRY);
   const [roomCode, setRoomCode] = useState('');
-  const { launchSharedSession } = useSinemoodSocket(roomCode, user?.id ? String(user.id) : null);
+  // [FIX] Track host status locally — don't depend on REST API is_host field
+  const [isHost, setIsHost] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -102,10 +113,9 @@ export default function CouchMode() {
       setRoomCode(data.room_code);
       const roomInfo = await couchStatus(data.room_code);
       setRoomData(roomInfo);
-      const myUser = roomInfo.members?.find(m => m.role === 'host');
-      if (myUser) {
-        socketJoinRoom(data.room_code, String(myUser.user_id), myUser.name || user?.name || 'Sinemasever');
-      }
+      // [FIX] Always join with current user — don't depend on API member lookup
+      setIsHost(true);
+      socketJoinRoom(data.room_code, String(user.id), user?.name || 'Sinemasever');
       setPhase(PHASES.LOBBY);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -119,10 +129,9 @@ export default function CouchMode() {
       setRoomCode(data.room_code);
       const roomInfo = await couchStatus(data.room_code);
       setRoomData(roomInfo);
-      const myUser = roomInfo.members?.find(m => String(m.user_id) === String(user?.id));
-      if (myUser) {
-        socketJoinRoom(data.room_code, String(myUser.user_id), myUser.name || user?.name || 'Sinemasever');
-      }
+      // [FIX] Always join with current user — don't depend on API member lookup
+      setIsHost(false);
+      socketJoinRoom(data.room_code, String(user.id), user?.name || 'Sinemasever');
       setPhase(PHASES.LOBBY);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -147,6 +156,7 @@ export default function CouchMode() {
     if (roomCode && user?.id) {
       socketLeaveRoom(roomCode, String(user.id));
     }
+    setIsHost(false);
     setPhase(PHASES.ENTRY);
     setRoomCode(''); setRoomData(null); setMovies([]);
   };
@@ -182,6 +192,32 @@ export default function CouchMode() {
   // ── Render ──
   return (
     <div className="couch-page min-h-screen font-sans relative overflow-hidden">
+      {/* [TODO 3] Presence chime notification banner */}
+      <AnimatePresence>
+        {systemNotification && (
+          <motion.div
+            key="presence-toast"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.28 }}
+            className="fixed top-[72px] left-1/2 -translate-x-1/2 z-[60] pointer-events-none"
+          >
+            <div className="flex items-center gap-2.5 px-5 py-3 rounded-full text-xs font-bold uppercase tracking-[0.12em]"
+              style={{
+                background: 'rgba(245,158,11,0.13)',
+                border: '1px solid rgba(245,158,11,0.30)',
+                color: 'rgba(245,200,100,0.95)',
+                backdropFilter: 'blur(12px)',
+                boxShadow: '0 4px 20px rgba(245,158,11,0.15)',
+              }}>
+              <span style={{ fontSize: 14 }}>🎬</span>
+              {systemNotification}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Ambient orb */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="couch-ambient-orb absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-[120px] couch-glow-pulse" />
@@ -343,11 +379,12 @@ export default function CouchMode() {
                 </div>
               </div>
 
-              {(roomData?.members || []).length >= 2 && (
-                roomData?.is_host ? (
+              {/* [FIX] Use connectedUserCount from live socket presence, not stale REST data */}
+              {connectedUserCount >= 2 && (
+                (isHost || roomData?.is_host) ? (
                   <div className="text-center mt-6 max-w-sm mx-auto">
                     <button
-                      onClick={() => launchSharedSession()}
+                      onClick={() => startSharedSession(roomCode)}
                       className="couch-btn-accent w-full py-4 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:scale-[1.02] transition-all"
                     >
                       Seansı Başlat & Mood Seçimine Geç
@@ -392,7 +429,10 @@ export default function CouchMode() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto">
                 {moodList.map((mood, i) => {
                   const Icon = mood.icon;
-                  const canSelect = roomData?.is_host;
+                  const canSelect = isHost || roomData?.is_host;
+                  // [TODO 5] Highlight mood the Host is hovering (visible to Guests)
+                  const isMirrored = mirroredAction?.actionType === 'mood_hover'
+                    && mirroredAction?.payload?.moodId === mood.id;
                   return (
                     <motion.button
                       key={mood.id}
@@ -400,9 +440,25 @@ export default function CouchMode() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.04 }}
                       onClick={() => canSelect && handleSelectMood(mood.id)}
+                      onMouseEnter={() => {
+                        // [TODO 4] Broadcast Host hover to Guests in real-time
+                        if (canSelect) sendHostInteraction(roomCode, 'mood_hover', { moodId: mood.id });
+                      }}
+                      onMouseLeave={() => {
+                        if (canSelect) sendHostInteraction(roomCode, 'mood_hover', { moodId: null });
+                      }}
                       disabled={!canSelect || loading}
-                      className="couch-mood-card relative p-5 rounded-2xl text-left group"
+                      className={`couch-mood-card relative p-5 rounded-2xl text-left group transition-all ${
+                        isMirrored
+                          ? 'ring-2 ring-amber-400/70 scale-[1.04] shadow-[0_0_18px_rgba(245,158,11,0.35)]'
+                          : ''
+                      }`}
                     >
+                      {isMirrored && (
+                        <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider text-amber-400/80">
+                          seçiyor...
+                        </span>
+                      )}
                       <Icon size={20} className="couch-accent-text opacity-60 group-hover:opacity-100 transition-opacity mb-3" />
                       <h3 className="font-serif text-sm font-bold" style={{ color: 'var(--couch-text)' }}>{mood.title}</h3>
                       <p className="couch-subtitle text-[9px] mt-1 font-serif font-light line-clamp-2">{mood.subtitle}</p>
