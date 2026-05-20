@@ -453,11 +453,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ─── Socket.IO ────────────────
-from socketio import ASGIApp
-from backend.services.session_socket import sio
-app.mount('/ws', ASGIApp(sio))
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -465,6 +460,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Socket.IO ASGI Wrapping ─────────────────────────────────────────────────
+#
+# [TODO 4] CRITICAL FIX: Socket.IO wraps FastAPI as the OUTER ASGI application.
+#
+# Previous bug: `app.mount('/ws', ASGIApp(sio))` placed Socket.IO INSIDE
+# FastAPI. This meant FastAPI's CORSMiddleware and HTTP logging middleware
+# intercepted WebSocket upgrade requests first, sending `http.response.start`
+# on a `websocket` scope → RuntimeError crash.
+#
+# Fix: `socketio.ASGIApp(sio, other_app=app)` makes Socket.IO the outermost
+# ASGI layer. It intercepts `/ws/socket.io` requests BEFORE any FastAPI
+# middleware can touch them. All other requests pass through to FastAPI.
+#
+# [TODO 1] socketio_path matches the frontend client path exactly.
+# [TODO 2] CORS is set on BOTH layers: sio constructor AND FastAPI middleware.
+# [TODO 3] No middleware can intercept WebSocket scopes — they go to engineio.
+#
+# The final ASGI app is exported as `asgi_app`. Uvicorn must target
+# `backend.main:asgi_app` instead of `backend.main:app`.
+# ──────────────────────────────────────────────────────────────────────────────
+from socketio import ASGIApp as _SioASGIApp
+from backend.services.session_socket import sio
+
+asgi_app = _SioASGIApp(sio, other_asgi_app=app, socketio_path='/ws/socket.io')
 
 
 @app.middleware("http")
