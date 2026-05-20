@@ -172,11 +172,7 @@ nav.sticky,
   }
 
   .app-bottom-nav {
-    transition: transform 0.35s ease;
-    will-change: transform;
-  }
-  html[data-chrome="up"] .app-bottom-nav {
-    transform: translateY(110%);
+    /* Bottom nav her zaman sabit — scroll ile gizlenmez */
   }
 }
 
