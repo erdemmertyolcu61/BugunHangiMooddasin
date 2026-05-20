@@ -139,35 +139,35 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
 
           {movie ? (
             <div className="relative z-[1]">
-              {/* ─── HERO ─── */}
-              {/* MOBİL: dikey poster (değişmedi) */}
-              <div className="md:hidden px-5 pt-8">
-                <div className="w-[72%] mx-auto aspect-[2/3] relative rounded-2xl overflow-hidden shadow-[0_30px_70px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/10">
-                  <img src={poster || 'https://via.placeholder.com/500x750'} alt={movie.title}
-                    className="w-full h-full object-cover object-center" loading="eager" />
-                  <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
-                </div>
-              </div>
-
-              {/* MASAÜSTÜ: yatay afiş bandı — altı şık siyah geçişle biter */}
-              <div className="hidden md:block relative h-[42vh] max-h-[440px] w-full overflow-hidden">
-                <img src={banner || 'https://via.placeholder.com/1280x720'} alt={movie.title}
-                  className="w-full h-full object-cover object-center" loading="eager" />
-                {/* Alt siyahlık — koyu taban, tema fark etmeksizin yazı okunur */}
+              {/* ─── HERO: Landscape backdrop on ALL viewports ─── */}
+              <div className="relative w-full overflow-hidden"
+                   style={{ height: 'clamp(220px, 45vw, 440px)' }}>
+                <img
+                  src={banner || poster || 'https://via.placeholder.com/1280x720'}
+                  alt={movie.title}
+                  className="w-full h-full object-cover object-[center_20%]"
+                  loading="eager"
+                />
+                {/* Cinematic gradient fade — smooth dissolve into content area */}
                 <div
                   className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(to top, rgba(10,8,7,0.98) 0%, rgba(10,8,7,0.85) 22%, rgba(10,8,7,0.35) 50%, rgba(10,8,7,0.15) 100%)' }}
+                  style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(26,26,26,0.6) 65%, rgba(26,26,26,0.98) 100%)' }}
                 />
-                {/* Başlık afişin altına oturur — renk inline (index.css tema flip'ine takılmasın) */}
-                <div className="absolute inset-x-0 bottom-0 px-14 pb-9">
+                {/* Top vignette for close button readability */}
+                <div
+                  className="absolute inset-x-0 top-0 h-24 pointer-events-none"
+                  style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
+                />
+                {/* Title overlay — sits at bottom of landscape banner */}
+                <div className="absolute inset-x-0 bottom-0 px-5 sm:px-12 md:px-14 pb-5 sm:pb-8">
                   <p
-                    className="text-xs font-bold uppercase tracking-[0.4em] mb-3"
+                    className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] mb-2 sm:mb-3"
                     style={{ color: '#e8b94a' }}
                   >
                     Film Özeti
                   </p>
                   <h2
-                    className="text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words"
+                    className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words"
                     style={{ color: '#faf7f0', textShadow: '0 2px 16px rgba(0,0,0,0.95)' }}
                   >
                     {movie.title}
@@ -176,13 +176,9 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
               </div>
 
               {/* ─── İÇERİK ─── */}
-              <div className="px-5 sm:px-12 md:px-14 pt-7 md:pt-9 space-y-7 sm:space-y-10">
-                {/* Başlık + meta — mobilde göster, masaüstünde meta satırı */}
+              <div className="px-5 sm:px-12 md:px-14 pt-5 sm:pt-7 md:pt-9 space-y-7 sm:space-y-10">
+                {/* Meta satırı — tüm ekranlarda */}
                 <header className="space-y-4">
-                  <div className="md:hidden space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">Film Özeti</p>
-                    <h2 className="text-3xl font-serif font-bold tracking-tight leading-[1.05] break-words">{movie.title}</h2>
-                  </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-5 text-sm sm:text-lg font-serif italic text-ivory/45">
                     <span>{movie.release_date?.split('-')[0]}</span>
                     <span className="w-1 h-1 bg-white/20 rounded-full" />

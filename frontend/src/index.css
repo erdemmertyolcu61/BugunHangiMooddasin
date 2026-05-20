@@ -850,12 +850,12 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  line-height: 1.4;
+  line-height: 1.3;
   color: var(--qm-pill-text);
   background: var(--qm-pill-bg);
   border: 1px solid var(--qm-pill-border);
   border-radius: 100px;
-  padding: 11px 22px;
+  padding: 8px 16px;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -874,11 +874,11 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   transform: translateY(0);
 }
 
-/* Mobile: slightly smaller pills */
+/* Mobile: compact pills */
 @media (max-width: 480px) {
   .quick-mood-chip {
     font-size: 12px;
-    padding: 9px 18px;
+    padding: 6px 14px;
   }
   .quick-mood-grid {
     gap: 10px;
