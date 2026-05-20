@@ -292,15 +292,15 @@ export default function KafanMiKarisik() {
               <p className="text-[10px] font-serif italic text-[#f5f2eb]/40">Hiç düşünme, perde açılsın.</p>
             </div>
 
-            {/* Quick mood chips — rule-based, no API call */}
-            <div className="max-w-2xl mx-auto">
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60 mb-4">YA DA HIZLI ÖNERİ</p>
-              <div className="flex flex-wrap gap-2.5">
+            {/* Quick mood pills — rule-based, premium layout */}
+            <div className="max-w-3xl mx-auto">
+              <p className="quick-mood-title">Ya da hızlı öneri</p>
+              <div className="quick-mood-grid">
                 {QUICK_MOODS.map((qm) => (
                   <button
                     key={qm.id}
                     onClick={() => handleQuickMood(qm.mood_mix)}
-                    className="quick-mood-chip px-4 py-2.5 rounded-full bg-white/10 border border-white/20 hover:bg-amber-500/15 hover:border-amber-400/50 transition-all text-[12px] font-semibold font-serif text-[#f5f2eb] dark:text-[#f5f2eb] hover:text-[#ffbf00]"
+                    className="quick-mood-chip"
                   >
                     {qm.label}
                   </button>

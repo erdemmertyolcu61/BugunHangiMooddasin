@@ -625,21 +625,102 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   }
 }
 
-/* ─── Quick Mood Chips — dual theme ─── */
+/* ═══════════════════════════════════════════════════════════
+   HIZLI ÖNERİ PILLS — Dual Theme, Premium Layout
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── CSS Variables ── */
+:root {
+  --qm-pill-bg: rgba(255,255,255,0.04);
+  --qm-pill-border: rgba(255,255,255,0.12);
+  --qm-pill-text: #e2e8f0;
+  --qm-pill-hover-bg: rgba(234,179,8,0.06);
+  --qm-pill-hover-border: rgba(234,179,8,0.50);
+  --qm-pill-hover-text: #ffffff;
+  --qm-pill-glow: rgba(234,179,8,0.15);
+  --qm-title-color: #eab308;
+}
+[data-theme="light"] {
+  --qm-pill-bg: rgba(123,63,0,0.05);
+  --qm-pill-border: rgba(123,63,0,0.15);
+  --qm-pill-text: #3d2c1a;
+  --qm-pill-hover-bg: rgba(123,63,0,0.10);
+  --qm-pill-hover-border: rgba(123,63,0,0.45);
+  --qm-pill-hover-text: #2a1a0a;
+  --qm-pill-glow: rgba(123,63,0,0.08);
+  --qm-title-color: #8a5e08;
+}
+
+/* ── Section title ── */
+.quick-mood-title {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--qm-title-color);
+  margin-bottom: 20px;
+}
+
+/* ── Grid container ── */
+.quick-mood-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-width: 720px;
+  align-items: center;
+  justify-content: center;
+}
+@media (min-width: 640px) {
+  .quick-mood-grid {
+    gap: 14px;
+    justify-content: flex-start;
+  }
+}
+
+/* ── Pill button ── */
 .quick-mood-chip {
-  color: #f5f2eb;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-[data-theme="light"] .quick-mood-chip {
-  color: #3d2c1a !important;
-  background: rgba(120,80,20,0.08) !important;
-  border-color: rgba(120,80,20,0.25) !important;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: var(--qm-pill-text);
+  background: var(--qm-pill-bg);
+  border: 1px solid var(--qm-pill-border);
+  border-radius: 100px;
+  padding: 11px 22px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   text-shadow: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
-[data-theme="light"] .quick-mood-chip:hover {
-  color: #8a5e08 !important;
-  background: rgba(255,191,0,0.12) !important;
-  border-color: rgba(180,130,30,0.45) !important;
+.quick-mood-chip:hover {
+  color: var(--qm-pill-hover-text) !important;
+  background: var(--qm-pill-hover-bg) !important;
+  border-color: var(--qm-pill-hover-border) !important;
+  box-shadow: 0 0 18px var(--qm-pill-glow), inset 0 1px 0 var(--qm-pill-glow);
+  transform: translateY(-1px);
+}
+.quick-mood-chip:active {
+  transform: translateY(0);
+}
+
+/* Mobile: slightly smaller pills */
+@media (max-width: 480px) {
+  .quick-mood-chip {
+    font-size: 12px;
+    padding: 9px 18px;
+  }
+  .quick-mood-grid {
+    gap: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-mood-chip { transition: none !important; transform: none !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════
