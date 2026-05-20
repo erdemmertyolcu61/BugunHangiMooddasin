@@ -23,6 +23,7 @@ const SearchPage = lazy(() => import('./pages/Search'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const Home = lazy(() => import('./pages/Home'));
 const TasteMapCollision = lazy(() => import('./pages/TasteMapCollision'));
+const CouchMode = lazy(() => import('./pages/CouchMode'));
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
@@ -82,6 +83,7 @@ function AppContent() {
           <Route path="/profil" element={<Profil />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/carpistir" element={<TasteMapCollision />} />
+          <Route path="/couch" element={<CouchMode />} />
 
           {/* Design Preview & Legacy */}
           <Route path="/preview" element={<DesignPreview />} />
