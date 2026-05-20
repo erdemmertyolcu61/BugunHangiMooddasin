@@ -20,6 +20,7 @@ from backend.config import (
 )
 from backend.services.embedding_service import embedding_service
 from backend.services.fast_search import fast_search_engine
+from backend.services.semantic_search import semantic_engine
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, StreamingResponse
@@ -352,6 +353,26 @@ async def lifespan(app: FastAPI):
             logger.info("[FastSearch] Henüz embedding yok — arka planda oluşturulacak.")
     except Exception as e:
         logger.error(f"[FastSearch] Yükleme hatası: {e}")
+
+    # ── Semantic Search Engine: local sentence-transformers (no API key) ─────
+    async def _init_semantic_engine():
+        """Load semantic search index in background — model download may take time."""
+        await asyncio.sleep(3)  # Let server start accepting requests first
+        try:
+            n = await semantic_engine.load_from_db(cache)
+            if n > 0:
+                logger.info(f"[SemanticSearch] {n} film lokal vektör indeksine yüklendi.")
+            else:
+                logger.info("[SemanticSearch] Henüz film yok — seed tamamlanınca tekrar denenecek.")
+                # Retry after seed completes (~60s)
+                await asyncio.sleep(60)
+                n2 = await semantic_engine.load_from_db(cache)
+                if n2 > 0:
+                    logger.info(f"[SemanticSearch] Retry başarılı: {n2} film indekslendi.")
+        except Exception as e:
+            logger.error(f"[SemanticSearch] Yükleme hatası: {e}")
+
+    asyncio.create_task(_init_semantic_engine())
 
     # ── Background embedding job: vectorize movies that lack embeddings ────────
     async def _embed_movies_bg():
@@ -2238,6 +2259,8 @@ async def health_check():
         "tmdb_configured": bool(TMDB_API_KEY),
         "claude_configured": bool(ANTHROPIC_API_KEY),
         "beta_enabled": bool(BETA_PASSWORD),
+        "semantic_search_ready": semantic_engine.is_ready,
+        "semantic_movie_count": semantic_engine.movie_count,
     }
 
 
@@ -2792,15 +2815,14 @@ async def post_quick_mood_mix(req: QuickMoodMixRequest):
 @app.post("/api/recommend/fast", dependencies=[Depends(rate_limit_ai)])
 async def post_fast_recommendation(request: Request):
     """
-    Ultra-fast semantic film önerisi — <300ms hedef.
+    Ultra-fast semantic film önerisi — <50ms hedef (lokal model).
 
-    Adımlar:
-      1. Kullanıcı metnini Gemini text-embedding-004 ile vektörleştir (<100ms)
-      2. Pre-loaded numpy matrisinde cosine similarity ile top-k bul (<5ms)
-      3. Sonuçları hemen döndür — hiçbir LLM çağrısı yok
+    Öncelik sırası:
+      1. LOCAL semantic_engine (sentence-transformers, 0 API key) — ~30ms
+      2. Gemini fast_search_engine (API key gerekli) — ~200ms
+      3. Rule-based fallback — anında
 
-    Fallback: fast_search_engine hazır değilse (embedding yüklenmemişse)
-    kural tabanlı öneri ile yanıt verir.
+    Lokal model hem TR hem EN destekler, threshold>=0.38 ile gated.
     """
     import time as _time
     t0 = _time.monotonic()
@@ -2818,30 +2840,46 @@ async def post_fast_recommendation(request: Request):
     if not text:
         raise HTTPException(status_code=400, detail="text alanı boş olamaz")
 
-    # ── Phase 1: Vectorize query ──────────────────────────────────────────────
-    query_vec = None
-    if embedding_service.is_available:
+    movies = []
+    source = "rule_based"
+
+    # ── Priority 1: Local semantic search (FREE, no API key) ─────────────────
+    if semantic_engine.is_ready:
+        try:
+            result = await asyncio.wait_for(
+                semantic_engine.search(
+                    query_text=text,
+                    limit=limit,
+                    exclude_ids=exclude_ids,
+                    min_vote=min_vote,
+                ),
+                timeout=5.0,
+            )
+            movies = result.get("movies", [])
+            if movies:
+                source = "semantic_local"
+        except Exception as e:
+            logger.warning(f"[FastRec] Semantic search hatası: {e}")
+
+    # ── Priority 2: Gemini vector search (API key needed) ────────────────────
+    if not movies and embedding_service.is_available and fast_search_engine.is_ready:
         try:
             query_vec = await asyncio.wait_for(
                 embedding_service.get_embedding(text), timeout=8.0
             )
+            if query_vec:
+                movies = fast_search_engine.search(
+                    query_vec=query_vec,
+                    limit=limit,
+                    exclude_ids=exclude_ids,
+                    min_vote=min_vote,
+                )
+                if movies:
+                    source = "fast_vector"
         except Exception as e:
-            logger.warning(f"[FastRec] Embedding hatası: {e}")
+            logger.warning(f"[FastRec] Gemini embedding hatası: {e}")
 
-    # ── Phase 2: Vector similarity search ────────────────────────────────────
-    movies = []
-    source = "rule_based"
-
-    if query_vec and fast_search_engine.is_ready:
-        movies = fast_search_engine.search(
-            query_vec=query_vec,
-            limit=limit,
-            exclude_ids=exclude_ids,
-            min_vote=min_vote,
-        )
-        source = "fast_vector"
-
-    # ── Fallback: rule-based random pick ─────────────────────────────────────
+    # ── Priority 3: Rule-based fallback ──────────────────────────────────────
     if not movies:
         try:
             fallback = _rule_based_confused_analysis(text)
@@ -2871,13 +2909,14 @@ async def post_fast_recommendation(request: Request):
         except Exception as e:
             logger.error(f"[FastRec] Fallback hatası: {e}")
 
-    elapsed_ms = round((time.monotonic() - t0) * 1000, 1)
+    elapsed_ms = round((_time.monotonic() - t0) * 1000, 1)
     logger.info(f"[FastRec] '{text[:40]}' → {len(movies)} film, {elapsed_ms}ms ({source})")
 
     return {
         "ok": True,
         "source": source,
         "elapsed_ms": elapsed_ms,
+        "semantic_ready": semantic_engine.is_ready,
         "fast_search_ready": fast_search_engine.is_ready,
         "movies": movies,
     }
@@ -2935,11 +2974,42 @@ async def post_confused_recommendation_stream(req: ConfusedRequest):
 
         engine = ChatEngine(db=cache, tmdb_service=tmdb_service, confusion_service=confusion_service)
 
-        # ── Phase 0: Fast vector result — emit immediately (<300ms) ──────────
-        # Try Gemini embedding + numpy cosine similarity first.
+        # ── Phase 0: Fast vector result — emit immediately (<50ms) ───────────
+        # Priority 1: Local semantic engine (FREE, ~30ms)
+        # Priority 2: Gemini embedding + fast_search (API key, ~200ms)
         # Frontend shows these movies instantly while the LLM pipeline runs.
         fast_emitted = False
-        if fast_search_engine.is_ready and embedding_service.is_available:
+
+        # Try local semantic engine first (no API key needed)
+        if semantic_engine.is_ready:
+            try:
+                sem_result = await asyncio.wait_for(
+                    semantic_engine.search(
+                        query_text=text,
+                        limit=limit,
+                        exclude_ids=set(exclude_ids),
+                        min_vote=min_vote,
+                    ),
+                    timeout=5.0,
+                )
+                fast_movies = sem_result.get("movies", [])
+                if fast_movies:
+                    rule_fb = _rule_based_confused_analysis(text)
+                    fast_result = {
+                        "ok": True,
+                        "source": "semantic_local",
+                        "movies": fast_movies,
+                        "mood_mix": rule_fb.get("mood_mix", []),
+                        "message": rule_fb.get("message", ""),
+                        "ustad_line": sem_result.get("ustad_line", ""),
+                    }
+                    yield f"event: phase\ndata: {_json.dumps({'phase': 'fast', 'data': fast_result}, ensure_ascii=False)}\n\n"
+                    fast_emitted = True
+            except Exception as e:
+                logger.debug(f"[SSE] Semantic fast phase skipped: {e}")
+
+        # Fallback to Gemini embedding if local semantic didn't produce results
+        if not fast_emitted and fast_search_engine.is_ready and embedding_service.is_available:
             try:
                 qvec = await asyncio.wait_for(
                     embedding_service.get_embedding(text), timeout=5.0
@@ -2963,7 +3033,7 @@ async def post_confused_recommendation_stream(req: ConfusedRequest):
                     yield f"event: phase\ndata: {_json.dumps({'phase': 'fast', 'data': fast_result}, ensure_ascii=False)}\n\n"
                     fast_emitted = True
             except Exception as e:
-                logger.debug(f"[SSE] Fast phase skipped: {e}")
+                logger.debug(f"[SSE] Gemini fast phase skipped: {e}")
 
         # ── Phase 1: Intent extraction (fast — Haiku or semantic cache) ──────
         intent_data = {}

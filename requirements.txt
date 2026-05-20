@@ -10,3 +10,6 @@ google-auth>=2.37.0
 # google.auth.transport.requests Google ID token doğrulaması için
 # üçüncü parti 'requests' kütüphanesini zorunlu kılar (yoksa ImportError).
 requests>=2.31.0
+# Local semantic vector search — paraphrase-multilingual-MiniLM-L12-v2
+sentence-transformers>=2.7.0
+numpy>=1.26.0
