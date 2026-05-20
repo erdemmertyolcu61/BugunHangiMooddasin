@@ -20,6 +20,16 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/, /^\/share/],
         runtimeCaching: [
           {
+            // index.html → her zaman network'ten al, offline'da cache fallback
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-nav-v1',
+              expiration: { maxEntries: 10, maxAgeSeconds: 86400 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /\/api\/repository\/movies\//,
             handler: 'CacheFirst',
             options: {

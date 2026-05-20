@@ -11,19 +11,49 @@ import BottomNav from './components/BottomNav';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
+
+// ─── Lazy import with auto-reload on chunk miss ───────────────────
+// Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
+// Bu wrapper: hata olursa SW cache'i temizler ve sayfayı bir kez yeniler.
+function lazyRetry(importFn) {
+  return lazy(() =>
+    importFn().catch((err) => {
+      // Sonsuz reload döngüsünü engelle
+      const key = 'chunk_reload';
+      const last = sessionStorage.getItem(key);
+      const now = Date.now();
+      if (last && now - Number(last) < 10000) {
+        // 10sn içinde zaten denendi — döngüye girme, hatayı fırlat
+        throw err;
+      }
+      sessionStorage.setItem(key, String(now));
+
+      // SW cache'ini temizle ve sayfayı yenile
+      if ('caches' in window) {
+        caches.keys().then((names) =>
+          Promise.all(names.map((n) => caches.delete(n)))
+        );
+      }
+      window.location.reload();
+      // reload sırasında React'in hata fırlatmaması için beklet
+      return new Promise(() => {});
+    })
+  );
+}
+
 // Ana sayfa (landing) eager — ilk boya hızlı olsun. Diğerleri lazy → çok daha hızlı ilk yükleme.
 import MoodSelector from './pages/MoodSelector';
-const Discover = lazy(() => import('./pages/Discover'));
-const Defterim = lazy(() => import('./pages/Defterim'));
-const KafanMiKarisik = lazy(() => import('./pages/KafanMiKarisik'));
-const SurpriseFilm = lazy(() => import('./pages/SurpriseFilm'));
-const Listeler = lazy(() => import('./pages/Listeler'));
-const Profil = lazy(() => import('./pages/Profil'));
-const SearchPage = lazy(() => import('./pages/Search'));
-const DesignPreview = lazy(() => import('./pages/DesignPreview'));
-const Home = lazy(() => import('./pages/Home'));
-const TasteMapCollision = lazy(() => import('./pages/TasteMapCollision'));
-const CouchMode = lazy(() => import('./pages/CouchMode'));
+const Discover = lazyRetry(() => import('./pages/Discover'));
+const Defterim = lazyRetry(() => import('./pages/Defterim'));
+const KafanMiKarisik = lazyRetry(() => import('./pages/KafanMiKarisik'));
+const SurpriseFilm = lazyRetry(() => import('./pages/SurpriseFilm'));
+const Listeler = lazyRetry(() => import('./pages/Listeler'));
+const Profil = lazyRetry(() => import('./pages/Profil'));
+const SearchPage = lazyRetry(() => import('./pages/Search'));
+const DesignPreview = lazyRetry(() => import('./pages/DesignPreview'));
+const Home = lazyRetry(() => import('./pages/Home'));
+const TasteMapCollision = lazyRetry(() => import('./pages/TasteMapCollision'));
+const CouchMode = lazyRetry(() => import('./pages/CouchMode'));
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
