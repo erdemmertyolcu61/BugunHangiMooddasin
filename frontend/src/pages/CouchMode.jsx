@@ -231,6 +231,11 @@ export default function CouchMode() {
                       onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                       placeholder="SM-XXXX"
                       maxLength={7}
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck="false"
+                      enterKeyHint="go"
                       className="couch-input flex-1 px-4 py-3 rounded-xl text-center font-mono text-lg font-bold tracking-widest"
                       onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
                     />

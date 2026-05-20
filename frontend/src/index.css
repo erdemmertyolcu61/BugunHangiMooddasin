@@ -294,6 +294,74 @@
 
 .animate-spin-vinyl {
   animation: spinVinyl 8s linear infinite;
+  /* GPU acceleration — locked 60/120fps, no layout/paint cost */
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE OPTIMIZATION — Touch targets, safe areas, gestures
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Minimum 44×44px touch targets (WCAG / Apple HIG) ── */
+@media (hover: none) and (pointer: coarse) {
+  button, [role="button"], a, input[type="range"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Range slider thumb — enlarged for fat-finger accuracy */
+  input[type="range"].vinyl-slider::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  input[type="range"].vinyl-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Vinyl disc — slightly larger on mobile for gesture target area */
+  .animate-spin-vinyl,
+  button[title*="ses ayarı" i],
+  button[title*="sesi aç" i] {
+    min-width: 64px;
+    min-height: 64px;
+  }
+}
+
+/* ── Headbar notch/dynamic island clearance ── */
+.headbar-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 8px);
+}
+
+/* ── Scroll snap for mood card grids on mobile ── */
+@media (max-width: 640px) {
+  .mood-snap-scroll {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    scroll-padding: 0 16px;
+  }
+  .mood-snap-scroll > * {
+    scroll-snap-align: center;
+  }
+}
+
+/* ── Smooth inertia physics for horizontal swipe menus ── */
+.swipe-inertia {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+
+/* ── Prevent pull-to-refresh interfering with vertical gestures ── */
+.gesture-zone {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Vinyl groove pattern */
