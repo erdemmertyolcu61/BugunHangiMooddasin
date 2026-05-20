@@ -15,7 +15,7 @@ const moodList = Object.values(MOODS);
 export default function CouchMode() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom } = useSocket();
+  const { connected: socketConnected, roomPresence, activeMoodId, joinRoom: socketJoinRoom, selectMood: socketSelectMood, leaveRoom: socketLeaveRoom, startSharedSession, syncRoomMoodView } = useSocket();
 
   const [phase, setPhase] = useState(PHASES.ENTRY);
   const [roomCode, setRoomCode] = useState('');
@@ -74,23 +74,6 @@ export default function CouchMode() {
   }, [activeMoodId, roomCode]);
 
   const connectedUserCount = roomPresence?.connectedUsers?.length || 0;
-
-  useEffect(() => {
-    if (connectedUserCount >= 2 && phase === PHASES.LOBBY) {
-      setPhase(PHASES.MOOD_SELECT);
-    }
-  }, [connectedUserCount, phase]);
-
-  // ── Cleanup on unmount ──
-  const cleanupRef = useRef(null);
-  useEffect(() => {
-    cleanupRef.current = () => {
-      if (roomCode && user?.id) {
-        socketLeaveRoom(roomCode, String(user.id));
-      }
-    };
-    return () => cleanupRef.current?.();
-  }, [roomCode, user]);
 
   // ── Helpers ──
   const fetchMoviesForMood = async (moodId) => {
@@ -354,7 +337,24 @@ export default function CouchMode() {
                 </div>
               </div>
 
-              <div className="text-center">
+              {(roomData?.members || []).length >= 2 && (
+                roomData?.is_host ? (
+                  <div className="text-center mt-6 max-w-sm mx-auto">
+                    <button
+                      onClick={() => startSharedSession(roomCode)}
+                      className="couch-btn-accent w-full py-4 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:scale-[1.02] transition-all"
+                    >
+                      Seansı Başlat & Mood Seçimine Geç
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center mt-6 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 animate-pulse max-w-sm mx-auto">
+                    <p className="font-serif italic text-sm text-amber-200/80">Ev sahibinin seansı başlatması bekleniyor...</p>
+                  </div>
+                )
+              )}
+
+              <div className="text-center mt-8">
                 <button onClick={handleLeaveRoom} className="couch-subtitle text-[10px] font-bold uppercase tracking-widest hover:text-rose-400 transition-colors">
                   <LogOut size={12} className="inline mr-1" /> Odadan Ayrıl
                 </button>

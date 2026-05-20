@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User, Sofa } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
@@ -14,6 +15,7 @@ export default function MoodSelector() {
   const navigate = useNavigate();
   const { selectMood, prefetchMood } = useMood();
   const { user } = useAuth();
+  const { roomId, syncRoomMoodView } = useSocket();
   const [hoveredMood, setHoveredMood] = useState(null);
 
   // Quiz state
@@ -33,10 +35,14 @@ export default function MoodSelector() {
   }, []);
 
   const handleMoodClick = useCallback(async (mood) => {
-    try { playMoodAudio(mood.id); } catch(e) {}
-    selectMood(mood.id);
-    navigate('/discover');
-  }, [selectMood, navigate]);
+    if (roomId) {
+      syncRoomMoodView(roomId, { moodId: mood.id });
+    } else {
+      try { playMoodAudio(mood.id); } catch(e) {}
+      selectMood(mood.id);
+      navigate('/discover');
+    }
+  }, [selectMood, navigate, roomId, syncRoomMoodView]);
 
   // Quiz handlers
   const openQuiz = () => {
@@ -90,10 +96,15 @@ export default function MoodSelector() {
   };
 
   const navigateToMood = (moodId) => {
-    try { playMoodAudio(moodId); } catch(e) {}
-    selectMood(moodId);
-    setQuizOpen(false);
-    navigate('/discover', { state: { quizResult } });
+    if (roomId) {
+      syncRoomMoodView(roomId, { moodId });
+      setQuizOpen(false);
+    } else {
+      try { playMoodAudio(moodId); } catch(e) {}
+      selectMood(moodId);
+      setQuizOpen(false);
+      navigate('/discover', { state: { quizResult } });
+    }
   };
 
   const activeMood = hoveredMood ? MOODS[hoveredMood] : null;

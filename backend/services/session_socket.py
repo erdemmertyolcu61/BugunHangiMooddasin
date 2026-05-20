@@ -84,6 +84,40 @@ async def select_session_mood(sid, data):
 
 
 @sio.event
+async def start_shared_session(sid, data):
+    room_id = data.get("roomId")
+    if not room_id:
+        return
+    logger.info(f"[Socket] Starting shared session for room: {room_id}")
+    # Broadcast 'Maps_to_moods' event to ALL sockets in the room
+    await sio.emit("Maps_to_moods", {"roomId": room_id}, room=room_id)
+    # Redundant navigate_to_moods for safety
+    await sio.emit("navigate_to_moods", {"roomId": room_id}, room=room_id)
+
+
+@sio.event
+async def sync_room_mood_view(sid, data):
+    room_id = data.get("roomId")
+    mood_id = data.get("moodId")
+    quick_mood_id = data.get("quickMoodId")
+    if not room_id:
+        return
+    logger.info(f"[Socket] Syncing mood view for room {room_id}: moodId={mood_id}, quickMoodId={quick_mood_id}")
+    room = active_rooms.get(room_id)
+    if room:
+        if mood_id:
+            room["activeMoodId"] = mood_id
+        await sio.emit(
+            "room_mood_view_synced",
+            {
+                "moodId": mood_id,
+                "quickMoodId": quick_mood_id,
+            },
+            room=room_id,
+        )
+
+
+@sio.event
 async def leave_sinemod_session(sid, data):
     room_id = data.get("roomId")
     user_id = data.get("userId")

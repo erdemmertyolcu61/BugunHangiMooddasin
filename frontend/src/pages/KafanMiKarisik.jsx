@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
+import { useSocket } from '../context/SocketContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, streamConfusedRecommendation, postFastRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
@@ -94,7 +95,9 @@ const FEEDBACK_BUTTONS = [
 
 export default function KafanMiKarisik() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectMood } = useMood();
+  const { roomId, syncRoomMoodView } = useSocket();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [phraseIdx, setPhraseIdx] = useState(0);
@@ -216,6 +219,16 @@ export default function KafanMiKarisik() {
     }
   };
 
+  useEffect(() => {
+    if (location.state?.quickMoodId) {
+      const qm = QUICK_MOODS.find(q => q.id === location.state.quickMoodId);
+      if (qm) {
+        handleQuickMood(qm.mood_mix);
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.quickMoodId, navigate]);
+
   const handleFeedback = (feedbackText) => {
     analyze(feedbackText, true);
   };
@@ -327,7 +340,13 @@ export default function KafanMiKarisik() {
                 {QUICK_MOODS.map((qm) => (
                   <button
                     key={qm.id}
-                    onClick={() => handleQuickMood(qm.mood_mix)}
+                    onClick={() => {
+                      if (roomId) {
+                        syncRoomMoodView(roomId, { quickMoodId: qm.id });
+                      } else {
+                        handleQuickMood(qm.mood_mix);
+                      }
+                    }}
                     className="quick-mood-chip"
                   >
                     {qm.label}

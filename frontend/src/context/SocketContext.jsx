@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { DIRECT_BASE } from '../utils/apiConfig';
+import { useMood } from './MoodContext';
+import { useNavigate } from 'react-router-dom';
 
 const SocketContext = createContext(null);
 
@@ -9,10 +11,13 @@ export function useSocket() {
 }
 
 export function SocketProvider({ children }) {
+  const navigate = useNavigate();
+  const { selectMood: setGlobalMood } = useMood();
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [roomPresence, setRoomPresence] = useState(null);
   const [activeMoodId, setActiveMoodId] = useState(null);
+  const [roomId, setRoomId] = useState(() => localStorage.getItem('activeRoomId') || null);
 
   useEffect(() => {
     const isDev = import.meta.env.DEV;
@@ -36,30 +41,60 @@ export function SocketProvider({ children }) {
       setActiveMoodId(data.moodId);
     });
 
+    socket.on('Maps_to_moods', () => {
+      navigate('/moodlar');
+    });
+
+    socket.on('navigate_to_moods', () => {
+      navigate('/moodlar');
+    });
+
+    socket.on('room_mood_view_synced', (data) => {
+      if (data.moodId) {
+        setGlobalMood(data.moodId);
+        navigate('/discover');
+      } else if (data.quickMoodId) {
+        navigate('/kafan-mi-karisik', { state: { quickMoodId: data.quickMoodId } });
+      }
+    });
+
     socket.connect();
     socketRef.current = socket;
 
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [navigate, setGlobalMood]);
 
-  const joinRoom = (roomId, userId, userName) => {
-    socketRef.current?.emit('join_sinemod_session', { roomId, userId, userName });
+  const joinRoom = (rId, userId, userName) => {
+    setRoomId(rId);
+    localStorage.setItem('activeRoomId', rId);
+    socketRef.current?.emit('join_sinemod_session', { roomId: rId, userId, userName });
   };
 
-  const selectMood = (roomId, moodId) => {
-    socketRef.current?.emit('select_session_mood', { roomId, moodId });
+  const selectMood = (rId, moodId) => {
+    socketRef.current?.emit('select_session_mood', { roomId: rId, moodId });
   };
 
-  const leaveRoom = (roomId, userId) => {
-    socketRef.current?.emit('leave_sinemod_session', { roomId, userId });
+  const leaveRoom = (rId, userId) => {
+    setRoomId(null);
+    setRoomPresence(null);
+    localStorage.removeItem('activeRoomId');
+    socketRef.current?.emit('leave_sinemod_session', { roomId: rId, userId });
+  };
+
+  const startSharedSession = (rId) => {
+    socketRef.current?.emit('start_shared_session', { roomId: rId });
+  };
+
+  const syncRoomMoodView = (rId, selection) => {
+    socketRef.current?.emit('sync_room_mood_view', { roomId: rId, ...selection });
   };
 
   return (
     <SocketContext.Provider value={{
-      connected, roomPresence, activeMoodId,
-      joinRoom, selectMood, leaveRoom,
+      connected, roomPresence, activeMoodId, roomId,
+      joinRoom, selectMood, leaveRoom, startSharedSession, syncRoomMoodView,
     }}>
       {children}
     </SocketContext.Provider>

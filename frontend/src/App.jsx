@@ -44,6 +44,7 @@ function lazyRetry(importFn) {
 
 // Ana sayfa (landing) eager — ilk boya hızlı olsun. Diğerleri lazy → çok daha hızlı ilk yükleme.
 import MoodSelector from './pages/MoodSelector';
+import PersistentSidebar from './components/PersistentSidebar';
 const Discover = lazyRetry(() => import('./pages/Discover'));
 const Defterim = lazyRetry(() => import('./pages/Defterim'));
 const KafanMiKarisik = lazyRetry(() => import('./pages/KafanMiKarisik'));
@@ -101,10 +102,12 @@ function AppContent() {
       <AuraBackground />
       <ThemeToggle />
       <AudioPlayer />
+      <PersistentSidebar />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Main Flow */}
           <Route path="/" element={<MoodSelector />} />
+          <Route path="/moodlar" element={<MoodSelector />} />
           <Route path="/discover" element={<Discover />} />
           <Route path="/defterim" element={<Defterim />} />
           <Route path="/kafan-mi-karisik" element={<KafanMiKarisik />} />
