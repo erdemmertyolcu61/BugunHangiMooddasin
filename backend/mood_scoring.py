@@ -279,16 +279,36 @@ def _overview_keyword_score(overview: str, mood_id: str) -> float:
 def _popularity_adjustment(popularity_policy: str, vote_count: int = None, vote_average: float = None) -> float:
     """
     Popülerite politikasına göre adjustment faktörü (0.0 - 1.0).
-    strict_boutique: blockbuster cezası çok sert
-    boutique: orta ceza
-    boutique_indie: indie/boutique ceza
-    boutique_horror: korku butik ceza
-    no_restriction: ceza yok
+    hidden_gem: tüm mood'lar için varsayılan — yüksek oy = ceza, keşfedilmemiş = ödül
+    strict_boutique: blockbuster cezası çok sert (kalp)
+    boutique: orta ceza (karmakar)
+    boutique_indie: indie/boutique ceza (sessiz)
+    boutique_horror: korku butik ceza (deep-chills)
+    no_restriction: ceza yok (artık kullanılmıyor)
     """
     if not vote_count:
         return 1.0
 
-    if popularity_policy == "strict_boutique":
+    if popularity_policy == "hidden_gem":
+        # Hidden Gem: tüm mood'lar için — mainstream filmler cezalandırılır,
+        # az bilinen kaliteli filmler ödüllendirilir.
+        # 25K+ oy → ağır ceza (herkes biliyor), 10K-25K → orta ceza,
+        # 3K-10K → hafif ceza, <3K → bonus (gerçek hidden gem)
+        if vote_count >= 25000:
+            return 0.15
+        elif vote_count >= 15000:
+            return 0.35
+        elif vote_count >= 10000:
+            return 0.55
+        elif vote_count >= 5000:
+            return 0.75
+        elif vote_count >= 3000:
+            return 0.90
+        elif vote_count < 1000 and vote_average and vote_average >= 7.0:
+            return 1.15  # Gerçek hidden gem: az oy + yüksek kalite → bonus
+        return 1.0
+
+    elif popularity_policy == "strict_boutique":
         # Kalp: çok sert - 2000 oy üstü ceza başlar, 20000+ %90 ceza
         if vote_count >= 20000:
             return 0.1

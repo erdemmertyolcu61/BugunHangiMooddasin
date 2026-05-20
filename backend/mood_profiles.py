@@ -58,12 +58,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.3,
             "nostalgia": 0.5,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "27,53,80,10752",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "yolculuk": {
@@ -90,12 +91,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.2,
             "nostalgia": 0.3,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "27,9648,10749",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "gece": {
@@ -122,12 +124,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.8,
             "nostalgia": 0.2,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "10749,35,10751,16,10402",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "kahkaha": {
@@ -154,12 +157,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.1,
             "nostalgia": 0.2,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "27,53,10752,9648,16",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "gozyasi": {
@@ -187,12 +191,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.4,
             "nostalgia": 0.4,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "35,28,878,27,80,9648",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "adrenalin": {
@@ -219,12 +224,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.9,
             "nostalgia": 0.0,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "18,10749,36,99,10751,16,10402",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "askbahcesi": {
@@ -252,12 +258,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.1,
             "nostalgia": 0.3,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "27,53,80,28,878,10752",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 6.0,
+            "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "zamanyolcusu": {
@@ -285,12 +292,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.2,
             "nostalgia": 1.0,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "878,27,28,14,53,9648",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.5,
-            "min_vote_count": 100,
+            "min_vote_count": 50,
+            "max_vote_count": 25000,
             "primary_release_date_lte": "1990-12-31",
         },
         "turkish_seed_params": {
@@ -357,12 +365,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.7,
             "nostalgia": 0.1,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "10749,35,10751,16,10402,36",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.5,
             "min_vote_count": 50,
+            "max_vote_count": 25000,
         },
     },
     "kalp": {
@@ -453,12 +462,13 @@ MOOD_PROFILES = {
             "romance_thriller": 0.5,
             "nostalgia": 0.9,
         },
-        "popularity_policy": "no_restriction",
+        "popularity_policy": "hidden_gem",
         "tmdb_params": {
             "without_genres": "18,36,99,10751,10749,16,10402,10752,37",
             "sort_by": "vote_average.desc",
-            "min_vote_average": 5.5,
+            "min_vote_average": 6.0,
             "min_vote_count": 30,
+            "max_vote_count": 25000,
             "primary_release_date_lte": "1995-12-31",
             "primary_release_date_gte": "1977-01-01",
         },
@@ -509,14 +519,24 @@ GENRE_NAMES = {
     10752: "Savaş", 53: "Gerilim", 37: "Western", 10770: "TV Film",
 }
 
-# Butik mood'lar (blockbuster dışlama uygulanacak)
-BOUTIQUE_MOODS = {"kalp", "sessiz", "karmakar", "zamanyolcusu", "deep-chills"}
+# ─── Hidden Gem Politikası ───
+# Tüm mood'lar artık hidden-gem felsefesiyle çalışır:
+# Mainstream blockbuster'lar dışlanır, festival/bağımsız/uluslararası sinema öne çıkar.
+# Eski BOUTIQUE_MOODS sadece 5 mood'u kapsıyordu; artık HER mood hidden-gem filtresi uygular.
+BOUTIQUE_MOODS = {
+    "kalp", "sessiz", "karmakar", "zamanyolcusu", "deep-chills",
+    "battaniye", "yolculuk", "gece", "kahkaha", "gozyasi",
+    "adrenalin", "askbahcesi", "zihin", "Retro",
+}
 
-# Blockbuster eşiği
-BLOCKBUSTER_VOTE_THRESHOLD = 20000
+# Blockbuster eşiği — 15K'ya düşürüldü (daha agresif hidden-gem filtresi)
+BLOCKBUSTER_VOTE_THRESHOLD = 15000
 
-# Bilinen blockbuster TMDB ID'leri
+# Bilinen blockbuster TMDB ID'leri — genişletilmiş liste
+# Herkesin bildiği, her "en iyi filmler" listesinde olan yapımlar.
+# Hidden Gem felsefesi: bunları değil, aynı kalitede ama keşfedilmemiş eşdeğerlerini öner.
 BLOCKBUSTER_IDS = {
+    # ── Orijinal set ──
     244786, 157336, 27205, 155, 680, 122, 238, 13, 550, 497, 807, 372058,
     99861, 284052, 246655, 293660, 297761, 119450, 271110, 315635, 118340,
     140607, 181812, 335983, 330459, 297762, 299534, 299536, 426509, 436969,
@@ -528,7 +548,54 @@ BLOCKBUSTER_IDS = {
     49013, 49521, 105, 11, 1892, 607, 348, 168259, 1894, 1895, 98, 24,
     49047, 747, 127585, 1893, 861, 696, 12100, 9737, 410, 601, 76492,
     533535, 157350, 76170, 64688, 127380, 810693, 816904, 736732,
-    1072790, 1160018, 718930, 569094, 505642, 615656, 615677, 359940,
+    1072790, 1160018, 718930,
+    # ── Hidden Gem Genişletmesi: Mainstream klasikler & festival süperstars ──
+    # The Shawshank Redemption, Schindler's List, The Matrix, Titanic
+    278, 424, 603, 597,
+    # Fight Club (zaten var: 550), Goodfellas, The Silence of the Lambs
+    769, 274,
+    # The Lord of the Rings trilogy (122 zaten var), The Hobbit trilogy
+    49051, 57158, 122917,
+    # Shutter Island, The Departed, The Wolf of Wall Street, Gangs of New York
+    11324, 1422, 106646, 3131,
+    # Gone Girl, Zodiac, The Social Network, Se7en (807 zaten var)
+    210577, 1949, 37799,
+    # No Country for Old Men, There Will Be Blood, Fargo
+    6977, 7345, 275,
+    # The Grand Budapest Hotel, Black Swan, Arrival, Blade Runner 2049
+    120467, 44214, 329865, 335984,
+    # Oppenheimer, Everything Everywhere, Get Out, Us
+    872585, 545611, 419430, 458723,
+    # La La Land, The Revenant, The Martian, Gravity (49047 zaten var)
+    313369, 281957, 286217,
+    # Dunkirk, 1917, Tenet, Once Upon a Time in Hollywood
+    374720, 530915, 577922, 466272,
+    # Top Gun: Maverick, Barbie, Spider-Verse
+    361743, 346698, 569094,
+    # Eternal Sunshine, Memento, The Prestige
+    38, 77, 1124,
+    # Inglourious Basterds (68718 zaten var), Kill Bill Vol.1&2
+    24, 393,
+    # The Truman Show, Saving Private Ryan, American Beauty
+    37165, 857, 14,
+    # A Beautiful Mind, Cast Away, Catch Me If You Can
+    453, 8358, 640,
+    # The Pianist, Life is Beautiful, Braveheart
+    423, 637, 197,
+    # Bohemian Rhapsody, Jojo Rabbit, 1917
+    424694, 515001,
+    # Knives Out, Glass Onion
+    546554, 661374,
+    # Parasite (496243 zaten var), Oldboy, Train to Busan
+    670, 396535,
+    # Amélie, Cinema Paradiso
+    194, 11216,
+    # Drive, Nightcrawler, Sicario
+    64690, 242582, 273481,
+    # Hereditary, Midsommar, The Witch
+    493922, 530385, 310131,
+    # Whiplash (244786 zaten var), Birdman, Moonlight
+    194662, 376867,
 }
 
 
