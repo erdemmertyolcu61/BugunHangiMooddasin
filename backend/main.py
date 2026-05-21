@@ -1244,7 +1244,7 @@ async def get_repository_movies(
     mood_id: str,
     page: int = Query(1, ge=1),
     min_vote: float = Query(5.0, ge=0, le=10),
-    min_mood_score: float = Query(1.0, ge=0, le=100),
+    min_mood_score: float = Query(0.0, ge=0, le=100),
     sort_by: str = Query("recommended"),
     slim: bool = Query(True, description="Strip payloads to minimal fields for mobile"),
 ):

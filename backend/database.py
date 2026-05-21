@@ -1510,7 +1510,7 @@ class MovieCache:
             # Count total matching
             total = conn.execute(
                 """SELECT COUNT(*) FROM movie_repository
-                   WHERE mood_id = ? AND vote_average >= ? AND mood_score >= ?""",
+                   WHERE mood_id = ? AND vote_average >= ? AND COALESCE(mood_score, 0) >= ?""",
                 (mood_id, min_vote, min_mood_score)
             ).fetchone()[0]
 
@@ -1520,7 +1520,7 @@ class MovieCache:
                            vote_average, genre_ids, backdrop_url, vote_count,
                            original_language, popularity, mood_score
                     FROM movie_repository
-                    WHERE mood_id = ? AND vote_average >= ? AND mood_score >= ?
+                    WHERE mood_id = ? AND vote_average >= ? AND COALESCE(mood_score, 0) >= ?
                     ORDER BY {order_by}
                     LIMIT ? OFFSET ?""",
                 (mood_id, min_vote, min_mood_score, per_page, offset)
