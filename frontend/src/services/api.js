@@ -308,6 +308,21 @@ export async function getConfusedRecommendation(mood = null) {
   return res.json();
 }
 
+/**
+ * 6-step mood quiz → backend vector-averaged semantic search.
+ * @param {string[]} targets - Flattened mood tags from quiz answers
+ * @param {Object} opts
+ */
+export async function moodQuizSearch(targets, { limit = 6, minVote = 5.0, excludeIds = [] } = {}) {
+  const res = await fetch(`${BASE}/recommend/mood-quiz`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targets, limit, min_vote: minVote, exclude_ids: excludeIds }),
+  });
+  if (!res.ok) throw new Error(`Quiz önerisi alınamadı (${res.status})`);
+  return res.json();
+}
+
 // --- Topluluk Önerileri (Community Sharing) ---
 
 export async function recommendToCommunity(tmdbId) {

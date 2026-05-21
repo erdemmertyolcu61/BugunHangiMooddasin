@@ -1,59 +1,67 @@
 /**
- * Ruh Hali Testi — immersive, cinematic questionnaire.
- * Each answer targets a specific mood for a focused experience.
+ * 6-Step Mood Questionnaire — cinematic deep psychological framework.
+ * Each answer carries pre-mapped target mood tags for vector averaging.
  */
 
 const QUESTIONS = [
   {
-    id: "step_1_energy",
-    text: "Şu an zihnin tam olarak nerede geziniyor?",
+    id: "step_1_ambiance",
+    text: "1. Şu an etrafındaki dünyanın ışık seviyesi ve aurası nasıl olmalı?",
     answers: [
-      {
-        text: "Hayatın gürültüsünden kaçıp sığınacak güvenli bir liman arıyorum.",
-        effects: { battaniye: 3 },
-        targetMood: "battaniye",
-      },
-      {
-        text: "Gerçekliği sorgulatacak, beynimin kıvrımlarını yakacak bir hikaye gerek.",
-        effects: { zihin: 3 },
-        targetMood: "zihin",
-      },
-      {
-        text: "Geçmişin o sıcak, eski sinema salonu kokan hissini özledim.",
-        effects: { retro: 3 },
-        targetMood: "retro",
-      },
-      {
-        text: "Hikaye ikinci plan; gözlerim görsel bir şölen ve kusursuz kadrajlar istiyor.",
-        effects: { "kadraj-estetigi": 3 },
-        targetMood: "kadraj-estetigi",
-      },
+      { text: "Sadece loş bir mum ışığı veya tek bir lambanın huzuru.", targets: ["battaniye", "sessiz"] },
+      { text: "Şehrin neon ışıkları, ıslak sokaklar ve loş bir tekinsizlik.", targets: ["adrenalin", "geceyarisi-itirafi"] },
+      { text: "Eski bir sinema salonunun nostaljik, grenli ve sepya tonları.", targets: ["retro", "nostalji"] },
+      { text: "Göz alıcı renk paletleri, kusursuz kadrajlar ve estetik bir şölen.", targets: ["kadraj-estetigi", "melankoli"] },
     ],
   },
   {
     id: "step_2_pacing",
-    text: "İçindeki zamanın akış hızı şu an nasıl?",
+    text: "2. İçindeki zamanın akış hızı şu an hangi tempoya ayak uyduruyor?",
     answers: [
-      {
-        text: "Yavaş aksın. Karakterlerin derin felsefi sohbetlerinde kaybolayım.",
-        effects: { "geceyarisi-itirafi": 3 },
-        targetMood: "geceyarisi-itirafi",
-      },
-      {
-        text: "Hızlı ve acımasız. Koltuğun kenarını sıktıracak bir tempo olsun.",
-        effects: { adrenalin: 3 },
-        targetMood: "adrenalin",
-      },
-      {
-        text: "Kelimeler sussun, sadece sessizliğin ve görüntülerin şiirselliği konuşsun.",
-        effects: { sessiz: 3 },
-        targetMood: "sessiz",
-      },
-      {
-        text: "İçimdeki o düğümü çözecek, beni hüngür hüngür arındıracak bir duygu seli.",
-        effects: { gozyasi: 3 },
-        targetMood: "gozyasi",
-      },
+      { text: "Yavaş aksın; karakterlerin derin felsefi fısıltılarını sindireyim.", targets: ["geceyarisi-itirafi", "felsefe"] },
+      { text: "Nabzım hızlansın, koltuğun kenarını sıktıracak bir kaos olsun.", targets: ["adrenalin", "gerilim"] },
+      { text: "Şiirsel bir duruluk; kelimeler azalsın, görüntüler konuşsun.", targets: ["sessiz", "kadraj-estetigi"] },
+      { text: "Zaman algım tamamen bükülsün, beynimin kıvrımları yansın.", targets: ["zihin", "bilimkurgu"] },
+    ],
+  },
+  {
+    id: "step_3_emotional_depth",
+    text: "3. Ruhun şu an hangi duygusal arınmaya (katarsis) ihtiyaç duyuyor?",
+    answers: [
+      { text: "İçimdeki o düğümü çözecek, beni hüngür hüngür ağlatacak bir deşarj.", targets: ["gozyasi", "dram"] },
+      { text: "Yalnız olmadığımı hissettiren, kalbimi eritecek sıcacık bir sarılma.", targets: ["battaniye", "romantik"] },
+      { text: "Gerçek dünyanın dertlerini unutturacak absürt veya zeki bir kaçış.", targets: ["kara-mizah", "eğlence"] },
+      { text: "Karanlık tarafla yüzleşme; insanoğlunun çiğ doğasını izleme zevki.", targets: ["gerilim", "suç"] },
+    ],
+  },
+  {
+    id: "step_4_intellectual_state",
+    text: "4. Üstad zihnini ne kadar yorsun, ne kadarlık bir labirent istersin?",
+    answers: [
+      { text: "Hiç yormasın; arkama yaslanıp sadece hikayenin akışına bırakayım.", targets: ["populer", "battaniye"] },
+      { text: "Beni ipuçlarının peşinden koşturacak zekice bir bulmaca versin.", targets: ["zihin", "gizem"] },
+      { text: "Bittiğinde saatlerce duvara bakıp hayatı sorgulatacak felsefi bir yük.", targets: ["zihin", "felsefe"] },
+      { text: "Sanat filmi kafası; yoruma açık, metaforlarla dolu bağımsız bir ruh.", targets: ["kadraj-estetigi", "sessiz"] },
+    ],
+  },
+  {
+    id: "step_5_spatial_setting",
+    text: "5. Hikayenin geçeceği coğrafya veya mekân seni nereye götürsün?",
+    answers: [
+      { text: "Kuzey Avrupa'nın soğuk, puslu ve mesafeli yalnızlığına.", targets: ["sessiz", "melankoli"] },
+      { text: "Uzak geleceğe, uzay boşluğuna veya distopik bir evrene.", targets: ["zihin", "bilimkurgu"] },
+      { text: "70'lerin, 80'lerin o samimi, analog ve retro sokaklarına.", targets: ["retro", "nostalji"] },
+      { text: "Tek bir odada veya klostrofobik bir kapalı alanda geçen düelloya.", targets: ["geceyarisi-itirafi", "gerilim"] },
+    ],
+  },
+  {
+    id: "step_6_cinematic_archetype",
+    text: "6. Ve son dokunuş... Perde açıldığında ilk görmek istediğin silüet?",
+    answers: [
+      { text: "Yağmur altında sigarasını yakıp geçmişi düşünen yalnız bir karakter.", targets: ["geceyarisi-itirafi", "gozyasi"] },
+      { text: "Büyük bir komplo teorisinin ortasında kalmış dahi bir zihin.", targets: ["zihin", "adrenalin"] },
+      { text: "Uçsuz bucaksız bir doğa manzarasında tek başına yürüyen bir gezgin.", targets: ["kadraj-estetigi", "sessiz"] },
+      { text: "Gözünü kırpmadan tehlikenin üzerine yürüyen kararlı bir yabancı.", targets: ["adrenalin", "aksiyon"] },
     ],
   },
 ];
@@ -77,63 +85,41 @@ const MOOD_NAMES = {
   "geceyarisi-itirafi": "Geceyarısı İtirafı",
 };
 
-/** Test sonucunu hesaplar: cevap index'lerini alır, yüzdeli mood listesi döndürür. */
+/** Flatten all target tags from selected answers into a single array. */
 export function calculateQuizResult(answerIndexes) {
-  const scores = {
-    battaniye: 0,
-    yolculuk: 0,
-    gece: 0,
-    kahkaha: 0,
-    gozyasi: 0,
-    adrenalin: 0,
-    askbahcesi: 0,
-    zamanyolcusu: 0,
-    sessiz: 0,
-    zihin: 0,
-    kalp: 0,
-    karmakar: 0,
-    retro: 0,
-    "deep-chills": 0,
-    "kadraj-estetigi": 0,
-    "geceyarisi-itirafi": 0,
-  };
-
+  const allTargets = [];
   answerIndexes.forEach((ansIdx, qIdx) => {
     if (ansIdx === undefined || ansIdx === null) return;
     const question = QUESTIONS[qIdx];
     if (!question) return;
     const answer = question.answers[ansIdx];
-    if (!answer) return;
-    for (const [moodId, points] of Object.entries(answer.effects)) {
-      if (scores[moodId] !== undefined) {
-        scores[moodId] += points;
-      }
-    }
+    if (!answer || !answer.targets) return;
+    allTargets.push(...answer.targets);
   });
 
-  const total = Object.values(scores).reduce((s, v) => s + v, 0);
-
-  if (total === 0) {
-    return [
-      { moodId: "battaniye", percentage: 40 },
-      { moodId: "yolculuk", percentage: 35 },
-      { moodId: "kalp", percentage: 25 },
-    ];
+  // Count target frequency → top mood for display
+  const counts = {};
+  let maxCount = 0;
+  let topTarget = "battaniye";
+  for (const t of allTargets) {
+    counts[t] = (counts[t] || 0) + 1;
+    if (counts[t] > maxCount) {
+      maxCount = counts[t];
+      topTarget = t;
+    }
   }
 
-  const sorted = Object.entries(scores)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
-
-  const topTotal = sorted.reduce((s, [, v]) => s + v, 0);
-
-  return sorted.map(([moodId, score]) => ({
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const topTotal = sorted.reduce((s, [, v]) => s + v, 0) || 1;
+  const topMoods = sorted.slice(0, 3).map(([moodId, count]) => ({
     moodId,
-    percentage: Math.round((score / topTotal) * 100),
+    percentage: Math.round((count / topTotal) * 100),
   }));
+
+  return { targets: allTargets, topMoods };
 }
 
-/** Test bitince gösterilecek yorum metni (en yüksek mood'a göre). */
+/** Return a contextual message based on the most-selected mood. */
 export function getResultMessage(topMoods) {
   if (!topMoods || topMoods.length === 0) return "Bugün her türden film iyi gidebilir.";
   const primary = topMoods[0].moodId;

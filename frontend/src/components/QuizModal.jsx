@@ -1,25 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, Heart, ArrowRight } from 'lucide-react';
+import { X, ChevronLeft, Heart, ArrowRight, Star, Eye, BookmarkPlus, Check, Sparkles, Brain } from 'lucide-react';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
+import { moodQuizSearch } from '../services/api';
+import OptimizedImage from './OptimizedImage';
 
 export default function QuizModal({ isOpen, onClose, onComplete }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [result, setResult] = useState(null);
+  const [quizResult, setQuizResult] = useState(null);
+  const [searchResult, setSearchResult] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Quiz açıldığında direkt ilk soruya başla
       setStep(1);
       setAnswers([]);
       setResult(null);
+      setQuizResult(null);
+      setSearchResult(null);
+      setSearching(false);
+      setSearchError(null);
       setLeaving(false);
     } else {
       setStep(0);
       setAnswers([]);
       setResult(null);
+      setQuizResult(null);
+      setSearchResult(null);
+      setSearching(false);
+      setSearchError(null);
       setLeaving(false);
     }
   }, [isOpen]);
@@ -36,9 +49,23 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
         setLeaving(false);
       }, 200);
     } else {
-      const calcResult = calculateQuizResult(newAnswers);
-      setResult(calcResult);
+      // All 6 steps answered → calculate + search
+      const calc = calculateQuizResult(newAnswers);
+      setQuizResult(calc);
+      setResult(calc.topMoods);
       setStep(QUESTIONS.length + 1);
+      // Fire backend search
+      setSearching(true);
+      setSearchError(null);
+      moodQuizSearch(calc.targets, { limit: 6, minVote: 5.0 })
+        .then((data) => {
+          setSearchResult(data);
+          setSearching(false);
+        })
+        .catch((err) => {
+          setSearchError(err.message || 'Arama başarısız');
+          setSearching(false);
+        });
     }
   }, [step, answers]);
 
@@ -58,11 +85,17 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
       setStep(1);
       setAnswers([]);
       setResult(null);
+      setQuizResult(null);
+      setSearchResult(null);
+      setSearching(false);
+      setSearchError(null);
       setLeaving(false);
     }, 200);
   }, []);
 
   const currentQuestion = step >= 1 && step <= QUESTIONS.length ? QUESTIONS[step - 1] : null;
+
+  const movies = searchResult?.movies || [];
 
   return (
     <AnimatePresence>
@@ -88,7 +121,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
 
             {step === 0 ? null : step <= QUESTIONS.length ? (
               /* ── QUESTION STEP ── */
-              <div className="space-y-8" key={step}>
+              <div className="space-y-6 sm:space-y-8" key={step}>
                 {/* Progress */}
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">
@@ -96,7 +129,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                   </span>
                   <div className="flex gap-1.5">
                     {QUESTIONS.map((_, i) => (
-                      <div key={i} className={`w-6 h-1 rounded-full transition-colors ${
+                      <div key={i} className={`w-4 sm:w-6 h-1 rounded-full transition-colors ${
                         i < step ? 'bg-amber/60' : 'bg-zinc-700'
                       }`} />
                     ))}
@@ -117,7 +150,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                     </h3>
 
                     {/* Options */}
-                    <div className="grid grid-cols-1 gap-2.5 sm:gap-4 w-full max-w-2xl mx-auto px-0 sm:px-4">
+                    <div className="flex flex-col w-full max-w-2xl mx-auto px-0 gap-2.5 sm:gap-4">
                       {currentQuestion?.answers.map((ans, i) => (
                         <motion.button
                           key={i}
@@ -125,12 +158,12 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25, delay: i * 0.06 }}
-                          className="w-full text-left p-3 sm:p-4 rounded-xl bg-[#111111] hover:bg-[#1a1a1a] border border-zinc-800 hover:border-[#d4af37] active:border-[#d4af37] transition-all duration-300 group flex items-center justify-between"
+                          className="w-full text-left p-4 min-h-[70px] rounded-xl bg-[#111111] hover:bg-[#1a1a1a] border border-zinc-800 hover:border-[#d4af37] active:border-[#d4af37] transition-all duration-300 flex items-center justify-between group"
                         >
-                          <span className="text-xs sm:text-sm md:text-base text-zinc-300 group-hover:text-white font-medium pr-2 sm:pr-3 leading-relaxed break-words max-w-[90%]">
+                          <span className="text-sm md:text-base text-zinc-300 group-hover:text-white font-medium pr-2 leading-relaxed break-words">
                             {ans.text}
                           </span>
-                          <span className="text-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity text-lg hidden sm:inline shrink-0">
+                          <span className="text-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity pl-2 hidden sm:inline shrink-0">
                             <ArrowRight size={18} />
                           </span>
                         </motion.button>
@@ -149,74 +182,139 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
               </div>
             ) : (
               /* ── RESULT STEP ── */
-              <div className="space-y-8 text-center" key="result">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                  className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(245,158,11,0.3)]"
-                >
-                  <Heart size={28} className="text-black" />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50 mb-3">Bu Geceki Ruh Halin</p>
-                  <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-ivory">
-                    {result && MOOD_NAMES[result[0]?.moodId]}
-                    {result && result[0]?.percentage < 50 ? " ağırlıklı" : ""}
-                  </h3>
-                </motion.div>
-
-                {/* Percentages */}
-                {result && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="space-y-3 max-w-xs mx-auto"
-                  >
-                    {result.map((r, i) => (
-                      <div key={r.moodId} className="flex items-center gap-4">
-                        <span className="text-sm font-serif text-ivory/70 w-28 sm:w-32 text-right shrink-0">{MOOD_NAMES[r.moodId] || r.moodId}</span>
-                        <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${r.percentage}%` }}
-                            transition={{ duration: 1, delay: 0.4 + i * 0.15, ease: [0.16, 1, 0.3, 1] }}
-                            className="h-full rounded-full bg-gradient-to-r from-amber-500 to-purple-500"
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-amber/70 w-8 shrink-0">{r.percentage}%</span>
+              <div className="space-y-6 sm:space-y-8 text-center" key="result">
+                {/* Searching state */}
+                {searching && (
+                  <div className="flex flex-col items-center gap-6 py-8">
+                    <div className="relative w-16 h-16">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                        className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-[#ffbf00]"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Brain size={20} className="text-amber/40" />
                       </div>
-                    ))}
-                  </motion.div>
+                    </div>
+                    <p className="text-sm font-serif italic text-amber-200/70">Filmlerin seçiyorum...</p>
+                  </div>
                 )}
 
-                {/* Message */}
-                {result && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.6 }}
-                    className="text-sm md:text-base font-serif italic text-ivory/60 leading-relaxed max-w-sm mx-auto"
+                {/* Search error */}
+                {searchError && !searching && (
+                  <div className="py-4">
+                    <p className="text-rose-400 text-sm">{searchError}</p>
+                  </div>
+                )}
+
+                {/* Result header — only show when not searching */}
+                {!searching && (
+                  <>
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                      className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(245,158,11,0.3)]"
+                    >
+                      <Heart size={28} className="text-black" />
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50 mb-3">Bu Geceki Ruh Halin</p>
+                      <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-ivory">
+                        {quizResult && MOOD_NAMES[quizResult.topMoods?.[0]?.moodId]}
+                        {quizResult && quizResult.topMoods?.[0]?.percentage < 50 ? " ağırlıklı" : ""}
+                      </h3>
+                    </motion.div>
+
+                    {/* Percentage bars */}
+                    {quizResult?.topMoods && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="space-y-3 max-w-xs mx-auto"
+                      >
+                        {quizResult.topMoods.map((r, i) => (
+                          <div key={r.moodId} className="flex items-center gap-4">
+                            <span className="text-sm font-serif text-ivory/70 w-28 sm:w-32 text-right shrink-0">{MOOD_NAMES[r.moodId] || r.moodId}</span>
+                            <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${r.percentage}%` }}
+                                transition={{ duration: 1, delay: 0.4 + i * 0.15, ease: [0.16, 1, 0.3, 1] }}
+                                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-purple-500"
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-amber/70 w-8 shrink-0">{r.percentage}%</span>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+
+                    {/* Message */}
+                    {quizResult && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.6 }}
+                        className="text-sm md:text-base font-serif italic text-ivory/60 leading-relaxed max-w-sm mx-auto"
+                      >
+                        &ldquo;{getResultMessage(quizResult.topMoods)}&rdquo;
+                      </motion.p>
+                    )}
+                  </>
+                )}
+
+                {/* Movie results */}
+                {!searching && movies.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                    className="space-y-4 text-left"
                   >
-                    &ldquo;{getResultMessage(result)}&rdquo;
-                  </motion.p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/60 text-center">SANA ÖZEL SEÇKİ</p>
+                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-2 px-2">
+                      {movies.slice(0, 4).map((movie) => (
+                        <div key={movie.id} className="shrink-0 w-[130px] sm:w-[150px]">
+                          <div className="aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800 mb-2">
+                            <OptimizedImage
+                              src={movie.poster_url}
+                              alt={movie.title}
+                              fallbackTitle={movie.title}
+                              aspect="poster"
+                              size="sm"
+                              className="w-full h-full"
+                            />
+                          </div>
+                          <h4 className="text-[11px] font-semibold text-ivory/80 leading-tight line-clamp-2 mb-1">{movie.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-0.5 text-[9px] text-amber">
+                              <Star size={8} className="fill-amber" />
+                              {movie.vote_average > 0 ? movie.vote_average.toFixed(1) : '—'}
+                            </span>
+                            <span className="text-[9px] text-ivory/40">%{movie.mood_score}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
                 )}
 
                 {/* Actions */}
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }}
+                  transition={{ delay: 0.9 }}
                   className="flex flex-col sm:flex-row gap-3 justify-center pt-2"
                 >
                   <button
-                    onClick={() => result && onComplete(result[0].moodId)}
+                    onClick={() => result && onComplete(result[0]?.moodId)}
                     className="px-6 sm:px-8 py-3 sm:py-4 bg-amber text-black rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]"
                   >
                     {result ? `${MOOD_NAMES[result[0]?.moodId] || ''}'a Git` : 'Film Öner'}

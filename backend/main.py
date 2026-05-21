@@ -2391,6 +2391,13 @@ class RandomRecommendRequest(BaseModel):
     min_vote: float = 5.0
 
 
+class MoodQuizRequest(BaseModel):
+    targets: list  # ["battaniye", "sessiz", ...]
+    limit: int = 6
+    min_vote: float = 5.0
+    exclude_ids: list = []
+
+
 SURPRISE_USTAD_LINES = [
     "Üstad bu kez seçimi sana bırakmadı; arşivin karanlık raflarından bunu çekti.",
     "Bazen en iyi film, aramadığın anda karşına çıkandır.",
@@ -2797,6 +2804,102 @@ async def post_confused_recommendation(req: ConfusedRequest):
     return result
 
 
+@app.post("/api/recommend/mood-quiz", dependencies=[Depends(rate_limit_ai)])
+async def post_mood_quiz_recommendation(req: MoodQuizRequest):
+    """
+    6-step mood quiz → vector-averaged semantic search.
+    Accepts target mood tags, averages their pre-computed embedding prototypes,
+    and returns the most semantically similar movies. Fully local, <100ms.
+    """
+    from backend.services.semantic_search import semantic_engine, GLOBAL_CACHE
+    import numpy as np
+
+    limit = max(3, min(req.limit, 12))
+    min_vote = max(4.0, min(req.min_vote, 10.0))
+    exclude_ids = set(int(x) for x in req.exclude_ids if str(x).isdigit()) if req.exclude_ids else set()
+
+    if not req.targets or not semantic_engine.is_ready:
+        return {"ok": False, "movies": [], "mode": "quiz_no_match", "targets": req.targets}
+
+    # For each unique target tag, build a mood prototype vector by averaging
+    # the embedding vectors of movies tagged with that mood.
+    unique_targets = list(dict.fromkeys(req.targets))  # deduplicate, preserve order
+    prototype_vectors = []
+
+    for target in unique_targets:
+        tmdb_ids = await cache.get_tmdb_ids_by_mood(target, limit=200)
+        if not tmdb_ids:
+            continue
+        # Map tmdb_ids to matrix indices
+        id_set = set(tmdb_ids)
+        mask = np.isin(semantic_engine._tmdb_ids_np, list(id_set))
+        if not mask.any():
+            continue
+        # Average the vectors of matching movies → mood prototype
+        mood_vectors = semantic_engine._matrix[mask]
+        prototype = mood_vectors.mean(axis=0)
+        prototype_vectors.append(prototype)
+
+    if not prototype_vectors:
+        return {"ok": False, "movies": [], "mode": "quiz_no_match", "targets": req.targets}
+
+    # Average all prototypes → final query vector
+    query_vec = np.mean(prototype_vectors, axis=0).astype(np.float32)
+
+    # Cosine similarity against full matrix
+    if GLOBAL_CACHE.get("vectors") is not None:
+        query_norm = np.linalg.norm(query_vec)
+        if query_norm < 1e-10:
+            return {"ok": False, "movies": [], "mode": "quiz_no_match", "targets": req.targets}
+        dot = np.dot(GLOBAL_CACHE["vectors"], query_vec)
+        scores = dot / (GLOBAL_CACHE["norms"] * query_norm + 1e-10)
+    else:
+        scores = semantic_engine._matrix @ query_vec
+
+    # Vectorized filters
+    if min_vote > 0 and semantic_engine._votes_np is not None:
+        scores = np.where(semantic_engine._votes_np >= min_vote, scores, -1.0)
+    if exclude_ids and semantic_engine._tmdb_ids_np is not None:
+        exclude_arr = np.array(list(exclude_ids), dtype=np.int32)
+        scores = np.where(~np.isin(semantic_engine._tmdb_ids_np, exclude_arr), scores, -1.0)
+
+    scores = np.where(scores >= 0.38, scores, -1.0)
+
+    pool_size = min(limit * 3, len(semantic_engine._tmdb_ids))
+    if pool_size <= 0:
+        return {"ok": False, "movies": [], "mode": "quiz_no_match", "targets": req.targets}
+
+    top_idxs = np.argpartition(scores, -pool_size)[-pool_size:]
+    top_idxs = top_idxs[np.argsort(scores[top_idxs])[::-1]]
+
+    results = []
+    for idx in top_idxs:
+        if scores[idx] <= 0:
+            break
+        tmdb_id = int(semantic_engine._tmdb_ids_np[idx])
+        meta = semantic_engine._meta.get(tmdb_id)
+        if not meta:
+            continue
+        results.append(semantic_engine._build_slim_result(meta, float(scores[idx])))
+        if len(results) >= limit:
+            break
+
+    if not results:
+        return {"ok": False, "movies": [], "mode": "quiz_no_match", "targets": req.targets}
+
+    # Count target occurrences to determine primary mood
+    from collections import Counter
+    target_counts = Counter(req.targets)
+    primary_target = target_counts.most_common(1)[0][0]
+
+    return {
+        "ok": True,
+        "movies": results,
+        "primary_target": primary_target,
+        "targets": req.targets,
+        "mode": "quiz_vector_avg",
+        "ustad_line": f"Anket sonuçlarına göre en uygun filmleri buldum evlat.",
+    }
 
 
 

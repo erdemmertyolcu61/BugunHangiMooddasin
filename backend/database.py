@@ -792,6 +792,15 @@ class MovieCache:
                 "popularity": r[10] if len(r) > 10 else 0,
             } for r in rows]
 
+    async def get_tmdb_ids_by_mood(self, mood_id: str, limit: int = 200) -> list[int]:
+        """Fetch distinct tmdb_ids for a given mood (LIMIT). Used by quiz vector averaging."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT DISTINCT tmdb_id FROM movie_repository WHERE mood_id = ? ORDER BY vote_average DESC LIMIT ?",
+                (mood_id, limit)
+            )
+            return [r[0] for r in await cursor.fetchall()]
+
     async def search_repository_by_title(self, query: str, limit: int = 20) -> list:
         """Fuzzy search movies in repository by title. Uses LIKE with normalized queries."""
         if not query or len(query.strip()) < 2:
