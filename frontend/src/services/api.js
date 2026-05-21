@@ -56,7 +56,7 @@ export async function discoverMovies(genreIds, page = 1, sortBy = "popularity.de
   return res.json();
 }
 
-export async function repositoryMovies(moodId, page = 1, minVote = 5.0, sortBy = "recommended", minMoodScore = 40) {
+export async function repositoryMovies(moodId, page = 1, minVote = 5.0, sortBy = "recommended", minMoodScore = 0) {
   const res = await fetch(`${BASE}/repository/movies/${moodId}?page=${page}&min_vote=${minVote}&sort_by=${sortBy}&min_mood_score=${minMoodScore}`);
   if (!res.ok) throw new Error(`Repository yüklenemedi (${res.status})`);
   return res.json();

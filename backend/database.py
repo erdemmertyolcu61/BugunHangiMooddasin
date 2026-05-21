@@ -888,6 +888,52 @@ class MovieCache:
             "mood_id": r[11] if len(r) > 11 else None,
         }
 
+    async def fetch_movies_by_exact_titles(self, titles: list, limit: int = 20) -> list:
+        """
+        Fetch movies by exact title match across the entire repository.
+        Deduplicates by tmdb_id. Returns same format as get_repository_movies_paginated.
+        Non-blocking: uses sync connection.
+        """
+        if not titles:
+            return []
+        placeholders = ",".join("?" * len(titles))
+        lowered = [t.lower().strip() for t in titles]
+        conn = self._sync_conn()
+        try:
+            rows = conn.execute(
+                f"""SELECT tmdb_id, title, poster_url, overview, release_date,
+                           vote_average, genre_ids, backdrop_url, vote_count,
+                           original_language, popularity, mood_score
+                    FROM movie_repository
+                    WHERE LOWER(TRIM(title)) IN ({placeholders})
+                    ORDER BY vote_average DESC
+                    LIMIT ?""",
+                lowered + [limit]
+            ).fetchall()
+        finally:
+            conn.close()
+        seen = set()
+        movies = []
+        for r in rows:
+            if r[0] in seen:
+                continue
+            seen.add(r[0])
+            movies.append({
+                "id": r[0],
+                "title": r[1],
+                "poster_url": r[2],
+                "overview": r[3],
+                "release_date": r[4],
+                "vote_average": r[5],
+                "genre_ids": json.loads(r[6]) if r[6] else [],
+                "backdrop_url": r[7],
+                "vote_count": r[8] if r[8] else 0,
+                "original_language": r[9] if r[9] else "",
+                "popularity": r[10] if r[10] else 0,
+                "mood_score": r[11] if r[11] else 0,
+            })
+        return movies[:limit]
+
     async def get_random_repository_movie(self) -> dict:
         """Tum repository'den rastgele bir film dondurur (puan/mood filtresi YOK)."""
         async with _get_connection(self.db_path) as db:
@@ -921,7 +967,7 @@ class MovieCache:
         all_mood_ids = [
             "battaniye","yolculuk","gece","kahkaha","gozyasi","adrenalin",
             "askbahcesi","zamanyolcusu","sessiz","zihin","kalp","karmakar",
-            "Retro","deep-chills"
+            "Retro","deep-chills","kadraj-estetigi","geceyarisi-itirafi"
         ]
         total_all = 0
         async with _get_connection(self.db_path) as db:

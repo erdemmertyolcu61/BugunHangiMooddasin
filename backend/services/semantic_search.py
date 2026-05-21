@@ -89,6 +89,33 @@ def _get_model():
     return _model_instance
 
 
+# ─── Mood query expansion — premium mood keşif anahtar kelimeleri ──────────
+# Kullanıcının doğal dil sorgusu bu tetikleyicileri içeriyorsa sorgu
+# otomatik genişletilir. Böylece sinematografi/sohbet odaklı aramalar
+# premium mood'ların vektör uzayına daha iyi oturur.
+_MOOD_QUERY_EXPANSIONS = {
+    "sinematografi":   "cinematography visual masterpiece symmetry breathtaking color palette "
+                       "neon-lighting slow-burn visual storytelling meticulous framing "
+                       "poetic imagery composition",
+    "görsel":          "visual masterpiece symmetry breathtaking color palette "
+                       "neon-lighting slow-burn visual storytelling meticulous framing "
+                       "poetic imagery",
+    "estetik":         "aesthetic visual composition artistic beauty cinematography "
+                       "symmetry color palette poetic imagery",
+    "kompozisyon":     "composition symmetry framing visual storytelling artistic cinematography",
+    "renk paleti":     "color palette visual masterpiece cinematography aesthetic composition",
+    "diyalog":         "dialogue-driven heavy conversation deep talk philosophical debate "
+                       "intimate atmosphere verbal tension wordplay intellectual soul",
+    "sohbet":          "conversation dialogue intimate talk philosophical debate "
+                       "human relationship verbal tension wordplay",
+    "itiraf":          "confession intimate dialogue deep conversation late-night talk "
+                       "philosophical human relationship soul",
+    "konuşma":         "dialogue conversation intimate talk philosophical debate "
+                       "human relationship verbal wordplay",
+    "gece yarısı":     "late-night confession intimate dialogue deep conversation "
+                       "philosophical debate human relationship soul searching",
+}
+
 # ─── Üstad note templates ─────────────────────────────────────────────────────
 
 _USTAD_TEMPLATES = [
@@ -128,7 +155,9 @@ _MOOD_REASON_MAP = {
     "kalp":         "Küçük bir hikaye ama içinde büyük bir dünya barındırıyor.",
     "karmakar":     "Sıradışı yapısı ve deneysel anlatımıyla alışılmışın dışına çıkarıyor.",
     "Retro":        "80'ler estetiği ve neon atmosferiyle zamanda geriye götürecek.",
-    "deep-chills":  "Yavaş yanan gerilimi ve atmosferik anlatımıyla seçildi.",
+    "deep-chills":       "Yavaş yanan gerilimi ve atmosferik anlatımıyla seçildi.",
+    "kadraj-estetigi":   "Görsel şiirselliği ve sinematografik dokusuyla bu ruh haline çok uygun.",
+    "geceyarisi-itirafi":"Diyoglarının derinliği ve samimi atmosferiyle bu geceye eşlik edecek.",
 }
 
 
@@ -357,11 +386,21 @@ class SemanticSearchEngine:
         """
         Load movies from the repository DB and build the index.
         Compatible with the existing startup flow in main.py.
+
+        Fixes the false-positive empty state race condition:
+        Previously, if the fast_search table was empty (no pre-computed
+        embeddings yet), load_from_db would return 0 even when 64K+ movies
+        existed in the repository — causing "Henüz film yok" log noise and
+        disabling semantic search until a 60s retry.
+
+        Now: if fast_search table is empty BUT the repository has movies,
+        the method falls through to load directly from the repository table
+        and build the index on-the-fly.
         """
+        # Phase 1: fast_search table (pre-computed embeddings — fastest path)
         try:
             rows = await db_instance.get_all_fast_search_rows()
             if rows:
-                # Use existing fast_search rows (they have all metadata)
                 movies = []
                 for row in rows:
                     movies.append({
@@ -376,20 +415,61 @@ class SemanticSearchEngine:
                         "primary_mood_id": row.get("primary_mood_id"),
                         "ustad_notu":     row.get("ustad_notu"),
                     })
-                return await self.build_index(movies)
+                n = await self.build_index(movies)
+                if n > 0:
+                    return n
         except Exception as e:
             logger.warning("[SemanticSearch] load_from_db (fast_search) failed: %s", e)
 
-        # Fallback: try loading from repository_movies
+        # Phase 2: Repository has movies but no pre-computed embeddings yet.
+        # Check count first to avoid false-positive "empty" state.
         try:
-            rows = await db_instance.get_repository_movies_paginated(
-                mood_id=None, page=1, per_page=50000, sort_by="recommended"
-            )
-            movies_data = rows.get("movies", []) if isinstance(rows, dict) else rows
-            if movies_data:
-                return await self.build_index(movies_data)
+            # Use a raw count over all movies in the repository (no mood_id filter)
+            # because count_repository_movies() requires a non-null mood_id string.
+            from backend.database import _get_connection
+            total = 0
+            async with _get_connection(db_instance.db_path) as db:
+                cursor = await db.execute(
+                    "SELECT COUNT(*) FROM movie_repository WHERE vote_average >= 5.0"
+                )
+                row = await cursor.fetchone()
+                if row:
+                    total = row[0]
+
+            if total > 0:
+                logger.info(
+                    "[SemanticSearch] fast_search boş ama repository'de %d film var — "
+                    "vektör indeksi doğrudan repository'den oluşturuluyor...",
+                    total,
+                )
+                # Load all repository movies in large batches
+                all_movies = []
+                page = 1
+                per_page = 2000
+                while True:
+                    rows = await db_instance.get_repository_movies_paginated(
+                        mood_id=None, page=page, per_page=per_page, sort_by="recommended"
+                    )
+                    movies_data = rows.get("movies", []) if isinstance(rows, dict) else rows
+                    if not movies_data:
+                        break
+                    all_movies.extend(movies_data)
+                    if len(movies_data) < per_page:
+                        break
+                    page += 1
+                if all_movies:
+                    logger.info(
+                        "[SemanticSearch] %d film repository'den yüklendi, indeks oluşturuluyor...",
+                        len(all_movies),
+                    )
+                    return await self.build_index(all_movies)
+            else:
+                logger.info(
+                    "[SemanticSearch] Repository'de henüz film yok — "
+                    "seed tamamlanınca tekrar denenecek."
+                )
         except Exception as e:
-            logger.warning("[SemanticSearch] load_from_db (repository) failed: %s", e)
+            logger.warning("[SemanticSearch] load_from_db (repository fallback) failed: %s", e)
 
         return 0
 
@@ -439,6 +519,17 @@ class SemanticSearchEngine:
             }
 
         exclude_ids = exclude_ids or set()
+
+        # Query expansion: premium mood tetikleyicilerine göre sorguyu genişlet
+        query_lower = query_text.lower()
+        expansions = []
+        for trigger, keywords in _MOOD_QUERY_EXPANSIONS.items():
+            if trigger in query_lower:
+                expansions.append(keywords)
+        if expansions:
+            original = query_text
+            query_text = f"{query_text} {' '.join(expansions)}"
+            logger.debug("[SemanticSearch] Query expanded: '%s' → '%s'", original, query_text)
 
         # [TODO 3] Encode query in background thread — never block ASGI loop
         try:

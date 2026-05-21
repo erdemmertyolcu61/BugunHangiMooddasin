@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useMemo, useRef } from 'react';
 
-import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Glasses, Flame, Map as MapIcon, VolumeX, Ghost, Sparkles } from 'lucide-react';
+import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Glasses, Flame, Map as MapIcon, VolumeX, Ghost, Sparkles, Camera, Radio } from 'lucide-react';
 import { repositoryMovies } from '../services/api';
 
 const MoodContext = createContext();
@@ -203,6 +203,34 @@ export const MOODS = {
     gurmeNote: 'Üstad diyor ki: "Bu filmler sadece korkutmaz; zihninin en kuytu köşelerinde tekinsiz bir fısıltı gibi yankılanır."',
     genres: [27, 53, 9648, 14, 18, 878],
   },
+  "kadraj-estetigi": {
+    id: 'kadraj-estetigi',
+    title: 'Kadraj Estetiği',
+    icon: Camera,
+    iconType: 'camera',
+    subtitle: 'Minimalist Piano & Ambient Strings',
+    color: 'from-stone-900 via-amber-950 to-zinc-950',
+    auraColors: ['#292524', '#78350f', '#1c1917', '#44403c'],
+    animationType: 'slow',
+    vignette: '#292524',
+    intro: 'Her kare bir tablo. Sinematografinin başyapıtları, görsel şölenler ve estetik kompozisyonlar seni bekliyor.',
+    gurmeNote: 'Üstad diyor ki: "Sinema önce göze, sonra ruha hitap eder. Bu filmler, her karesiyle bir başyapıt — adeta hareket eden tablolar."',
+    genres: [18, 878, 53, 9648, 12, 14],
+  },
+  "geceyarisi-itirafi": {
+    id: 'geceyarisi-itirafi',
+    title: 'Geceyarısı İtirafı',
+    icon: Radio,
+    iconType: 'radio',
+    subtitle: 'Cazibal Radyo & Lo-fi Midnight Talk',
+    color: 'from-indigo-950 via-slate-900 to-violet-950',
+    auraColors: ['#1e1b4b', '#0f172a', '#2e1065', '#110a2e'],
+    animationType: 'sparkle',
+    vignette: '#1e1b4b',
+    intro: 'Gece yarısı, sessiz bir sokak, iki yabancı arasında geçen en derin konuşmalar... Diyalogların büyüsüne kapıl.',
+    gurmeNote: 'Üstad diyor ki: "Bazı filmler patlamalarla değil, fısıltılarla büyüler. Bu gece, kelimelerin gücüne teslim ol."',
+    genres: [18, 10749, 35, 9648, 99],
+  },
 };
 
 
@@ -234,7 +262,7 @@ export function MoodProvider({ children }) {
   /**
    * Fetches movies for a mood with caching and request cancellation
    */
-  const fetchMoodMovies = useCallback(async (moodId, page = 1, sortBy = "recommended", minMoodScore = 40, forceRefresh = false) => {
+  const fetchMoodMovies = useCallback(async (moodId, page = 1, sortBy = "recommended", minMoodScore = 0, forceRefresh = false) => {
     const cacheKey = `${moodId}_p${page}_s${sortBy}_m${minMoodScore}`;
     
     if (!forceRefresh && MOVIES_CACHE.has(cacheKey)) {

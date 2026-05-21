@@ -107,6 +107,10 @@ const QUESTIONS = [
         text: "Rüya mı gerçek mi belli olmayan tuhaf bir sahne",
         effects: { karmakar: 2, "deep-chills": 2, zihin: 1 },
       },
+      {
+        text: "Büyüleyici bir sinematografi, her karesinde kaybolduğum bir manzara",
+        effects: { "kadraj-estetigi": 3, sessiz: 1, yolculuk: 1 },
+      },
     ],
   },
   {
@@ -163,6 +167,10 @@ const QUESTIONS = [
         text: "Heyecandan yerinde duramayan biri gibi",
         effects: { adrenalin: 3, yolculuk: 1 },
       },
+      {
+        text: "Sabaha kadar sürecek derin bir sohbetin içinde, düşüncelere dalmış",
+        effects: { "geceyarisi-itirafi": 3, kalp: 1, zihin: 1 },
+      },
     ],
   },
 ];
@@ -182,6 +190,8 @@ const MOOD_NAMES = {
   karmakar: "Karmaşakar",
   Retro: "Retro Bakış",
   "deep-chills": "Derin Ürperti",
+  "kadraj-estetigi": "Kadraj Estetiği",
+  "geceyarisi-itirafi": "Geceyarısı İtirafı",
 };
 
 /** Test sonucunu hesaplar: cevap index'lerini alır, yüzdeli mood listesi döndürür. */
@@ -201,6 +211,8 @@ export function calculateQuizResult(answerIndexes) {
     karmakar: 0,
     Retro: 0,
     "deep-chills": 0,
+    "kadraj-estetigi": 0,
+    "geceyarisi-itirafi": 0,
   };
 
   answerIndexes.forEach((ansIdx, qIdx) => {
@@ -257,6 +269,8 @@ export function getResultMessage(topMoods) {
     karmakar: "Gerçekliğin sınırlarını zorlayan, sıradışı bir deneyim istiyorsun.",
     Retro: "Neon ışıklar ve synth melodiler eşliğinde geçmişe bir yolculuk yapma vakti.",
     "deep-chills": "Karanlık çöktü, perdeler kapandı. Derin bir ürperti için hazır mısın?",
+    "kadraj-estetigi": "Güzel bir kare bin kelimeye bedeldir. Bu gece sinematografinin başyapıtlarını keşfet.",
+    "geceyarisi-itirafi": "Gece yarısı sohbetleri ve derin diyaloglar sana iyi gelecek. Konuşmaların büyüsüne kapıl.",
   };
   return messages[primary] || "Bu geceki ruh haline göre harika bir seçki hazırladık.";
 }

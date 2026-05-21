@@ -481,7 +481,7 @@ export default function CouchMode() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto">
                 {moodList.map((mood, i) => {
                   const Icon = mood.icon;
                   const canSelect = isHost || roomData?.is_host;
@@ -514,7 +514,7 @@ export default function CouchMode() {
                       )}
                       <Icon size={20} className="couch-accent-text opacity-60 group-hover:opacity-100 transition-opacity mb-3" />
                       <h3 className="font-serif text-sm font-bold" style={{ color: 'var(--couch-text)' }}>{mood.title}</h3>
-                      <p className="couch-subtitle text-[9px] mt-1 font-serif font-light line-clamp-2">{mood.subtitle}</p>
+                      <p className="couch-subtitle text-[11px] sm:text-[9px] mt-1 font-serif font-light">{mood.subtitle}</p>
                     </motion.button>
                   );
                 })}

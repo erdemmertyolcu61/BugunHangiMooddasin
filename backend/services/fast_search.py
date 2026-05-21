@@ -76,7 +76,9 @@ _MOOD_REASON_MAP = {
     "kalp":         "Küçük bir hikaye ama içinde büyük bir dünya barındırıyor.",
     "karmakar":     "Sıradışı yapısı ve deneysel anlatımıyla alışılmışın dışına çıkarıyor.",
     "Retro":        "80'ler estetiği ve neon atmosferiyle zamanda geriye götürecek.",
-    "deep-chills":  "Yavaş yanan gerilimi ve atmosferik anlatımıyla seçildi.",
+    "deep-chills":       "Yavaş yanan gerilimi ve atmosferik anlatımıyla seçildi.",
+    "kadraj-estetigi":   "Görsel şiirselliği ve sinematografik dokusuyla bu ruh haline çok uygun.",
+    "geceyarisi-itirafi":"Diyoglarının derinliği ve samimi atmosferiyle bu geceye eşlik edecek.",
 }
 
 

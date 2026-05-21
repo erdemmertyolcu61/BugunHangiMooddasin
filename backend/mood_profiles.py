@@ -463,6 +463,69 @@ MOOD_PROFILES = {
             "primary_release_date_gte": "1977-01-01",
         },
     },
+    "kadraj-estetigi": {
+        "title": "Kadraj Estetiği",
+        "music_style": "Minimalist Piano & Ambient Strings",
+        "description": "Her kare bir tablo. Sinematografinin başyapıtları, görsel şölenler ve estetik kompozisyonlar seni bekliyor.",
+        "intent": "Görsel şölen, sinematografi, estetik kompozisyon, renk paleti, simetri. Yüksek prodüksiyon değeri, usta işi görüntü yönetimi. Kubrick, Denis Villeneuve, Wes Anderson tarzı.",
+        "positive_genres": [18, 878, 53, 9648, 12, 14],
+        "negative_genres": [35, 10751, 16, 10402, 10752, 37],
+        "positive_keywords": ["cinematography", "visual masterpiece", "stunning visuals", "symmetry", "color palette", "neo-noir photography",
+                              "meticulous art direction", "aesthetic composition", "high visual aspect", "masterclass framing",
+                              "beautiful", "visually stunning", "atmospheric cinematography", "art direction",
+                              "sinematografi", "görsel şölen", "estetik", "kompozisyon", "renk paleti", "simetri",
+                              "görüntü yönetimi", "sanat yönetimi", "tablo", "ışık", "kare", "çerçeve"],
+        "negative_keywords": ["low budget", "cheap", "amateur", "ugly", "gore", "exploitation", "blurry", "handheld",
+                              "düşük bütçe", "amatör", "çirkin", "kan", "sallanan kamera"],
+        "tone": {
+            "atmosphere": "artistic",
+            "tempo": "slow_to_medium",
+            "film_type": "mainstream_and_indie",
+            "dark_light": "balanced",
+            "romance_thriller": 0.4,
+            "nostalgia": 0.3,
+        },
+        "popularity_policy": "no_restriction",
+        "tmdb_params": {
+            "without_genres": "35,10751,16,10402,10752,37",
+            "sort_by": "vote_average.desc",
+            "min_vote_average": 6.5,
+            "min_vote_count": 100,
+        },
+    },
+    "geceyarisi-itirafi": {
+        "title": "Geceyarısı İtirafı",
+        "music_style": "Cazibal Radyo & Lo-fi Midnight Talk",
+        "description": "Gece yarısı, sessiz bir sokak, iki yabancı arasında geçen en derin konuşmalar... Diyalogların büyüsüne kapıl.",
+        "intent": "Diyalog odaklı, derin sohbet, gece yürüyüşü, ilişki sorgulaması, varoluşsal tartışma. Konuşma ağırlıklı filmler, bağımsız ve karakter odaklı. Richard Linklater, Woody Allen, Ingmar Bergman tarzı.",
+        "positive_genres": [18, 10749, 35, 9648, 99],
+        "negative_genres": [28, 878, 27, 53, 80, 10752, 14, 37],
+        "positive_keywords": ["dialogue-driven", "deep conversation", "philosophy of life", "late-night walk", "romance and time",
+                              "intellectual debate", "relationship reflection", "existential talk", "intimate dialogue", "minimal setting",
+                              "talk", "conversation", "walk and talk", "character study", "one night", "sunrise",
+                              "monologue", "confession", "memory", "regret", "longing", "connection",
+                              "diyalog", "sohbet", "konuşma", "gece yürüyüşü", "felsefe", "varoluş",
+                              "ilişki", "itiraf", "gece yarısı", "samimi", "derin", "karakter", "iç döküş"],
+        "negative_keywords": ["action", "war", "explosion", "superhero", "special effects", "cgi-heavy", "chase", "battle",
+                              "monster", "alien", "robot", "car chase", "shootout", "heist", "mission",
+                              "aksiyon", "savaş", "patlama", "süper kahraman", "canavar", "uzaylı", "robot", "kovalamaca"],
+        "tone": {
+            "atmosphere": "intimate",
+            "tempo": "slow",
+            "film_type": "indie_and_festival",
+            "dark_light": "balanced",
+            "romance_thriller": 0.2,
+            "nostalgia": 0.5,
+        },
+        "popularity_policy": "boutique_indie",
+        "tmdb_params": {
+            "without_genres": "28,878,27,53,80,10752,14,37",
+            "sort_by": "vote_average.desc",
+            "min_vote_average": 6.5,
+            "min_vote_count": 30,
+            "max_vote_count": 15000,
+        },
+    },
     "deep-chills": {
         "title": "Derin Ürperti",
         "music_style": "Slow-burn Atmospheric Tension",
@@ -513,7 +576,7 @@ GENRE_NAMES = {
 # Butik mood'lar: blockbuster dışlama + sert popülerlik cezası.
 # Diğer mood'lar: "no_restriction" ama scoring katmanında hidden_gem_boost ile
 # sayfa başına 2-3 keşfedilmemiş film doğal olarak yüzeye çıkar.
-BOUTIQUE_MOODS = {"kalp", "sessiz", "karmakar", "zamanyolcusu", "deep-chills"}
+BOUTIQUE_MOODS = {"kalp", "sessiz", "karmakar", "zamanyolcusu", "deep-chills", "kadraj-estetigi", "geceyarisi-itirafi"}
 
 # Blockbuster eşiği — 15K'ya düşürüldü (daha agresif hidden-gem filtresi)
 BLOCKBUSTER_VOTE_THRESHOLD = 15000
@@ -771,6 +834,25 @@ MOOD_SEED_STRATEGIES = {
         {"genres": [27, 53], "with_keywords": "210024|9727|255313|12377|251417|193504"},
         {"genres": [27, 18], "with_keywords": "978|210024"},    # Haunting + psikolojik korku
         {"genres": [27, 53], "with_origin_country": "TR", "with_original_language": "tr"},
+    ],
+    "kadraj-estetigi": [
+        {"genres": [18, 878]},
+        {"genres": [878, 53]},
+        {"genres": [18, 9648]},
+        {"genres": [12, 14]},
+        {"genres": [18, 53]},              # Görsel dram/gerilim
+        {"genres": [18, 878], "with_origin_country": "TR", "with_original_language": "tr"},
+        {"genres": [878, 12], "with_origin_country": "TR", "with_original_language": "tr"},
+    ],
+    "geceyarisi-itirafi": [
+        {"genres": [18, 10749]},
+        {"genres": [18, 35]},
+        {"genres": [9648, 18]},
+        {"genres": [99, 18]},
+        {"genres": [18, 10749, 35]},        # Romantik komedi-dram
+        {"genres": [18], "with_keywords": "10183|161384"},     # Independent + coming of age
+        {"genres": [18, 10749], "with_origin_country": "TR", "with_original_language": "tr"},
+        {"genres": [18, 35], "with_origin_country": "TR", "with_original_language": "tr"},
     ],
 }
 

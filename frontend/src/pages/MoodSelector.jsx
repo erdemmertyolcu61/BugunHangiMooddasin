@@ -163,7 +163,7 @@ export default function MoodSelector() {
         >
           <div className="flex items-center justify-center gap-3 sm:gap-4 mb-5 sm:mb-6">
             <div className="h-px w-10 sm:w-20 bg-gradient-to-r from-transparent to-amber/30" />
-            <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-rose/50 text-center">Film Eleştirmeni — Üstad'ın Arşivi</span>
+            <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-rose/50 text-center">Sinemood</span>
             <div className="h-px w-10 sm:w-20 bg-gradient-to-l from-transparent to-amber/30" />
           </div>
           <h1 className="text-[2.6rem] sm:text-6xl md:text-8xl font-serif font-normal tracking-tight mb-4 leading-[0.95] sm:leading-[0.9]">
@@ -178,7 +178,7 @@ export default function MoodSelector() {
         {/* ═══ Grid: Mood Kartları + Quiz Widget ═══ */}
         <div className="flex flex-col lg:flex-row gap-6 max-w-7xl w-full mb-10">
           {/* Mood kartları grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
             {moodList.map((mood, i) => {
               const isHovered = hoveredMood === mood.id;
               return (
@@ -210,7 +210,7 @@ export default function MoodSelector() {
                     <div className="absolute inset-0 opacity-[0.025] mix-blend-overlay pointer-events-none"
                       style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
-                    <div className="relative p-4 sm:p-7 flex flex-col min-h-[200px] sm:min-h-[310px] md:min-h-[340px]">
+                    <div className="relative p-4 sm:p-7 flex flex-col min-h-[240px] sm:min-h-[310px] md:min-h-[340px]">
 
                       {/* Icon box */}
                       <div className="mb-3 sm:mb-6">
@@ -252,9 +252,9 @@ export default function MoodSelector() {
                       />
 
                       {/* Intro */}
-                      <p className="font-sans text-[11px] sm:text-[13px] leading-relaxed text-ivory/75 group-hover:text-ivory transition-colors duration-500 line-clamp-3 flex-1">
-                        {mood.intro}
-                      </p>
+                        <p className="font-sans text-[13px] sm:text-[13px] leading-relaxed text-ivory/75 group-hover:text-ivory transition-colors duration-500 flex-1">
+                          {mood.intro}
+                        </p>
 
                       {/* Footer row */}
                       <div className="mt-3 sm:mt-5 flex items-center justify-between">

@@ -67,6 +67,8 @@ MOOD_ID_LABELS = {
     "karmakar": "karmakar",
     "Retro": "Retro",
     "deep-chills": "deep-chills",
+    "kadraj-estetigi": "kadraj-estetigi",
+    "geceyarisi-itirafi": "geceyarisi-itirafi",
 }
 
 def _normalize_mood_id(mood_id: str) -> str:
@@ -363,8 +365,10 @@ async def lifespan(app: FastAPI):
             if n > 0:
                 logger.info(f"[SemanticSearch] {n} film lokal vektör indeksine yüklendi.")
             else:
-                logger.info("[SemanticSearch] Henüz film yok — seed tamamlanınca tekrar denenecek.")
-                # Retry after seed completes (~60s)
+                # load_from_db already handles the false-positive guard internally.
+                # If index still empty after repository check, retry once seed completes.
+                logger.info("[SemanticSearch] Embedding'ler RAM cache'ine yükleniyor, "
+                            "anlamsal arama arka planda aktifleşecek...")
                 await asyncio.sleep(60)
                 n2 = await semantic_engine.load_from_db(cache)
                 if n2 > 0:
@@ -1081,6 +1085,63 @@ async def couch_get_movies(
     if not config:
         raise HTTPException(status_code=400, detail=f"'{selected_mood}' geçerli bir mood değil.")
 
+    # ── [CURATOR OVERRIDE] Couch Mode için Üstad seçkisi ──────────
+    couch_curated_titles = CURATED_TITLES_BY_MOOD.get(selected_mood)
+    if couch_curated_titles and page == 1:
+        try:
+            c_curated = await cache.fetch_movies_by_exact_titles(couch_curated_titles, CURATOR_PAGE_SIZE)
+            if len(c_curated) < 6:
+                c_search_tasks = [tmdb_service.search_movies(t) for t in couch_curated_titles]
+                c_s_results = await asyncio.gather(*c_search_tasks, return_exceptions=True)
+                c_seen_ids = set(m["id"] for m in c_curated)
+                c_new_for_db = []
+                for c_results in c_s_results:
+                    if isinstance(c_results, BaseException):
+                        continue
+                    if c_results:
+                        cm = c_results[0]
+                        if cm["id"] not in c_seen_ids:
+                            c_seen_ids.add(cm["id"])
+                            cm["backdrop_url"] = None
+                            cm["vote_count"] = 0
+                            cm["original_language"] = ""
+                            cm["popularity"] = 0
+                            cm["mood_score"] = 0
+                            c_new_for_db.append(cm)
+                            c_curated.append(cm)
+                if c_new_for_db:
+                    asyncio.create_task(cache.bulk_save_repository_movies(c_new_for_db, selected_mood))
+            if len(c_curated) >= 6:
+                c_ids = [m["id"] for m in c_curated]
+                c_map, cl_map = await asyncio.gather(
+                    cache.get_movies_batch(c_ids),
+                    cache.get_mood_classifications_batch(c_ids),
+                )
+                for m in c_curated:
+                    mid = m["id"]
+                    m["mood_match_label"] = "Üstad'ın Seçkisi"
+                    m["ai_classified"] = cl_map.get(mid) == selected_mood
+                    m["primaryMoods"] = [selected_mood]
+                    m["secondaryMoods"] = []
+                    m["blockedMoods"] = []
+                    m["moodReason"] = REASON_MAP.get(selected_mood, "")
+                    cd = c_map.get(mid)
+                    m["mood"] = cd.get("mood") if cd else None
+                    m["ai_analysis"] = cd.get("ai_analysis") if cd else None
+                    m["analyzed"] = bool(cd)
+                return {
+                    "room_code": code,
+                    "selected_mood": selected_mood,
+                    "mood_name": MOOD_NAMES.get(selected_mood, selected_mood),
+                    "ustad_notu": _couch_rnd.choice(_COUCH_USTAD_LINES),
+                    "movies": c_curated,
+                    "page": 1, "total_pages": 1,
+                    "total": len(c_curated),
+                    "mode": "couch_curated",
+                }
+        except Exception as e:
+            logger.warning(f"[Curator:Couch] {selected_mood} seçki hatası (fallback'e düşüyor): {e}")
+
     result = await cache.get_repository_movies_paginated(
         selected_mood, page=page, per_page=20,
         min_vote=5.0, min_mood_score=1.0,
@@ -1477,6 +1538,55 @@ async def classify_repository_movies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Curator Override: Üstad'ın kişisel seçkileri ─────────────────────
+# Premium odalara giren kullanıcıların boş ekran görmemesi için,
+# semantic/seed pipeline'ı hazır olana kadar bu başyapıtlar gösterilir.
+CURATED_TITLES_BY_MOOD = {
+    "kadraj-estetigi": [
+        "2001: A Space Odyssey",
+        "The Grand Budapest Hotel",
+        "Blade Runner 2049",
+        "The Fall",
+        "In the Mood for Love",
+        "Hero",
+        "The Revenant",
+        "Lawrence of Arabia",
+        "Apocalypse Now",
+        "Baraka",
+        "Days of Heaven",
+        "The Tree of Life",
+        "Ran",
+        "The Assassination of Jesse James by the Coward Robert Ford",
+        "The Thin Red Line",
+        "Mirror",
+        "Crouching Tiger, Hidden Dragon",
+        "Amélie",
+        "Life of Pi",
+        "Mad Max: Fury Road",
+    ],
+    "geceyarisi-itirafi": [
+        "Before Sunrise",
+        "Before Sunset",
+        "Before Midnight",
+        "My Dinner with Andre",
+        "The Sunset Limited",
+        "12 Angry Men",
+        "Coherence",
+        "Certified Copy",
+        "Lost in Translation",
+        "Her",
+        "The Man from Earth",
+        "Tape",
+        "The Breakfast Club",
+        "Closer",
+        "Who's Afraid of Virginia Woolf?",
+        "Glengarry Glen Ross",
+        "The Before Trilogy",
+    ],
+}
+
+CURATOR_PAGE_SIZE = 20
+
 @app.get("/api/repository/movies/{mood_id}")
 async def get_repository_movies(
     mood_id: str,
@@ -1500,6 +1610,67 @@ async def get_repository_movies(
             raise HTTPException(status_code=404, detail=f"'{mood_id}' geçerli bir mood değil.")
 
         tmdb_params = get_tmdb_params(mood_id)
+
+        # ── [CURATOR OVERRIDE] Üstad'ın kişisel seçkisi ──────────────
+        # Premium odalarda seed pipeline'ı beklememek için önce repository'de
+        # başyapıtları title match ile ara; bulunamazsa doğrudan TMDB'den çek.
+        curated_titles = CURATED_TITLES_BY_MOOD.get(mood_id)
+        curated_movies = []
+        if curated_titles and page == 1:
+            try:
+                curated = await cache.fetch_movies_by_exact_titles(curated_titles, CURATOR_PAGE_SIZE)
+                # Phase 2: TMDB fallback — repository'de yeterli yoksa TMDB'den ara
+                if len(curated) < 6:
+                    search_tasks = [tmdb_service.search_movies(t) for t in curated_titles]
+                    s_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+                    seen_ids = set(m["id"] for m in curated)
+                    new_for_db = []
+                    for results in s_results:
+                        if isinstance(results, BaseException):
+                            continue
+                        if results:
+                            m = results[0]
+                            tid = m["id"]
+                            if tid not in seen_ids:
+                                seen_ids.add(tid)
+                                m["backdrop_url"] = None
+                                m["vote_count"] = 0
+                                m["original_language"] = ""
+                                m["popularity"] = 0
+                                m["mood_score"] = 0
+                                new_for_db.append(m)
+                                curated.append(m)
+                    # TMDB'den bulunanları repository'e kaydet (arkaplanda)
+                    if new_for_db:
+                        asyncio.create_task(
+                            cache.bulk_save_repository_movies(new_for_db, mood_id)
+                        )
+                if curated:
+                    ids = [m["id"] for m in curated]
+                    c_map, cl_map = await asyncio.gather(
+                        cache.get_movies_batch(ids),
+                        cache.get_mood_classifications_batch(ids),
+                    )
+                    for m in curated:
+                        mid = m["id"]
+                        m["mood_match_label"] = "Üstad'ın Seçkisi"
+                        m["ai_classified"] = cl_map.get(mid) == mood_id
+                        m["primaryMoods"] = [mood_id]
+                        m["secondaryMoods"] = []
+                        m["blockedMoods"] = []
+                        m["moodReason"] = REASON_MAP.get(mood_id, "")
+                        cd = c_map.get(mid)
+                        if cd:
+                            m["mood"] = cd.get("mood")
+                            m["ai_analysis"] = cd.get("ai_analysis")
+                            m["analyzed"] = True
+                        else:
+                            m["mood"] = None
+                            m["ai_analysis"] = None
+                            m["analyzed"] = False
+                    curated_movies = curated
+            except Exception as e:
+                logger.warning(f"[Curator] {mood_id} seçki hatası (fallback'e düşüyor): {e}")
 
         # Count current movies
         count = await cache.count_repository_movies(mood_id, min_vote)
@@ -1532,21 +1703,32 @@ async def get_repository_movies(
                 except Exception as e:
                     logger.warning(f"[Seed] {mood_id} background seed failed: {e}")
             asyncio.create_task(_bg_seed())
-            return {
-                "movies": [],
-                "page": page,
-                "total_pages": 1,
-                "total": 0,
-                "seeding": True,
-            }
+            if not curated_movies:
+                return {
+                    "movies": [],
+                    "page": page,
+                    "total_pages": 1,
+                    "total": 0,
+                    "seeding": True,
+                }
 
         # ── FAST PATH: SQL-level pagination with pre-computed mood_score ──
+        # On page 1, reduce per_page to make room for curated picks
+        actual_per_page = 20
+        if curated_movies and page == 1:
+            actual_per_page = 20 - len(curated_movies)
+
         result = await cache.get_repository_movies_paginated(
-            mood_id, page=page, per_page=20,
+            mood_id, page=page, per_page=actual_per_page,
             min_vote=min_vote, min_mood_score=min_mood_score,
             sort_by=sort_by,
         )
         page_movies = result["movies"]
+
+        # Prepend curated movies on page 1
+        if curated_movies and page == 1:
+            seen_curated_ids = set(m["id"] for m in curated_movies)
+            page_movies = curated_movies + [m for m in page_movies if m["id"] not in seen_curated_ids]
 
         if not page_movies:
             return {
@@ -1558,7 +1740,7 @@ async def get_repository_movies(
                 "min_mood_score": min_mood_score,
             }
 
-        # Batch-enrich only the 20 movies on this page (not 8000+)
+        # Batch-enrich only the movies on this page (not 8000+)
         ids = [m["id"] for m in page_movies]
         cache_map, classifications_map = await asyncio.gather(
             cache.get_movies_batch(ids),
@@ -1567,23 +1749,23 @@ async def get_repository_movies(
 
         for movie in page_movies:
             mid = movie["id"]
-            movie["mood_match_label"] = "Mood'a Uyum"
-            movie["ai_classified"] = classifications_map.get(mid) == mood_id
-            # Lightweight metadata — no heavy classify_movie() call
-            movie["primaryMoods"] = []
-            movie["secondaryMoods"] = []
-            movie["blockedMoods"] = []
-            movie["moodReason"] = ""
+            if movie.get("mood_match_label") != "Üstad'ın Seçkisi":
+                movie["mood_match_label"] = "Mood'a Uyum"
+                movie["ai_classified"] = classifications_map.get(mid) == mood_id
+                movie["primaryMoods"] = []
+                movie["secondaryMoods"] = []
+                movie["blockedMoods"] = []
+                movie["moodReason"] = ""
 
-            cached_data = cache_map.get(mid)
-            if cached_data:
-                movie["mood"] = cached_data.get("mood")
-                movie["ai_analysis"] = cached_data.get("ai_analysis")
-                movie["analyzed"] = True
-            else:
-                movie["mood"] = None
-                movie["ai_analysis"] = None
-                movie["analyzed"] = False
+                cached_data = cache_map.get(mid)
+                if cached_data:
+                    movie["mood"] = cached_data.get("mood")
+                    movie["ai_analysis"] = cached_data.get("ai_analysis")
+                    movie["analyzed"] = True
+                else:
+                    movie["mood"] = None
+                    movie["ai_analysis"] = None
+                    movie["analyzed"] = False
 
         return {
             "movies": page_movies,
@@ -2373,7 +2555,7 @@ _CONFUSED_KEYWORDS = {
     "uzay": {"yolculuk": 2, "Retro": 2, "karmakar": 1},
     "çocuk": {"battaniye": 4, "kahkaha": 2},
     "aile": {"battaniye": 4, "kahkaha": 1},
-    "sürpriz": {"battaniye": 1, "yolculuk": 1, "gece": 1, "kahkaha": 1, "gozyasi": 1, "adrenalin": 1, "askbahcesi": 1, "zamanyolcusu": 1, "sessiz": 1, "zihin": 1, "kalp": 1, "karmakar": 1, "Retro": 1, "deep-chills": 1},
+    "sürpriz": {"battaniye": 1, "yolculuk": 1, "gece": 1, "kahkaha": 1, "gozyasi": 1, "adrenalin": 1, "askbahcesi": 1, "zamanyolcusu": 1, "sessiz": 1, "zihin": 1, "kalp": 1, "karmakar": 1, "Retro": 1, "deep-chills": 1, "kadraj-estetigi": 1, "geceyarisi-itirafi": 1},
     "klişe": {"askbahcesi": -1, "gozyasi": -1, "battaniye": -1},
     "yavaş": {"sessiz": 3, "battaniye": 2},
     "hızlı": {"adrenalin": 3, "Retro": 2},
@@ -2416,6 +2598,19 @@ _CONFUSED_KEYWORDS = {
     "ailemle": {"battaniye": 3, "kahkaha": 1},
     "arkadaşlarla": {"kahkaha": 3, "adrenalin": 1},
     "yalnız": {"sessiz": 2, "kalp": 2, "gozyasi": 1},
+    "sinematografi": {"kadraj-estetigi": 4, "sessiz": 1},
+    "görsel": {"kadraj-estetigi": 4, "karmakar": 1},
+    "estetik": {"kadraj-estetigi": 4, "sessiz": 2},
+    "kompozisyon": {"kadraj-estetigi": 4},
+    "renk": {"kadraj-estetigi": 3, "karmakar": 1},
+    "gece yarısı": {"geceyarisi-itirafi": 4, "gece": 2},
+    "sohbet": {"geceyarisi-itirafi": 4, "kalp": 2},
+    "diyalog": {"geceyarisi-itirafi": 4, "kalp": 2},
+    "samimi": {"geceyarisi-itirafi": 3, "kalp": 2, "sessiz": 1},
+    "itiraf": {"geceyarisi-itirafi": 4},
+    "varoluş": {"geceyarisi-itirafi": 3, "zihin": 2},
+    "felsefe": {"geceyarisi-itirafi": 3, "zihin": 2},
+    "derin konuşma": {"geceyarisi-itirafi": 4, "kalp": 1},
 }
 
 
@@ -2516,6 +2711,8 @@ REASON_MAP = {
     "zamanyolcusu": "Nostaljik dokusu ve zamansız atmosferiyle geçmişe bir yolculuk vaat ediyor.",
     "karmakar": "Sıradışı yapısı ve deneysel anlatımıyla alışılmışın dışına çıkarıyor.",
     "Retro": "80'ler estetiği ve neon atmosferiyle zamanda geriye götürecek.",
+    "kadraj-estetigi": "Her kare bir tablo gibi; görsel şölen ve sinematografi başyapıtı.",
+    "geceyarisi-itirafi": "Gece yarısı derin sohbetlerin ve samimi diyalogların filmi.",
 }
 
 
@@ -3147,10 +3344,12 @@ async def expand_status():
 MOOD_TEMPO = {"kalp": "slow", "sessiz": "slow", "gozyasi": "slow", "zamanyolcusu": "slow",
               "adrenalin": "fast", "kahkaha": "fast", "Retro": "fast", "yolculuk": "medium",
               "gece": "medium", "zihin": "medium", "battaniye": "slow", "karmakar": "medium",
-              "deep-chills": "slow", "askbahcesi": "medium"}
+              "deep-chills": "slow", "askbahcesi": "medium", "kadraj-estetigi": "slow",
+              "geceyarisi-itirafi": "slow"}
 
 MOOD_ATMOSPHERE = {"gece": "dark", "deep-chills": "dark", "zihin": "dark", "karmakar": "dark",
-                   "askbahcesi": "romantic", "gozyasi": "romantic", "kalp": "romantic", "battaniye": "romantic"}
+                   "askbahcesi": "romantic", "gozyasi": "romantic", "kalp": "romantic", "battaniye": "romantic",
+                   "kadraj-estetigi": "artistic", "geceyarisi-itirafi": "intimate"}
 
 GENRE_NAMES_TR = {
     28: "Aksiyon", 12: "Macera", 16: "Animasyon", 35: "Komedi",
@@ -3166,6 +3365,7 @@ MOOD_NAMES = {
     "askbahcesi": "Aşk Bahçesi", "zamanyolcusu": "Zaman Yolcusu", "sessiz": "Sessiz Yolculuk",
     "zihin": "Zihin Savaşı", "kalp": "Kalbimin Sesi", "karmakar": "Karmaşakar",
     "Retro": "Retro Bakış", "deep-chills": "Derin Ürperti",
+    "kadraj-estetigi": "Kadraj Estetiği", "geceyarisi-itirafi": "Geceyarısı İtirafı",
 }
 
 
@@ -3427,6 +3627,16 @@ MOOD_AUDIO_TRACKS = {
     # Derin, rahatsız edici, yavaş yanan atmosferik parçalar — jumpscare DEĞİL
     "deep-chills":  ["antenna-after-midnight", "empty-street-static", "terminal-rain",
                      "moon-over-red-dunes", "velvet-cigarette-haze", "green-after-midnight"],
+
+    # Minimalist Piano & Ambient Strings — sinematografi, estetik, görsel şölen, sanatsal kompozisyon
+    # Sakin, zarif, zamansız parçalar — her kare bir tablo hissi
+    "kadraj-estetigi": ["orbiting-in-silence", "aurora-on-mute", "soft-weightless-hours",
+                        "blue-below-the-surface", "cathedral-hiss", "drifting-through-fog"],
+
+    # Soft Jazz Piano & Lo-fi Brush Drums — gece yarısı, derin sohbet, samimi itiraf, varoluşsal sorgulama
+    # Sıcak, alçak sesli, davetkar parçalar — gece yarısı mutfak sohbeti hissi
+    "geceyarisi-itirafi": ["midnight-table-talk", "polaroids-in-a-shoebox", "kitchen-after-the-party",
+                           "porcelain-heartbeat", "envelope-on-the-bed", "quiet-lungs-quiet-light"],
 }
 
 # Mood Duygusal Profilleri ve Keyword Skorlama (MP3 dosya adlarına göre optimize edildi)
@@ -3489,6 +3699,14 @@ MOOD_AUDIO_PROFILES = {
     "deep-chills": {
         "positive": ["antenna", "midnight", "empty-street", "static", "terminal", "rain", "moon", "dunes", "velvet", "cigarette", "haze", "green", "after-midnight"],
         "negative": ["love", "golden", "cozy", "party", "groove", "summer", "honey", "butter"]
+    },
+    "kadraj-estetigi": {
+        "positive": ["orbiting", "silence", "aurora", "mute", "weightless", "blue", "surface", "cathedral", "hiss", "drifting", "fog", "soft"],
+        "negative": ["thunder", "party", "groove", "bass", "bounce", "aggressive"]
+    },
+    "geceyarisi-itirafi": {
+        "positive": ["midnight-table", "table-talk", "polaroids", "shoebox", "kitchen", "porcelain", "heartbeat", "envelope", "bed", "quiet", "lungs", "light"],
+        "negative": ["thunder", "storm", "epic", "neon", "chase", "action"]
     }
 }
 
@@ -3594,6 +3812,8 @@ MOOD_AUDIO_URLS = {
     "karmakar": "https://cdn.pixabay.com/audio/2022/08/02/audio_8c8b08c8c4.mp3",
     "Retro": "https://cdn.pixabay.com/audio/2022/11/22/audio_8ceabc8b8e.mp3",
     "deep-chills": "https://cdn.pixabay.com/audio/2023/07/07/audio_34cea2adf1.mp3",
+    "kadraj-estetigi": "https://cdn.pixabay.com/audio/2022/10/25/audio_1e6d7b7e42.mp3",
+    "geceyarisi-itirafi": "https://cdn.pixabay.com/audio/2023/06/12/audio_ba5e3a3f59.mp3",
 }
 
 @app.get("/api/audio/debug")

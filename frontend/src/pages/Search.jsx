@@ -25,8 +25,8 @@ export default function SearchPage() {
   const runSearch = useCallback((q) => {
     clearTimeout(debounce.current);
     if (!q.trim()) { setResults(null); setLoading(false); return; }
+    setLoading(true);
     debounce.current = setTimeout(async () => {
-      setLoading(true);
       try {
         const data = await searchMovies(q);
         setResults(data.movies || []);

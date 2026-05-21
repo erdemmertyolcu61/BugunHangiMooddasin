@@ -26,7 +26,7 @@ CURRENT_YEAR = datetime.now().year
 ALL_MOOD_IDS = [
     "battaniye", "yolculuk", "gece", "kahkaha", "gozyasi", "adrenalin",
     "askbahcesi", "zamanyolcusu", "sessiz", "zihin", "kalp", "karmakar",
-    "Retro", "deep-chills",
+    "Retro", "deep-chills", "kadraj-estetigi", "geceyarisi-itirafi",
 ]
 VALID_MOODS_SET = set(ALL_MOOD_IDS)
 TMDB_GENRES = [28, 12, 16, 35, 80, 99, 18, 10751, 14, 36, 27, 10402, 9648, 10749, 878, 10770, 53, 10752, 37]

@@ -224,6 +224,7 @@ export default function Discover() {
   };
 
   useEffect(() => {
+    clearTimeout(searchTimeout.current);
     setCurrentPage(1);
     setSearchResults(null);
     setSearchQuery('');
@@ -336,17 +337,24 @@ export default function Discover() {
     setSearchResults([]);
     setSearchLoading(true);
 
+    const requestId = ++lastRequestId.current;
+
     // [CRITICAL FIX 1] Debounce: API fires 400ms after LAST keystroke only.
     searchTimeout.current = setTimeout(async () => {
       try {
         const data = await searchMovies(query);
+        if (requestId !== lastRequestId.current) return;
         const enriched = (data.movies || []).map(m => ({
             ...m,
             match: getMoodMatch(m.id, selectedMood?.id)
         }));
         setSearchResults(enriched);
-      } catch { setSearchResults([]); }
-      finally { setSearchLoading(false); }
+      } catch {
+        if (requestId === lastRequestId.current) setSearchResults([]);
+      }
+      finally {
+        if (requestId === lastRequestId.current) setSearchLoading(false);
+      }
     }, 400);
   }, [selectedMood?.id]);
 

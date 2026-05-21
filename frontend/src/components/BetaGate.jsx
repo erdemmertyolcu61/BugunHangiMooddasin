@@ -145,7 +145,7 @@ export default function BetaGate({ children }) {
       >
         <div className="text-center mb-12">
           <img
-            src="/sinemod-mark.svg"
+            src="/sinemod-mark.png"
             alt="Sinemood"
             className="w-24 h-24 mx-auto mb-6 rounded-[1.2rem]"
             style={{ filter: 'drop-shadow(0 12px 40px rgba(255,178,80,0.18))' }}
