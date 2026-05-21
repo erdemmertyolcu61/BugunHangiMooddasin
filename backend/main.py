@@ -491,6 +491,10 @@ async def lifespan(app: FastAPI):
         logger.info("[NPZ Cache] %s not found — building fresh cache in background...", CACHE_FILE)
         asyncio.create_task(build_and_dump_npz_cache())
 
+    # Pre-warm sentence-transformers model so first request doesn't pay 15-30s cold-start
+    from backend.services.semantic_search import _get_model as _warm_model
+    asyncio.create_task(asyncio.to_thread(_warm_model))
+
     yield
 
     # Cleanup persistent TMDB client
@@ -2566,7 +2570,7 @@ async def post_quick_mood_mix(req: QuickMoodMixRequest):
             continue
         count = max(4, round(CANDIDATE_TARGET * pct / 100))
         try:
-            result = await cache.get_all_repository_movies_by_mood(mood_id, min_vote=min_vote)
+            result = await cache.get_top_repository_movies_by_mood(mood_id, min_vote=min_vote, limit=count * 3)
             scored = []
             for m in result:
                 mid = m.get("id") or m.get("tmdb_id")

@@ -768,6 +768,30 @@ class MovieCache:
                 })
             return movies
 
+    async def get_top_repository_movies_by_mood(self, mood_id: str, min_vote: float = 5.0, limit: int = 30) -> list:
+        """Fetch top N movies for a mood (LIMIT) — fast path for quick-mix."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                """SELECT tmdb_id, title, poster_url, overview, release_date,
+                          vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity
+                   FROM movie_repository
+                   WHERE mood_id = ? AND vote_average >= ?
+                   ORDER BY vote_average DESC
+                   LIMIT ?""",
+                (mood_id, min_vote, limit)
+            )
+            rows = await cursor.fetchall()
+            return [{
+                "id": r[0], "title": r[1], "poster_url": r[2],
+                "overview": r[3], "release_date": r[4],
+                "vote_average": r[5],
+                "genre_ids": json.loads(r[6]) if r[6] else [],
+                "backdrop_url": r[7],
+                "vote_count": r[8] if len(r) > 8 else 0,
+                "original_language": r[9] if len(r) > 9 else "",
+                "popularity": r[10] if len(r) > 10 else 0,
+            } for r in rows]
+
     async def search_repository_by_title(self, query: str, limit: int = 20) -> list:
         """Fuzzy search movies in repository by title. Uses LIKE with normalized queries."""
         if not query or len(query.strip()) < 2:
