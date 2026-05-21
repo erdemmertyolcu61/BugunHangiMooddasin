@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Book, Sparkles, ChevronRight, Brain, User } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Book, ChevronRight, Brain, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
 
@@ -20,10 +19,15 @@ export default function MoodSelector() {
 
   const [quizOpen, setQuizOpen] = useState(false);
 
+  // Skip prefetch/preload on touch devices to avoid spurious API calls
+  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
+
   const handleHover = useCallback((mood) => {
     setHoveredMood(mood.id);
-    prefetchMood(mood.id);
-    preloadMoodAudio(mood.id);
+    if (isTouchDevice) return;
+    const runner = window.requestIdleCallback || ((cb) => setTimeout(cb, 300));
+    runner(() => { prefetchMood(mood.id); });
+    runner(() => { preloadMoodAudio(mood.id); });
   }, [prefetchMood]);
 
   const handleHoverEnd = useCallback(() => {
@@ -62,27 +66,16 @@ export default function MoodSelector() {
   return (
     <div className="min-h-screen bg-bg text-ivory relative overflow-hidden font-sans">
 
-      {/* Film grain */}
-      <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.04] mix-blend-overlay"
-           style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
-
-      {/* Scanline */}
-      <div className="fixed inset-0 pointer-events-none z-[998] opacity-[0.02]"
-           style={{
-             backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px)',
-           }} />
-
-      {/* Dinamik Aura */}
-      <AnimatePresence>
-        {activeMood && (
-          <motion.div key={`aura-${activeMood.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 1.2 }} className="fixed inset-0 pointer-events-none z-[5]">
-            <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full blur-[180px] opacity-25" style={{ background: activeMood.accentHex }} />
-            <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full blur-[150px] opacity-20" style={{ background: activeMood.vignette }} />
-            <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, transparent 30%, ${activeMood.vignette}80 150%)`, opacity: 0.3 }} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Dinamik Aura — single GPU-friendly gradient */}
+      {activeMood && (
+        <div key={`aura-${activeMood.id}`}
+          className="fixed inset-0 pointer-events-none z-[5] transition-opacity duration-700"
+          style={{
+            opacity: 1,
+            background: `radial-gradient(ellipse at 30% 20%, ${activeMood.accentHex}30 0%, ${activeMood.vignette}20 40%, transparent 70%)`,
+          }}
+        />
+      )}
 
       {/* Profil butonu — sağ üst */}
       <button
@@ -131,10 +124,10 @@ export default function MoodSelector() {
             {moodList.map((mood, i) => {
               const isHovered = hoveredMood === mood.id;
               return (
-                <motion.div key={mood.id} layout
+                <motion.div key={mood.id}
                   initial={{ opacity: 0, y: 25 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.35, delay: i * 0.02, ease: [0.16, 1, 0.3, 1] }}
                   whileHover={{ y: -5 }} whileTap={{ scale: 0.98 }}
                   onClick={() => handleMoodClick(mood)}
                   onMouseEnter={() => handleHover(mood)} onMouseLeave={handleHoverEnd}
@@ -155,10 +148,6 @@ export default function MoodSelector() {
                     <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full blur-3xl transition-opacity duration-700 pointer-events-none"
                       style={{ background: mood.accentHex, opacity: isHovered ? 0.18 : 0.04 }} />
 
-                    {/* Noise texture */}
-                    <div className="absolute inset-0 opacity-[0.025] mix-blend-overlay pointer-events-none"
-                      style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
-
                     <div className="relative p-4 sm:p-7 flex flex-col min-h-[240px] sm:min-h-[310px] md:min-h-[340px]">
 
                       {/* Icon box */}
@@ -169,21 +158,12 @@ export default function MoodSelector() {
                           animate={isHovered ? { scale: 1.08 } : { scale: 1 }}
                           transition={{ duration: 0.4 }}
                         >
-                          <motion.span
+                          <span
+                            className="icon-hover"
                             style={{ color: isHovered ? mood.accentHex : '#52525b' }}
-                            animate={isHovered
-                              ? mood.iconType === 'coffee' ? { rotate: [-8, 8, -8, 8, 0] }
-                              : mood.iconType === 'zap' ? { scale: [1, 1.25, 1] }
-                              : mood.iconType === 'smile' ? { y: [-3, 0, -3, 0] }
-                              : mood.iconType === 'moon' ? { rotate: [0, 12, 0] }
-                              : mood.iconType === 'droplets' ? { y: [0, 4, 0], opacity: [1, 0.6, 1] }
-                              : { scale: 1.12 }
-                              : { scale: 1, x: 0, y: 0, rotate: 0 }
-                            }
-                            transition={{ duration: 0.6, repeat: isHovered ? Infinity : 0 }}
                           >
                             {mood.icon && <mood.icon size={18} strokeWidth={1.5} />}
-                          </motion.span>
+                          </span>
                         </motion.div>
                       </div>
 

@@ -629,6 +629,15 @@ input[type="range"].vinyl-slider::-webkit-slider-thumb {
   }
 }
 
+/* MoodSelector icon hover — CSS-only, no JS per-frame evaluation */
+.icon-hover {
+  transition: color 0.3s ease, transform 0.3s ease;
+  display: inline-flex;
+}
+.group:hover .icon-hover {
+  transform: scale(1.15);
+}
+
 /* ═══════════════════════════════════════════════════════════
    HIZLI ÖNERİ PILLS — Dual Theme, Premium Layout
    ═══════════════════════════════════════════════════════════ */

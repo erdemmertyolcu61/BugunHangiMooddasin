@@ -25,27 +25,22 @@ export default function AuraBackground() {
   const baseColor = isLight ? '#e7dabd' : '#0a0807';
   const vignetteColor = isLight ? '#c9b78f' : (selectedMood?.vignette || '#000');
 
+  const vignetteAlpha = isLight ? 0.15 : 0.55;
+
   return (
-    <div className="fixed inset-0 -z-10 w-full h-full overflow-hidden" style={{ backgroundColor: baseColor }}>
-      <div
-        className="absolute inset-0 transition-colors duration-1000 ease-out"
-        style={{
-          background: `
-            radial-gradient(60% 60% at 15% 10%, ${c0}cc 0%, transparent 60%),
-            radial-gradient(55% 55% at 85% 15%, ${c1}b3 0%, transparent 60%),
-            radial-gradient(70% 70% at 20% 90%, ${c2}99 0%, transparent 65%),
-            radial-gradient(60% 60% at 90% 85%, ${c3}cc 0%, transparent 60%),
-            ${baseColor}
-          `,
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-700"
-        style={{
-          background: `radial-gradient(circle at center, transparent 35%, ${vignetteColor} 150%)`,
-          opacity: isLight ? 0.15 : 0.55,
-        }}
-      />
-    </div>
+    <div
+      className="fixed inset-0 -z-10 w-full h-full overflow-hidden"
+      style={{
+        backgroundColor: baseColor,
+        backgroundImage: `
+          radial-gradient(60% 60% at 15% 10%, ${c0}cc 0%, transparent 60%),
+          radial-gradient(55% 55% at 85% 15%, ${c1}b3 0%, transparent 60%),
+          radial-gradient(70% 70% at 20% 90%, ${c2}99 0%, transparent 65%),
+          radial-gradient(60% 60% at 90% 85%, ${c3}cc 0%, transparent 60%),
+          radial-gradient(circle at center, transparent 35%, ${vignetteColor} ${vignetteAlpha})
+        `,
+        transition: 'background-image 1s ease-out',
+      }}
+    />
   );
 }

@@ -18,8 +18,7 @@ import { useEffect, useRef } from 'react';
  */
 
 const SPLASH_KEY = 'sinemood_splash_seen_v2';
-const MIN_DISPLAY_MS = 3400;   // Extended ritual: ignition(0.5) + trace(2.0) + bloom(0.5) + linger(0.4) = 3.4s
-const FADE_OUT_MS   = 550;     // matches .splash-exit transition (opacity + scale)
+const FADE_OUT_MS   = 250;     // quick exit
 
 function dismissSplash(immediate = false) {
   const el = document.getElementById('sinemood-splash');
@@ -67,16 +66,10 @@ export default function SplashScreen() {
       return;
     }
 
-    // First visit — mark session, then dismiss after min display time
+    // First visit — mark session, then dismiss immediately.
+    // CSS splash animation has been playing for hundreds of ms by hydration time.
     sessionStorage.setItem(SPLASH_KEY, '1');
-
-    // performance.now() is ms since navigation start — which is roughly
-    // when the HTML splash first painted. So it already tells us how long
-    // the splash has been visible.
-    const alreadyShown = performance.now();
-    const remaining = Math.max(0, MIN_DISPLAY_MS - alreadyShown);
-
-    setTimeout(() => dismissSplash(false), remaining);
+    dismissSplash(false);
   }, []);
 
   // This component renders nothing — the splash is in index.html
