@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Book, Sparkles, X, ChevronRight, ChevronLeft, Brain, Heart, User, Sofa } from 'lucide-react';
+import { Book, Sparkles, ChevronRight, Brain, User, Sofa } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
-import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
+import QuizModal from '../components/QuizModal';
 
 const moodList = Object.values(MOODS);
 
@@ -18,11 +18,7 @@ export default function MoodSelector() {
   const { roomId, syncRoomMoodView } = useSocket();
   const [hoveredMood, setHoveredMood] = useState(null);
 
-  // Quiz state
   const [quizOpen, setQuizOpen] = useState(false);
-  const [quizStep, setQuizStep] = useState(0); // 0 = not started, 1-N = questions, N+1 = results
-  const [answers, setAnswers] = useState([]);
-  const [quizResult, setQuizResult] = useState(null);
 
   const handleHover = useCallback((mood) => {
     setHoveredMood(mood.id);
@@ -44,19 +40,16 @@ export default function MoodSelector() {
     }
   }, [selectMood, navigate, roomId, syncRoomMoodView]);
 
-  // Quiz handlers
-  const openQuiz = () => {
-    setQuizOpen(true);
-    setQuizStep(1);
-    setAnswers([]);
-    setQuizResult(null);
-  };
-
-  const closeQuiz = () => {
+  const handleQuizComplete = (moodId) => {
+    if (roomId) {
+      const mood = moodList.find(m => m.id === moodId);
+      syncRoomMoodView(roomId, { moodId, moodTitle: mood?.title || '' });
+    } else {
+      try { playMoodAudio(moodId); } catch(e) {}
+      selectMood(moodId);
+    }
     setQuizOpen(false);
-    setQuizStep(0);
-    setAnswers([]);
-    setQuizResult(null);
+    navigate('/discover');
   };
 
   // Mobil alt bardaki "Ruh Halim" butonundan quiz açılması:
@@ -66,47 +59,12 @@ export default function MoodSelector() {
       if (sessionStorage.getItem('open_mood_quiz') === '1') {
         sessionStorage.removeItem('open_mood_quiz');
         setQuizOpen(true);
-        setQuizStep(1);
-        setAnswers([]);
-        setQuizResult(null);
       }
     };
-    tryFlag(); // başka sayfadan yönlendirilip gelindiyse
+    tryFlag();
     window.addEventListener('open-mood-quiz', tryFlag);
     return () => window.removeEventListener('open-mood-quiz', tryFlag);
   }, []);
-
-  const selectAnswer = (ansIdx) => {
-    const newAnswers = [...answers];
-    newAnswers[quizStep - 1] = ansIdx;
-    setAnswers(newAnswers);
-
-    if (quizStep < QUESTIONS.length) {
-      setQuizStep(quizStep + 1);
-    } else {
-      // Calculate result
-      const result = calculateQuizResult(newAnswers);
-      setQuizResult(result);
-      setQuizStep(QUESTIONS.length + 1);
-    }
-  };
-
-  const goToPrevStep = () => {
-    if (quizStep > 1) setQuizStep(quizStep - 1);
-  };
-
-  const navigateToMood = (moodId) => {
-    if (roomId) {
-      const mood = moodList.find(m => m.id === moodId);
-      syncRoomMoodView(roomId, { moodId, moodTitle: mood?.title || '' });
-      setQuizOpen(false);
-    } else {
-      try { playMoodAudio(moodId); } catch(e) {}
-      selectMood(moodId);
-      setQuizOpen(false);
-      navigate('/discover', { state: { quizResult } });
-    }
-  };
 
   const activeMood = hoveredMood ? MOODS[hoveredMood] : null;
 
@@ -239,7 +197,7 @@ export default function MoodSelector() {
                       </div>
 
                       {/* Title */}
-                      <h3 className="font-serif text-[15px] sm:text-2xl font-bold tracking-tight leading-tight text-ivory group-hover:text-amber transition-colors duration-400 mb-1 sm:mb-3">
+                      <h3 className="font-serif text-lg sm:text-2xl font-bold tracking-tight leading-tight text-ivory group-hover:text-amber transition-colors duration-400 mb-1 sm:mb-3">
                         {mood.title}
                       </h3>
 
@@ -297,10 +255,10 @@ export default function MoodSelector() {
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 rounded-full hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] animate-pulse">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-bg">Kafan mı Karışık?</span>
             </button>
-            <button onClick={openQuiz}
-              className="hidden md:flex items-center gap-2 px-6 py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-              <Brain size={16} className="text-bg/80" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Bugünkü Ruh Halim</span>
+            <button onClick={() => setQuizOpen(true)}
+              className="flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+              <Brain size={14} className="text-bg/80 sm:w-4 sm:h-4" />
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em]">Ruh Halim</span>
             </button>
             <button onClick={() => navigate('/couch')}
               className="flex items-center gap-2 px-6 py-3 border border-amber-500/30 rounded-full hover:bg-amber-500/10 hover:border-amber-500/50 transition-all shadow-[0_0_15px_rgba(245,158,11,0.1)]">
@@ -316,139 +274,7 @@ export default function MoodSelector() {
         </motion.footer>
       </div>
 
-      {/* ═══ QUIZ MODAL ═══ */}
-      <AnimatePresence>
-        {quizOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8"
-          >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeQuiz} />
-
-            {/* Modal */}
-            <motion.div
-              initial={{ scale: 0.92, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.92, y: 20, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#1a1816]/95 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl"
-            >
-              {/* Close button */}
-              <button onClick={closeQuiz} className="absolute top-6 right-6 text-ivory/20 hover:text-amber transition-colors z-10">
-                <X size={22} />
-              </button>
-
-              {quizStep === 0 ? null : quizStep <= QUESTIONS.length ? (
-                /* ── SORU EKRANI ── */
-                <div className="space-y-8">
-                  {/* Progress */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">
-                      {quizStep} / {QUESTIONS.length}
-                    </span>
-                    <div className="flex gap-1.5">
-                      {QUESTIONS.map((_, i) => (
-                        <div key={i} className={`w-6 h-1 rounded-full transition-colors ${
-                          i < quizStep ? 'bg-amber/60' : 'bg-white/10'
-                        }`} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Soru */}
-                  <div>
-                    <h3 className="text-2xl md:text-3xl font-serif font-semibold tracking-tight text-ivory/90 leading-snug">
-                      {QUESTIONS[quizStep - 1]?.text}
-                    </h3>
-                  </div>
-
-                  {/* Cevaplar */}
-                  <div className="space-y-3">
-                    {QUESTIONS[quizStep - 1]?.answers.map((ans, i) => (
-                      <button key={i} onClick={() => selectAnswer(i)}
-                        className="w-full text-left p-4 md:p-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-amber/30 transition-all duration-300 group"
-                      >
-                        <span className="text-sm md:text-base font-serif text-ivory/70 group-hover:text-ivory transition-colors leading-relaxed">
-                          {ans.text}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Geri butonu */}
-                  {quizStep > 1 && (
-                    <button onClick={goToPrevStep}
-                      className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/30 hover:text-amber/70 transition-colors">
-                      <ChevronLeft size={14} /> Geri
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* ── SONUÇ EKRANI ── */
-                <div className="space-y-8 text-center">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(245,158,11,0.3)]">
-                    <Heart size={24} className="text-bg" />
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50 mb-3">Bu Geceki Ruh Halin</p>
-                    <h3 className="text-2xl md:text-3xl font-serif font-bold tracking-tight text-ivory">
-                      {quizResult && MOOD_NAMES[quizResult[0]?.moodId]}
-                      {quizResult && quizResult[0]?.percentage < 50 ? " ağırlıklı" : ""}
-                    </h3>
-                  </div>
-
-                  {/* Yüzdeler */}
-                  {quizResult && (
-                    <div className="space-y-3 max-w-xs mx-auto">
-                      {quizResult.map((r) => (
-                        <div key={r.moodId} className="flex items-center gap-4">
-                          <span className="text-sm font-serif text-ivory/70 w-32 text-right">{MOOD_NAMES[r.moodId]}</span>
-                          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${r.percentage}%` }}
-                              transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-purple-500"
-                            />
-                          </div>
-                          <span className="text-xs font-bold text-amber/70 w-8">{r.percentage}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Yorum */}
-                  {quizResult && (
-                    <p className="text-sm md:text-base font-serif italic text-ivory/60 leading-relaxed max-w-sm mx-auto">
-                      "{getResultMessage(quizResult)}"
-                    </p>
-                  )}
-
-                  {/* Butonlar */}
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                    <button onClick={() => quizResult && navigateToMood(quizResult[0].moodId)}
-                      className="px-8 py-4 bg-amber text-bg rounded-full text-[10px] font-bold uppercase tracking-[0.25em] hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                      {quizResult ? `${MOOD_NAMES[quizResult[0]?.moodId]}'a Git` : 'Film Öner'}
-                    </button>
-                    <button onClick={openQuiz}
-                      className="px-8 py-4 border border-white/10 text-ivory/60 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] hover:border-amber/30 hover:text-amber transition-all">
-                      Tekrar Çöz
-                    </button>
-                    <button onClick={closeQuiz}
-                      className="px-8 py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-ivory/30 hover:text-ivory/70 transition-all">
-                      Kapat
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} onComplete={handleQuizComplete} />
     </div>
   );
 }
