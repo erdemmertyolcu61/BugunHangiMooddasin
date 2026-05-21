@@ -191,9 +191,9 @@ export default function Defterim() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-8 sm:gap-16">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-7 sm:p-16 rounded-[2rem] sm:rounded-[4rem] bg-white/5 border border-white/5 relative overflow-hidden gurme-border">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-5 sm:p-16 rounded-2xl sm:rounded-[4rem] bg-white/5 border border-white/5 relative overflow-hidden gurme-border">
                 <div className="absolute inset-0 bg-gradient-to-r from-amber/5 to-transparent opacity-40" />
-                <p className="text-lg sm:text-3xl font-serif italic leading-relaxed relative z-10 max-w-4xl text-ivory/60">
+                <p className="text-sm sm:text-3xl font-serif italic leading-relaxed relative z-10 max-w-4xl text-ivory/60">
                     "Bu sayfalarda sadece filmler değil, o filmlerin ruhunda bıraktığı izler saklı. Her bir kare, bir anı; her bir not, bir duygu..."
                 </p>
             </motion.div>
@@ -285,7 +285,7 @@ export default function Defterim() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="bg-surface rounded-[2rem] sm:rounded-[4rem] border border-white/5 overflow-hidden flex flex-col md:flex-row shadow-2xl group relative"
+                className="bg-surface rounded-2xl sm:rounded-[4rem] border border-white/5 overflow-hidden flex flex-col md:flex-row shadow-2xl group relative"
               >
                 <div className="noise-overlay" />
                 <div className="w-full md:w-80 lg:w-96 aspect-[16/10] sm:aspect-[2/3] md:aspect-auto relative overflow-hidden">
@@ -298,67 +298,67 @@ export default function Defterim() {
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface/40" />
                 </div>
                 
-                <div className="flex-1 p-6 sm:p-12 lg:p-20 flex flex-col justify-between space-y-8 sm:space-y-12">
-                  <div className="space-y-6 sm:space-y-8">
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="space-y-2 min-w-0">
-                            <h3 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tighter leading-tight sm:leading-none group-hover:text-amber transition-colors duration-500 break-words">{movie.title}</h3>
+                <div className="flex-1 p-5 sm:p-12 lg:p-20 flex flex-col justify-between space-y-6 sm:space-y-12">
+                  <div className="space-y-4 sm:space-y-8">
+                    <div className="flex justify-between items-start gap-3 sm:gap-4">
+                        <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                            <h3 className="text-2xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tighter leading-snug sm:leading-none group-hover:text-amber transition-colors duration-500 break-words">{movie.title}</h3>
                             <div className="flex items-center gap-4 opacity-30">
-                                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest">{formatDefterDate(movie.added_at)} tarihinde eklendi</span>
+                                <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest">{formatDefterDate(movie.added_at)} tarihinde eklendi</span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <button
                               onClick={() => handleShare(movie)}
                               title="Paylaş"
-                              className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/30 hover:text-amber hover:border-amber/40 transition-all duration-500"
+                              className="w-9 h-9 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/30 hover:text-amber hover:border-amber/40 transition-all duration-500"
                           >
-                              {shareCopiedId === movie.tmdb_id ? <Copy size={20} /> : <Share2 size={20} />}
+                              {shareCopiedId === movie.tmdb_id ? <Copy size={16} className="sm:w-5 sm:h-5" /> : <Share2 size={16} className="sm:w-5 sm:h-5" />}
                           </button>
                           <button
                               onClick={() => handleRemove(movie.tmdb_id)}
-                              className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/20 hover:text-red-500 hover:border-red-500/30 transition-all duration-500"
+                              className="w-9 h-9 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border border-white/10 text-ivory/20 hover:text-red-500 hover:border-red-500/30 transition-all duration-500"
                           >
-                              <Trash2 size={20} />
+                              <Trash2 size={16} className="sm:w-5 sm:h-5" />
                           </button>
                         </div>
                     </div>
                     
                     <div className="h-px bg-white/5 w-full" />
                     
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                         <div className="flex items-center justify-between">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-amber/40 flex items-center gap-3">
-                                <MessageCircle size={14} /> GURME NOTU
+                            <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] text-amber/40 flex items-center gap-2 sm:gap-3">
+                                <MessageCircle size={12} className="sm:w-[14px] sm:h-[14px]" /> GURME NOTU
                             </p>
                             {editingId !== movie.tmdb_id && (
-                                <button onClick={() => startEditing(movie)} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-ivory/20 hover:text-amber transition-all">
-                                    <Edit3 size={14} /> Düzenle
+                                <button onClick={() => startEditing(movie)} className="flex items-center gap-1.5 sm:gap-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-ivory/20 hover:text-amber transition-all">
+                                    <Edit3 size={12} className="sm:w-[14px] sm:h-[14px]" /> Düzenle
                                 </button>
                             )}
                         </div>
                         
                         <AnimatePresence mode="wait">
                             {editingId === movie.tmdb_id ? (
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4 sm:space-y-6">
                                     <textarea
                                         autoFocus
                                         value={noteDraft}
                                         onChange={(e) => setNoteDraft(e.target.value)}
                                         placeholder="Bu başyapıt sende nasıl bir iz bıraktı?"
-                                        className="w-full h-36 sm:h-40 bg-black/40 border border-white/10 rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 text-base sm:text-2xl font-serif italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all"
+                                        className="w-full h-28 sm:h-40 bg-black/40 border border-white/10 rounded-xl sm:rounded-[2rem] p-4 sm:p-8 text-sm sm:text-2xl font-serif italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all"
                                     />
-                                    <div className="flex gap-4">
-                                        <button onClick={() => handleSaveNote(movie.tmdb_id)} className="px-10 py-4 bg-amber text-bg font-bold uppercase text-[10px] tracking-[0.2em] rounded-full flex items-center gap-3">
-                                            <Save size={14} /> Kaydet
+                                    <div className="flex gap-3 sm:gap-4">
+                                        <button onClick={() => handleSaveNote(movie.tmdb_id)} className="px-6 sm:px-10 py-3 sm:py-4 bg-amber text-bg font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] rounded-full flex items-center gap-2 sm:gap-3">
+                                            <Save size={12} className="sm:w-[14px] sm:h-[14px]" /> Kaydet
                                         </button>
-                                        <button onClick={() => setEditingId(null)} className="px-10 py-4 bg-white/5 text-ivory/40 font-bold uppercase text-[10px] tracking-[0.2em] rounded-full">
+                                        <button onClick={() => setEditingId(null)} className="px-6 sm:px-10 py-3 sm:py-4 bg-white/5 text-ivory/40 font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] rounded-full">
                                             İptal
                                         </button>
                                     </div>
                                 </motion.div>
                             ) : (
-                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-xl sm:text-4xl font-serif italic leading-snug tracking-tight ${movie.personal_note ? 'text-ivory' : 'text-ivory/10'}`}>
+                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-base sm:text-4xl font-serif italic leading-snug tracking-tight ${movie.personal_note ? 'text-ivory' : 'text-ivory/10'}`}>
                                     {movie.personal_note || "Henüz bir not düşülmemiş..." }
                                 </motion.p>
                             )}
@@ -366,23 +366,23 @@ export default function Defterim() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between gap-4 flex-wrap pt-6 sm:pt-8 border-t border-white/5">
-                     <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-amber/60">
-                           <Check size={14} /> Arşivlendi
+                  <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap pt-4 sm:pt-8 border-t border-white/5">
+                     <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                        <div className="flex items-center gap-1.5 sm:gap-3 text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-amber/60">
+                           <Check size={12} className="sm:w-[14px] sm:h-[14px]" /> Arşivlendi
                         </div>
                         <button
                             onClick={() => handleToggleWatched(movie.tmdb_id)}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-500 ${
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest transition-all duration-500 ${
                               watchedIds.has(movie.tmdb_id)
                                 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                                 : 'bg-white/5 text-ivory/30 border border-white/10 hover:border-emerald-500/30 hover:text-emerald-400'
                             }`}
                         >
-                            {watchedIds.has(movie.tmdb_id) ? <><Eye size={14} /> İzledim</> : <><EyeOff size={14} /> İzlemedim</>}
+                            {watchedIds.has(movie.tmdb_id) ? <><Eye size={12} className="sm:w-[14px] sm:h-[14px]" /> İzledim</> : <><EyeOff size={12} className="sm:w-[14px] sm:h-[14px]" /> İzlemedim</>}
                         </button>
                      </div>
-                     <p className="text-[9px] font-bold uppercase tracking-[0.5em] opacity-20">GURME SİNEMA KULÜBÜ</p>
+                     <p className="hidden sm:block text-[9px] font-bold uppercase tracking-[0.5em] opacity-20">GURME SİNEMA KULÜBÜ</p>
                   </div>
                 </div>
               </motion.div>

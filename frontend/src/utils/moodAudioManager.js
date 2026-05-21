@@ -53,7 +53,7 @@ const MOOD_AUDIO_DIRECT = {
   "retro":              "/audio/retro.mp3",
   "deep-chills":        "/audio/deep-chills.mp3",
   "kadraj-estetigi":    "/audio/sessiz.mp3",    // Fallback: minimalist piano pads & ambient strings
-  "geceyarisi-itirafi": "/audio/midnight-table-talk.mp3",
+  "geceyarisi-itirafi": "/audio/gece.mp3",      // Nocturnal ambient — lo-fi midnight talk atmosphere
 };
 
 /**

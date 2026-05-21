@@ -128,6 +128,15 @@ const MOOD_PRESETS = {
     detune: 4, lfoRate: 0.03, lfoDepth: 60,
     gain: 0.17, color: "#082f49"
   },
+  // 🌙 Geceyarısı İtirafı — Lo-fi radyo, sıcak gece sohbeti
+  "geceyarisi-itirafi": {
+    label: "Gece Fısıltısı",
+    notes: [130.81, 164.81, 196.00, 246.94],   // C3-B3 warm jazz voicings
+    wave: "sine",
+    filterFreq: 600, filterQ: 0.8,
+    detune: 6, lfoRate: 0.06, lfoDepth: 40,
+    gain: 0.13, color: "#1e1b4b"
+  },
 };
 
 class MoodSynth {
