@@ -440,18 +440,6 @@ class MovieCache:
             await db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_community_movie ON community_recommendations(tmdb_id)
             """)
-            # Couch Mode rooms (Grup Seansı)
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS couch_rooms (
-                    room_code TEXT PRIMARY KEY,
-                    host_user_id INTEGER NOT NULL,
-                    guest_user_id INTEGER,
-                    selected_mood TEXT,
-                    status TEXT DEFAULT 'waiting',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP
-                )
-            """)
             # Semantic cache for "Kafan mı Karışık?" Claude intent extraction.
             # Local (reproducible) — survives restarts, auto-rewarms after wipe.
             await db.execute("""
@@ -537,15 +525,6 @@ class MovieCache:
                 username TEXT, avatar TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (tmdb_id, user_id)
-            )""",
-            """CREATE TABLE IF NOT EXISTS couch_rooms (
-                room_code TEXT PRIMARY KEY,
-                host_user_id INTEGER NOT NULL,
-                guest_user_id INTEGER,
-                selected_mood TEXT,
-                status TEXT DEFAULT 'waiting',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP
             )""",
         ]
         for stmt in stmts:

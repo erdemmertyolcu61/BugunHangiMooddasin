@@ -4,7 +4,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { MoodProvider, useMood } from './context/MoodContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { SocketProvider } from './context/SocketContext';
 import BetaGate from './components/BetaGate';
 import SplashScreen from './components/SplashScreen';
 import AudioPlayer from './components/AudioPlayer';
@@ -12,7 +11,6 @@ import BottomNav from './components/BottomNav';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
-import ActiveSessionWidget from './components/ActiveSessionWidget';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -45,7 +43,7 @@ function lazyRetry(importFn) {
 
 // Ana sayfa (landing) eager — ilk boya hızlı olsun. Diğerleri lazy → çok daha hızlı ilk yükleme.
 import MoodSelector from './pages/MoodSelector';
-import PersistentSidebar from './components/PersistentSidebar';
+
 const Discover = lazyRetry(() => import('./pages/Discover'));
 const Defterim = lazyRetry(() => import('./pages/Defterim'));
 const KafanMiKarisik = lazyRetry(() => import('./pages/KafanMiKarisik'));
@@ -56,7 +54,7 @@ const SearchPage = lazyRetry(() => import('./pages/Search'));
 const DesignPreview = lazyRetry(() => import('./pages/DesignPreview'));
 const Home = lazyRetry(() => import('./pages/Home'));
 const TasteMapCollision = lazyRetry(() => import('./pages/TasteMapCollision'));
-const CouchMode = lazyRetry(() => import('./pages/CouchMode'));
+
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
@@ -103,8 +101,7 @@ function AppContent() {
       <AuraBackground />
       <ThemeToggle />
       <AudioPlayer />
-      <PersistentSidebar />
-      <ActiveSessionWidget />
+
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Main Flow */}
@@ -119,7 +116,6 @@ function AppContent() {
           <Route path="/profil" element={<Profil />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/carpistir" element={<TasteMapCollision />} />
-          <Route path="/couch" element={<CouchMode />} />
 
           {/* Design Preview & Legacy */}
           <Route path="/preview" element={<DesignPreview />} />
@@ -142,9 +138,7 @@ function App() {
         <AuthProvider>
           <BetaGate>
             <MoodProvider>
-              <SocketProvider>
-                <AppContent />
-              </SocketProvider>
+              <AppContent />
             </MoodProvider>
           </BetaGate>
         </AuthProvider>

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Book, Sparkles, ChevronRight, Brain, User, Sofa } from 'lucide-react';
+import { Book, Sparkles, ChevronRight, Brain, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
+
 import { moodSynth } from '../services/music';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
@@ -15,7 +15,7 @@ export default function MoodSelector() {
   const navigate = useNavigate();
   const { selectMood, prefetchMood } = useMood();
   const { user } = useAuth();
-  const { roomId, syncRoomMoodView } = useSocket();
+
   const [hoveredMood, setHoveredMood] = useState(null);
 
   const [quizOpen, setQuizOpen] = useState(false);
@@ -31,23 +31,14 @@ export default function MoodSelector() {
   }, []);
 
   const handleMoodClick = useCallback(async (mood) => {
-    if (roomId) {
-      syncRoomMoodView(roomId, { moodId: mood.id, moodTitle: mood.title });
-    } else {
-      try { playMoodAudio(mood.id); } catch(e) {}
-      selectMood(mood.id);
-      navigate('/discover');
-    }
-  }, [selectMood, navigate, roomId, syncRoomMoodView]);
+    try { playMoodAudio(mood.id); } catch(e) {}
+    selectMood(mood.id);
+    navigate('/discover');
+  }, [selectMood, navigate]);
 
   const handleQuizComplete = (moodId) => {
-    if (roomId) {
-      const mood = moodList.find(m => m.id === moodId);
-      syncRoomMoodView(roomId, { moodId, moodTitle: mood?.title || '' });
-    } else {
-      try { playMoodAudio(moodId); } catch(e) {}
-      selectMood(moodId);
-    }
+    try { playMoodAudio(moodId); } catch(e) {}
+    selectMood(moodId);
     setQuizOpen(false);
     navigate('/discover');
   };
@@ -259,11 +250,6 @@ export default function MoodSelector() {
               className="flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]">
               <Brain size={14} className="text-bg/80 sm:w-4 sm:h-4" />
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em]">Ruh Halim</span>
-            </button>
-            <button onClick={() => navigate('/couch')}
-              className="flex items-center gap-2 px-6 py-3 border border-amber-500/30 rounded-full hover:bg-amber-500/10 hover:border-amber-500/50 transition-all shadow-[0_0_15px_rgba(245,158,11,0.1)]">
-              <Sofa size={14} className="text-amber-400" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Birlikte İzle</span>
             </button>
             <button onClick={() => navigate('/defterim')}
               className="hidden md:flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-rose/40 hover:text-amber/70 transition-colors duration-500">

@@ -61,7 +61,7 @@ export default function Hero({ movie, onOpen }) {
             <button className="rounded-full border border-line px-4 py-2.5 font-mono text-[11px] tracking-[0.5px] text-ink-soft hover:border-ink hover:text-ink">
               İzleme listesine ekle
             </button>
-            {movie.vote_average != null && (
+            {movie.vote_average != null && movie.vote_average > 0 && (
               <div className="ml-auto flex items-baseline gap-1 font-mono">
                 <span className="text-3xl font-semibold text-accent">{movie.vote_average.toFixed(1)}</span>
                 <span className="text-xs text-ink-mute">/ 10</span>

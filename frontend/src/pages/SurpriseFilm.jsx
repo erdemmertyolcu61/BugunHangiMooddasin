@@ -164,7 +164,7 @@ export default function SurpriseFilm() {
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-2 z-20 flex-wrap justify-center">
                 <span className="bg-[#ff6b35] text-white px-4 py-1.5 rounded-full font-bold uppercase tracking-widest text-[10px] shadow-lg">Sürpriz</span>
                 <span className="bg-[#00d4ff] text-black px-4 py-1.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-lg">
-                  {movie.vote_average?.toFixed(1) || '?'} ★
+                  {movie.vote_average > 0 ? movie.vote_average.toFixed(1) : '—'} ★
                 </span>
                 <span className="bg-[#ffbf00] text-black px-4 py-1.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-lg">
                   {movie.release_date?.split('-')[0] || '?'}

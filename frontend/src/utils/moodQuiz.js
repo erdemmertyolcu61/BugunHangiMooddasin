@@ -1,175 +1,58 @@
 /**
- * Ruh Hali Testi — sorular, cevaplar ve mood skorlama mantığı.
- * Her cevap bir veya daha fazla mood'a puan ekler.
- * 6 soru, her biri atmosferik ve kişisel.
+ * Ruh Hali Testi — immersive, cinematic questionnaire.
+ * Each answer targets a specific mood for a focused experience.
  */
 
 const QUESTIONS = [
   {
-    id: 1,
-    text: "Gözlerini kapatıp bu geceyi hayal etsen, nasıl bir sahne canlanır?",
+    id: "step_1_energy",
+    text: "Şu an zihnin tam olarak nerede geziniyor?",
     answers: [
       {
-        text: "Yağmurun altında, nefes nefese bir kovalamaca",
-        effects: { adrenalin: 3, gece: 2 },
+        text: "Hayatın gürültüsünden kaçıp sığınacak güvenli bir liman arıyorum.",
+        effects: { battaniye: 3 },
+        targetMood: "battaniye",
       },
       {
-        text: "Şöminenin başında, sıcacık bir battaniyenin altında",
-        effects: { battaniye: 3, sessiz: 1 },
+        text: "Gerçekliği sorgulatacak, beynimin kıvrımlarını yakacak bir hikaye gerek.",
+        effects: { zihin: 3 },
+        targetMood: "zihin",
       },
       {
-        text: "Yıldızların altında, bilinmedik bir yolda yürürken",
-        effects: { yolculuk: 3, karmakar: 1 },
+        text: "Geçmişin o sıcak, eski sinema salonu kokan hissini özledim.",
+        effects: { retro: 3 },
+        targetMood: "retro",
       },
       {
-        text: "Trende, camdan dışarı bakıp eski günleri anarken",
-        effects: { gozyasi: 3, kalp: 2 },
-      },
-      {
-        text: "Loş bir odada, duvardaki ipuçlarını birleştirirken",
-        effects: { zihin: 3, gece: 1 },
+        text: "Hikaye ikinci plan; gözlerim görsel bir şölen ve kusursuz kadrajlar istiyor.",
+        effects: { "kadraj-estetigi": 3 },
+        targetMood: "kadraj-estetigi",
       },
     ],
   },
   {
-    id: 2,
-    text: "Şu anki ruh halini en iyi hangi müzik anlatır?",
+    id: "step_2_pacing",
+    text: "İçindeki zamanın akış hızı şu an nasıl?",
     answers: [
       {
-        text: "Hızlı tempolu, enerjik bir parça",
-        effects: { adrenalin: 3, Retro: 2 },
+        text: "Yavaş aksın. Karakterlerin derin felsefi sohbetlerinde kaybolayım.",
+        effects: { "geceyarisi-itirafi": 3 },
+        targetMood: "geceyarisi-itirafi",
       },
       {
-        text: "Yavaş bir piyano, hafif hüzünlü bir melodi",
-        effects: { gozyasi: 2, sessiz: 2, kalp: 1 },
+        text: "Hızlı ve acımasız. Koltuğun kenarını sıktıracak bir tempo olsun.",
+        effects: { adrenalin: 3 },
+        targetMood: "adrenalin",
       },
       {
-        text: "Neşeli, ritmik, insanı dans ettiren bir şarkı",
-        effects: { kahkaha: 3, battaniye: 1 },
+        text: "Kelimeler sussun, sadece sessizliğin ve görüntülerin şiirselliği konuşsun.",
+        effects: { sessiz: 3 },
+        targetMood: "sessiz",
       },
       {
-        text: "Görkemli, orkestral, sinematik bir tema",
-        effects: { zamanyolcusu: 2, yolculuk: 2, adrenalin: 1 },
-      },
-      {
-        text: "Elektronik, deneysel, alışılmadık bir ses",
-        effects: { karmakar: 3, "deep-chills": 1 },
-      },
-    ],
-  },
-  {
-    id: 3,
-    text: "Bir film karakteri olsaydın bu gece ne yapardın?",
-    answers: [
-      {
-        text: "Gece yarısı, karanlık sokaklarda birinin izini sürerdim",
-        effects: { gece: 3, "deep-chills": 2 },
-      },
-      {
-        text: "Evde kalıp eski fotoğraf albümlerini karıştırırdım",
-        effects: { battaniye: 2, zamanyolcusu: 2, gozyasi: 1 },
-      },
-      {
-        text: "Sahneye çıkıp insanları güldürürdüm",
-        effects: { kahkaha: 3, battaniye: 1 },
-      },
-      {
-        text: "Sevdiğimin kapısını çalıp içimi dökerdim",
-        effects: { askbahcesi: 3, gozyasi: 1 },
-      },
-      {
-        text: "Haritadan rastgele bir yer seçip yola çıkardım",
-        effects: { yolculuk: 3, kalp: 1 },
-      },
-    ],
-  },
-  {
-    id: 4,
-    text: "Bir filmde hangi an seni en çok etkiler?",
-    answers: [
-      {
-        text: "Her şeyi değiştiren beklenmedik bir final",
-        effects: { zihin: 3, karmakar: 2 },
-      },
-      {
-        text: "Tek kelime edilmeden yaşanan, içe işleyen bir veda",
-        effects: { gozyasi: 3, sessiz: 2 },
-      },
-      {
-        text: "Müziğin doruğa çıktığı görkemli bir aksiyon sahnesi",
-        effects: { adrenalin: 3, yolculuk: 1 },
-      },
-      {
-        text: "İki insanın ilk kez göz göze geldiği o an",
-        effects: { askbahcesi: 3, kalp: 1 },
-      },
-      {
-        text: "Rüya mı gerçek mi belli olmayan tuhaf bir sahne",
-        effects: { karmakar: 2, "deep-chills": 2, zihin: 1 },
-      },
-      {
-        text: "Büyüleyici bir sinematografi, her karesinde kaybolduğum bir manzara",
-        effects: { "kadraj-estetigi": 3, sessiz: 1, yolculuk: 1 },
-      },
-    ],
-  },
-  {
-    id: 5,
-    text: "Bu gece filmi nerede izlemek isterdin?",
-    answers: [
-      {
-        text: "Kadife koltuklu, eski bir sinema salonunda",
-        effects: { zamanyolcusu: 3, Retro: 1 },
-      },
-      {
-        text: "Yağmurlu bir gecede, pencerenin kenarında",
-        effects: { battaniye: 2, sessiz: 2, kalp: 1 },
-      },
-      {
-        text: "Dağ başında, yıldızların altında dev bir perdede",
-        effects: { yolculuk: 3, adrenalin: 1 },
-      },
-      {
-        text: "Mum ışığıyla aydınlanan loş bir odada",
-        effects: { "deep-chills": 2, gece: 2, askbahcesi: 1 },
-      },
-      {
-        text: "Kalabalık, kahkahalarla dolu bir salonda",
-        effects: { kahkaha: 3, adrenalin: 1 },
-      },
-    ],
-  },
-  {
-    id: 6,
-    text: "Film bittiğinde kendini nasıl hissetmek istersin?",
-    answers: [
-      {
-        text: "Huzurlu ve mutlu, içi ısınmış biri gibi",
-        effects: { battaniye: 3, askbahcesi: 1 },
-      },
-      {
-        text: "Zihni hâlâ filmle meşgul, şaşkın ama keyifli",
-        effects: { zihin: 3, karmakar: 2 },
-      },
-      {
-        text: "Ağlamış ama içi rahatlamış biri gibi",
-        effects: { gozyasi: 3, kalp: 1 },
-      },
-      {
-        text: "Doyasıya gülmüş, keyfi yerinde biri gibi",
-        effects: { kahkaha: 3 },
-      },
-      {
-        text: "Gerilimden hâlâ tüyleri diken diken",
-        effects: { "deep-chills": 3, gece: 2 },
-      },
-      {
-        text: "Heyecandan yerinde duramayan biri gibi",
-        effects: { adrenalin: 3, yolculuk: 1 },
-      },
-      {
-        text: "Sabaha kadar sürecek derin bir sohbetin içinde, düşüncelere dalmış",
-        effects: { "geceyarisi-itirafi": 3, kalp: 1, zihin: 1 },
+        text: "İçimdeki o düğümü çözecek, beni hüngür hüngür arındıracak bir duygu seli.",
+        effects: { gozyasi: 3 },
+        targetMood: "gozyasi",
       },
     ],
   },
@@ -188,7 +71,7 @@ const MOOD_NAMES = {
   zihin: "Zihin Savaşı",
   kalp: "Kalbimin Sesi",
   karmakar: "Karmaşakar",
-  Retro: "Retro Bakış",
+  retro: "Retro Bakış",
   "deep-chills": "Derin Ürperti",
   "kadraj-estetigi": "Kadraj Estetiği",
   "geceyarisi-itirafi": "Geceyarısı İtirafı",
@@ -209,7 +92,7 @@ export function calculateQuizResult(answerIndexes) {
     zihin: 0,
     kalp: 0,
     karmakar: 0,
-    Retro: 0,
+    retro: 0,
     "deep-chills": 0,
     "kadraj-estetigi": 0,
     "geceyarisi-itirafi": 0,
@@ -255,19 +138,19 @@ export function getResultMessage(topMoods) {
   if (!topMoods || topMoods.length === 0) return "Bugün her türden film iyi gidebilir.";
   const primary = topMoods[0].moodId;
   const messages = {
-    battaniye: "Bu gece sana sıcak, huzurlu ve sarıp sarmalayan hikayeler iyi gelecek.",
+    battaniye: "Sıcak bir battaniye ve bir fincan çay eşliğinde, dünyanın gürültüsünden uzaklaşmanın tam zamanı.",
     yolculuk: "Ruhun yeni ufuklara açılmak istiyor. Uzaklara bir yolculuğa çıkma vakti.",
     gece: "Karanlık çökerken gizemli ve derin bir gece seansı tam sana göre.",
     kahkaha: "Kafanı dağıtıp gülmenin tam zamanı. Eğlence seni bekliyor.",
-    gozyasi: "Duygularını özgür bırakma vakti. İçindekileri dışarıya salacak filmler var.",
-    adrenalin: "Kalbin hızlı atsın, koltuğunun kenarında bir gece seni bekliyor.",
+    gozyasi: "Üstad'ın dediği gibi: Bazen iyi bir ağlama, ruhun en derin temizliğidir.",
+    adrenalin: "Nabzın yükselsin, koltuğunun kenarında nefes nefese bir gece seni bekliyor.",
     askbahcesi: "Kalbinde kelebekler uçuşuyor. Romantik bir yolculuğa çıkmaya ne dersin?",
     zamanyolcusu: "Geçmişin büyülü atmosferinde kaybolmak istiyorsun. Eski bir film şahane gider.",
     sessiz: "Sessizliğin ve görüntülerin konuştuğu, kelimelerin yetmediği yerlere yolculuk.",
-    zihin: "Zihnini çalıştıracak, düşündürecek ve şaşırtacak bir film tam aradığın.",
+    zihin: "Üstad'ın seçkisiyle zihninin sınırlarını zorlayacak, şaşırtıcı bir film seni bekliyor.",
     kalp: "Büyük hikayeler değil, küçük dokunuşlar arıyorsun. Bağımsız sinemanın samimi dünyası.",
     karmakar: "Gerçekliğin sınırlarını zorlayan, sıradışı bir deneyim istiyorsun.",
-    Retro: "Neon ışıklar ve synth melodiler eşliğinde geçmişe bir yolculuk yapma vakti.",
+    retro: "Neon ışıklar ve synth melodiler eşliğinde geçmişe bir yolculuk yapma vakti.",
     "deep-chills": "Karanlık çöktü, perdeler kapandı. Derin bir ürperti için hazır mısın?",
     "kadraj-estetigi": "Güzel bir kare bin kelimeye bedeldir. Bu gece sinematografinin başyapıtlarını keşfet.",
     "geceyarisi-itirafi": "Gece yarısı sohbetleri ve derin diyaloglar sana iyi gelecek. Konuşmaların büyüsüne kapıl.",

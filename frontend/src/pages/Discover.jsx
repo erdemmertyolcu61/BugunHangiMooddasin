@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Sofa } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
-import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
 import UpcomingSlider from '../components/UpcomingSlider';
+import QuizModal from '../components/QuizModal';
 import { getApiUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
@@ -87,11 +87,7 @@ export default function Discover() {
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Quiz state
   const [quizOpen, setQuizOpen] = useState(false);
-  const [quizStep, setQuizStep] = useState(0);
-  const [quizAnswers, setQuizAnswers] = useState([]);
-  const [quizResult, setQuizResult] = useState(null);
   const lastRequestId = useRef(0);
   const searchTimeout = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -157,30 +153,12 @@ export default function Discover() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mood Match percentage calculation
-  // Quiz handlers
-  const handleQuizAnswer = (ansIdx) => {
-    const newAnswers = [...quizAnswers];
-    newAnswers[quizStep - 1] = ansIdx;
-    setQuizAnswers(newAnswers);
-    if (quizStep < QUESTIONS.length) {
-      setQuizStep(quizStep + 1);
-    } else {
-      setQuizResult(calculateQuizResult(newAnswers));
-      setQuizStep(QUESTIONS.length + 1);
-    }
-  };
-
-  const closeQuiz = () => {
+  const handleQuizComplete = (moodId) => {
     setQuizOpen(false);
-    setQuizStep(0);
-    setQuizAnswers([]);
-    setQuizResult(null);
-  };
-
-  const navigateFromQuiz = (moodId) => {
-    closeQuiz();
-    selectMood(moodId);
-    // Sayfa zaten /discover, mood değişince useEffect yeniden fetch yapar
+    if (selectedMood?.id !== moodId) {
+      try { playMoodAudio(moodId); } catch(e) {}
+      selectMood(moodId);
+    }
   };
 
   // Sort dropdown click-outside handler
@@ -730,16 +708,11 @@ export default function Discover() {
             <button onClick={() => navigate('/kafan-mi-karisik')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
               <span className="text-[10px] font-bold uppercase tracking-widest text-bg">Kafan mı Karışık?</span>
             </button>
-            <button onClick={() => { setQuizOpen(true); setQuizStep(1); setQuizAnswers([]); setQuizResult(null); }}
+            <button onClick={() => setQuizOpen(true)}
               title="Bugünkü Ruh Halim"
               className="hidden md:flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
               <Brain size={16} className="text-bg/80 shrink-0" />
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
-            </button>
-            <button onClick={() => navigate('/couch')} title="Birlikte İzle"
-              className="couch-headbar-btn hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full">
-              <Sofa size={14} />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Birlikte İzle</span>
             </button>
             <button onClick={() => navigate('/listeler')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
               <BookOpen size={16} className="text-amber group-hover:scale-110 transition-transform" />
@@ -974,94 +947,7 @@ export default function Discover() {
         onClose={() => setConsentTarget(null)}
       />
 
-      {/* ═══ QUIZ MODAL ═══ */}
-      <AnimatePresence>
-        {quizOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeQuiz} />
-            <motion.div initial={{ scale: 0.92, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.92, y: 20, opacity: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#1a1816]/95 backdrop-blur-md border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl">
-              <button onClick={closeQuiz} className="absolute top-6 right-6 text-ivory/20 hover:text-amber transition-colors z-10"><X size={22} /></button>
-
-              {quizStep === 0 ? null : quizStep <= QUESTIONS.length ? (
-                <div className="space-y-8">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">{quizStep} / {QUESTIONS.length}</span>
-                    <div className="flex gap-1.5">
-                      {QUESTIONS.map((_, i) => <div key={i} className={`w-6 h-1 rounded-full transition-colors ${i < quizStep ? 'bg-amber/60' : 'bg-white/10'}`} />)}
-                    </div>
-                  </div>
-                  <h3 className="text-2xl md:text-3xl font-serif font-semibold tracking-tight text-ivory/90 leading-snug">
-                    {QUESTIONS[quizStep - 1]?.text}
-                  </h3>
-                  <div className="space-y-3">
-                    {QUESTIONS[quizStep - 1]?.answers.map((ans, i) => (
-                      <button key={i} onClick={() => handleQuizAnswer(i)}
-                        className="w-full text-left p-4 md:p-5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-amber/30 transition-all duration-300 group">
-                        <span className="text-sm md:text-base font-serif text-ivory/70 group-hover:text-ivory transition-colors leading-relaxed">{ans.text}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {quizStep > 1 && (
-                    <button onClick={() => setQuizStep(quizStep - 1)} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/30 hover:text-amber/70 transition-colors">
-                      <ChevronLeft size={14} /> Geri
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-8 text-center">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(245,158,11,0.3)]">
-                    <Heart size={24} className="text-bg" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50 mb-3">Bu Geceki Ruh Halin</p>
-                    <h3 className="text-2xl md:text-3xl font-serif font-bold tracking-tight text-ivory">
-                      {quizResult && (MOOD_NAMES[quizResult[0]?.moodId] || "")}
-                      {quizResult && quizResult[0]?.percentage < 50 ? " ağırlıklı" : ""}
-                    </h3>
-                  </div>
-                  {quizResult && (
-                    <div className="space-y-3 max-w-xs mx-auto">
-                      {quizResult.map((r) => (
-                        <div key={r.moodId} className="flex items-center gap-4">
-                          <span className="text-sm font-serif text-ivory/70 w-32 text-right">{MOOD_NAMES[r.moodId] || r.moodId}</span>
-                          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${r.percentage}%` }}
-                              transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-purple-500" />
-                          </div>
-                          <span className="text-xs font-bold text-amber/70 w-8">{r.percentage}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {quizResult && (
-                    <p className="text-sm md:text-base font-serif italic text-ivory/60 leading-relaxed max-w-sm mx-auto">
-                      &ldquo;{getResultMessage(quizResult)}&rdquo;
-                    </p>
-                  )}
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                    <button onClick={() => quizResult && navigateFromQuiz(quizResult[0].moodId)}
-                      className="px-8 py-4 bg-amber text-bg rounded-full text-[10px] font-bold uppercase tracking-[0.25em] hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-                      Bu Mood'a Git
-                    </button>
-                    <button onClick={() => { setQuizStep(1); setQuizAnswers([]); setQuizResult(null); }}
-                      className="px-8 py-4 border border-white/10 text-ivory/60 rounded-full text-[10px] font-bold uppercase tracking-[0.25em] hover:border-amber/30 hover:text-amber transition-all">
-                      Tekrar Çöz
-                    </button>
-                    <button onClick={closeQuiz}
-                      className="px-8 py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-ivory/30 hover:text-ivory/70 transition-all">
-                      Kapat
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} onComplete={handleQuizComplete} />
 
       </motion.div>
     </div>

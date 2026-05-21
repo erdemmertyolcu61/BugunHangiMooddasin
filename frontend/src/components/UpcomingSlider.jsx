@@ -156,8 +156,8 @@ export default function UpcomingSlider() {
             onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
             className={`relative flex items-center justify-center transition-all duration-400 rounded-full
               ${i === currentIndex
-                ? 'w-4 sm:w-7 h-2 sm:h-3 bg-amber shadow-[0_0_8px_rgba(255,191,0,0.6)]'
-                : 'w-2 sm:w-3 h-2 sm:h-3 bg-white/20 hover:bg-white/50'
+                ? 'w-3 sm:w-7 h-1.5 sm:h-3 bg-amber shadow-[0_0_8px_rgba(255,191,0,0.6)]'
+                : 'w-1.5 sm:w-3 h-1.5 sm:h-3 bg-white/20 hover:bg-white/50'
               }`}
           />
         ))}

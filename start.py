@@ -4,7 +4,7 @@ python start.py  ile backend (8002) + frontend (3005) tek komutta acilir.
 
 Sorun giderme:
 - "HATA: 8002 portu kullanimda"  ->  once eski process'i oldurun
-- Backend acilmiyorsa: python -m uvicorn backend.main:asgi_app --host 0.0.0.0 --port 8002
+- Backend acilmiyorsa: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8002
 """
 import subprocess, sys, os, socket, time
 
@@ -65,7 +65,7 @@ def main():
     _p("========================================\n")
 
     backend = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "backend.main:asgi_app",
+        [sys.executable, "-m", "uvicorn", "backend.main:app",
          "--host", "0.0.0.0", "--port", str(actual_port)],
         cwd=ROOT_DIR,
     )
@@ -79,7 +79,7 @@ def main():
         _p(f"\nHATA: Backend hemen kapandi! (exit code: {backend.returncode})")
         _p("Muhtemel sebep: Python bagimliliklari eksik veya kod hatasi.")
         _p("Ayri terminalde su komutu calistirip hatayi gormeyi dene:")
-        _p(f"  python -m uvicorn backend.main:asgi_app --host 0.0.0.0 --port {actual_port}")
+        _p(f"  python -m uvicorn backend.main:app --host 0.0.0.0 --port {actual_port}")
         sys.exit(1)
 
     _p(f"Backend basariyla basladi (PID: {backend.pid}).")

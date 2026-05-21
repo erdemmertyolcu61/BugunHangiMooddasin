@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { useSocket } from '../context/SocketContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, streamConfusedRecommendation, postFastRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
@@ -97,7 +96,7 @@ export default function KafanMiKarisik() {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectMood } = useMood();
-  const { roomId, syncRoomMoodView } = useSocket();
+
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [phraseIdx, setPhraseIdx] = useState(0);
@@ -319,13 +318,7 @@ export default function KafanMiKarisik() {
                 {QUICK_MOODS.map((qm) => (
                   <button
                     key={qm.id}
-                    onClick={() => {
-                      if (roomId) {
-                        syncRoomMoodView(roomId, { quickMoodId: qm.id });
-                      } else {
-                        handleQuickMood(qm.mood_mix);
-                      }
-                    }}
+                    onClick={() => handleQuickMood(qm.mood_mix)}
                     className="quick-mood-chip"
                   >
                     {qm.label}
@@ -550,7 +543,7 @@ export default function KafanMiKarisik() {
                             <div className="flex items-center gap-3 mt-2 flex-wrap">
                               <span className="flex items-center gap-1 text-[11px] text-[#ffbf00] font-bold">
                                 <Star size={11} className="fill-[#ffbf00]" />
-                                {movie.vote_average?.toFixed(1)}
+                                {movie.vote_average > 0 ? movie.vote_average.toFixed(1) : '—'}
                               </span>
                               {movie.release_date && (
                                 <span className="text-[10px] text-amber-100/50">
