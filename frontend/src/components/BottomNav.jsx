@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
   { label: 'Ruh Halim', icon: Brain, action: 'mood-quiz', match: () => false },
   { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
-  { label: 'Kafan Karışık?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
+  { label: 'Kafan mı Karışık?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];
 

@@ -39,7 +39,9 @@ Performance budget:
 Dependencies: sentence-transformers, numpy (in requirements.txt)
 """
 
+import json
 import logging
+import os
 import asyncio
 import threading
 from typing import Optional
@@ -47,6 +49,73 @@ from typing import Optional
 import numpy as np
 
 logger = logging.getLogger("semantic_search")
+
+# ─── NPZ Binary Cache ───────────────────────────────────────────────────────
+# Pre-computed embedding matrix + metadata saved to disk as a compressed .npz.
+# On cold start, mmap_mode='r' load takes <100ms vs. minutes of recomputation.
+# ────────────────────────────────────────────────────────────────────────────
+
+CACHE_FILE = "matrix_cache.npz"
+
+# Global read-only cache populated from .npz at startup.
+# Used by search() as a fast path with pre-computed norms.
+GLOBAL_CACHE: dict = {}
+
+
+def set_global_vector_cache(ids, titles, vectors, norms):
+    """
+    Hydrate the global read-only vector cache from pre-computed numpy arrays.
+    Called once at startup from the lifespan context manager.
+    Thread-safe: all subsequent access is read-only.
+    """
+    GLOBAL_CACHE.clear()
+    GLOBAL_CACHE["ids"] = np.asarray(ids)
+    GLOBAL_CACHE["titles"] = np.asarray(titles)
+    GLOBAL_CACHE["vectors"] = np.asarray(vectors)
+    GLOBAL_CACHE["norms"] = np.asarray(norms)
+
+
+def dump_to_disk(movie_ids, movie_titles, embeddings_matrix):
+    """Save multi-dimensional arrays to a single compressed .npz file."""
+    np.savez_compressed(
+        CACHE_FILE,
+        ids=np.array(movie_ids, dtype=np.int32),
+        titles=np.array(movie_titles, dtype=str),
+        vectors=np.array(embeddings_matrix, dtype=np.float32),
+    )
+
+
+async def build_and_dump_npz_cache():
+    """
+    Cold-start hydration pipeline.
+
+    1. Load all movies from database
+    2. Compute 384-dim embeddings via sentence-transformers
+    3. Save compressed arrays to matrix_cache.npz
+    4. Hydrate GLOBAL_CACHE for zero-latency subsequent searches
+
+    Runs as a background task on first boot or when cache is missing/corrupt.
+    """
+    from backend.database import cache as _db_cache
+
+    engine = SemanticSearchEngine()
+    n = await engine.load_from_db(_db_cache)
+    if n > 0 and engine._matrix is not None:
+        titles_list = [
+            engine._meta[tid]["title"]
+            for tid in engine._tmdb_ids
+            if tid in engine._meta
+        ]
+        dump_to_disk(engine._tmdb_ids, titles_list, engine._matrix)
+        norms = np.linalg.norm(engine._matrix, axis=1)
+        set_global_vector_cache(
+            engine._tmdb_ids_np, titles_list, engine._matrix, norms,
+        )
+        logger.info(
+            "[NPZ Cache] Built & saved: %d movies → %s",
+            n, CACHE_FILE,
+        )
+    return n
 
 # ─── Thread-safe model singleton ──────────────────────────────────────────────
 
@@ -277,6 +346,62 @@ class SemanticSearchEngine:
             normalize_embeddings=True, convert_to_numpy=True,
         )  # (384,)
 
+    # ── NPZ Cache persistence ──────────────────────────────────────────────
+
+    META_FILE = CACHE_FILE.replace(".npz", "_meta.json")
+
+    async def _load_cache(self) -> bool:
+        """Restore engine state from .npz + meta JSON. Returns True on success."""
+        if not os.path.exists(CACHE_FILE):
+            return False
+        try:
+            with np.load(CACHE_FILE, mmap_mode='r') as data:
+                ids_arr = np.asarray(data["ids"], dtype=np.int32)
+                self._tmdb_ids_np = ids_arr
+                self._tmdb_ids = ids_arr.tolist()
+                self._matrix = np.asarray(data["vectors"], dtype=np.float32)
+                self._votes_np = np.zeros(len(ids_arr), dtype=np.float32)
+                self._movie_count = len(ids_arr)
+
+            if os.path.exists(self.META_FILE):
+                with open(self.META_FILE, "r", encoding="utf-8") as f:
+                    self._meta = {int(k): v for k, v in json.load(f).items()}
+
+            self._ready = True
+            dim = self._matrix.shape[1] if self._matrix is not None else 0
+            logger.info(
+                "[SemanticSearch] Cache loaded: %d movies (dim=%d, %.1f MB)",
+                self._movie_count, dim,
+                (self._movie_count * dim * 4) / (1024 * 1024),
+            )
+            return True
+        except Exception as e:
+            logger.warning("[SemanticSearch] Cache load failed: %s", e)
+            self._reset()
+            return False
+
+    def _save_cache(self):
+        """Persist current engine state to .npz + meta JSON."""
+        if self._matrix is None or not self._tmdb_ids:
+            return
+        titles_list = [self._meta[tid]["title"] for tid in self._tmdb_ids if tid in self._meta]
+        dump_to_disk(self._tmdb_ids, titles_list, self._matrix)
+        with open(self.META_FILE, "w", encoding="utf-8") as f:
+            json.dump(self._meta, f, ensure_ascii=False)
+        norms = np.linalg.norm(self._matrix, axis=1)
+        set_global_vector_cache(self._tmdb_ids_np, titles_list, self._matrix, norms)
+        logger.info("[SemanticSearch] Cache saved: %d movies → %s", self._movie_count, CACHE_FILE)
+
+    def _reset(self):
+        """Reset engine to uninitialized state."""
+        self._matrix = None
+        self._tmdb_ids_np = None
+        self._votes_np = None
+        self._tmdb_ids = []
+        self._meta = {}
+        self._ready = False
+        self._movie_count = 0
+
     # ── Build index ──────────────────────────────────────────────────────────
 
     async def build_index(self, movies: list[dict]) -> int:
@@ -353,10 +478,18 @@ class SemanticSearchEngine:
             "[SemanticSearch] Index built: %d movies, %.1f MB matrix, dim=%d",
             self._movie_count, mem_mb, _EMBEDDING_DIM,
         )
+        # Persist to .npz cache for sub-100ms cold starts
+        self._save_cache()
         return self._movie_count
 
     async def load_from_db(self, db_instance) -> int:
-        """Load movies from DB and build the index."""
+        """Load movies from DB and build the index.
+        Tries .npz cache first (sub-100ms); falls back to full DB+encode.
+        """
+        # Phase 0: .npz binary cache — skips all DB + embedding computation
+        if await self._load_cache():
+            return self._movie_count
+
         # Phase 1: fast_search table (pre-computed embeddings)
         try:
             rows = await db_instance.get_all_fast_search_rows()
@@ -474,7 +607,16 @@ class SemanticSearchEngine:
             }
 
         # [OPT-4] Single matmul: (N, 384) @ (384,) → (N,)
-        scores = self._matrix @ query_vec.astype(np.float32)
+        # Prefer GLOBAL_CACHE when available (pre-computed norms, mmap'd vectors)
+        if GLOBAL_CACHE.get("vectors") is not None:
+            qv = query_vec.astype(np.float32)
+            query_norm = np.linalg.norm(qv)
+            if query_norm < 1e-10:
+                return self._empty_response(query_text)
+            dot_product = np.dot(GLOBAL_CACHE["vectors"], qv)
+            scores = dot_product / (GLOBAL_CACHE["norms"] * query_norm + 1e-10)
+        else:
+            scores = self._matrix @ query_vec.astype(np.float32)
 
         # Vectorized vote filter
         if min_vote > 0 and self._votes_np is not None:

@@ -49,21 +49,21 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
           <button
             onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
             title="Deftere Ekle"
-            className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+            className={`flex items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 py-0.5 rounded-full text-[7px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
               ${isSaved
                 ? 'bg-amber/90 border-amber/60 text-black'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
               }`}
           >
             {isSaved
-              ? <><Check size={6} /> Eklendi</>
-              : <><BookmarkPlus size={6} /> Deftere</>
+              ? <><Check size={5} /> Eklendi</>
+              : <><BookmarkPlus size={5} /> Deftere</>
             }
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
             title="İzledim"
-            className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-0.5 sm:py-1.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+            className={`flex items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 py-0.5 rounded-full text-[7px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
               ${isWatched
                 ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
