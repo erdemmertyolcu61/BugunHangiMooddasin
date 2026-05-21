@@ -23,7 +23,7 @@ from backend.services.fast_search import fast_search_engine
 from backend.services.semantic_search import semantic_engine
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
@@ -459,6 +459,7 @@ async def lifespan(app: FastAPI):
     # ── NPZ Binary Cache: ultra-fast semantic search hydration ──────────
     # If matrix_cache.npz exists, memory-map it and hydrate GLOBAL_CACHE.
     # This reduces cold-start semantic search readiness from minutes to <100ms.
+    # Also loads entity metadata (cast_slugs, director_lower) for boost multipliers.
     from backend.services.semantic_search import CACHE_FILE, set_global_vector_cache, build_and_dump_npz_cache
     if os.path.exists(CACHE_FILE):
         try:
@@ -467,7 +468,21 @@ async def lifespan(app: FastAPI):
                 titles = data['titles']
                 vectors = data['vectors']
                 norms = np.linalg.norm(vectors, axis=1)
-                set_global_vector_cache(ids, titles, vectors, norms)
+                # Entity metadata for boost multipliers
+                cast_raw = data.get('cast_slugs')
+                director_raw = data.get('directors')
+                title_lower_raw = data.get('titles_lower')
+                if cast_raw is not None:
+                    meta_list = []
+                    for i in range(len(ids)):
+                        cast_str = str(cast_raw[i]) if i < len(cast_raw) else ""
+                        slugs = cast_str.split(",") if cast_str else []
+                        d = str(director_raw[i]).lower() if director_raw is not None and i < len(director_raw) else ""
+                        tl = str(title_lower_raw[i]).lower() if title_lower_raw is not None and i < len(title_lower_raw) else ""
+                        meta_list.append({"cast_slugs": slugs, "director_lower": d, "title_lower": tl})
+                else:
+                    meta_list = []
+                set_global_vector_cache(ids, titles, vectors, norms, meta_list)
                 logger.info("[NPZ Cache] %d movies hydrated from %s (mmap_mode='r')", len(ids), CACHE_FILE)
         except Exception as e:
             logger.warning("[NPZ Cache] Load failed (%s) — building fresh cache in background...", e)
@@ -2756,11 +2771,9 @@ async def post_fast_recommendation(request: Request):
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
-    Kafan mı karışık? — Smart Chat Engine v2.
-    Intent detection → movie/person/similar search → mood analysis → Claude reranking.
+    Kafan mı karışık? — Zero external API calls.
+    Hybrid entity extraction + vector similarity scaling (fully local).
     """
-    from backend.services.claude_service import confusion_service
-    from backend.services.tmdb_service import tmdb_service
     from backend.services.chat_engine import ChatEngine
 
     text = req.text.strip()
@@ -2768,7 +2781,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
     min_vote = max(4.0, min(req.min_vote, 10.0))
     exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
 
-    engine = ChatEngine(db=cache, tmdb_service=tmdb_service, confusion_service=confusion_service)
+    engine = ChatEngine(db=cache)
 
     result = await engine.process(
         text=text,
@@ -2780,146 +2793,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
     return result
 
 
-@app.post("/api/recommend/confused/stream", dependencies=[Depends(rate_limit_ai)])
-async def post_confused_recommendation_stream(req: ConfusedRequest):
-    """
-    SSE streaming variant of Kafan mı Karışık?.
-    Yields events progressively so the frontend can render phases instantly:
-      event: phase  → {"phase":"intent","data":{...}}      (instant ~200ms)
-      event: phase  → {"phase":"candidates","data":{...}}  (fast ~1-3s)
-      event: phase  → {"phase":"result","data":{...}}      (full ~5-8s)
-      event: done   → {"ok":true}
-    Falls back to single "result" event if streaming phases fail.
-    """
-    import json as _json
 
-    text = req.text.strip()
-    limit = max(3, min(req.limit, 12))
-    min_vote = max(4.0, min(req.min_vote, 10.0))
-    exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
-
-    async def event_stream():
-        from backend.services.claude_service import confusion_service
-        from backend.services.tmdb_service import tmdb_service
-        from backend.services.chat_engine import ChatEngine
-
-        engine = ChatEngine(db=cache, tmdb_service=tmdb_service, confusion_service=confusion_service)
-
-        # ── Phase 0: Fast vector result — emit immediately (<50ms) ───────────
-        # Priority 1: Local semantic engine (FREE, ~30ms)
-        # Priority 2: Gemini embedding + fast_search (API key, ~200ms)
-        # Frontend shows these movies instantly while the LLM pipeline runs.
-        fast_emitted = False
-
-        # Try local semantic engine first (no API key needed)
-        if semantic_engine.is_ready:
-            try:
-                sem_result = await asyncio.wait_for(
-                    semantic_engine.search(
-                        query_text=text,
-                        limit=limit,
-                        exclude_ids=set(exclude_ids),
-                        min_vote=min_vote,
-                    ),
-                    timeout=5.0,
-                )
-                fast_movies = sem_result.get("movies", [])
-                if fast_movies:
-                    rule_fb = _rule_based_confused_analysis(text)
-                    fast_result = {
-                        "ok": True,
-                        "source": "semantic_local",
-                        "movies": fast_movies,
-                        "mood_mix": rule_fb.get("mood_mix", []),
-                        "message": rule_fb.get("message", ""),
-                        "ustad_line": sem_result.get("ustad_line", ""),
-                    }
-                    yield f"event: phase\ndata: {_json.dumps({'phase': 'fast', 'data': fast_result}, ensure_ascii=False)}\n\n"
-                    fast_emitted = True
-            except Exception as e:
-                logger.debug(f"[SSE] Semantic fast phase skipped: {e}")
-
-        # Fallback to Gemini embedding if local semantic didn't produce results
-        if not fast_emitted and fast_search_engine.is_ready and embedding_service.is_available:
-            try:
-                qvec = await asyncio.wait_for(
-                    embedding_service.get_embedding(text), timeout=5.0
-                )
-                fast_movies = fast_search_engine.search(
-                    query_vec=qvec,
-                    limit=limit,
-                    exclude_ids=set(exclude_ids),
-                    min_vote=min_vote,
-                )
-                if fast_movies:
-                    rule_fb = _rule_based_confused_analysis(text)
-                    fast_result = {
-                        "ok": True,
-                        "source": "fast_vector",
-                        "movies": fast_movies,
-                        "mood_mix": rule_fb.get("mood_mix", []),
-                        "message": rule_fb.get("message", ""),
-                        "ustad_line": "",
-                    }
-                    yield f"event: phase\ndata: {_json.dumps({'phase': 'fast', 'data': fast_result}, ensure_ascii=False)}\n\n"
-                    fast_emitted = True
-            except Exception as e:
-                logger.debug(f"[SSE] Gemini fast phase skipped: {e}")
-
-        # ── Phase 1: Intent extraction (fast — Haiku or semantic cache) ──────
-        intent_data = {}
-        try:
-            from backend.services import semantic_cache
-            from backend.database import cache as _sem_db
-
-            claude_intent = await semantic_cache.lookup(_sem_db, text)
-            if claude_intent is None:
-                claude_intent = await asyncio.wait_for(
-                    confusion_service.extract_user_intent(text), timeout=20.0
-                )
-                if claude_intent:
-                    await semantic_cache.store(_sem_db, text, claude_intent)
-
-            if claude_intent:
-                intent_data = {
-                    "user_intent_summary": claude_intent.get("user_intent_summary", ""),
-                    "primary_mood": claude_intent.get("primary_mood", ""),
-                    "ustad_line": claude_intent.get("ustad_line", ""),
-                    "mood_mix": claude_intent.get("mood_mix", []),
-                    "correction_detected": claude_intent.get("correction_detected", False),
-                    "corrected_text": claude_intent.get("corrected_text"),
-                    "context_dimensions": claude_intent.get("context_dimensions", {}),
-                }
-                yield f"event: phase\ndata: {_json.dumps({'phase': 'intent', 'data': intent_data}, ensure_ascii=False)}\n\n"
-        except Exception as e:
-            logger.warning(f"[SSE] Intent phase failed: {e}")
-
-        # ── Phase 2+3: Full pipeline (candidates + rerank) ───────────────────
-        try:
-            result = await engine.process(
-                text=text,
-                limit=limit,
-                min_vote=min_vote,
-                exclude_ids=exclude_ids,
-            )
-            yield f"event: phase\ndata: {_json.dumps({'phase': 'result', 'data': result}, ensure_ascii=False)}\n\n"
-        except Exception as e:
-            logger.error(f"[SSE] Full pipeline failed: {e}")
-            # If fast phase already gave movies, emit a softer error — don't overwrite good data
-            if not fast_emitted:
-                yield f"event: phase\ndata: {_json.dumps({'phase': 'error', 'data': {'message': str(e)}}, ensure_ascii=False)}\n\n"
-
-        yield f"event: done\ndata: {_json.dumps({'ok': True})}\n\n"
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Nginx/proxy: don't buffer SSE
-        },
-    )
 
 
 # --- Movie Pool Expander ---

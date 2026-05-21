@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postConfusedRecommendation, streamConfusedRecommendation, postFastRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
+import { postConfusedRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { playMoodAudio } from '../utils/moodAudioManager';
@@ -129,41 +129,20 @@ export default function KafanMiKarisik() {
     return () => clearInterval(phraseTimer.current);
   }, [loading]);
 
-  // Early intent data — shown while full results load
-  const [earlyIntent, setEarlyIntent] = useState(null);
-
   const analyze = async (inputText, feedbackMode = false) => {
     const txt = inputText || text;
     if (!txt.trim()) return;
 
-    // [CRITICAL FIX] Instant visual flush — clear ALL previous results
-    // the exact millisecond the user submits. No random/stale movies leak.
     setLoading(true);
     setError(null);
     setResult(null);
-    setEarlyIntent(null);
     if (!feedbackMode) setLastQuery(txt);
 
     try {
-      // ── SSE pipeline — intent-aware results only ───────────────────────
-      // We do NOT show fast vector results anymore because they appear as
-      // "random films" to the user. The SSE pipeline returns intent-analyzed,
-      // properly matched results. Loading spinner stays until these arrive.
-      const data = await streamConfusedRecommendation(txt, {
-        limit: 6,
-        minVote: 5.0,
-        excludeIds: sessionExcludeIds,
-        onIntent: (intentData) => {
-          setEarlyIntent(intentData);
-        },
-        onError: (err) => {
-          setError(err.message || 'Bir hata oluştu');
-        },
-      });
+      const data = await postConfusedRecommendation(txt, 6, 5.0, sessionExcludeIds);
 
       if (data?.movies?.length) {
         setResult(data);
-        setEarlyIntent(null);
         const newIds = data.movies.map(m => m.id).filter(Boolean);
         setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
       }
@@ -353,32 +332,16 @@ export default function KafanMiKarisik() {
             </div>
             <AnimatePresence mode="wait">
               <motion.p
-                key={earlyIntent ? 'intent' : phraseIdx}
+                key={phraseIdx}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.35 }}
                 className="text-lg font-serif italic text-amber-200/70 font-medium text-center max-w-sm"
               >
-                {earlyIntent?.ustad_line || LOADING_PHRASES[phraseIdx]}
+                {LOADING_PHRASES[phraseIdx]}
               </motion.p>
             </AnimatePresence>
-            {/* Early mood_mix badges while movies load */}
-            {earlyIntent?.mood_mix?.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.15 }}
-                className="flex flex-wrap justify-center gap-2 mt-3"
-              >
-                {earlyIntent.mood_mix.slice(0, 3).map((m, i) => (
-                  <span key={m.mood_id || i}
-                    className="px-3 py-1 rounded-full bg-amber/10 border border-amber/20 text-amber-200/80 text-[10px] font-sans font-medium uppercase tracking-wider">
-                    {m.title} {m.percentage}%
-                  </span>
-                ))}
-              </motion.div>
-            )}
           </motion.div>
         )}
 
@@ -422,41 +385,6 @@ export default function KafanMiKarisik() {
                 </motion.div>
               )}
 
-              {/* Typo correction banner */}
-              {result.correction_detected && result.corrected_text && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-start gap-3 p-4 rounded-2xl bg-violet-900/20 border border-violet-500/30"
-                >
-                  <AlertCircle size={15} className="text-violet-400 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-violet-400/70 mb-1">YAZIM DÜZELTMESİ</p>
-                    <p className="text-sm font-serif text-violet-200/80 leading-relaxed italic">{result.corrected_text}</p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Context dimensions (atmosphere / companion) */}
-              {result.context_dimensions && (result.context_dimensions.atmosphere || result.context_dimensions.companion) && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-wrap gap-2"
-                >
-                  {result.context_dimensions.atmosphere && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-900/20 border border-blue-500/20 text-[10px] font-bold uppercase tracking-wider text-blue-300/70">
-                      <Cloud size={10} /> {result.context_dimensions.atmosphere}
-                    </span>
-                  )}
-                  {result.context_dimensions.companion && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-900/20 border border-rose-500/20 text-[10px] font-bold uppercase tracking-wider text-rose-300/70">
-                      <Users size={10} /> {result.context_dimensions.companion}
-                    </span>
-                  )}
-                </motion.div>
-              )}
-
               {/* Ustad quote */}
               {quote && (
                 <motion.div
@@ -464,11 +392,6 @@ export default function KafanMiKarisik() {
                   animate={{ opacity: 1, y: 0 }}
                   className="p-8 md:p-12 rounded-[2.5rem] bg-gradient-to-br from-amber-500/[0.05] to-amber-900/[0.08] border border-white/10"
                 >
-                  {result.mode && (
-                    <p className="text-[9px] font-bold uppercase tracking-[0.5em] text-amber/50 mb-4 text-center">
-                      {result.mode === 'claude_reranked' ? 'Claude Analizi' : result.mode === 'smart_search' ? 'Akıllı Arama' : 'Kural Tabanlı'}
-                    </p>
-                  )}
                   <p className="text-2xl md:text-3xl font-serif italic font-medium leading-relaxed text-amber-100/85 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
                     &ldquo;{quote}&rdquo;
                   </p>
@@ -501,8 +424,7 @@ export default function KafanMiKarisik() {
               {result.movies && result.movies.length > 0 && (
                 <div className="space-y-6">
                   <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/70">
-                    {result.intent === 'exact_movie_search' ? 'ARADIĞIN FİLM VE BENZERLERİ'
-                      : result.intent === 'similar_to_movie' ? 'BENZER FİLMLER'
+                    {result.intent === 'similar_to_movie' ? 'BENZER FİLMLER'
                       : result.intent === 'actor_recommendation' || result.intent === 'director_recommendation' ? 'FİLMOGRAFİ'
                       : 'BUNLARI ÖNERİYORUM'}
                   </p>

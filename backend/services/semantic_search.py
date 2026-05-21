@@ -42,6 +42,7 @@ Dependencies: sentence-transformers, numpy (in requirements.txt)
 import json
 import logging
 import os
+import re
 import asyncio
 import threading
 from typing import Optional
@@ -62,27 +63,43 @@ CACHE_FILE = "matrix_cache.npz"
 GLOBAL_CACHE: dict = {}
 
 
-def set_global_vector_cache(ids, titles, vectors, norms):
+def set_global_vector_cache(ids, titles, vectors, norms, meta_list=None):
     """
     Hydrate the global read-only vector cache from pre-computed numpy arrays.
     Called once at startup from the lifespan context manager.
     Thread-safe: all subsequent access is read-only.
+
+    meta_list: list of dicts parallel to vectors, each with:
+        cast_slugs: list[str] — lowercased actor names
+        director_lower: str — lowercased director name
+        title_lower: str — lowercased movie title
     """
     GLOBAL_CACHE.clear()
     GLOBAL_CACHE["ids"] = np.asarray(ids)
     GLOBAL_CACHE["titles"] = np.asarray(titles)
     GLOBAL_CACHE["vectors"] = np.asarray(vectors)
     GLOBAL_CACHE["norms"] = np.asarray(norms)
+    GLOBAL_CACHE["meta_list"] = meta_list or []
 
 
-def dump_to_disk(movie_ids, movie_titles, embeddings_matrix):
+def dump_to_disk(movie_ids, movie_titles, embeddings_matrix,
+                 cast_slugs_list=None, director_list=None, title_list=None):
     """Save multi-dimensional arrays to a single compressed .npz file."""
-    np.savez_compressed(
-        CACHE_FILE,
+    save_kw = dict(
         ids=np.array(movie_ids, dtype=np.int32),
         titles=np.array(movie_titles, dtype=str),
         vectors=np.array(embeddings_matrix, dtype=np.float32),
     )
+    if cast_slugs_list is not None:
+        # Flatten each movie's cast slugs into a single comma-separated string
+        save_kw["cast_slugs"] = np.array(
+            [",".join(slugs) for slugs in cast_slugs_list], dtype=str,
+        )
+    if director_list is not None:
+        save_kw["directors"] = np.array(director_list, dtype=str)
+    if title_list is not None:
+        save_kw["titles_lower"] = np.array(title_list, dtype=str)
+    np.savez_compressed(CACHE_FILE, **save_kw)
 
 
 async def build_and_dump_npz_cache():
@@ -101,21 +118,75 @@ async def build_and_dump_npz_cache():
     engine = SemanticSearchEngine()
     n = await engine.load_from_db(_db_cache)
     if n > 0 and engine._matrix is not None:
-        titles_list = [
-            engine._meta[tid]["title"]
-            for tid in engine._tmdb_ids
-            if tid in engine._meta
-        ]
-        dump_to_disk(engine._tmdb_ids, titles_list, engine._matrix)
+        titles_list = []
+        cast_slugs_list = []
+        director_list = []
+        title_lower_list = []
+        for tid in engine._tmdb_ids:
+            m = engine._meta.get(tid)
+            if m:
+                titles_list.append(m["title"])
+                cast_slugs_list.append(m.get("cast_slugs", []))
+                director_list.append(m.get("director_lower", ""))
+                title_lower_list.append(m.get("title_lower", ""))
+            else:
+                titles_list.append("")
+                cast_slugs_list.append([])
+                director_list.append("")
+                title_lower_list.append("")
+        dump_to_disk(engine._tmdb_ids, titles_list, engine._matrix,
+                     cast_slugs_list, director_list, title_lower_list)
         norms = np.linalg.norm(engine._matrix, axis=1)
+        meta_list = [
+            {"cast_slugs": c, "director_lower": d, "title_lower": t}
+            for c, d, t in zip(cast_slugs_list, director_list, title_lower_list)
+        ]
         set_global_vector_cache(
-            engine._tmdb_ids_np, titles_list, engine._matrix, norms,
+            engine._tmdb_ids_np, titles_list, engine._matrix, norms, meta_list,
         )
         logger.info(
             "[NPZ Cache] Built & saved: %d movies → %s",
             n, CACHE_FILE,
         )
     return n
+
+# ─── Local Entity Extraction (zero external API calls) ───────────────────────
+# Hybrid pipeline: regex entity harvesting + vector similarity boost multipliers.
+# Processes complex natural language queries without any external LLM.
+# ────────────────────────────────────────────────────────────────────────────
+
+_STRIP_PATTERNS = re.compile(
+    r'(tarzı|gibi|filmleri|filmi|sahnesi|oynadığı|yönettiği|'
+    r'benzeri|tadında|havasında|türünde|filmlerini|filmlerinden|'
+    r'başrolde|rol aldığı|yönetmenliğini|yönetmenliğinde)',
+    re.IGNORECASE,
+)
+
+_ACTOR_KEYWORDS = re.compile(
+    r'(oynadığı|rol aldığı|başrolde|filmleri|filmlerini)',
+    re.IGNORECASE,
+)
+
+_DIRECTOR_KEYWORDS = re.compile(
+    r'(yönettiği|yönetmenliğini|yönetmenliğinde|çektiği)',
+    re.IGNORECASE,
+)
+
+
+def extract_entities_locally(user_query: str) -> dict:
+    """
+    Parse structural anchors directly from raw user strings locally.
+    Handles phrases like 'Christopher Nolan filmleri', 'Al Pacino tarzı', etc.
+    Returns dict with cleaned query and detection flags.
+    """
+    query_lower = user_query.lower().strip()
+    clean_query = _STRIP_PATTERNS.sub("", query_lower).strip()
+
+    return {
+        "raw_clean_query": clean_query,
+        "query_lower": query_lower,
+    }
+
 
 # ─── Thread-safe model singleton ──────────────────────────────────────────────
 
@@ -363,12 +434,50 @@ class SemanticSearchEngine:
                 self._votes_np = np.zeros(len(ids_arr), dtype=np.float32)
                 self._movie_count = len(ids_arr)
 
+                # Load entity metadata arrays if present (new cache format)
+                cast_raw = data.get("cast_slugs")
+                director_raw = data.get("directors")
+                title_lower_raw = data.get("titles_lower")
+
             if os.path.exists(self.META_FILE):
                 with open(self.META_FILE, "r", encoding="utf-8") as f:
                     self._meta = {int(k): v for k, v in json.load(f).items()}
 
+            # Build meta_list for GLOBAL_CACHE boost multipliers
+            meta_list = []
+            for i, tid in enumerate(self._tmdb_ids):
+                m = self._meta.get(tid)
+                if cast_raw is not None and i < len(cast_raw):
+                    cast_str = str(cast_raw[i])
+                    slugs = cast_str.split(",") if cast_str else []
+                elif m:
+                    slugs = m.get("cast_slugs", [])
+                else:
+                    slugs = []
+                director = ""
+                if director_raw is not None and i < len(director_raw):
+                    director = str(director_raw[i])
+                elif m:
+                    director = m.get("director_lower", "")
+                title_lower = ""
+                if title_lower_raw is not None and i < len(title_lower_raw):
+                    title_lower = str(title_lower_raw[i])
+                elif m:
+                    title_lower = m.get("title_lower", "").lower()
+                meta_list.append({
+                    "cast_slugs": slugs,
+                    "director_lower": director.lower() if director else "",
+                    "title_lower": title_lower.lower() if title_lower else "",
+                })
+
             self._ready = True
             dim = self._matrix.shape[1] if self._matrix is not None else 0
+
+            # Hydrate GLOBAL_CACHE with meta_list for boost search
+            titles_arr = np.asarray(data.get("titles", [str(t) for t in ids_arr]), dtype=str)
+            norms = np.linalg.norm(self._matrix, axis=1)
+            set_global_vector_cache(self._tmdb_ids_np, titles_arr, self._matrix, norms, meta_list)
+
             logger.info(
                 "[SemanticSearch] Cache loaded: %d movies (dim=%d, %.1f MB)",
                 self._movie_count, dim,
@@ -384,12 +493,32 @@ class SemanticSearchEngine:
         """Persist current engine state to .npz + meta JSON."""
         if self._matrix is None or not self._tmdb_ids:
             return
-        titles_list = [self._meta[tid]["title"] for tid in self._tmdb_ids if tid in self._meta]
-        dump_to_disk(self._tmdb_ids, titles_list, self._matrix)
+        titles_list = []
+        cast_slugs_list = []
+        director_list = []
+        title_lower_list = []
+        for tid in self._tmdb_ids:
+            m = self._meta.get(tid)
+            if m:
+                titles_list.append(m["title"])
+                cast_slugs_list.append(m.get("cast_slugs", []))
+                director_list.append(m.get("director_lower", ""))
+                title_lower_list.append(m.get("title_lower", ""))
+            else:
+                titles_list.append("")
+                cast_slugs_list.append([])
+                director_list.append("")
+                title_lower_list.append("")
+        dump_to_disk(self._tmdb_ids, titles_list, self._matrix,
+                     cast_slugs_list, director_list, title_lower_list)
         with open(self.META_FILE, "w", encoding="utf-8") as f:
             json.dump(self._meta, f, ensure_ascii=False)
         norms = np.linalg.norm(self._matrix, axis=1)
-        set_global_vector_cache(self._tmdb_ids_np, titles_list, self._matrix, norms)
+        meta_list = [
+            {"cast_slugs": c, "director_lower": d, "title_lower": t}
+            for c, d, t in zip(cast_slugs_list, director_list, title_lower_list)
+        ]
+        set_global_vector_cache(self._tmdb_ids_np, titles_list, self._matrix, norms, meta_list)
         logger.info("[SemanticSearch] Cache saved: %d movies → %s", self._movie_count, CACHE_FILE)
 
     def _reset(self):
@@ -449,18 +578,37 @@ class SemanticSearchEngine:
 
             genre_ids = m.get("genre_ids") or []
             full_overview = (m.get("overview") or "").strip()
+
+            # Entity metadata for boost multipliers
+            raw_cast = m.get("cast") or m.get("actors") or ""
+            if isinstance(raw_cast, list):
+                cast_slugs = [str(c).strip().lower() for c in raw_cast[:8] if c]
+            elif isinstance(raw_cast, str):
+                cast_slugs = [a.strip().lower() for a in raw_cast.split(",") if a.strip()]
+            else:
+                cast_slugs = []
+
+            raw_director = m.get("directors") or m.get("director") or ""
+            if isinstance(raw_director, list):
+                director_lower = ", ".join(str(d).strip().lower() for d in raw_director[:2] if d)
+            else:
+                director_lower = str(raw_director).strip().lower()
+
             meta[tmdb_id] = {
-                "id":           tmdb_id,
-                "title":        m.get("title", ""),
-                "poster_url":   m.get("poster_url"),
-                "overview":     _truncate(full_overview),   # [OPT-3]
-                "release_date": m.get("release_date", ""),
-                "vote_average": vote_avg,
-                "genre_ids":    genre_ids,
-                "mood_id":      m.get("primary_mood_id") or m.get("mood_id"),
-                "ustad_notu":   m.get("ustad_notu") or _build_ustad_notu(
+                "id":             tmdb_id,
+                "title":          m.get("title", ""),
+                "poster_url":     m.get("poster_url"),
+                "overview":       _truncate(full_overview),   # [OPT-3]
+                "release_date":   m.get("release_date", ""),
+                "vote_average":   vote_avg,
+                "genre_ids":      genre_ids,
+                "mood_id":        m.get("primary_mood_id") or m.get("mood_id"),
+                "ustad_notu":     m.get("ustad_notu") or _build_ustad_notu(
                     m.get("title", ""), genre_ids, m.get("release_date", ""),
                 ),
+                "cast_slugs":     cast_slugs,
+                "director_lower": director_lower,
+                "title_lower":    (m.get("title", "") or "").lower(),
             }
 
         # [OPT-1] Contiguous matrix
@@ -555,7 +703,7 @@ class SemanticSearchEngine:
 
         return 0
 
-    # ── Search ───────────────────────────────────────────────────────────────
+    # ── Search (Hybrid: Entity extraction + Vector Similarity Scaling) ─────
 
     async def search(
         self,
@@ -566,8 +714,14 @@ class SemanticSearchEngine:
         threshold: float = 0.38,
     ) -> dict:
         """
-        Semantic search: embed query locally, vectorized cosine + filter, top-k.
-        [OPT-4] Vectorized masks BEFORE argpartition for zero wasted slots.
+        Hybrid semantic search with zero external API calls.
+
+        Step A — Local String Entity Harvesting:
+          Regex-based detection of director, actor, title anchors.
+
+        Step B — Composite Vector Matrix:
+          Cosine similarity + boost multipliers for entity matches
+          (actor +0.30, director +0.40, exact title +0.20).
         """
         if not self.is_ready:
             return {
@@ -586,18 +740,26 @@ class SemanticSearchEngine:
 
         exclude_ids = exclude_ids or set()
 
-        # Query expansion
-        query_lower = query_text.lower()
+        # ── Step A: Local entity extraction ──────────────────────────────────
+        parsed = extract_entities_locally(query_text)
+        query_lower = parsed["query_lower"]
+
+        # Query expansion for mood-trigger words
         expansions = []
         for trigger, keywords in _MOOD_QUERY_EXPANSIONS.items():
             if trigger in query_lower:
                 expansions.append(keywords)
+        search_text = parsed["raw_clean_query"]
         if expansions:
-            query_text = f"{query_text} {' '.join(expansions)}"
+            search_text = f"{search_text} {' '.join(expansions)}"
+
+        # Fall back to original if clean_query is empty
+        if not search_text.strip():
+            search_text = query_text
 
         # Encode query in background thread
         try:
-            query_vec = await asyncio.to_thread(self._encode_single_sync, query_text)
+            query_vec = await asyncio.to_thread(self._encode_single_sync, search_text)
         except Exception as e:
             logger.error("[SemanticSearch] Query encoding failed: %s", e)
             return {
@@ -606,17 +768,40 @@ class SemanticSearchEngine:
                 "mode": "semantic_error",
             }
 
-        # [OPT-4] Single matmul: (N, 384) @ (384,) → (N,)
-        # Prefer GLOBAL_CACHE when available (pre-computed norms, mmap'd vectors)
+        # ── Step B: Composite score with boost multipliers ───────────────────
         if GLOBAL_CACHE.get("vectors") is not None:
             qv = query_vec.astype(np.float32)
             query_norm = np.linalg.norm(qv)
             if query_norm < 1e-10:
-                return self._empty_response(query_text)
+                return self._empty_response(search_text)
             dot_product = np.dot(GLOBAL_CACHE["vectors"], qv)
-            scores = dot_product / (GLOBAL_CACHE["norms"] * query_norm + 1e-10)
+            base_scores = dot_product / (GLOBAL_CACHE["norms"] * query_norm + 1e-10)
+            using_cache = True
         else:
-            scores = self._matrix @ query_vec.astype(np.float32)
+            base_scores = self._matrix @ query_vec.astype(np.float32)
+            using_cache = False
+
+        # Apply entity boost multipliers
+        meta_list = GLOBAL_CACHE.get("meta_list", []) if using_cache else []
+        if meta_list:
+            boost = np.ones_like(base_scores, dtype=np.float32)
+            for idx in range(len(meta_list)):
+                movie = meta_list[idx]
+                # Actor match boost (+0.30)
+                if movie.get("cast_slugs"):
+                    for actor in movie["cast_slugs"]:
+                        if actor in query_lower:
+                            boost[idx] += 0.30
+                            break
+                # Director match boost (+0.40)
+                if movie.get("director_lower") and movie["director_lower"] in query_lower:
+                    boost[idx] += 0.40
+                # Title reference boost (+0.20)
+                if movie.get("title_lower") and movie["title_lower"] in query_lower:
+                    boost[idx] += 0.20
+            scores = base_scores * boost
+        else:
+            scores = base_scores
 
         # Vectorized vote filter
         if min_vote > 0 and self._votes_np is not None:
@@ -634,7 +819,7 @@ class SemanticSearchEngine:
         # O(N) argpartition → top-k
         pool_size = min(limit * 3, len(self._tmdb_ids))
         if pool_size <= 0:
-            return self._empty_response(query_text)
+            return self._empty_response(search_text)
 
         top_idxs = np.argpartition(scores, -pool_size)[-pool_size:]
         top_idxs = top_idxs[np.argsort(scores[top_idxs])[::-1]]
@@ -652,7 +837,7 @@ class SemanticSearchEngine:
                 break
 
         if not results:
-            return self._empty_response(query_text)
+            return self._empty_response(search_text)
 
         top_title = results[0]["title"]
         top_score = results[0].get("mood_score", 0)
@@ -661,7 +846,7 @@ class SemanticSearchEngine:
             "movies": results,
             "ustad_line": f"'{top_title}' tam senin anlattığın dünyadan. %{top_score} benzerlikle buldum evlat.",
             "mode": "semantic_local",
-            "query_understanding": query_text,
+            "query_understanding": search_text,
         }
 
     @staticmethod
