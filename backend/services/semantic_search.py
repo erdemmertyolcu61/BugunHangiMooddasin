@@ -768,6 +768,22 @@ class SemanticSearchEngine:
                 "mode": "semantic_error",
             }
 
+        # ── Dimension guard ──────────────────────────────────────────────────
+        expected_dim = _EMBEDDING_DIM
+        if GLOBAL_CACHE.get("vectors") is not None:
+            expected_dim = GLOBAL_CACHE["vectors"].shape[1]
+        elif self._matrix is not None:
+            expected_dim = self._matrix.shape[1]
+        if query_vec.shape[0] != expected_dim:
+            logger.warning(
+                "[SemanticSearch] Dimension mismatch: query=%d, matrix=%d — adjusting",
+                query_vec.shape[0], expected_dim,
+            )
+            if query_vec.shape[0] > expected_dim:
+                query_vec = query_vec[:expected_dim]
+            else:
+                query_vec = np.pad(query_vec, (0, expected_dim - query_vec.shape[0]))
+
         # ── Step B: Composite score with boost multipliers ───────────────────
         if GLOBAL_CACHE.get("vectors") is not None:
             qv = query_vec.astype(np.float32)

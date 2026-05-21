@@ -1,60 +1,57 @@
 """
-Sinemood — Gemini Embedding Service
-Ultra-fast query vectorization using Google's text-embedding-004.
+Sinemood — Gemini Embedding Service (SDK-based, circuit-breaker protected)
+Ultra-fast query vectorization using Google's text-embedding-004 via the
+official google-generativeai SDK. Guarantees stable endpoint resolution,
+correct model naming, and built-in auth headers.
 
-Execution budget: <100ms per call (Google's embedding endpoint returns
-float arrays only — no generation tokens, no output sampling — making it
-~15-20x faster than any text-generation LLM call).
+Execution budget: <100ms per call.
+Embedding dimension: 768 (text-embedding-004 default).
 
-Embedding dimension: 768 (text-embedding-004 default)
-Transport: httpx (already a project dependency — no new packages needed)
-Auth: GEMINI_API_KEY env var (same key used for generative calls if any)
-
-Thread-safety: Single shared httpx.AsyncClient with connection pooling.
+Thread-safety: google-generativeai's genai.embed_content is thread-safe
+and uses its own connection pooling under the hood.
 """
 
-import json
 import logging
 import struct
-import asyncio
+import time
 from typing import Optional
-import httpx
+
+import google.generativeai as genai
 from backend.config import GEMINI_API_KEY
 
 logger = logging.getLogger("embedding_service")
 
-EMBEDDING_MODEL    = "text-embedding-004"
-EMBEDDING_DIM      = 768
-_GEMINI_EMBED_URL  = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{EMBEDDING_MODEL}:embedContent"
-)
-# Hard cap on request text to avoid API errors on very long inputs
-_MAX_INPUT_CHARS   = 2000
+EMBEDDING_MODEL  = "models/text-embedding-004"
+EMBEDDING_DIM    = 768
+_MAX_INPUT_CHARS = 2000
+
+# ── Circuit-breaker state ─────────────────────────────────────────────────────
+# Prevents runaway retries from spiking memory under 404/auth errors.
+_CB_FAILURES      = 0
+_CB_OPEN_UNTIL    = 0.0
+_CB_THRESHOLD     = 5       # open circuit after 5 consecutive failures
+_CB_RECOVERY_SEC  = 60.0    # try one request after 60s
+
+_sdk_configured = False
+
+
+def _ensure_sdk():
+    """One-time SDK configuration (idempotent, thread-safe by GIL)."""
+    global _sdk_configured
+    if not _sdk_configured and GEMINI_API_KEY:
+        genai.configure(api_key=GEMINI_API_KEY)
+        _sdk_configured = True
 
 
 class GeminiEmbeddingService:
     """
-    Wraps Google's text-embedding-004 endpoint.
-    Keeps a single warm httpx.AsyncClient for connection reuse (<5ms
-    overhead on cached connections vs ~30ms cold TCP handshake).
+    Wraps Google's text-embedding-004 via the official SDK with a
+    circuit-breaker guard to prevent memory leaks on repeated failures.
     """
 
     def __init__(self, api_key: str = ""):
         self._api_key = (api_key or GEMINI_API_KEY or "").strip()
-        self._client: Optional[httpx.AsyncClient] = None
-
-    def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(8.0, connect=3.0),
-                limits=httpx.Limits(
-                    max_keepalive_connections=5,
-                    max_connections=10,
-                    keepalive_expiry=60.0,
-                ),
-            )
-        return self._client
+        _ensure_sdk()
 
     @property
     def is_available(self) -> bool:
@@ -62,48 +59,70 @@ class GeminiEmbeddingService:
 
     async def get_embedding(self, text: str) -> list[float]:
         """
-        Vectorize text using text-embedding-004.
-        Returns a 768-dimensional float list.
-        Raises on API error. Caller should handle with fallback.
+        Vectorize text using genai.embed_content with circuit-breaker.
+        Returns 768-dimensional float list. Raises on API/throttle error.
         """
+        global _CB_FAILURES, _CB_OPEN_UNTIL
+
         if not self._api_key:
             raise RuntimeError("GEMINI_API_KEY is not set — embedding service unavailable.")
 
-        # Truncate to avoid Gemini 400 errors on very long inputs
+        # ── Circuit-breaker: open? ──────────────────────────────────────
+        if _CB_FAILURES >= _CB_THRESHOLD:
+            if time.monotonic() < _CB_OPEN_UNTIL:
+                raise RuntimeError(
+                    f"Embedding circuit open ({_CB_FAILURES} failures) — "
+                    f"retry in {_CB_OPEN_UNTIL - time.monotonic():.0f}s"
+                )
+            # Recovery attempt: half-open
+            _CB_FAILURES = 0
+
         text = str(text or "").strip()[:_MAX_INPUT_CHARS]
         if not text:
             raise ValueError("Cannot embed empty text.")
 
-        payload = {
-            "model": f"models/{EMBEDDING_MODEL}",
-            "content": {
-                "parts": [{"text": text}]
-            },
-        }
+        # Sanitize input for clean transmission
+        sanitized = text.replace("\n", " ")
 
-        client = self._get_client()
-        response = await client.post(
-            _GEMINI_EMBED_URL,
-            params={"key": self._api_key},
-            json=payload,
-            headers={"Content-Type": "application/json"},
-        )
-
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Gemini embedding API error {response.status_code}: {response.text[:200]}"
+        try:
+            response = genai.embed_content(
+                model=EMBEDDING_MODEL,
+                content=sanitized,
+                task_type="retrieval_query",
             )
+        except Exception as e:
+            _CB_FAILURES += 1
+            if _CB_FAILURES >= _CB_THRESHOLD:
+                _CB_OPEN_UNTIL = time.monotonic() + _CB_RECOVERY_SEC
+                logger.error(
+                    "[EmbeddingService] Circuit opened: %d consecutive failures. "
+                    "Suppressing for %.0fs.", _CB_FAILURES, _CB_RECOVERY_SEC,
+                )
+            raise RuntimeError(f"Gemini embedding failed: {e}")
 
-        data = response.json()
-        values = data.get("embedding", {}).get("values")
+        # Normalise response (SDK may return dict or object)
+        if isinstance(response, dict):
+            embedding_data = response.get("embedding") or {}
+            if isinstance(embedding_data, dict):
+                values = embedding_data.get("values")
+            else:
+                values = getattr(embedding_data, "values", None)
+        else:
+            values = getattr(response, "embedding", None)
+            if values is not None:
+                values = getattr(values, "values", None) or values
+
         if not values or len(values) != EMBEDDING_DIM:
             raise RuntimeError(
-                f"Unexpected embedding shape: got {len(values) if values else 0} dims"
+                f"Unexpected embedding shape: got {len(values) if values else 0} dims "
+                f"(expected {EMBEDDING_DIM})"
             )
 
+        # Success — reset circuit-breaker
+        _CB_FAILURES = 0
         return values
 
-    async def get_embedding_safe(self, text: str) -> list[float] | None:
+    async def get_embedding_safe(self, text: str) -> Optional[list[float]]:
         """
         Same as get_embedding() but returns None on any failure.
         Use in background jobs where one bad movie shouldn't abort the batch.
@@ -115,8 +134,8 @@ class GeminiEmbeddingService:
             return None
 
     async def close(self):
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        """No-op — SDK manages its own connection pool."""
+        pass
 
 
 # ─── Serialization helpers (store/load embeddings as raw float32 BLOBs) ──────

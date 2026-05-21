@@ -184,6 +184,15 @@ class FastSearchEngine:
             if vec.size == 0:
                 continue
 
+            # Validate blob dimension (should be 768 for Gemini)
+            EXPECTED_EMBED_DIM = 768
+            if vec.size != EXPECTED_EMBED_DIM:
+                logger.warning(
+                    "[FastSearch] Skipping tmdb_id=%d: expected %d dims, got %d",
+                    tmdb_id, EXPECTED_EMBED_DIM, vec.size,
+                )
+                continue
+
             vote_avg = float(row.get("vote_average", 0.0) or 0.0)
             tmdb_ids.append(tmdb_id)
             vectors.append(vec)
@@ -275,6 +284,19 @@ class FastSearchEngine:
             qv = np.array(query_vec, dtype=np.float32)
         else:
             qv = np.asarray(query_vec, dtype=np.float32)
+
+        # Dimension guard
+        expected_dim = self._matrix.shape[1] if self._matrix is not None else 0
+        if qv.shape[0] != expected_dim:
+            logger.warning(
+                "[FastSearch] Dimension mismatch: query=%d, matrix=%d — adjusting",
+                qv.shape[0], expected_dim,
+            )
+            if qv.shape[0] > expected_dim:
+                qv = qv[:expected_dim]
+            else:
+                qv = np.pad(qv, (0, expected_dim - qv.shape[0]))
+
         qnorm = np.linalg.norm(qv)
         if qnorm < 1e-10:
             return []
