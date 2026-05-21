@@ -535,6 +535,51 @@ async def production_error_handler(request: Request, call_next):
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
+# ─── Payload Strip-Down for Mobile Clients ─────────────────────────────────
+# Frontend grid cards only render: id, title, overview (2 lines), poster_url,
+# release_date, vote_average, genre_ids.
+# Stripping heavy nested objects (ai_analysis, mood, keywords, etc.)
+# cuts wire size by ~60-70% per movie — critical for 3G/4G mobile.
+
+_OVERVIEW_TRUNCATE = 120   # ~2 lines on a mobile card
+
+def _truncate_overview(text: str, max_len: int = _OVERVIEW_TRUNCATE) -> str:
+    if not text or len(text) <= max_len:
+        return text or ""
+    cut = text[:max_len].rsplit(" ", 1)[0]
+    return cut + "…"
+
+
+def _slim_movie(movie: dict) -> dict:
+    """
+    Strip a movie dict to the minimal fields needed by the frontend grid.
+    Drops: ai_analysis, mood (nested), primaryMoods, secondaryMoods,
+    blockedMoods, moodReason, keywords, tagline, cast, credits, etc.
+    Truncates overview to 120 chars.
+    """
+    return {
+        "id":              movie.get("id") or movie.get("tmdb_id"),
+        "title":           movie.get("title", ""),
+        "poster_url":      movie.get("poster_url") or movie.get("poster_path"),
+        "overview":        _truncate_overview(movie.get("overview") or ""),
+        "release_date":    movie.get("release_date", ""),
+        "vote_average":    movie.get("vote_average", 0.0),
+        "genre_ids":       movie.get("genre_ids", []),
+        # Optional fields — only include if present and non-null
+        **({"mood_score": movie["mood_score"]} if movie.get("mood_score") is not None else {}),
+        **({"mood_match_label": movie["mood_match_label"]} if movie.get("mood_match_label") else {}),
+        **({"analyzed": movie["analyzed"]} if "analyzed" in movie else {}),
+        **({"matched_moods": movie["matched_moods"]} if movie.get("matched_moods") else {}),
+        **({"reason": movie["reason"]} if movie.get("reason") else {}),
+        **({"ustad_notu": movie["ustad_notu"]} if movie.get("ustad_notu") else {}),
+    }
+
+
+def _slim_movie_list(movies: list[dict]) -> list[dict]:
+    """Apply _slim_movie to a list of movies."""
+    return [_slim_movie(m) for m in movies]
+
+
 # ─── Rate Limiter (simple in-memory) ───
 _rate_store = defaultdict(list)
 
@@ -1346,6 +1391,7 @@ async def discover_movies(
     genres: str = Query(..., description="Comma-separated TMDB genre IDs"),
     page: int = Query(1, ge=1, le=3),
     sort_by: str = Query("popularity.desc"),
+    slim: bool = Query(True, description="Strip payloads for mobile"),
 ):
     """Discover movies by genre. Max 3 pages."""
     try:
@@ -1370,7 +1416,7 @@ async def discover_movies(
             enriched.append(movie)
 
         return {
-            "movies": enriched,
+            "movies": _slim_movie_list(enriched) if slim else enriched,
             "page": result["page"],
             "total_pages": min(result["total_pages"], 3),
         }
@@ -1381,7 +1427,10 @@ async def discover_movies(
 
 
 @app.get("/api/movies")
-async def get_movies(page: int = Query(1, ge=1, le=500)):
+async def get_movies(
+    page: int = Query(1, ge=1, le=500),
+    slim: bool = Query(True, description="Strip payloads for mobile"),
+):
     """
     Fetch popular movies from TMDB.
     Returns basic info + cached mood/analysis if previously analyzed.
@@ -1405,7 +1454,7 @@ async def get_movies(page: int = Query(1, ge=1, le=500)):
             enriched.append(movie)
 
         return {
-            "movies": enriched,
+            "movies": _slim_movie_list(enriched) if slim else enriched,
             "page": result["page"],
             "total_pages": result["total_pages"],
         }
@@ -1594,6 +1643,7 @@ async def get_repository_movies(
     min_vote: float = Query(5.0, ge=0, le=10),
     min_mood_score: float = Query(1.0, ge=0, le=100),
     sort_by: str = Query("recommended"),
+    slim: bool = Query(True, description="Strip payloads to minimal fields for mobile"),
 ):
     """
     Get high-quality movies from local repository for a given mood.
@@ -1768,7 +1818,7 @@ async def get_repository_movies(
                     movie["analyzed"] = False
 
         return {
-            "movies": page_movies,
+            "movies": _slim_movie_list(page_movies) if slim else page_movies,
             "page": page,
             "total_pages": result["total_pages"],
             "total": result["total"],
