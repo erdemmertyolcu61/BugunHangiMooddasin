@@ -11,11 +11,11 @@ export const DIRECT_BASE = "http://127.0.0.1:8002";
 
 // Vite dev server'da proxy calisir, production'da direkt baglanti gerekir
 const isDev = import.meta.env.DEV;
-const prodBase = import.meta.env.VITE_API_BASE_URL;
+const prodBase = import.meta.env.VITE_API_BASE_URL || "https://bug-nhangimooddas-n.onrender.com";
 if (!isDev && !prodBase) {
   console.error("[API] VITE_API_BASE_URL not set! Frontend cannot reach backend.");
 }
-export const API_BASE_URL = isDev ? PROXY_BASE : (prodBase || DIRECT_BASE);
+export const API_BASE_URL = isDev ? PROXY_BASE : prodBase;
 
 export const getApiUrl = (path) => {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;

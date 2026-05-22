@@ -32,7 +32,7 @@ CLAUDE_FAST_MODEL = os.getenv("CLAUDE_FAST_MODEL", "claude-3-5-haiku-20241022")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "movie_cache.db")
 
 # ─── CORS ───
-_default_origins = "http://localhost:3005,http://localhost:5173,http://127.0.0.1:3005,http://127.0.0.1:5173"
+_default_origins = "http://localhost:3005,http://localhost:5173,http://127.0.0.1:3005,http://127.0.0.1:5173,https://bug-n-hangi-mooddas-n.vercel.app"
 ALLOWED_ORIGINS = [
     o.strip() for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()
 ]
