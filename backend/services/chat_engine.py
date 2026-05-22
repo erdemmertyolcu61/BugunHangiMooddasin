@@ -248,7 +248,7 @@ _MOOD_WEIGHTS = {
     "battaniye":    0.20, "yolculuk": 0.10, "gece": 0.15, "kahkaha": 0.10,
     "gozyasi":      0.10, "adrenalin": 0.10, "askbahcesi": 0.10, "zamanyolcusu": 0.10,
     "sessiz":       0.10, "zihin": 0.10, "kalp": 0.10, "karmakar": 0.10,
-    "Retro":        0.10, "deep-chills": 0.10,
+    "sipsak":       0.10, "deep-chills": 0.10,
     "kadraj-estetigi": 0.10, "geceyarisi-itirafi": 0.10,
 }
 
@@ -264,7 +264,7 @@ _RULE_MOOD_MAP = {
     ("düşünmek", "felsefe", "zihin", "entelektüel", "soru"):            "zihin",
     ("küçük", "kalp", "samimi", "içten", "basit"):                      "kalp",
     ("deneysel", "sıradışı", "karmaşık", "garip"):                      "karmakar",
-    ("retro", "80s", "80'ler", "neon", "vintage"):                      "Retro",
+    ("kisa", "kısa", "kompakt", "sipsak", "çekim"):                     "sipsak",
     ("atmosfer", "gerilim", "yavaş", "ürperti"):                        "deep-chills",
     ("estetik", "görsel", "sinematografi", "kompozisyon"):              "kadraj-estetigi",
     ("itiraf", "konuşma", "diyalog", "sohbet", "samimi"):               "geceyarisi-itirafi",

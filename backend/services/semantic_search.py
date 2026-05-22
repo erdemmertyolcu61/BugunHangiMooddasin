@@ -295,7 +295,7 @@ _MOOD_REASON_MAP = {
     "zihin":        "Düşündüren yapısı ve merak uyandıran kurgusuyla bu akşama yakışıyor.",
     "kalp":         "Küçük bir hikaye ama içinde büyük bir dünya barındırıyor.",
     "karmakar":     "Sıradışı yapısı ve deneysel anlatımıyla alışılmışın dışına çıkarıyor.",
-    "Retro":        "80'ler estetiği ve neon atmosferiyle zamanda geriye götürecek.",
+    "sipsak":       "Kısa sürede büyük iz bırakan kompakt başyapıtlar — vakit nakittir.",
     "deep-chills":       "Yavaş yanan gerilimi ve atmosferik anlatımıyla seçildi.",
     "kadraj-estetigi":   "Görsel şiirselliği ve sinematografik dokusuyla bu ruh haline çok uygun.",
     "geceyarisi-itirafi":"Diyoglarının derinliği ve samimi atmosferiyle bu geceye eşlik edecek.",

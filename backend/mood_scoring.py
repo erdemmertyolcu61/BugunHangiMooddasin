@@ -33,8 +33,8 @@ TMDB_KEYWORD_MOOD_MAP = {
     "quest": {"yolculuk": 0.3, "karmakar": 0.1},
 
     # Dark / Gece
-    "noir": {"gece": 0.5, "Retro": 0.2},
-    "neo-noir": {"gece": 0.5, "Retro": 0.2},
+    "noir": {"gece": 0.5, "sipsak": 0.1},
+    "neo-noir": {"gece": 0.5, "sipsak": 0.1},
     "detective": {"gece": 0.4, "zihin": 0.2},
     "murder mystery": {"gece": 0.4, "zihin": 0.3},
     "crime": {"gece": 0.4, "adrenalin": 0.1},
@@ -129,19 +129,18 @@ TMDB_KEYWORD_MOOD_MAP = {
     "experimental": {"karmakar": 0.5, "sessiz": 0.1},
     "dreamlike": {"karmakar": 0.4, "sessiz": 0.1},
     "psychedelic": {"karmakar": 0.4},
-    "cult film": {"karmakar": 0.3, "Retro": 0.2},
+    "cult film": {"karmakar": 0.3, "sipsak": 0.1},
     "abstract": {"karmakar": 0.4},
     "parallel universe": {"karmakar": 0.4, "zihin": 0.2},
     "alternate reality": {"karmakar": 0.4, "zihin": 0.2},
 
-    # Retro
-    "1980s": {"Retro": 0.5},
-    "retro": {"Retro": 0.4},
-    "cyberpunk": {"Retro": 0.4, "karmakar": 0.1},
-    "neon": {"Retro": 0.3, "gece": 0.1},
-    "synthwave": {"Retro": 0.4},
-    "arcade": {"Retro": 0.3},
-    "vhs": {"Retro": 0.3},
+    # Sipsak — kısa film / kompakt
+    "short film": {"sipsak": 0.5, "kalp": 0.2},
+    "kısa film": {"sipsak": 0.5, "kalp": 0.2},
+    "anthology": {"sipsak": 0.4, "karmakar": 0.1},
+    "minimalist": {"sipsak": 0.3, "sessiz": 0.2},
+    "independent film": {"sipsak": 0.2, "kalp": 0.4},
+    "festival": {"sipsak": 0.2, "kalp": 0.3},
 
     # Horror / Deep-chills
     "psychological horror": {"deep-chills": 0.5},
@@ -183,7 +182,7 @@ MOOD_GENRE_WEIGHTS = {
     "zihin":      {9648: 1.0, 878: 0.8, 53: 0.8, 80: 0.6, 28: 0.2, 18: 0.2, 14: 0.1, 36: 0.0, 35: 0.0, 27: 0.0, 10749: 0.0, 16: 0.0, 10751: 0.0, 10402: 0.0, 12: 0.0, 10752: 0.0, 99: 0.0, 37: 0.0},
     "kalp":       {18: 1.0, 10749: 0.8, 35: 0.2, 10402: 0.2, 36: 0.1, 16: 0.0, 10751: 0.0, 14: 0.0, 12: 0.0, 53: 0.0, 28: 0.0, 80: 0.0, 27: 0.0, 9648: 0.0, 878: 0.0, 10752: 0.0, 99: 0.0, 37: 0.0},
     "karmakar":   {14: 1.0, 878: 0.9, 53: 0.6, 9648: 0.4, 28: 0.2, 18: 0.2, 27: 0.2, 80: 0.1, 12: 0.0, 35: 0.0, 10749: 0.0, 16: 0.0, 10751: 0.0, 10402: 0.0, 36: 0.0, 10752: 0.0, 99: 0.0, 37: 0.0},
-    "Retro":      {878: 1.0, 28: 1.0, 53: 0.9, 80: 0.8, 12: 0.6, 27: 0.5, 35: 0.3, 18: 0.1, 14: 0.1, 9648: 0.1, 36: 0.0, 99: 0.0, 10749: 0.0, 16: 0.0, 10751: 0.0, 10402: 0.0, 10752: 0.0, 37: 0.0},
+    "sipsak":     {18: 1.0, 10749: 0.9, 35: 0.8, 99: 0.7, 14: 0.5, 9648: 0.3, 53: 0.1, 16: 0.1, 10751: 0.1, 10402: 0.1, 36: 0.1, 12: 0.0, 28: 0.0, 878: 0.0, 27: 0.0, 80: 0.0, 10752: 0.0, 37: 0.0},
     "deep-chills": {27: 1.0, 53: 0.9, 9648: 0.8, 14: 0.3, 18: 0.2, 878: 0.1, 80: 0.0, 28: 0.0, 35: 0.0, 10749: 0.0, 16: 0.0, 10751: 0.0, 10402: 0.0, 36: 0.0, 10752: 0.0, 99: 0.0, 37: 0.0, 12: 0.0},
     "kadraj-estetigi": {18: 1.0, 14: 0.9, 12: 0.8, 878: 0.7, 9648: 0.6, 36: 0.5, 99: 0.4, 53: 0.3, 10749: 0.2, 16: 0.1, 28: 0.1, 80: 0.1, 10402: 0.1, 27: 0.0, 35: 0.0, 10751: 0.0, 10752: 0.0, 37: 0.0, 10770: 0.0},
     "geceyarisi-itirafi": {18: 1.0, 10749: 0.9, 35: 0.6, 9648: 0.5, 99: 0.4, 36: 0.3, 10402: 0.2, 16: 0.1, 10751: 0.1, 12: 0.0, 28: 0.0, 878: 0.0, 27: 0.0, 53: 0.0, 80: 0.0, 10752: 0.0, 14: 0.0, 37: 0.0, 10770: 0.0},
@@ -528,17 +527,16 @@ def _mood_specific_bonus(genre_ids: list, mood_id: str, vote_count: int = None) 
         if 878 in genre_set and 36 not in genre_set:
             bonus -= 0.20
 
-    elif mood_id == "Retro":
-        if 878 in genre_set and 28 in genre_set:
-            bonus += 0.12  # Güçlendirildi
-        if 53 in genre_set and 80 in genre_set:
+    elif mood_id == "sipsak":
+        # Indie/drama + romance: güçlü kısa film sinerjisi
+        if 18 in genre_set and 10749 in genre_set:
             bonus += 0.12
-        if 27 in genre_set and 53 in genre_set:
-            bonus += 0.08
-        if 878 in genre_set and 80 in genre_set:
-            bonus += 0.08  # Yeni: Bilim Kurgu + Suç
-        # Anti-mismatch: dönem draması
-        if 36 in genre_set and 878 not in genre_set:
+        if 18 in genre_set and 35 in genre_set:
+            bonus += 0.10
+        if 99 in genre_set:
+            bonus += 0.08  # Belgesel kısaları
+        # Anti-mismatch: epik aksiyon
+        if 28 in genre_set or 878 in genre_set:
             bonus -= 0.20
 
     return max(-0.5, min(0.5, bonus))
@@ -645,18 +643,12 @@ def calculate_mood_scores(genre_ids: list, vote_average: float = None,
                 year_bonus = 0.02
             else:
                 year_bonus = -0.20
-        elif mood_id == "Retro" and year > 0:
-            if 1980 <= year <= 1989:
-                year_bonus = 0.25
-            elif 1977 <= year <= 1979:
-                year_bonus = 0.15
-            elif 1990 <= year <= 1995:
+        elif mood_id == "sipsak" and year > 0:
+            # Kısa film / kompakt başyapıt: modern dönem avantajı
+            if year >= 2010:
                 year_bonus = 0.12
-            elif year >= 2010:
-                year_bonus = -0.15
-                # Overview'da retro/80s/neon keyword varsa cezayı kaldır
-                if overview and any(kw in overview.lower() for kw in ["retro", "80s", "neon", "synth", "vhs", "arcade", "cyberpunk"]):
-                    year_bonus = 0.05
+            elif year >= 2000:
+                year_bonus = 0.06
         elif mood_id == "kalp" and year > 0:
             # Bağımsız sinema: 2010+ modern indie altın çağ
             if year >= 2015:

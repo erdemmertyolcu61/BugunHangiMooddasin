@@ -87,7 +87,7 @@ const MOOD_NAMES: Record<string, string> = {
   zihin:         'Zihin Savaşı',
   kalp:          'Kalbimin Sesi',
   karmakar:      'Karmaşakar',
-  retro:         'Retro Bakış',
+  sipsak:        'Şipşak',
   'deep-chills': 'Derin Ürperti',
 };
 
@@ -96,7 +96,7 @@ const MOOD_TEMPO: Record<string, Tempo> = {
   gozyasi:      'slow',
   sessiz:       'slow',
   kalp:         'slow',
-  retro:        'slow',
+  sipsak:       'fast',
   gece:         'balanced',
   askbahcesi:   'balanced',
   zamanyolcusu: 'balanced',
@@ -471,7 +471,7 @@ const USTAD_MOOD_REVIEWS: Record<string, string> = {
   zihin:         'Zihnin labirentlerinde dolaşmayı seviyorsun.',
   kalp:          'Festival sinemasının bağımsız ruhuna yakınsın.',
   karmakar:      'Türleri karıştıran cesur hikayelere açıksın.',
-  retro:         'Klasik sinemanın altın çağına özlem duyuyorsun.',
+  sipsak:        'Kısa ve vurucu başyapıtları tercih ediyorsun — zamanı etkili kullanan bir sinemaseversin.',
   'deep-chills': 'Seni ürperten, derinden sarsan yapıtlara yöneliyorsun.',
 };
 

@@ -1013,7 +1013,7 @@ class MovieCache:
         all_mood_ids = [
             "battaniye","yolculuk","gece","kahkaha","gozyasi","adrenalin",
             "askbahcesi","zamanyolcusu","sessiz","zihin","kalp","karmakar",
-            "Retro","deep-chills","kadraj-estetigi","geceyarisi-itirafi"
+            "sipsak","deep-chills","kadraj-estetigi","geceyarisi-itirafi"
         ]
         total_all = 0
         async with _get_connection(self.db_path) as db:

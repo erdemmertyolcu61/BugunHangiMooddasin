@@ -57,7 +57,7 @@ const USTAD_MOOD_REVIEWS = {
   zihin:        'Zihnin labirentlerinde dolaşmayı seviyorsun.',
   kalp:         'Festival sinemasının bağımsız ruhuna yakınsın.',
   karmakar:     'Türleri karıştıran cesur hikayelere açıksın.',
-  retro:        'Klasik sinemanın altın çağına özlem duyuyorsun.',
+  sipsak:       'Kısa ve kompakt başyapıtlara ilgi duyuyorsun — zamanı verimli kullanan bir sinemaseversin.',
   'deep-chills':'Seni ürperten, derinden sarsan yapıtlara yöneliyorsun.',
 };
 const getUstadReview = (moodId) => USTAD_MOOD_REVIEWS[moodId] || '';

@@ -10,7 +10,7 @@ const QUESTIONS = [
     answers: [
       { text: "Sadece loş bir mum ışığı veya tek bir lambanın huzuru.", targets: ["battaniye", "sessiz"] },
       { text: "Şehrin neon ışıkları, ıslak sokaklar ve loş bir tekinsizlik.", targets: ["adrenalin", "geceyarisi-itirafi"] },
-      { text: "Eski bir sinema salonunun nostaljik, grenli ve sepya tonları.", targets: ["retro", "nostalji"] },
+      { text: "Eski bir sinema salonunun nostaljik, grenli ve sepya tonları.", targets: ["zamanyolcusu", "nostalji"] },
       { text: "Göz alıcı renk paletleri, kusursuz kadrajlar ve estetik bir şölen.", targets: ["kadraj-estetigi", "melankoli"] },
     ],
   },
@@ -20,7 +20,7 @@ const QUESTIONS = [
     answers: [
       { text: "Yavaş aksın; karakterlerin derin felsefi fısıltılarını sindireyim.", targets: ["geceyarisi-itirafi", "felsefe"] },
       { text: "Nabzım hızlansın, koltuğun kenarını sıktıracak bir kaos olsun.", targets: ["adrenalin", "gerilim"] },
-      { text: "Şiirsel bir duruluk; kelimeler azalsın, görüntüler konuşsun.", targets: ["sessiz", "kadraj-estetigi"] },
+      { text: "Şiirsel bir duruluk; kelimeler azalsın, görüntüler konuşsun.", targets: ["sipsak", "sessiz", "kadraj-estetigi"] },
       { text: "Zaman algım tamamen bükülsün, beynimin kıvrımları yansın.", targets: ["zihin", "bilimkurgu"] },
     ],
   },
@@ -38,7 +38,7 @@ const QUESTIONS = [
     id: "step_4_intellectual_state",
     text: "4. Üstad zihnini ne kadar yorsun, ne kadarlık bir labirent istersin?",
     answers: [
-      { text: "Hiç yormasın; arkama yaslanıp sadece hikayenin akışına bırakayım.", targets: ["populer", "battaniye"] },
+      { text: "Hiç yormasın; arkama yaslanıp sadece hikayenin akışına bırakayım.", targets: ["sipsak", "populer", "battaniye"] },
       { text: "Beni ipuçlarının peşinden koşturacak zekice bir bulmaca versin.", targets: ["zihin", "gizem"] },
       { text: "Bittiğinde saatlerce duvara bakıp hayatı sorgulatacak felsefi bir yük.", targets: ["zihin", "felsefe"] },
       { text: "Sanat filmi kafası; yoruma açık, metaforlarla dolu bağımsız bir ruh.", targets: ["kadraj-estetigi", "sessiz"] },
@@ -50,7 +50,7 @@ const QUESTIONS = [
     answers: [
       { text: "Kuzey Avrupa'nın soğuk, puslu ve mesafeli yalnızlığına.", targets: ["sessiz", "melankoli"] },
       { text: "Uzak geleceğe, uzay boşluğuna veya distopik bir evrene.", targets: ["zihin", "bilimkurgu"] },
-      { text: "70'lerin, 80'lerin o samimi, analog ve retro sokaklarına.", targets: ["retro", "nostalji"] },
+      { text: "70'lerin, 80'lerin o samimi, analog sokaklarına.", targets: ["sipsak", "nostalji"] },
       { text: "Tek bir odada veya klostrofobik bir kapalı alanda geçen düelloya.", targets: ["geceyarisi-itirafi", "gerilim"] },
     ],
   },
@@ -79,7 +79,7 @@ const MOOD_NAMES = {
   zihin: "Zihin Savaşı",
   kalp: "Kalbimin Sesi",
   karmakar: "Karmaşakar",
-  retro: "Retro Bakış",
+  sipsak: "Şipşak",
   "deep-chills": "Derin Ürperti",
   "kadraj-estetigi": "Kadraj Estetiği",
   "geceyarisi-itirafi": "Geceyarısı İtirafı",
@@ -136,7 +136,7 @@ export function getResultMessage(topMoods) {
     zihin: "Üstad'ın seçkisiyle zihninin sınırlarını zorlayacak, şaşırtıcı bir film seni bekliyor.",
     kalp: "Büyük hikayeler değil, küçük dokunuşlar arıyorsun. Bağımsız sinemanın samimi dünyası.",
     karmakar: "Gerçekliğin sınırlarını zorlayan, sıradışı bir deneyim istiyorsun.",
-    retro: "Neon ışıklar ve synth melodiler eşliğinde geçmişe bir yolculuk yapma vakti.",
+    sipsak: "Zamanın az, sinema aşkının sonsuz. Kısa ve vurucu başyapıtlar seni bekliyor — perde hemen açılıyor.",
     "deep-chills": "Karanlık çöktü, perdeler kapandı. Derin bir ürperti için hazır mısın?",
     "kadraj-estetigi": "Güzel bir kare bin kelimeye bedeldir. Bu gece sinematografinin başyapıtlarını keşfet.",
     "geceyarisi-itirafi": "Gece yarısı sohbetleri ve derin diyaloglar sana iyi gelecek. Konuşmaların büyüsüne kapıl.",

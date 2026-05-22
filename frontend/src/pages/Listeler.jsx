@@ -25,7 +25,7 @@ const MOOD_COLORS = {
   gece:          { bg: 'from-slate-900/70 to-black',   accent: '#94a3b8' },
   'deep-chills': { bg: 'from-blue-950/70 to-black',    accent: '#3b82f6' },
   kalp:          { bg: 'from-pink-950/70 to-black',    accent: '#ec4899' },
-  Retro:         { bg: 'from-cyan-950/70 to-black',    accent: '#06b6d4' },
+  sipsak:        { bg: 'from-yellow-950/70 to-black',  accent: '#d4af37' },
   sessiz:        { bg: 'from-stone-900/70 to-black',   accent: '#a8a29e' },
   askbahcesi:    { bg: 'from-rose-950/70 to-black',    accent: '#f43f5e' },
   zamanyolcusu:  { bg: 'from-amber-950/70 to-black',   accent: '#f59e0b' },

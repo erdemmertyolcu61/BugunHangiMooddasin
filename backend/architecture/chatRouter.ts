@@ -104,7 +104,7 @@ const MOOD_KEYWORD_MAP: Record<string, string[]> = {
   kahkaha:       ['komik', 'güldüren', 'komedi', 'eğlenceli', 'kahkaha'],
   adrenalin:     ['adrenalin', 'heyecanlı', 'gerilimli', 'aksiyon'],
   yolculuk:      ['macera', 'yolculuk', 'keşif', 'epik'],
-  zamanyolcusu:  ['zaman', 'retro', 'nostaljik', 'eski'],
+  zamanyolcusu:  ['zaman', 'nostaljik', 'eski'],
   sessiz:        ['sessiz', 'minimal', 'yavaş', 'sanat filmi'],
   zihin:         ['zihin', 'akıl', 'bulmaca', 'twist', 'beyin'],
   kalp:          ['bağımsız', 'indie', 'festival', 'küçük'],

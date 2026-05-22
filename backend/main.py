@@ -66,7 +66,7 @@ MOOD_ID_LABELS = {
     "zihin": "zihin",
     "kalp": "kalp",
     "karmakar": "karmakar",
-    "Retro": "Retro",
+    "sipsak": "sipsak",
     "deep-chills": "deep-chills",
     "kadraj-estetigi": "kadraj-estetigi",
     "geceyarisi-itirafi": "geceyarisi-itirafi",
@@ -77,8 +77,6 @@ def _normalize_mood_id(mood_id: str) -> str:
     if not mood_id:
         return "battaniye"
     m = mood_id.strip()
-    if m.lower() == "retro":
-        return "Retro"
     return m.lower()
 
 logging.basicConfig(
@@ -2255,10 +2253,10 @@ _CONFUSED_KEYWORDS = {
     "eski": {"zamanyolcusu": 4},
     "nostaljik": {"zamanyolcusu": 4},
     "klasik": {"zamanyolcusu": 4},
-    "80ler": {"Retro": 4},
-    "neon": {"Retro": 4},
-    "retro": {"Retro": 4},
-    "synth": {"Retro": 4},
+    "80ler": {"sipsak": 3, "zamanyolcusu": 1},
+    "neon": {"sipsak": 3, "gece": 2},
+    "retro": {"zamanyolcusu": 4},
+    "synth": {"sipsak": 3},
     "heyecan": {"adrenalin": 4, "gece": 1},
     "macera": {"yolculuk": 4, "adrenalin": 1},
     "yol": {"yolculuk": 4},
@@ -2267,19 +2265,19 @@ _CONFUSED_KEYWORDS = {
     "aşk": {"askbahcesi": 4, "gozyasi": 1},
     "korku": {"deep-chills": 4, "gece": 2},
     "gizem": {"zihin": 3, "gece": 2, "karmakar": 1},
-    "uzay": {"yolculuk": 2, "Retro": 2, "karmakar": 1},
+    "uzay": {"yolculuk": 2, "karmakar": 1},
     "çocuk": {"battaniye": 4, "kahkaha": 2},
     "aile": {"battaniye": 4, "kahkaha": 1},
-    "sürpriz": {"battaniye": 1, "yolculuk": 1, "gece": 1, "kahkaha": 1, "gozyasi": 1, "adrenalin": 1, "askbahcesi": 1, "zamanyolcusu": 1, "sessiz": 1, "zihin": 1, "kalp": 1, "karmakar": 1, "Retro": 1, "deep-chills": 1, "kadraj-estetigi": 1, "geceyarisi-itirafi": 1},
+    "sürpriz": {"battaniye": 1, "yolculuk": 1, "gece": 1, "kahkaha": 1, "gozyasi": 1, "adrenalin": 1, "askbahcesi": 1, "zamanyolcusu": 1, "sessiz": 1, "zihin": 1, "kalp": 1, "karmakar": 1, "sipsak": 1, "deep-chills": 1, "kadraj-estetigi": 1, "geceyarisi-itirafi": 1},
     "klişe": {"askbahcesi": -1, "gozyasi": -1, "battaniye": -1},
     "yavaş": {"sessiz": 3, "battaniye": 2},
-    "hızlı": {"adrenalin": 3, "Retro": 2},
+    "hızlı": {"adrenalin": 3, "sipsak": 1},
     "kaliteli": {"zihin": 2, "kalp": 2, "sessiz": 1},
     "derin": {"kalp": 3, "sessiz": 2, "zihin": 1},
     "hafif": {"kahkaha": 3, "battaniye": 3, "yolculuk": 1},
     "ağır": {"gozyasi": 3, "deep-chills": 2, "zamanyolcusu": 1},
     "kafa dağıtmak": {"kahkaha": 4, "adrenalin": 2, "yolculuk": 1},
-    "bilim kurgu": {"zihin": 3, "Retro": 2, "yolculuk": 2, "karmakar": 1},
+    "bilim kurgu": {"zihin": 3, "yolculuk": 2, "karmakar": 1},
     "deneysel": {"karmakar": 4, "sessiz": 1},
     "şaşırt": {"karmakar": 3, "zihin": 3, "gece": 1},
     "duygusal": {"gozyasi": 4, "kalp": 3, "askbahcesi": 2, "battaniye": 1},
@@ -2359,7 +2357,7 @@ def _rule_based_confused_analysis(text: str) -> dict:
     scores = {m: 0 for m in [
         "battaniye","yolculuk","gece","kahkaha","gozyasi","adrenalin",
         "askbahcesi","zamanyolcusu","sessiz","zihin","kalp","karmakar",
-        "Retro","deep-chills"
+        "sipsak","deep-chills"
     ]}
 
     matched_real = False
@@ -2396,7 +2394,7 @@ def _rule_based_confused_analysis(text: str) -> dict:
         "yolculuk": "keşif dolu bir yolculuk",
         "zamanyolcusu": "vintage ve nostaljik bir his",
         "karmakar": "sıradışı ve deneysel bir deneyim",
-        "Retro": "80'ler neon ve synthwave atmosferi",
+        "sipsak": "kısa ve kompakt başyapıtlar — zamanın az, sinema aşkının sonsuz olduğu anlar için",
     }
 
     if not matched_real:
@@ -2425,7 +2423,7 @@ REASON_MAP = {
     "yolculuk": "Keşif hissi ve geniş ufkuyla seni bambaşka diyarlara götürecek.",
     "zamanyolcusu": "Nostaljik dokusu ve zamansız atmosferiyle geçmişe bir yolculuk vaat ediyor.",
     "karmakar": "Sıradışı yapısı ve deneysel anlatımıyla alışılmışın dışına çıkarıyor.",
-    "Retro": "80'ler estetiği ve neon atmosferiyle zamanda geriye götürecek.",
+    "sipsak": "Kısa sürede büyük iz bırakan, kompakt sinematik vuruşlar — perde hemen açılıyor.",
     "kadraj-estetigi": "Her kare bir tablo gibi; görsel şölen ve sinematografi başyapıtı.",
     "geceyarisi-itirafi": "Gece yarısı derin sohbetlerin ve samimi diyalogların filmi.",
 }
@@ -2566,7 +2564,7 @@ async def post_random_recommendation(req: RandomRecommendRequest):
             all_mood_ids = [
                 "battaniye","yolculuk","gece","kahkaha","gozyasi","adrenalin",
                 "askbahcesi","zamanyolcusu","sessiz","zihin","kalp","karmakar",
-                "Retro","deep-chills"
+                "sipsak","deep-chills"
             ]
             rnd.shuffle(all_mood_ids)
             per_mood = max(1, limit // 3)
@@ -2698,7 +2696,7 @@ async def post_quick_mood_mix(req: QuickMoodMixRequest):
         "yolculuk": "Yeni ufuklara doğru yola çıkıyoruz.",
         "zamanyolcusu": "Nostaljinin büyüsüne kapılmaya hazır mısın?",
         "karmakar": "Alışılmışın dışında bir gece seni bekliyor.",
-        "Retro": "Neon ışıklar ve synthwave — zamanda yolculuğa çıkıyoruz.",
+        "sipsak": "Zamanın az, sinema aşkının sonsuz. Kısa ve vurucu başyapıtlar seçtim.",
     }
     ustad_line = messages.get(primary_mood, "Bu gece için özel bir seçim hazırladım.")
 
@@ -3032,6 +3030,25 @@ async def post_mood_quiz_recommendation(req: MoodQuizRequest):
 
     scores = np.where(scores >= 0.38, scores, -1.0)
 
+    # ─── Sipsak Runtime Bias ─────────────────────────────────────────────────
+    if "sipsak" in req.targets and GLOBAL_CACHE.get("meta_list") is not None:
+        meta_list = GLOBAL_CACHE["meta_list"]
+        for idx in range(len(meta_list)):
+            meta = meta_list[idx]
+            runtime = meta.get("runtime") or meta.get("movie_runtime") or 0
+            if runtime <= 0:
+                overview = (meta.get("overview") or "").lower()
+                # heuristic: kısa anlatımlı filmler muhtemelen kısadır
+                if len(overview) < 200:
+                    scores[idx] += 0.15
+                continue
+            if runtime <= 45:
+                scores[idx] += 0.50  # Gerçek kısa film
+            elif runtime <= 90:
+                scores[idx] += 0.25  # Kompakt yapım
+            elif runtime > 110:
+                scores[idx] -= 0.30  # Uzun metraj — ceza
+
     pool_size = min(limit * 3, len(semantic_engine._tmdb_ids))
     if pool_size <= 0:
         return {"ok": False, "movies": [], "mode": "quiz_no_match", "targets": req.targets}
@@ -3124,7 +3141,7 @@ async def expand_status():
 # --- Zevk Haritasi (Taste Map) ---
 
 MOOD_TEMPO = {"kalp": "slow", "sessiz": "slow", "gozyasi": "slow", "zamanyolcusu": "slow",
-              "adrenalin": "fast", "kahkaha": "fast", "Retro": "fast", "yolculuk": "medium",
+              "adrenalin": "fast", "kahkaha": "fast", "sipsak": "fast", "yolculuk": "medium",
               "gece": "medium", "zihin": "medium", "battaniye": "slow", "karmakar": "medium",
               "deep-chills": "slow", "askbahcesi": "medium", "kadraj-estetigi": "slow",
               "geceyarisi-itirafi": "slow"}
@@ -3146,7 +3163,7 @@ MOOD_NAMES = {
     "kahkaha": "Kahkaha Molası", "gozyasi": "Gözyaşı Gecesi", "adrenalin": "Adrenalin Patlaması",
     "askbahcesi": "Aşk Bahçesi", "zamanyolcusu": "Zaman Yolcusu", "sessiz": "Sessiz Yolculuk",
     "zihin": "Zihin Savaşı", "kalp": "Kalbimin Sesi", "karmakar": "Karmaşakar",
-    "Retro": "Retro Bakış", "deep-chills": "Derin Ürperti",
+    "sipsak": "Şipşak", "deep-chills": "Derin Ürperti",
     "kadraj-estetigi": "Kadraj Estetiği", "geceyarisi-itirafi": "Geceyarısı İtirafı",
 }
 
@@ -3401,9 +3418,9 @@ MOOD_AUDIO_TRACKS = {
     "karmakar":     ["drifting-through-fog", "underwater-dreamscape", "deep-space-loop",
                      "almost-floating", "moonlit-moss", "orbiting-in-silence"],
 
-    # 80s Synthwave & Neon — retro, arcade, VHS, neon synth, nostaljik teknoloji
-    "Retro":        ["peach-cobbler-static", "neon-on-the-diner-floor", "mirrorball-slow-roll",
-                     "cassette-basement-bounce", "burnt-sunset-groove", "vhs-heartbeat"],
+    # Quick & Compact — kısa filmler, vurucu kompakt başyapıtlar, hızlı sinematik vuruşlar
+    "sipsak":       ["aurora-on-mute", "soft-weightless-hours", "blue-below-the-surface",
+                     "orbiting-in-silence", "moonlit-moss", "drifting-through-fog"],
 
     # Slow-burn Atmospheric Tension — karanlık, ürperti, psikolojik gerilim, tedirginlik
     # Derin, rahatsız edici, yavaş yanan atmosferik parçalar — jumpscare DEĞİL
@@ -3474,9 +3491,9 @@ MOOD_AUDIO_PROFILES = {
         "positive": ["drifting", "fog", "underwater", "dreamscape", "deep-space", "loop", "almost", "floating", "moonlit", "moss", "orbiting", "silence", "ghost", "stained-glass"],
         "negative": ["love-letter", "slow-dance", "sunny", "groove", "block-party", "coffee", "golden", "summer"]
     },
-    "Retro": {
-        "positive": ["neon", "diner", "cassette", "basement", "bounce", "mirrorball", "peach", "cobbler", "static", "sunset", "burnt", "groove", "vhs", "heartbeat"],
-        "negative": ["candle", "gramophone", "classical", "saxophone", "medieval"]
+    "sipsak": {
+        "positive": ["aurora", "mute", "weightless", "blue", "surface", "orbiting", "silence", "moonlit", "moss", "drifting", "fog", "soft", "lullaby", "gentle", "minimal"],
+        "negative": ["thunder", "epic", "battle", "orchestral", "choir"]
     },
     "deep-chills": {
         "positive": ["antenna", "midnight", "empty-street", "static", "terminal", "rain", "moon", "dunes", "velvet", "cigarette", "haze", "green", "after-midnight"],
@@ -3592,7 +3609,7 @@ MOOD_AUDIO_URLS = {
     "zihin": "https://cdn.pixabay.com/audio/2022/03/09/audio_65a70e1ef3.mp3",
     "kalp": "https://cdn.pixabay.com/audio/2023/06/12/audio_ba5e3a3f59.mp3",
     "karmakar": "https://cdn.pixabay.com/audio/2022/08/02/audio_8c8b08c8c4.mp3",
-    "Retro": "https://cdn.pixabay.com/audio/2022/11/22/audio_8ceabc8b8e.mp3",
+    "sipsak": "https://cdn.pixabay.com/audio/2022/10/25/audio_1e6d7b7e42.mp3",
     "deep-chills": "https://cdn.pixabay.com/audio/2023/07/07/audio_34cea2adf1.mp3",
     "kadraj-estetigi": "https://cdn.pixabay.com/audio/2022/10/25/audio_1e6d7b7e42.mp3",
     "geceyarisi-itirafi": "https://cdn.pixabay.com/audio/2023/06/12/audio_ba5e3a3f59.mp3",

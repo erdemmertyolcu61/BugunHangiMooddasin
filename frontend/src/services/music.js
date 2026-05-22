@@ -110,14 +110,14 @@ const MOOD_PRESETS = {
     detune: 15, lfoRate: 0.20, lfoDepth: 180,
     gain: 0.11, color: "#3b0764"
   },
-  // 📺 Retro Bakış — 80s synthwave neon
-  Retro: {
-    label: "Neon Sokak",
-    notes: [233.08, 293.66, 349.23, 466.16],
-    wave: "sawtooth",
-    filterFreq: 2000, filterQ: 1.5,
-    detune: 10, lfoRate: 0.22, lfoDepth: 160,
-    gain: 0.12, color: "#155e75"
+  // ⏱️ Şipşak — Quick & compact, minimal ambient
+  sipsak: {
+    label: "Kompakt Vuruş",
+    notes: [392.00, 523.25, 659.25, 783.99],
+    wave: "triangle",
+    filterFreq: 2400, filterQ: 0.6,
+    detune: 4, lfoRate: 0.18, lfoDepth: 8,
+    gain: 0.11, color: "#d4af37"
   },
   // 🕯️ Derin Ürperti — Dark ambient, sisli atmosfer
   "deep-chills": {

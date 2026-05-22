@@ -72,7 +72,7 @@ class ClaudeService:
             "(Battaniye Modu 🛋️, Yolculuk Ruhu 🧳, Gece Kuşu 🌙, Kahkaha Molası 😂, "
             "Gözyaşı Gecesi 🍷, Adrenalin Patlaması 🔥, Aşk Bahçesi 💐, Zaman Yolcusu 📽️, "
             "Sessiz Yolculuk 🤫, Zihin Savaşı 🧠, Kalbimin Sesi 💓, Karmaşakar 🔮, "
-            "Retro Bakış 📼, Derin Ürperti 🕯️).\n\n"
+            "Şipşak ⏱️, Derin Ürperti 🕯️).\n\n"
             "MOD TANIMLARI VE KRİTİK AYRIŞTIRMA KURALLARI:\n\n"
             "1. Battaniye Modu 🛋️: Cozy, sıcak, rahat, feel-good. Aile, yumuşak komedi, tatlı romantik, sıcak dram. "
             "Kullanıcıyı yormayan, korkutmayan filmler. Örn: The Intouchables, Amelie, Paddington.\n\n"
@@ -89,7 +89,7 @@ class ClaudeService:
             "7. Aşk Bahçesi 💐: Romantik, sıcak, duygusal, zarif. Aşk ana unsur. Rom-com olabilir ama duygu yoğun olmalı. "
             "Kalbimin Sesi'nden farklı: Aşk Bahçesi romantik ana odak; Kalp daha indie/minimal. Örn: Before Sunrise, La La Land.\n\n"
             "8. Zaman Yolcusu 📽️: Tarih, dönem filmi, biyografi, eski atmosfer. Vintage hissi. "
-            "Retro Bakış'tan farklı: Zaman Yolcusu tarihi dönem/geçmiş; Retro 80ler/neon/pop kültür estetiği. Örn: The King's Speech, 12 Years a Slave.\n\n"
+            "Şipşak'tan farklı: Zaman Yolcusu tarihi dönem/geçmiş; Şipşak kısa/kompakt bağımsız yapımlar. Örn: The King's Speech, 12 Years a Slave.\n\n"
             "9. Sessiz Yolculuk 🤫: Minimal, sakin, meditatif, yavaş tempo. Slow cinema, görsel anlatım ön planda. "
             "Aksiyon/yüksek tempo asla olmaz. Huzurlu/derin. Örn: Nomadland, Stalker, Perfect Days.\n\n"
             "10. Zihin Savaşı 🧠: Mind-bending, twist, puzzle, zeka oyunu. Psikolojik gerilim, karmaşık anlatı. "
@@ -100,8 +100,8 @@ class ClaudeService:
             "Örn: Aftersun, Past Lives, Moonlight, The Florida Project, Paterson, First Cow.\n\n"
             "12. Karmaşakar 🔮: Gerçeküstü, deneysel, rüya gibi, mantık kıran. Normal anlatı beklenmez. "
             "Zihin Savaşı'ndan farklı: Karmaşakar daha surreal/experimental; Zihin puzzle/zeka oyunu. Örn: Eternal Sunshine, Synecdoche New York.\n\n"
-            "13. Retro Bakış 📼: 80ler/90lar estetiği, neon, synth, VHS, arcade. Hem eski hem yeni retro filmler. "
-            "Zaman Yolcusu'ndan farklı: Retro 80s/neon/pop kültür; Zaman Yolcusu tarih/vintage/dönem. Örn: Blade Runner 2049, Drive, The Guest.\n\n"
+            "13. Şipşak ⏱️: Kısa filmler, antoloji bölümleri, kompakt başyapıtlar. Vurucu ve etkili — saniyelerin bile başyapıta dönüştüğü yapımlar. "
+            "Zaman Yolcusu'ndan farklı: Şipşak kısa süre/kompakt anlatı odaklı; Zaman Yolcusu tarih/vintage/dönem. Örn: The Act of Killing, Waking Life, Slacker.\n\n"
             "14. Derin Ürperti 🕯️: Slow-burn korku, psikolojik gerilim, atmosferik dehşet. Ani jumpscare değil; "
             "tedirginlik, bekleyiş, karanlık hissi. Gece Kuşu'ndan farklı: Deep-Chills psikolojik korku/ürperti; Gece noir/suç/gizem. "
             "Örn: The Witch, Hereditary, The Lighthouse, Midsommar.\n\n"
@@ -110,7 +110,7 @@ class ClaudeService:
             "- Karanlık suç/gizem ise Gece Kuşu; psikolojik korku/slow-burn ise Derin Ürperti.\n"
             "- Romantik atmosfer ana unsursa Aşk Bahçesi; bağımsız/art house/festival filmi ise Kalbimin Sesi (romantik bile olsa).\n"
             "- Aksiyon/tempo yüksekse Adrenalin; sadece gizem/puzzle ise Zihin Savaşı.\n"
-            "- Tarih/dönem/kostüm varsa Zaman Yolcusu; neon/synth/80s estetiği varsa Retro Bakış.\n"
+            "- Tarih/dönem/kostüm varsa Zaman Yolcusu; kısa/kompakt/vurucu yapımlar varsa Şipşak.\n"
             "- Çizgi film/animasyon asla Kahkaha Molası olmaz; Battaniye Modu'na gider.\n"
             "- Blockbuster, süper kahraman, çok yüksek bütçeli filmler Kalbimin Sesi olamaz.\n\n"
              "2. Üstadın Notu: 'Üstadın Notu:' ile başlayan, Türkçe 4-5 cümlelik entelektüel derinliği olan bir yorum yaz.\n\n"
@@ -190,7 +190,7 @@ MOOD_TO_GENRES = {
     "zihin": [9648, 878, 53, 80, 28],
     "kalp": [18, 35, 99, 10402, 36],
     "karmakar": [14, 878, 53, 9648, 18],
-    "Retro": [878, 53, 28, 80, 12],
+    "sipsak": [18, 10749, 35, 99, 14],
     "deep-chills": [27, 53, 9648, 14, 18],
     "belirsiz": [18, 878, 35, 53],
 }
@@ -211,7 +211,7 @@ class ConfusionService:
 Kullanıcı: "{user_text}"
 
 14 MOOD (id: kısa tanım):
-battaniye: sıcak/rahat/feel-good, yormaz | yolculuk: keşif/yol/macera | gece: karanlık şehir/suç/noir/gizem | kahkaha: komedi/gülme/hafif | gozyasi: duygusal/ağlatan/kayıp/aile dramı | adrenalin: aksiyon/tempo/heyecan | askbahcesi: romantik/aşk/tutku | zamanyolcusu: tarih/dönem/klasik/nostalji | sessiz: sakin/minimal/içe dönük/yavaş | zihin: puzzle/twist/mind-game | kalp: bağımsız/art house/festival/karakter odaklı | karmakar: gerçeküstü/deneysel/tuhaf | Retro: 80s/neon/synthwave/VHS | deep-chills: slow-burn atmosferik korku/gerilim
+battaniye: sıcak/rahat/feel-good, yormaz | yolculuk: keşif/yol/macera | gece: karanlık şehir/suç/noir/gizem | kahkaha: komedi/gülme/hafif | gozyasi: duygusal/ağlatan/kayıp/aile dramı | adrenalin: aksiyon/tempo/heyecan | askbahcesi: romantik/aşk/tutku | zamanyolcusu: tarih/dönem/klasik/nostalji | sessiz: sakin/minimal/içe dönük/yavaş | zihin: puzzle/twist/mind-game | kalp: bağımsız/art house/festival/karakter odaklı | karmakar: gerçeküstü/deneysel/tuhaf | sipsak: kısa film/antoloji/kompakt başyapıt/vurucu | deep-chills: slow-burn atmosferik korku/gerilim
 
 NÜANS KURALLARI (mood seçiminde belirleyici):
 - "yorgun/bitkin/uykusuz" → düşük enerji: battaniye/sessiz/kalp (adrenalin/kahkaha DEĞİL)
@@ -220,7 +220,7 @@ NÜANS KURALLARI (mood seçiminde belirleyici):
 - KRİTİK: "sevgilimle/eşimle/partnerimle" + "şehvetli/tutkulu/ateşli/erotik/romantik gece/çift gecesi/date night" → primary_mood KESİNLİKLE "askbahcesi" (yoğun romantik/tutkulu), prefer'a "passionate" ekle. ASLA battaniye/"sıcak rahat ortam" değil.
 - "karanlık+kaliteli" → gece/zihin/deep-chills; "gerilmek/korkmak" → deep-chills/gece
 - "düşündüren/felsefi/twist" → zihin/kalp/karmakar
-- "nostaljik/klasik/tarih" → zamanyolcusu; "80ler/neon/synth" → Retro
+- "nostaljik/klasik/tarih" → zamanyolcusu; "kisa/kısa/kompakt/antoloji" → sipsak
 - "sıradışı/tuhaf" → karmakar; "bağımsız/indie/festival" → kalp; "macera/keşif" → yolculuk
 - MEVSİM/HAVA (atmosphere'a yaz): "kış/kar/soğuk" → battaniye/sessiz/gozyasi/zamanyolcusu (içe dönük cozy, ASLA tersi); "yaz/güneş" → yolculuk/askbahcesi/adrenalin; "sonbahar" → sessiz/gozyasi/kalp; "yağmur" → sessiz/gozyasi/battaniye
 - Kısa/belirsiz → en güçlü ipucundan primary seç, mood_mix geniş tut. Çelişkili istek → baskın duygu primary, diğeri secondary.

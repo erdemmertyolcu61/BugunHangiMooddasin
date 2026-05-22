@@ -49,7 +49,7 @@
     "title": "80'lerin Neon Şehirleri",
     "description": "Synth müzikler, neon ışıklar, VHS estetiği. 80'ler sinemasının en ikonik anları.",
     "ustad_intro": "80'ler sineması bugün nostalji değil, kültür referansı. Blade Runner'daki o yağmurlu neon sokakların, Terminator'ün gözlerindeki soğukluğun tadını başka hiçbir dönem veremez.",
-    "mood": "Retro",
+    "mood": "zamanyolcusu",
     "filters": { "primary_release_date_gte": "1980-01-01", "primary_release_date_lte": "1991-12-31" },
     "tmdb_ids": [78, 218, 105, 149, 97, 1091, 111, 679, 5548, 562]
   },

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useMemo, useRef } from 'react';
 
-import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Glasses, Flame, Map as MapIcon, VolumeX, Ghost, Sparkles, Camera, Radio } from 'lucide-react';
+import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Flame, Map as MapIcon, VolumeX, Ghost, Sparkles, Camera, Radio } from 'lucide-react';
 import { repositoryMovies, proxyImageUrl } from '../services/api';
 
 const MoodContext = createContext();
@@ -175,19 +175,19 @@ export const MOODS = {
     gurmeNote: 'Üstad diyor ki: "Sinemanın sınırlarını zorlayan filmler, en cesur izleyicilere seslenir. Bu modda kendini kaybedeceksin."',
     genres: [14, 878, 53, 9648, 18, 27, 80],
   },
-  Retro: {
-    id: 'Retro',
-    title: 'Retro Bakış',
-    icon: Glasses,
-    iconType: 'glasses',
-    subtitle: '80s Synthwave & Neon',
-    color: 'from-cyan-900/80 to-blue-950/80',
-    auraColors: ['#155e75', '#1e3a8a', '#0c0a3e', '#1a4d6e'],
-    animationType: 'neon',
-    vignette: '#155e75',
-    intro: 'Neon ışıklar, synthesizeler ve nostaljik teknoloji. 80lerin büyülü dünyasına adım at.',
-    gurmeNote: 'Üstad diyor ki: "80ler sadece bir dönem değil, bir estetik. Bu modda o zamanların ikonik yapıtlarını keşfedeceksin."',
-    genres: [878, 53, 28, 80, 12, 27, 35],
+  sipsak: {
+    id: 'sipsak',
+    title: 'Şipşak',
+    icon: Zap,
+    iconType: 'zap',
+    subtitle: 'Minimal Ambient & Lo-fi',
+    color: 'from-yellow-900/80 to-black',
+    auraColors: ['#d4af37', '#1a1a2e', '#0f0f1a', '#b8960f'],
+    animationType: 'quick',
+    vignette: '#d4af37',
+    intro: 'Üstad der ki: "Zamanın az, sinema aşkının sonsuz olduğu o dar aralıklar için... Perdeyi hemen açıyoruz; saniyelerin bile bir başyapıta dönüştüğü, vakit nakittir diyen ama sanattan ödün vermeyen kompakt sinematik vuruşlar."',
+    gurmeNote: 'Üstad diyor ki: "Kısa filmler antolojilerin en vurucu parçalarıdır. Bu modda zamanın kıymetini bilen başyapıtları keşfedeceksin."',
+    genres: [18, 10749, 35, 99, 14],
   },
   "deep-chills": {
     id: 'deep-chills',
