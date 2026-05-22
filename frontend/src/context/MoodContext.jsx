@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useCallback, useMemo, useRef } from 'react';
 
 import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Glasses, Flame, Map as MapIcon, VolumeX, Ghost, Sparkles, Camera, Radio } from 'lucide-react';
-import { repositoryMovies } from '../services/api';
+import { repositoryMovies, proxyImageUrl } from '../services/api';
 
 const MoodContext = createContext();
 
@@ -235,7 +235,32 @@ export const MOODS = {
 
 
 // Global cache for movies to avoid redundant API calls
+// Each entry: { data, cachedAt: number, ttl: number }
 const MOVIES_CACHE = new Map();
+const MOOD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes default
+const MOOD_CACHE_TTL_STALE = 10 * 60 * 1000; // serve stale up to 10 min
+
+const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
+const IMG_PREFETCH_COUNT = 10; // preload first N posters
+
+function _imgUrl(movie) {
+  const raw = movie.poster_url || (movie.poster_path ? `${IMG_BASE}${movie.poster_path}` : null);
+  if (!raw) return null;
+  return proxyImageUrl(raw);
+}
+
+function _prefetchImages(data) {
+  if (!data?.movies?.length) return;
+  const limit = Math.min(data.movies.length, IMG_PREFETCH_COUNT);
+  for (let i = 0; i < limit; i++) {
+    const url = _imgUrl(data.movies[i]);
+    if (url) {
+      const img = new Image();
+      img.fetchPriority = 'high';
+      img.src = url;
+    }
+  }
+}
 
 export function MoodProvider({ children }) {
   const [selectedMood, setSelectedMood] = useState(() => {
@@ -260,14 +285,21 @@ export function MoodProvider({ children }) {
   }, []);
 
   /**
-   * Fetches movies for a mood with caching and request cancellation
+   * Fetches movies for a mood with TTL caching and request cancellation.
+   * Returns fresh cache within TTL, stale cache with background refresh,
+   * or fetches new if cache is missing/expired.
    */
   const fetchMoodMovies = useCallback(async (moodId, page = 1, sortBy = "recommended", minMoodScore = 0, forceRefresh = false) => {
     const cacheKey = `${moodId}_p${page}_s${sortBy}_m${minMoodScore}`;
     
-    if (!forceRefresh && MOVIES_CACHE.has(cacheKey)) {
-      console.log(`[MoodCache] Hit for ${cacheKey}`);
-      return MOVIES_CACHE.get(cacheKey);
+    const entry = MOVIES_CACHE.get(cacheKey);
+    if (entry && !forceRefresh) {
+      const age = Date.now() - entry.cachedAt;
+      if (age < MOOD_CACHE_TTL) return entry.data;
+      if (age < MOOD_CACHE_TTL_STALE) {
+        fetchMoodMovies(moodId, page, sortBy, minMoodScore, true).catch(() => {});
+        return entry.data;
+      }
     }
 
     if (activeRequests.current.has(cacheKey)) {
@@ -278,14 +310,13 @@ export function MoodProvider({ children }) {
     activeRequests.current.set(cacheKey, controller);
 
     try {
-      console.log(`[MoodCache] Fetching for ${cacheKey}...`);
       const data = await repositoryMovies(moodId, page, 5.0, sortBy, minMoodScore);
-      
-      MOVIES_CACHE.set(cacheKey, data);
+      MOVIES_CACHE.set(cacheKey, { data, cachedAt: Date.now() });
+      _prefetchImages(data);
       return data;
     } catch (err) {
       if (err.name === 'AbortError') {
-        console.log(`[MoodCache] Request aborted for ${cacheKey}`);
+        // silently handled
       } else {
         console.error(`[MoodCache] Error for ${cacheKey}:`, err);
         throw err;

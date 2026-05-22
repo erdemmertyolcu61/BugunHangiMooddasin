@@ -87,12 +87,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger("film_elestirimeni")
 
+# ─── TMDB Response Cache helper ──────────────────────────────
+# Caches TMDB API responses in SQLite for TTL seconds.
+# Composite cache_key: "{endpoint}:{args}"
+_TMDB_CACHE_TTL = {
+    "movie":       86400,  # 24h — movie details rarely change
+    "similar":     86400,  # 24h
+    "recommend":   86400,  # 24h
+    "discover":    43200,  # 12h
+    "search":      21600,  # 6h
+    "upcoming":    21600,  # 6h
+    "nowplaying":  21600,  # 6h
+    "turkish":     43200,  # 12h
+    "providers":   86400,  # 24h
+}
+
+async def _cached_tmdb(endpoint: str, params_str: str, fetch_fn, max_age: int = None):
+    """Generic TMDB cache wrapper. Returns cached data or fetches + caches. Returns None on failure."""
+    from backend.database import cache as _db_cache
+    ttl = max_age or _TMDB_CACHE_TTL.get(endpoint, 86400)
+    cache_key = f"{endpoint}:{params_str}"
+    try:
+        cached = await _db_cache.get_tmdb_response(cache_key, max_age_hours=ttl // 3600)
+        if cached is not None:
+            return cached
+        data = await fetch_fn()
+        if data:
+            await _db_cache.set_tmdb_response(cache_key, data)
+        return data
+    except Exception:
+        return None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize the database cache, DNS bypass, seed movie repository, and download audio."""
     await setup_dns_bypass()
     await cache.init_db()
+    await cache.prune_tmdb_cache()
     logger.info("🎬 [Backend] Film Connoisseur API starting...")
     logger.info("📡 [Health] http://127.0.0.1:8002/health")
     logger.info("🎵 [AudioDebug] http://127.0.0.1:8002/api/audio/debug")
@@ -575,6 +607,33 @@ async def production_error_handler(request: Request, call_next):
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
+# ─── Cache-Control Middleware ────────────────────────────────
+# Per-endpoint TTL so browsers/CDNs cache aggressively.
+_CACHE_CONTROL_TTL = {
+    "/api/movies/turkish":       300,
+    "/api/movies/upcoming":      300,
+    "/api/movies/now-playing":   300,
+    "/api/movies/discover":      300,
+    "/api/movies/search":        120,
+    "/api/repository":            60,
+    "/api/movies/":              600,
+}
+
+@app.middleware("http")
+async def cache_control_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200:
+        path = request.url.path
+        ttl = None
+        for prefix, sec in _CACHE_CONTROL_TTL.items():
+            if path.startswith(prefix):
+                ttl = sec
+                break
+        if ttl is not None:
+            response.headers["Cache-Control"] = f"public, max-age={ttl}, stale-while-revalidate=60"
+    return response
+
+
 # ─── Payload Strip-Down for Mobile Clients ─────────────────────────────────
 # Frontend grid cards only render: id, title, overview (2 lines), poster_url,
 # release_date, vote_average, genre_ids.
@@ -958,62 +1017,45 @@ async def get_turkish_movies(
     year_from: Optional[int] = Query(None, ge=1900, le=2099),
     year_to: Optional[int] = Query(None, ge=1900, le=2099),
 ):
-    """
-    Türk filmlerini TMDB'den çeker.
-    - with_origin_country=TR + with_original_language=tr ile gerçek Türk filmleri
-    - Sayfalama, sıralama, kalite filtresi ve yıl aralığı destekler.
-    """
-    try:
-        result = await tmdb_service.get_turkish_movies(
-            page=page,
-            sort_by=sort_by,
-            min_vote_count=min_vote_count,
-            min_vote_average=min_vote_average,
-            year_from=year_from,
-            year_to=year_to,
-        )
-        return {
-            "movies": result["movies"],
-            "page": result["page"],
-            "total_pages": min(result["total_pages"], 100),
-            "total_results": result["total_results"],
-        }
-    except Exception as e:
-        logger.error(f"Turkish movies error: {e}")
+    """Türk filmlerini TMDB'den çeker (12h cache)."""
+    params = f"turkish:p{page}:s{sort_by}:vc{min_vote_count}:va{min_vote_average}:y{year_from}-{year_to}"
+    result = await _cached_tmdb("turkish", params, lambda: tmdb_service.get_turkish_movies(
+        page=page, sort_by=sort_by, min_vote_count=min_vote_count,
+        min_vote_average=min_vote_average, year_from=year_from, year_to=year_to,
+    ))
+    if result is None:
         raise HTTPException(status_code=500, detail="Türk filmleri yüklenemedi.")
+    return {"movies": result["movies"], "page": result["page"], "total_pages": min(result["total_pages"], 100), "total_results": result["total_results"]}
 
 
 @app.get("/api/movies/upcoming")
 async def get_upcoming_movies():
-    """Fetch upcoming releases (region=TR ile Türkiye vizyonu dahil)."""
-    try:
-        result = await tmdb_service.get_upcoming_movies()
-        return {"movies": result["movies"], "page": result.get("page", 1), "total_pages": result.get("total_pages", 1)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Fetch upcoming releases (6h cache)."""
+    result = await _cached_tmdb("upcoming", "upcoming:1", tmdb_service.get_upcoming_movies)
+    if result is None:
+        raise HTTPException(status_code=500, detail="Vizyona girecek filmler yüklenemedi.")
+    return {"movies": result["movies"], "page": result.get("page", 1), "total_pages": result.get("total_pages", 1)}
 
 
 @app.get("/api/movies/now-playing")
 async def get_now_playing():
-    """Fetch movies currently in theaters (region=TR ile Türkiye vizyonu dahil)."""
-    try:
-        result = await tmdb_service.get_now_playing()
-        return {"movies": result["movies"], "page": result.get("page", 1), "total_pages": result.get("total_pages", 1)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Fetch movies currently in theaters (6h cache)."""
+    result = await _cached_tmdb("nowplaying", "nowplaying:1", tmdb_service.get_now_playing)
+    if result is None:
+        raise HTTPException(status_code=500, detail="Vizyondaki filmler yüklenemedi.")
+    return {"movies": result["movies"], "page": result.get("page", 1), "total_pages": result.get("total_pages", 1)}
 
 
 @app.get("/api/movies/search")
 async def search_movies(q: str = Query(..., min_length=1, max_length=200)):
-    """Search TMDB for movies by title."""
+    """Search TMDB for movies by title (6h cache)."""
     q_clean = q.strip()
     if not q_clean:
         raise HTTPException(status_code=422, detail="Arama terimi boş olamaz.")
-    try:
-        results = await tmdb_service.search_movies(q_clean)
-        return {"movies": results, "query": q_clean}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    result = await _cached_tmdb("search", f"q:{q_clean}", lambda: tmdb_service.search_movies(q_clean))
+    if result is None:
+        raise HTTPException(status_code=500, detail="Film araması başarısız.")
+    return {"movies": result, "query": q_clean}
 
 
 @app.get("/api/movies/discover")
@@ -1023,15 +1065,17 @@ async def discover_movies(
     sort_by: str = Query("popularity.desc"),
     slim: bool = Query(True, description="Strip payloads for mobile"),
 ):
-    """Discover movies by genre. Max 3 pages."""
+    """Discover movies by genre. Max 3 pages (12h cache)."""
     try:
         genre_ids = [int(g.strip()) for g in genres.split(",") if g.strip()]
         if not genre_ids:
             raise HTTPException(status_code=422, detail="En az bir tür ID'si gerekli.")
 
-        result = await tmdb_service.discover_movies(genre_ids, page=page, sort_by=sort_by)
+        params = f"discover:g{'-'.join(map(str,genre_ids))}:p{page}:s{sort_by}"
+        result = await _cached_tmdb("discover", params, lambda: tmdb_service.discover_movies(genre_ids, page=page, sort_by=sort_by))
+        if result is None:
+            raise HTTPException(status_code=500, detail="Film keşfi başarısız.")
         movies = result["movies"]
-
         enriched = []
         for movie in movies:
             cached_data = await cache.get_movie(movie["id"])
@@ -1953,17 +1997,11 @@ def _with_layout(movie: dict) -> dict:
 
 @app.get("/api/movies/{movie_id}/similar")
 async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
-    """
-    Bir filme gerçekten yakın filmler. TMDB /recommendations (daha kaliteli)
-    önce, /similar ile tamamlanır; tür örtüşmesi + kalite skoruyla sıralanır.
-    """
-    try:
-        # Kaynak filmin türlerini al (örtüşme skoru için)
+    """Bir filme gerçekten yakın filmler (24h cache). Recommendations + similar, tür örtüşmesi + kalite skoruyla sıralanır."""
+    async def _compute():
         src_genres = set()
         try:
-            details = await asyncio.wait_for(
-                tmdb_service.get_movie_details(movie_id), timeout=4.0
-            )
+            details = await asyncio.wait_for(tmdb_service.get_movie_details(movie_id), timeout=4.0)
             for g in (details.get("genre_ids") or []):
                 src_genres.add(g)
             for g in (details.get("genres") or []):
@@ -1971,41 +2009,30 @@ async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
                     src_genres.add(g["id"])
         except Exception:
             pass
-
         rec, sim = await asyncio.gather(
             tmdb_service.get_recommendations(movie_id, page=1),
             tmdb_service.get_similar_movies(movie_id, page=1),
         )
-
-        # Recommendations öncelikli havuz
         pool = {}
         for m in rec.get("movies", []):
             pool[m["id"]] = m
         for m in sim.get("movies", []):
             pool.setdefault(m["id"], m)
-
-        # Kalite filtresi: posteri olan, yeterince oylanmış, vasat üstü
         candidates = [
             m for m in pool.values()
             if m.get("poster_url") and m["id"] != movie_id
             and (m.get("vote_count") or 0) >= 60
             and (m.get("vote_average") or 0) >= 5.8
         ]
-
         def relevance(m):
             gids = set(m.get("genre_ids") or [])
             overlap = len(gids & src_genres) if src_genres else 0
-            return (
-                overlap * 3.0
-                + min((m.get("vote_average") or 0), 9.0) * 0.5
-                + min((m.get("vote_count") or 0) / 1000.0, 5.0) * 0.3
-            )
-
+            return overlap * 3.0 + min((m.get("vote_average") or 0), 9.0) * 0.5 + min((m.get("vote_count") or 0) / 1000.0, 5.0) * 0.3
         candidates.sort(key=relevance, reverse=True)
         return {"movies": candidates[:12]}
-    except Exception as e:
-        logger.warning(f"Similar movies unavailable for {movie_id}: {e}")
-        return {"movies": []}
+
+    result = await _cached_tmdb("similar", f"m{movie_id}", _compute)
+    return result or {"movies": []}
 
 
 @app.get("/api/movies/{movie_id}/watch-providers")

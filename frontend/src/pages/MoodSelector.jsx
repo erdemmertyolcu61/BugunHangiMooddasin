@@ -28,6 +28,7 @@ export default function MoodSelector() {
     const runner = window.requestIdleCallback || ((cb) => setTimeout(cb, 300));
     runner(() => { prefetchMood(mood.id); });
     runner(() => { preloadMoodAudio(mood.id); });
+    runner(() => { import('../pages/Discover').catch(() => {}); });
   }, [prefetchMood]);
 
   const handleHoverEnd = useCallback(() => {
@@ -37,6 +38,7 @@ export default function MoodSelector() {
   const handleMoodClick = useCallback(async (mood) => {
     try { playMoodAudio(mood.id); } catch(e) {}
     selectMood(mood.id);
+    import('../pages/Discover').catch(() => {});
     navigate('/discover');
   }, [selectMood, navigate]);
 
@@ -46,6 +48,13 @@ export default function MoodSelector() {
     setQuizOpen(false);
     navigate('/discover');
   };
+
+  // Preload common route chunks as soon as page loads (idle callback)
+  useEffect(() => {
+    const runner = window.requestIdleCallback || ((cb) => setTimeout(cb, 1000));
+    runner(() => { import('../pages/Discover').catch(() => {}); });
+    runner(() => { import('../pages/Defterim').catch(() => {}); });
+  }, []);
 
   // Mobil alt bardaki "Ruh Halim" butonundan quiz açılması:
   // BottomNav sessionStorage bayrağı bırakır / event yollar.

@@ -58,10 +58,30 @@ const TasteMapCollision = lazyRetry(() => import('./pages/TasteMapCollision'));
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
-function RouteFallback() {
+function CardSkeleton() {
   return (
-    <div className="min-h-screen bg-[#120d0b] flex items-center justify-center">
-      <div className="w-10 h-10 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
+    <div className="animate-pulse">
+      <div className="aspect-[2/3] rounded-[2.5rem] bg-white/5 overflow-hidden" />
+      <div className="mt-3 sm:mt-5 px-1 sm:px-4 space-y-2">
+        <div className="h-4 bg-white/10 rounded w-3/4" />
+        <div className="flex items-center justify-between">
+          <div className="h-3 bg-white/10 rounded w-1/5" />
+          <div className="h-3 bg-white/10 rounded w-1/6" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscoverSkeleton() {
+  return (
+    <div className="min-h-screen bg-[#120d0b] px-4 sm:px-8 pt-24 pb-16">
+      <div className="max-w-7xl mx-auto space-y-12">
+        <div className="h-8 bg-white/5 rounded w-1/4 animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 sm:gap-x-10 gap-y-8 sm:gap-y-16">
+          {[...Array(10)].map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      </div>
     </div>
   );
 }
@@ -102,7 +122,7 @@ function AppContent() {
       <ThemeToggle />
       <AudioPlayer />
 
-      <Suspense fallback={<RouteFallback />}>
+      <Suspense fallback={<DiscoverSkeleton />}>
         <Routes>
           {/* Main Flow */}
           <Route path="/" element={<MoodSelector />} />

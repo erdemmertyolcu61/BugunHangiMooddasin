@@ -481,6 +481,14 @@ class MovieCache:
                 CREATE INDEX IF NOT EXISTS idx_fast_search_vote
                 ON movie_fast_search(vote_average DESC)
             """)
+            # TMDB API response cache — reduces latency for repeated queries
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS tmdb_response_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    data TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -1780,6 +1788,37 @@ class MovieCache:
                 "mood_id":      r[8] or "",
             })
         return result
+
+    # ──────────────── TMDB Response Cache ────────────────
+
+    async def get_tmdb_response(self, cache_key: str, max_age_hours: int = 24) -> Optional[dict]:
+        """Get cached TMDB response if not stale. Uses SQLite datetime comparison."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT data FROM tmdb_response_cache WHERE cache_key = ? "
+                "AND (created_at IS NULL OR created_at > datetime('now', ?))",
+                (cache_key, f'-{max_age_hours} hours')
+            )
+            row = await cursor.fetchone()
+            return json.loads(row[0]) if row else None
+
+    async def set_tmdb_response(self, cache_key: str, data: dict):
+        """Cache a TMDB API response."""
+        async with _get_connection(self.db_path) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO tmdb_response_cache (cache_key, data, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                (cache_key, json.dumps(data, ensure_ascii=False))
+            )
+            await db.commit()
+
+    async def prune_tmdb_cache(self, max_age_hours: int = 48):
+        """Remove stale entries from the TMDB response cache."""
+        async with _get_connection(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM tmdb_response_cache WHERE created_at < datetime('now', ?)",
+                (f'-{max_age_hours} hours',)
+            )
+            await db.commit()
 
 
 cache = MovieCache()

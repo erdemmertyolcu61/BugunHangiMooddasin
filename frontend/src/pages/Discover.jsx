@@ -14,6 +14,7 @@ import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
 import FilmDetailModal from '../components/FilmDetailModal';
 import MovieCard from '../components/MovieCard';
 import { isPlatformLinked, linkPlatform, getPlatformInfo, buildWatchUrl } from '../utils/streamingMemory';
+import { useCache } from '../hooks/useCache';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
 const IMG_BASE_LG = 'https://image.tmdb.org/t/p/original';  // Modal detail poster (tam kalite)
@@ -88,7 +89,6 @@ export default function Discover() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [quizOpen, setQuizOpen] = useState(false);
-  const lastRequestId = useRef(0);
   const searchTimeout = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const autoAnalyzeTriggered = useRef(false);
@@ -208,68 +208,69 @@ export default function Discover() {
     setSearchQuery('');
   }, [selectedMood?.id, sortBy]);
 
-  useEffect(() => {
-    if (!selectedMood) return;
-
-    const fetchData = async () => {
-      const requestId = ++lastRequestId.current;
-      setLoading(true);
-      setError(null);
-
-      try {
-        const moviesData = await fetchMoodMovies(selectedMood.id, currentPage, sortBy);
-        
-        // Skip if this is a stale request
-        if (requestId !== lastRequestId.current) return;
-
-        // Check if backend is still seeding
-        if (moviesData.seeding) {
-          setError("Film arşivi hazırlanıyor... Lütfen 10 saniye bekleyip tekrar deneyin.");
-          setMovies([]);
-          setTimeout(() => {
-            setCurrentPage(1);
-          }, 10000);
-          return;
-        }
-
-        // Enrich movies with match percentage
-        const enriched = (moviesData.movies || []).map(m => ({
-            ...m,
-            match: getMoodMatch(m.id, selectedMood?.id)
-        }));
-        
-        setMovies(enriched);
-        setTotalPages(moviesData.total_pages || 1);
-
-        // Sayfanın en üstünden başla — "Yakında" slider'ı ve Üstad notu görünsün
-        if (currentPage === 1) {
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          });
-        }
-      } catch (err) {
-        if (requestId !== lastRequestId.current) return;
-        console.error("[MoodSelection] Error loading movies:", err);
-        const msg = err.message || String(err);
-        if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ERR_CONNECTION_REFUSED")) {
-          setError("Sinema arşivine ulaşılamıyor. Backend (8002) çalışmıyor. Proje kökünde 'python start.py' komutunu çalıştırın.");
-        } else if (msg.includes("502") || msg.includes("500") || msg.includes("Bad Gateway")) {
-          setError("Sunucu yanıt vermedi. 5 saniye bekleyip tekrar deneyin veya terminalden 'python start.py' komutunu çalıştırın.");
-          setTimeout(() => setCurrentPage(1), 5000);
-        } else if (msg.includes("500") || msg.includes("Internal Server")) {
-          setError("Sunucu hatası. Terminaldeki hata mesajlarını kontrol edin.");
-        } else {
-          setError(`Filmler yüklenemedi: ${msg.substring(0, 120)}`);
-        }
-      } finally {
-        if (requestId === lastRequestId.current) {
-          // Smooth loading transition
-          setTimeout(() => setLoading(false), 300);
-        }
+  // SWR: önce önbellek, sonra arkaplan güncelleme
+  const cacheKey = selectedMood ? `discover_${selectedMood.id}_p${currentPage}_s${sortBy}_r${refreshKey}` : null;
+  const { data: swrData, isLoading: swrLoading, error: swrError, revalidate } = useCache(
+    cacheKey,
+    async () => {
+      const moviesData = await fetchMoodMovies(selectedMood.id, currentPage, sortBy);
+      if (moviesData?.seeding) {
+        setTimeout(() => setCurrentPage(1), 10000);
+        return { movies: [], total_pages: 1, seeding: true };
       }
-    };
-    fetchData();
-  }, [currentPage, selectedMood?.id, sortBy, refreshKey, fetchMoodMovies]);
+      const enriched = (moviesData.movies || []).map(m => ({
+        ...m,
+        match: getMoodMatch(m.id, selectedMood.id)
+      }));
+      return { movies: enriched, total_pages: moviesData.total_pages || 1 };
+    },
+    { revalidateOnMount: true }
+  );
+
+  useEffect(() => {
+    if (!cacheKey) return;
+    if (swrData) {
+      if (swrData.seeding) {
+        setError("Film arşivi hazırlanıyor... Lütfen 10 saniye bekleyip tekrar deneyin.");
+        setMovies([]);
+      } else {
+        setMovies(swrData.movies);
+        setTotalPages(swrData.total_pages);
+        setError(null);
+      }
+    } else if (swrError) {
+      console.error("[MoodSelection] Error loading movies:", swrError);
+      const msg = swrError.message || String(swrError);
+      if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ERR_CONNECTION_REFUSED")) {
+        setError("Sinema arşivine ulaşılamıyor. Backend (8002) çalışmıyor. Proje kökünde 'python start.py' komutunu çalıştırın.");
+      } else if (msg.includes("502") || msg.includes("Bad Gateway")) {
+        setError("Sunucu yanıt vermedi. 5 saniye bekleyip tekrar deneyin veya terminalden 'python start.py' komutunu çalıştırın.");
+        setTimeout(() => setCurrentPage(1), 5000);
+      } else if (msg.includes("500") || msg.includes("Internal Server")) {
+        setError("Sunucu hatası. Terminaldeki hata mesajlarını kontrol edin.");
+      } else {
+        setError(`Filmler yüklenemedi: ${msg.substring(0, 120)}`);
+      }
+      setMovies([]);
+    }
+  }, [cacheKey, swrData, swrError]);
+
+  // Smooth loading transition for initial fetch
+  useEffect(() => {
+    if (swrLoading) {
+      const t = setTimeout(() => setLoading(true), 80);
+      return () => clearTimeout(t);
+    }
+    setLoading(false);
+  }, [swrLoading]);
+
+  // Scroll to top on page/mood change
+  useEffect(() => {
+    if (currentPage !== 1 || !movies.length) return;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }, [currentPage, selectedMood?.id]);
 
   const handleAnalyze = useCallback(async (movie) => {
     setSelectedMovie(movie);
