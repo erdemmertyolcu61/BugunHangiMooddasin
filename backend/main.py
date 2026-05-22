@@ -476,7 +476,7 @@ async def lifespan(app: FastAPI):
                 ids = data['ids']
                 titles = data['titles']
                 vectors = data['vectors']
-                norms = np.linalg.norm(vectors, axis=1)
+                norms = np.linalg.norm(vectors.astype(np.float32), axis=1)
                 # Entity metadata for boost multipliers
                 cast_raw = data.get('cast_slugs')
                 director_raw = data.get('directors')

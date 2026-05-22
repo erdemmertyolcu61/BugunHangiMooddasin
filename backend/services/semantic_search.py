@@ -77,8 +77,8 @@ def set_global_vector_cache(ids, titles, vectors, norms, meta_list=None):
     GLOBAL_CACHE.clear()
     GLOBAL_CACHE["ids"] = np.asarray(ids)
     GLOBAL_CACHE["titles"] = np.asarray(titles)
-    GLOBAL_CACHE["vectors"] = np.asarray(vectors)
-    GLOBAL_CACHE["norms"] = np.asarray(norms)
+    GLOBAL_CACHE["vectors"] = np.asarray(vectors, dtype=np.float16)
+    GLOBAL_CACHE["norms"] = np.asarray(norms, dtype=np.float32)
     GLOBAL_CACHE["meta_list"] = meta_list or []
 
 
@@ -88,7 +88,7 @@ def dump_to_disk(movie_ids, movie_titles, embeddings_matrix,
     save_kw = dict(
         ids=np.array(movie_ids, dtype=np.int32),
         titles=np.array(movie_titles, dtype=str),
-        vectors=np.array(embeddings_matrix, dtype=np.float32),
+        vectors=np.array(embeddings_matrix, dtype=np.float16),
     )
     if cast_slugs_list is not None:
         # Flatten each movie's cast slugs into a single comma-separated string
@@ -430,7 +430,7 @@ class SemanticSearchEngine:
                 ids_arr = np.asarray(data["ids"], dtype=np.int32)
                 self._tmdb_ids_np = ids_arr
                 self._tmdb_ids = ids_arr.tolist()
-                self._matrix = np.asarray(data["vectors"], dtype=np.float32)
+                self._matrix = np.asarray(data["vectors"], dtype=np.float16)
                 self._votes_np = np.zeros(len(ids_arr), dtype=np.float32)
                 self._movie_count = len(ids_arr)
 
@@ -611,8 +611,8 @@ class SemanticSearchEngine:
                 "title_lower":    (m.get("title", "") or "").lower(),
             }
 
-        # [OPT-1] Contiguous matrix
-        self._matrix = embeddings.astype(np.float32)
+        # [OPT-1] Contiguous matrix (float16 halves memory: 65K×384 ~50MB vs ~100MB)
+        self._matrix = embeddings.astype(np.float16)
         # [OPT-2] Parallel numpy arrays
         self._tmdb_ids_np = np.array(tmdb_ids, dtype=np.int32)
         self._votes_np = np.array(votes, dtype=np.float32)

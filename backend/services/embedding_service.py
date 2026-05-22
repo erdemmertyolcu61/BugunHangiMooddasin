@@ -16,7 +16,6 @@ import struct
 import time
 from typing import Optional
 
-import google.generativeai as genai
 from backend.config import GEMINI_API_KEY
 
 logger = logging.getLogger("embedding_service")
@@ -36,11 +35,15 @@ _sdk_configured = False
 
 
 def _ensure_sdk():
-    """One-time SDK configuration (idempotent, thread-safe by GIL)."""
+    """Lazy SDK init — import heavy google.generativeai only when API key is set."""
     global _sdk_configured
     if not _sdk_configured and GEMINI_API_KEY:
-        genai.configure(api_key=GEMINI_API_KEY)
-        _sdk_configured = True
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_API_KEY)
+            _sdk_configured = True
+        except ImportError:
+            logger.warning("[EmbeddingService] google.generativeai not installed — embeddings unavailable")
 
 
 class GeminiEmbeddingService:
@@ -85,6 +88,10 @@ class GeminiEmbeddingService:
         sanitized = text.replace("\n", " ")
 
         try:
+            try:
+                import google.generativeai as genai
+            except ImportError:
+                raise RuntimeError("google.generativeai package not installed")
             response = genai.embed_content(
                 model=EMBEDDING_MODEL,
                 content=sanitized,

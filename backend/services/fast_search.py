@@ -224,10 +224,9 @@ class FastSearchEngine:
         if _NUMPY_AVAILABLE:
             # [OPT-2] Stack into single contiguous C-array
             mat = np.vstack(vectors).astype(np.float32)  # (N, dim)
-            # L2-normalize each row so dot product = cosine similarity
             norms = np.linalg.norm(mat, axis=1, keepdims=True)
-            norms = np.maximum(norms, 1e-10)  # avoid /0
-            mat /= norms  # in-place divide — no extra allocation
+            norms = np.maximum(norms, 1e-10)
+            mat /= norms
             self._matrix = mat
 
             # [OPT-5] Parallel arrays for vectorized filter
