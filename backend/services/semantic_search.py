@@ -199,6 +199,13 @@ _model_lock = threading.Lock()
 
 def _get_model():
     """Thread-safe lazy singleton for the sentence-transformers model."""
+    # OOM GUARD: ~500MB model causes crash on Render free tier (512MB)
+    import os as _os
+    if _os.getenv("ENVIRONMENT", "development") == "production":
+        raise RuntimeError(
+            "SemanticSearch disabled on production (500MB model exceeds 512MB RAM limit)"
+        )
+
     global _model_instance
     if _model_instance is not None:
         return _model_instance

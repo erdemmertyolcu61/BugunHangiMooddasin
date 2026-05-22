@@ -10,6 +10,7 @@ Endpoints:
 import logging
 import time
 import os
+import html
 from typing import Optional
 
 from backend.dns_resolver import setup_dns_bypass, refresh_dns
@@ -160,6 +161,15 @@ async def lifespan(app: FastAPI):
     async def auto_seed():
         import time as _time
         t0 = _time.monotonic()
+
+        # Hızlı kontrol: repository zaten doluysa seed'i atla
+        try:
+            total = await cache.count_repository_movies("kalp", 0.0)
+            if total >= TARGET_MOVIES_PER_MOOD * 0.8:
+                logger.info(f"[Seed] Repository zaten dolu (~{total:.0f} film), seed atlanıyor.")
+                return
+        except Exception:
+            pass
 
         # Phase 1: Discover-based seeding — 3 moods at a time (parallel)
         mood_items = list(MOOD_GENRE_MAP.items())
@@ -347,14 +357,18 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(auto_seed())
 
     # ── Fast Search Engine: load pre-computed embeddings into memory ──────────
-    try:
-        n = await fast_search_engine.load_from_db(cache)
-        if n > 0:
-            logger.info(f"[FastSearch] {n} film embeddingi belleğe yüklendi.")
-        else:
-            logger.info("[FastSearch] Henüz embedding yok — arka planda oluşturulacak.")
-    except Exception as e:
-        logger.error(f"[FastSearch] Yükleme hatası: {e}")
+    # PRODUCTION OPTIMIZATION: Lazy load on first request to save ~200MB RAM
+    if not IS_PRODUCTION:
+        try:
+            n = await fast_search_engine.load_from_db(cache)
+            if n > 0:
+                logger.info(f"[FastSearch] {n} film embeddingi belleğe yüklendi.")
+            else:
+                logger.info("[FastSearch] Henüz embedding yok — arka planda oluşturulacak.")
+        except Exception as e:
+            logger.error(f"[FastSearch] Yükleme hatası: {e}")
+    else:
+        logger.info("[FastSearch] Production mode — lazy load on first request.")
 
     # ── Semantic Search Engine: local sentence-transformers (no API key) ─────
     # PRODUCTION OPTIMIZATION: Skip on Render free tier (512MB RAM insufficient)
@@ -501,8 +515,12 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(build_and_dump_npz_cache())
 
     # Pre-warm sentence-transformers model so first request doesn't pay 15-30s cold-start
-    from backend.services.semantic_search import _get_model as _warm_model
-    asyncio.create_task(asyncio.to_thread(_warm_model))
+    # PRODUCTION: Skip — ~500MB model causes OOM on 512MB Render instance
+    if not IS_PRODUCTION:
+        from backend.services.semantic_search import _get_model as _warm_model
+        asyncio.create_task(asyncio.to_thread(_warm_model))
+    else:
+        logger.info("[SemanticSearch] Production mode — model pre-warm atlandı (lazy load on demand).")
 
     yield
 
@@ -3841,24 +3859,29 @@ async def share_movie_page(movie_id: int):
 
     redirect_url = f"{app_url}/?film={movie_id}"
 
+    safe_title = html.escape(title)
+    safe_desc = html.escape(description)
+    safe_poster = html.escape(poster)
+    safe_redirect = html.escape(redirect_url)
+
     html = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title}</title>
-  <meta name="description" content="{description}">
+  <title>{safe_title}</title>
+  <meta name="description" content="{safe_desc}">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="{title}">
-  <meta property="og:description" content="{description}">
-  <meta property="og:image" content="{poster}">
-  <meta property="og:url" content="{redirect_url}">
+  <meta property="og:title" content="{safe_title}">
+  <meta property="og:description" content="{safe_desc}">
+  <meta property="og:image" content="{safe_poster}">
+  <meta property="og:url" content="{safe_redirect}">
   <meta property="og:site_name" content="Film Eleştirmeni">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{title}">
-  <meta name="twitter:description" content="{description}">
-  <meta name="twitter:image" content="{poster}">
-  <meta http-equiv="refresh" content="0;url={redirect_url}">
+  <meta name="twitter:title" content="{safe_title}">
+  <meta name="twitter:description" content="{safe_desc}">
+  <meta name="twitter:image" content="{safe_poster}">
+  <meta http-equiv="refresh" content="0;url={safe_redirect}">
   <style>
     body {{ background: #120d0b; color: #f5f0e8; font-family: serif; display: flex;
             align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
@@ -3867,7 +3890,7 @@ async def share_movie_page(movie_id: int):
 </head>
 <body>
   <p>Yönlendiriliyorsunuz...</p>
-  <script>window.location.replace("{redirect_url}")</script>
+  <script>window.location.replace("{safe_redirect}")</script>
 </body>
 </html>"""
     return HTMLResponse(content=html)
