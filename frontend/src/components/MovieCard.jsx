@@ -14,10 +14,8 @@ const reliableRating = (movie) => {
   const avg = movie.vote_average;
   if (avg == null || avg <= 0) return null;
   const count = movie.vote_count;
-  if (count != null) {
-    return count >= 50 ? avg.toFixed(1) : null;
-  }
-  return avg <= 9.0 ? avg.toFixed(1) : null;
+  if (count != null && count < 5) return null;
+  return avg <= 10.0 ? avg.toFixed(1) : null;
 };
 
 function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onAnalyze }) {
@@ -37,41 +35,52 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
               <h3 className="text-2xl font-serif font-bold italic text-amber">{movie.title}</h3>
             </div>}
 
-        {/* Mood Uyum Overlay */}
-        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:-translate-x-4 sm:group-hover:translate-x-0">
+        {/* Üstad'ın Seçkisi Rozeti — solda, daima görünür */}
+        {movie.mood_match_label === "Üstad'ın Seçkisi" && (
+          <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 max-w-[90%]">
+            <div className="px-3 py-1.5 bg-gradient-to-r from-amber-600/95 to-amber-500/95 backdrop-blur-md rounded-full border border-amber-300/60 shadow-[0_0_12px_rgba(245,158,11,0.35)]">
+              <p className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-black flex items-center gap-1.5">
+                <Star size={9} className="fill-black" /> Üstad'ın Seçkisi
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Mood Uyum Overlay — sağda, hover'da görünür */}
+        <div className={`absolute z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:translate-x-4 sm:group-hover:translate-x-0 ${movie.mood_match_label === "Üstad'ın Seçkisi" ? 'top-3 right-3 sm:top-6 sm:right-6' : 'top-3 left-3 sm:top-6 sm:left-6'}`}>
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
             <Clapperboard size={10} /> %{movie.mood_score || movie.match}
           </p>
         </div>
 
-        {/* Hızlı Eylem Butonları */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-1 sm:gap-2 p-1.5 sm:p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-2 sm:group-hover:translate-y-0">
+        {/* Hızlı Eylem Butonları — enine yayvan, tappable */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-1.5 sm:gap-3 p-2 sm:p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-1 sm:group-hover:translate-y-0">
           <button
             onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
             title="Deftere Ekle"
-            className={`flex items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 py-0.5 rounded-full text-[7px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
               ${isSaved
                 ? 'bg-amber/90 border-amber/60 text-black'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
               }`}
           >
             {isSaved
-              ? <><Check size={5} /> Eklendi</>
-              : <><BookmarkPlus size={5} /> Deftere</>
+              ? <><Check size={6} className="shrink-0" /> Eklendi</>
+              : <><BookmarkPlus size={6} className="shrink-0" /> Deftere</>
             }
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
             title="İzledim"
-            className={`flex items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 py-0.5 rounded-full text-[7px] sm:text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
               ${isWatched
                 ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
               }`}
           >
             {isWatched
-              ? <><Check size={6} /> İzledim</>
-              : <><Eye size={6} /> İzledim</>
+              ? <><Check size={6} className="shrink-0" /> İzledim</>
+              : <><Eye size={6} className="shrink-0" /> İzledim</>
             }
           </button>
         </div>

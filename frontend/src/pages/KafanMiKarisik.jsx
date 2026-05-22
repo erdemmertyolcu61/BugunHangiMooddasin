@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postConfusedRecommendation, quickMoodMix, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
+import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { playMoodAudio } from '../utils/moodAudioManager';
@@ -12,65 +12,37 @@ const QUICK_MOODS = [
   {
     id: "relaxing_cinema",
     label: "Günün yorgunluğunu silecek yumuşacık filmler",
-    mood_mix: [
-      { mood_id: "battaniye", percentage: 50 },
-      { mood_id: "kalp",      percentage: 30 },
-      { mood_id: "sessiz",    percentage: 20 },
-    ],
+    slug: "battaniye",
   },
   {
     id: "high_joy",
     label: "Modu anında yükselten neşeli reçeteler",
-    mood_mix: [
-      { mood_id: "kahkaha",   percentage: 55 },
-      { mood_id: "battaniye", percentage: 25 },
-      { mood_id: "askbahcesi",percentage: 20 },
-    ],
+    slug: "kahkaha",
   },
   {
     id: "premium_dark",
     label: "Gözünü kırpmadan izleyeceğin karanlık işler",
-    mood_mix: [
-      { mood_id: "gece",        percentage: 45 },
-      { mood_id: "deep-chills", percentage: 35 },
-      { mood_id: "zihin",       percentage: 20 },
-    ],
+    slug: "gece",
   },
   {
     id: "organic_romance",
     label: "İçini kıpır kıpır edecek ama klişesiz",
-    mood_mix: [
-      { mood_id: "kalp",        percentage: 40 },
-      { mood_id: "sessiz",      percentage: 35 },
-      { mood_id: "askbahcesi",  percentage: 25 },
-    ],
+    slug: "askbahcesi",
   },
   {
     id: "deep_intellect",
     label: "Bittiğinde bile saatlerce kafanda yaşayacaklar",
-    mood_mix: [
-      { mood_id: "zihin",       percentage: 50 },
-      { mood_id: "sessiz",      percentage: 25 },
-      { mood_id: "karmakar",    percentage: 25 },
-    ],
+    slug: "zihin",
   },
   {
     id: "high_tension",
     label: "Koltukta dikilerek izletecek yüksek tansiyon",
-    mood_mix: [
-      { mood_id: "adrenalin",   percentage: 50 },
-      { mood_id: "gece",        percentage: 30 },
-      { mood_id: "deep-chills", percentage: 20 },
-    ],
+    slug: "adrenalin",
   },
   {
     id: "timeless_vintage",
     label: "Eski güzel günlerin o sıcacık sinema kokusu",
-    mood_mix: [
-      { mood_id: "zamanyolcusu", percentage: 45 },
-      { mood_id: "battaniye",    percentage: 30 },
-      { mood_id: "gozyasi",      percentage: 25 },
-    ],
+    slug: "zamanyolcusu",
   },
 ];
 
@@ -153,17 +125,13 @@ export default function KafanMiKarisik() {
     }
   };
 
-  const handleQuickMood = async (moodMix) => {
+  const handleQuickMood = async (quickMood) => {
     setLoading(true);
     setError(null);
     setResult(null);
     setEarlyIntent(null);
     try {
-      const data = await quickMoodMix(moodMix, {
-        limit: 6,
-        minVote: 5.0,
-        excludeIds: sessionExcludeIds,
-      });
+      const data = await postConfusedRecommendation(quickMood.label, 6, 5.0, sessionExcludeIds, quickMood.slug);
       setResult(data);
       if (data.movies) {
         const newIds = data.movies.map(m => m.id).filter(Boolean);
@@ -180,7 +148,7 @@ export default function KafanMiKarisik() {
     if (location.state?.quickMoodId) {
       const qm = QUICK_MOODS.find(q => q.id === location.state.quickMoodId);
       if (qm) {
-        handleQuickMood(qm.mood_mix);
+        handleQuickMood(qm);
       }
       navigate(location.pathname, { replace: true, state: {} });
     }
@@ -297,7 +265,7 @@ export default function KafanMiKarisik() {
                 {QUICK_MOODS.map((qm) => (
                   <button
                     key={qm.id}
-                    onClick={() => handleQuickMood(qm.mood_mix)}
+                    onClick={() => handleQuickMood(qm)}
                     className="quick-mood-chip"
                   >
                     {qm.label}

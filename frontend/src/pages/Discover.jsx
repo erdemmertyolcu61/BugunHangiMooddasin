@@ -788,12 +788,19 @@ export default function Discover() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          <div ref={filmSectionRef} className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tighter">
-              {searchResults !== null
-                ? (searchLoading ? 'Üstad arşivde bakınıyor...' : `"${searchQuery}" Seçkisi`)
-                : 'Perdede'}
-            </h2>
+          <div ref={filmSectionRef} className="flex items-end justify-between flex-wrap gap-3 sm:gap-4">
+            <div>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tighter">
+                {searchResults !== null
+                  ? (searchLoading ? 'Üstad arşivde bakınıyor...' : `"${searchQuery}" Seçkisi`)
+                  : 'Perdede'}
+              </h2>
+              {currentPage === 1 && displayMovies.some(m => m.mood_match_label === "Üstad'ın Seçkisi") && (
+                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em] text-amber-400/70 mt-2">
+                  Üstad'ın Kişisel Seçkisi ile başlıyor
+                </p>
+              )}
+            </div>
             {/* Sort controls - custom dropdown */}
             {searchResults === null && (
               <div className="relative" ref={sortRef}>

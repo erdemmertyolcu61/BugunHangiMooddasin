@@ -1524,7 +1524,8 @@ class MovieCache:
                                                 per_page: int = 20,
                                                 min_vote: float = 5.0,
                                                 min_mood_score: float = 0.0,
-                                                sort_by: str = "recommended") -> dict:
+                                                sort_by: str = "recommended",
+                                                min_vote_count: int = 0) -> dict:
         """SQL-level paginated fetch — uses sync sqlite3 to avoid aiosqlite thread blocking."""
         # Build ORDER BY clause
         order_clauses = {
@@ -1539,13 +1540,20 @@ class MovieCache:
         order_by = order_clauses.get(sort_by, order_clauses["recommended"])
         offset = (page - 1) * per_page
 
+        # WHERE clauses
+        where_clauses = ["mood_id = ?", "vote_average >= ?", "COALESCE(mood_score, 0) >= ?", "poster_url IS NOT NULL AND poster_url != ''"]
+        where_params = [mood_id, min_vote, min_mood_score]
+        if min_vote_count > 0:
+            where_clauses.append("vote_count >= ?")
+            where_params.append(min_vote_count)
+        where_sql = " AND ".join(where_clauses)
+
         conn = self._sync_conn()
         try:
             # Count total matching
             total = conn.execute(
-                """SELECT COUNT(*) FROM movie_repository
-                   WHERE mood_id = ? AND vote_average >= ? AND COALESCE(mood_score, 0) >= ?""",
-                (mood_id, min_vote, min_mood_score)
+                f"SELECT COUNT(*) FROM movie_repository WHERE {where_sql}",
+                where_params
             ).fetchone()[0]
 
             # Fetch page
@@ -1554,10 +1562,10 @@ class MovieCache:
                            vote_average, genre_ids, backdrop_url, vote_count,
                            original_language, popularity, mood_score
                     FROM movie_repository
-                    WHERE mood_id = ? AND vote_average >= ? AND COALESCE(mood_score, 0) >= ?
+                    WHERE {where_sql}
                     ORDER BY {order_by}
                     LIMIT ? OFFSET ?""",
-                (mood_id, min_vote, min_mood_score, per_page, offset)
+                where_params + [per_page, offset]
             ).fetchall()
         finally:
             conn.close()

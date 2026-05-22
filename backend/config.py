@@ -40,7 +40,17 @@ ALLOWED_ORIGINS = [
 # ─── Auth ───
 BETA_PASSWORD = os.getenv("BETA_PASSWORD", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
-JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
+_jwt_secret = os.getenv("JWT_SECRET")
+if not _jwt_secret:
+    _secret_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jwt_secret.key")
+    if os.path.exists(_secret_file):
+        with open(_secret_file, "r") as f:
+            _jwt_secret = f.read().strip()
+    else:
+        _jwt_secret = secrets.token_hex(32)
+        with open(_secret_file, "w") as f:
+            f.write(_jwt_secret)
+JWT_SECRET = _jwt_secret
 # .strip(): Render/panel'e yapıştırırken araya kaçan boşluk/yeni satır
 # audience eşleşmesini bozuyordu — temizle.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()

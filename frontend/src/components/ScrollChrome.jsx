@@ -19,7 +19,7 @@ export default function ScrollChrome() {
     const root = document.documentElement;
     let lastY = window.scrollY;
     let ticking = false;
-    const DELTA = 6;        // titreşim eşiği
+    const DELTA = 10;        // titreşim eşiği (10px altı yok say)
     const TOP_ZONE = 24;    // en üstte her şey görünür
 
     const apply = () => {

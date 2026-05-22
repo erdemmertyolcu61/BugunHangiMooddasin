@@ -185,8 +185,8 @@ export const MOODS = {
     auraColors: ['#d4af37', '#1a1a2e', '#0f0f1a', '#b8960f'],
     animationType: 'quick',
     vignette: '#d4af37',
-    intro: 'Üstad der ki: "Zamanın az, sinema aşkının sonsuz olduğu o dar aralıklar için... Perdeyi hemen açıyoruz; saniyelerin bile bir başyapıta dönüştüğü, vakit nakittir diyen ama sanattan ödün vermeyen kompakt sinematik vuruşlar."',
-    gurmeNote: 'Üstad diyor ki: "Kısa filmler antolojilerin en vurucu parçalarıdır. Bu modda zamanın kıymetini bilen başyapıtları keşfedeceksin."',
+    intro: 'Zamanın az, sinema aşkın sonsuz. Saniyelerin bile başyapıta dönüştüğü o kompakt ve vurucu sahneler için perdeyi hemen açıyoruz.',
+    gurmeNote: 'Üstad diyor ki: "Şipşak sadece kısa bir film değil, hayatın kısıtlı anlarında yakalanan o yoğun sanattır. Bu yüzden tasarımın her detayı, o sanatı kullanıcıya en temiz şekilde ulaştırmalıdır."',
     genres: [18, 10749, 35, 99, 14],
   },
   "deep-chills": {

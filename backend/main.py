@@ -192,12 +192,19 @@ async def lifespan(app: FastAPI):
         import time as _time
         t0 = _time.monotonic()
 
-        # Hızlı kontrol: repository zaten doluysa seed'i atla
+        # Hızlı kontrol: tüm mood'lar doluysa pipeline'ı tamamen atla
         try:
-            total = await cache.count_repository_movies("kalp", 0.0)
-            if total >= TARGET_MOVIES_PER_MOOD * 0.8:
-                logger.info(f"[Seed] Repository zaten dolu (~{total:.0f} film), seed atlanıyor.")
+            all_full = True
+            total_all = 0
+            for mid in MOOD_GENRE_MAP:
+                cnt = await cache.count_repository_movies(mid, 0.0)
+                total_all += cnt
+                if cnt < TARGET_MOVIES_PER_MOOD * 0.8:
+                    all_full = False
+            if all_full:
+                logger.info(f"[Seed] Tüm mood'lar dolu (~{total_all} film), seed atlanıyor.")
                 return
+            logger.info(f"[Seed] Repository kısmen dolu (~{total_all} film), sadece eksik mood'lar doldurulacak.")
         except Exception:
             pass
 
@@ -386,171 +393,92 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(auto_seed())
 
-    # ── Fast Search Engine: load pre-computed embeddings into memory ──────────
-    # PRODUCTION OPTIMIZATION: Lazy load on first request to save ~200MB RAM
-    if not IS_PRODUCTION:
+    # ── All heavy initializations deferred to background ──
+    # Fast Search, Semantic Search, NPZ Cache, Embedding, Model pre-warm
+    # run as a single background task so server starts in <2s.
+    # Endpoints fall back gracefully when engines aren't ready yet.
+    async def _init_engines():
+        """Load engines in background after server starts accepting requests."""
+        await asyncio.sleep(2)
+
+        # 1. Fast Search Engine (pre-computed Gemini embeddings)
         try:
             n = await fast_search_engine.load_from_db(cache)
             if n > 0:
                 logger.info(f"[FastSearch] {n} film embeddingi belleğe yüklendi.")
-            else:
-                logger.info("[FastSearch] Henüz embedding yok — arka planda oluşturulacak.")
         except Exception as e:
             logger.error(f"[FastSearch] Yükleme hatası: {e}")
-    else:
-        logger.info("[FastSearch] Production mode — lazy load on first request.")
 
-    # ── Semantic Search Engine: local sentence-transformers (no API key) ─────
-    # PRODUCTION OPTIMIZATION: Skip on Render free tier (512MB RAM insufficient)
-    # Semantic search still works on first request (lazy load), but won't pre-load.
-    if not IS_PRODUCTION:
-        async def _init_semantic_engine():
-            """Load semantic search index in background — model download may take time."""
-            await asyncio.sleep(3)  # Let server start accepting requests first
-            try:
-                n = await semantic_engine.load_from_db(cache)
-                if n > 0:
-                    logger.info(f"[SemanticSearch] {n} film lokal vektör indeksine yüklendi.")
-                else:
-                    # load_from_db already handles the false-positive guard internally.
-                    # If index still empty after repository check, retry once seed completes.
-                    logger.info("[SemanticSearch] Embedding'ler RAM cache'ine yükleniyor, "
-                                "anlamsal arama arka planda aktifleşecek...")
-                    await asyncio.sleep(60)
-                    n2 = await semantic_engine.load_from_db(cache)
-                    if n2 > 0:
-                        logger.info(f"[SemanticSearch] Retry başarılı: {n2} film indekslendi.")
-            except Exception as e:
-                logger.error(f"[SemanticSearch] Yükleme hatası: {e}")
+        # 2. Semantic Search Engine (NPZ cache or DB build)
+        try:
+            n = await semantic_engine.load_from_db(cache)
+            if n > 0:
+                logger.info(f"[SemanticSearch] {n} film lokal vektör indeksine yüklendi.")
+            else:
+                await asyncio.sleep(30)
+                n2 = await semantic_engine.load_from_db(cache)
+                if n2 > 0:
+                    logger.info(f"[SemanticSearch] Retry başarılı: {n2} film indekslendi.")
+        except Exception as e:
+            logger.error(f"[SemanticSearch] Yükleme hatası: {e}")
 
-        asyncio.create_task(_init_semantic_engine())
-    else:
-        logger.info("[SemanticSearch] Production mode — pre-load atlandı (lazy load on first request).")
-
-    # ── Background embedding job: vectorize movies that lack embeddings ────────
-    # PRODUCTION OPTIMIZATION: Skip on Render free tier to save memory
-    if not IS_PRODUCTION:
-        async def _embed_movies_bg():
-            """
-            Embed unprocessed movies in batches, then reload the in-memory matrix.
-            Runs once at startup (deferred 15s) and is safe to call repeatedly.
-            """
-            await asyncio.sleep(15)  # Let the server fully start first
-
-            if not embedding_service.is_available:
-                logger.warning("[EmbedJob] GEMINI_API_KEY yok — embedding atlanıyor.")
-                return
-
+        # 3. Background embedding job (Gemini text-embedding-004)
+        if embedding_service.is_available:
             try:
                 batch = await cache.get_unembedded_movies(limit=300)
                 if not batch:
                     logger.info("[EmbedJob] Tüm filmler zaten embed edilmiş.")
-                    return
-
-                logger.info(f"[EmbedJob] {len(batch)} film embed edilecek...")
-                embedded = 0
-                failed = 0
-
-                for movie in batch:
-                    try:
-                        # Build search document: Title + overview + genres
-                        from backend.services.fast_search import _GENRE_NAMES, _build_ustad_notu
-                        genre_ids = movie.get("genre_ids", [])
-                        genre_names = [_GENRE_NAMES.get(g, "") for g in genre_ids if g in _GENRE_NAMES]
-                        genre_str = ", ".join(genre_names) if genre_names else "film"
-                        title = movie.get("title", "")
-                        overview = (movie.get("overview") or "")[:400]
-                        release_year = (movie.get("release_date") or "")[:4]
-                        doc = f"Title: {title}. Year: {release_year}. Genres: {genre_str}. {overview}"
-
-                        vec = await embedding_service.get_embedding_safe(doc)
-                        if vec is None:
+                else:
+                    logger.info(f"[EmbedJob] {len(batch)} film embed edilecek...")
+                    embedded = 0
+                    failed = 0
+                    for movie in batch:
+                        try:
+                            from backend.services.fast_search import _GENRE_NAMES, _build_ustad_notu
+                            genre_ids = movie.get("genre_ids", [])
+                            genre_names = [_GENRE_NAMES.get(g, "") for g in genre_ids if g in _GENRE_NAMES]
+                            genre_str = ", ".join(genre_names) if genre_names else "film"
+                            title = movie.get("title", "")
+                            overview = (movie.get("overview") or "")[:400]
+                            release_year = (movie.get("release_date") or "")[:4]
+                            doc = f"Title: {title}. Year: {release_year}. Genres: {genre_str}. {overview}"
+                            vec = await embedding_service.get_embedding_safe(doc)
+                            if vec is None:
+                                failed += 1; continue
+                            from backend.services.embedding_service import encode_embedding
+                            blob = encode_embedding(vec)
+                            ustad = _build_ustad_notu(title, genre_ids, movie.get("release_date", ""))
+                            primary_mood = await cache.get_mood_for_movie(movie.get("id"))
+                            await cache.save_fast_search_row(
+                                tmdb_id=movie["id"], embedding_data=blob, search_document=doc,
+                                ustad_notu=ustad, title=title, poster_url=movie.get("poster_url"),
+                                backdrop_url=movie.get("backdrop_url"), overview=overview,
+                                release_date=movie.get("release_date", ""), vote_average=movie.get("vote_average", 0.0),
+                                genre_ids=genre_ids, primary_mood_id=primary_mood or "",
+                            )
+                            embedded += 1
+                            await asyncio.sleep(0.05)
+                        except Exception as e:
                             failed += 1
-                            continue
-
-                        from backend.services.embedding_service import encode_embedding
-                        blob = encode_embedding(vec)
-                        ustad = _build_ustad_notu(title, genre_ids, movie.get("release_date", ""))
-
-                        # Determine primary mood from mood_classification
-                        primary_mood = await cache.get_mood_for_movie(movie.get("id"))
-
-                        await cache.save_fast_search_row(
-                            tmdb_id=movie["id"],
-                            embedding_data=blob,
-                            search_document=doc,
-                            ustad_notu=ustad,
-                            title=title,
-                            poster_url=movie.get("poster_url"),
-                            backdrop_url=movie.get("backdrop_url"),
-                            overview=overview,
-                            release_date=movie.get("release_date", ""),
-                            vote_average=movie.get("vote_average", 0.0),
-                            genre_ids=genre_ids,
-                            primary_mood_id=primary_mood or "",
-                        )
-                        embedded += 1
-                        await asyncio.sleep(0.05)  # ~20 req/s, well within free tier limits
-                    except Exception as e:
-                        failed += 1
-                        logger.debug(f"[EmbedJob] Film {movie.get('id')} hata: {e}")
-
-                logger.info(f"[EmbedJob] Tamamlandı: {embedded} embed, {failed} hata.")
-
-                # Reload in-memory matrix with new embeddings
-                if embedded > 0:
-                    n = await fast_search_engine.load_from_db(cache)
-                    logger.info(f"[FastSearch] Matrix yenilendi: {n} film.")
-
+                            logger.debug(f"[EmbedJob] Film {movie.get('id')} hata: {e}")
+                    logger.info(f"[EmbedJob] Tamamlandı: {embedded} embed, {failed} hata.")
+                    if embedded > 0:
+                        n = await fast_search_engine.load_from_db(cache)
+                        logger.info(f"[FastSearch] Matrix yenilendi: {n} film.")
             except Exception as e:
                 logger.error(f"[EmbedJob] Genel hata: {e}")
+        else:
+            logger.warning("[EmbedJob] GEMINI_API_KEY yok — embedding atlanıyor.")
 
-        asyncio.create_task(_embed_movies_bg())
-    else:
-        logger.info("[EmbedJob] Production mode — background embedding atlandı (manual refresh only).")
-
-    # ── NPZ Binary Cache: ultra-fast semantic search hydration ──────────
-    # If matrix_cache.npz exists, memory-map it and hydrate GLOBAL_CACHE.
-    # This reduces cold-start semantic search readiness from minutes to <100ms.
-    # Also loads entity metadata (cast_slugs, director_lower) for boost multipliers.
-    from backend.services.semantic_search import CACHE_FILE, set_global_vector_cache, build_and_dump_npz_cache
-    if os.path.exists(CACHE_FILE):
+        # 4. Pre-warm sentence-transformers model (lazy-loaded on first request anyway)
         try:
-            with np.load(CACHE_FILE, mmap_mode='r') as data:
-                ids = data['ids']
-                titles = data['titles']
-                vectors = data['vectors']
-                norms = np.linalg.norm(vectors.astype(np.float32), axis=1)
-                # Entity metadata for boost multipliers
-                cast_raw = data.get('cast_slugs')
-                director_raw = data.get('directors')
-                title_lower_raw = data.get('titles_lower')
-                if cast_raw is not None:
-                    meta_list = []
-                    for i in range(len(ids)):
-                        cast_str = str(cast_raw[i]) if i < len(cast_raw) else ""
-                        slugs = cast_str.split(",") if cast_str else []
-                        d = str(director_raw[i]).lower() if director_raw is not None and i < len(director_raw) else ""
-                        tl = str(title_lower_raw[i]).lower() if title_lower_raw is not None and i < len(title_lower_raw) else ""
-                        meta_list.append({"cast_slugs": slugs, "director_lower": d, "title_lower": tl})
-                else:
-                    meta_list = []
-                set_global_vector_cache(ids, titles, vectors, norms, meta_list)
-                logger.info("[NPZ Cache] %d movies hydrated from %s (mmap_mode='r')", len(ids), CACHE_FILE)
+            from backend.services.semantic_search import _get_model as _warm_model
+            await asyncio.to_thread(_warm_model)
+            logger.info("[SemanticSearch] Model pre-warm tamam.")
         except Exception as e:
-            logger.warning("[NPZ Cache] Load failed (%s) — building fresh cache in background...", e)
-            asyncio.create_task(build_and_dump_npz_cache())
-    else:
-        logger.info("[NPZ Cache] %s not found — building fresh cache in background...", CACHE_FILE)
-        asyncio.create_task(build_and_dump_npz_cache())
+            logger.debug(f"[SemanticSearch] Model pre-warm atlandı: {e}")
 
-    # Pre-warm sentence-transformers model so first request doesn't pay 15-30s cold-start
-    # PRODUCTION: Skip — ~500MB model causes OOM on 512MB Render instance
-    if not IS_PRODUCTION:
-        from backend.services.semantic_search import _get_model as _warm_model
-        asyncio.create_task(asyncio.to_thread(_warm_model))
-    else:
-        logger.info("[SemanticSearch] Production mode — model pre-warm atlandı (lazy load on demand).")
+    asyncio.create_task(_init_engines())
 
     yield
 
@@ -1440,10 +1368,12 @@ async def get_repository_movies(
         if curated_movies and page == 1:
             actual_per_page = 20 - len(curated_movies)
 
+        # Şipşak: afişi olmayan ve az oylu şişme puanlı filmleri ele
+        min_vote_count = 20 if mood_id == "sipsak" else 0
         result = await cache.get_repository_movies_paginated(
             mood_id, page=page, per_page=actual_per_page,
             min_vote=min_vote, min_mood_score=min_mood_score,
-            sort_by=sort_by,
+            sort_by=sort_by, min_vote_count=min_vote_count,
         )
         page_movies = result["movies"]
 
@@ -1488,6 +1418,27 @@ async def get_repository_movies(
                     movie["mood"] = None
                     movie["ai_analysis"] = None
                     movie["analyzed"] = False
+
+        # ── Streaming boost: Şipşak için Netflix/Prime/Apple/MUBİ filmlerini öne çıkar ──
+        if mood_id == "sipsak" and sort_by == "recommended":
+            target_keywords = {"netflix", "prime", "amazon", "apple tv", "mubi", "disney", "blutv", "exxen", "paramount", "hbo", "max"}
+            try:
+                streaming_ids = set()
+                for m in page_movies:
+                    wp = await cache.get_watch_providers(m["id"], "TR")
+                    if wp:
+                        for cat in ("flatrate", "free", "ads"):
+                            for p in wp.get(cat, []):
+                                name = (p.get("provider_name", "") or "").lower()
+                                if any(kw in name for kw in target_keywords):
+                                    streaming_ids.add(m["id"])
+                                    break
+                if streaming_ids:
+                    streaming = [m for m in page_movies if m["id"] in streaming_ids]
+                    non_streaming = [m for m in page_movies if m["id"] not in streaming_ids]
+                    page_movies = streaming + non_streaming
+            except Exception:
+                pass
 
         return {
             "movies": _slim_movie_list(page_movies) if slim else page_movies,
@@ -2436,7 +2387,8 @@ class ConfusedRequest(BaseModel):
     limit: int = 6
     min_vote: float = 5.0
     min_mood_score: float = 0.0
-    exclude_ids: list = []  # Session-based anti-repetition
+    exclude_ids: list = []
+    forced_mood_override: str = ""  # Session-based anti-repetition
 
 class QuickMoodMixRequest(BaseModel):
     mood_mix: list  # [{"mood_id": "battaniye", "percentage": 50}, ...]
@@ -2941,18 +2893,60 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     }
 
 
+async def _fast_mood_bypass(mood_id: str, limit: int, min_vote: float, exclude_ids: list, raw_text: str = "") -> dict:
+    """forced_mood_override bypass: doğrudan mood_score'lu SQL, <5ms."""
+    exclude_set = set(exclude_ids)
+    result = await cache.get_top_scored_movies_by_mood(mood_id, min_vote=min_vote, limit=limit * 4)
+    if result and all(m.get("mood_score", 0) == 0 for m in result):
+        result = await cache.get_top_repository_movies_by_mood(mood_id, min_vote=min_vote, limit=limit * 4)
+        for m in result:
+            m["mood_score"] = round(m.get("vote_average", 0) * 10, 1)
+
+    movies = []
+    for m in result:
+        mid = m.get("id") or m.get("tmdb_id")
+        if mid and mid not in exclude_set:
+            m["matched_mood"] = mood_id
+            m["reason"] = REASON_MAP.get(mood_id, "Ruh haline uygun bir seçim.")
+            movies.append(m)
+            exclude_set.add(mid)
+            if len(movies) >= limit:
+                break
+
+    mood_name = MOOD_NAMES.get(mood_id, mood_id)
+    return {
+        "ok": bool(movies),
+        "mode": "mood_bypass",
+        "intent": {"type": "mood_bypass", "mood_id": mood_id},
+        "query_understanding": f"{mood_name} ruh haline uygun filmler.",
+        "ustad_line": f"{mood_name} havasında bir şeyler arıyorsun. İşte seçtiklerim.",
+        "message": f"{mood_name} için en iyi filmleri sıralıyorum.",
+        "mood_mix": [{"mood_id": mood_id, "title": mood_name, "percentage": 100}],
+        "movies": movies,
+    }
+
+
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
     Kafan mı karışık? — Önce semantic embedding dener (timeout 8s),
     başarısız olursa kural tabanlı fallback'e düşer.
-    """
-    from backend.services.chat_engine import ChatEngine
 
-    text = req.text.strip()
+    forced_mood_override varsa embedding/model TAMAMEN BYPASS edilir,
+    doğrudan mood repository'den SQL ile filmler çekilir (<5ms).
+    """
     limit = max(3, min(req.limit, 12))
     min_vote = max(4.0, min(req.min_vote, 10.0))
     exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
+
+    # ── FAST PATH: known mood slug → direct SQL, zero embedding ──
+    override = (req.forced_mood_override or "").strip().lower()
+    if override and override in MOOD_NAMES:
+        return await _fast_mood_bypass(override, limit, min_vote, exclude_ids, req.text)
+
+    from backend.services.chat_engine import ChatEngine
+
+    text = req.text.strip()
 
     engine = ChatEngine(db=cache)
 
