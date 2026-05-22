@@ -320,7 +320,7 @@ class ChatEngine:
         if not text or len(text) < 2:
             return self._empty_response("Lütfen ne tür bir film aradığını yaz.")
 
-        intent = self._detect_intent(text)
+        intent = self.detect_intent(text)
         logger.info("[ChatEngine] Intent: %s | query: '%s'", intent.type, text)
 
         # Route to local semantic search (handles entity boost internally)
@@ -345,7 +345,7 @@ class ChatEngine:
         return result
 
     # ─────────── INTENT DETECTION ───────────
-    def _detect_intent(self, text: str) -> Intent:
+    def detect_intent(self, text: str) -> Intent:
         """Rule-based intent classification (fully local)."""
         text_lower = text.lower().strip()
         text_norm = _normalize(text)

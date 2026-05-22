@@ -2841,11 +2841,128 @@ async def post_fast_recommendation(request: Request):
     }
 
 
+async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids: list) -> dict:
+    """
+    Kural tabanlı fallback — embedding/model KULLANMAZ.
+    Regex intent detection + SQL sorguları ile anlık sonuç döndürür.
+    """
+    import json
+    from backend.services.chat_engine import ChatEngine, _rule_based_confused_analysis, GENRE_KEYWORDS
+
+    engine = ChatEngine(db=cache)
+    intent = engine.detect_intent(text)
+    mood_analysis = _rule_based_confused_analysis(text)
+
+    exclude_set = set(exclude_ids)
+
+    async def _search_mood_movies(mood_ids: list, count: int) -> list:
+        collected = []
+        for mid in mood_ids:
+            try:
+                rows = await cache.get_top_repository_movies_by_mood(mid, min_vote=min_vote, limit=count * 2)
+                for m in rows:
+                    m_id = m.get("id") or m.get("tmdb_id")
+                    if m_id and m_id not in exclude_set:
+                        m["mood_score"] = 80.0
+                        m["matched_mood"] = mid
+                        m["reason"] = REASON_MAP.get(mid, "Ruh haline uygun bir seçim.")
+                        collected.append(m)
+                        exclude_set.add(m_id)
+            except Exception:
+                continue
+        collected.sort(key=lambda x: (-x.get("vote_average", 0), -x.get("vote_count", 0)))
+        return collected[:count]
+
+    movies = []
+
+    if intent.type == "similar_to_movie" and intent.reference_title:
+        repo_hits = await cache.search_repository_by_title(intent.reference_title, limit=5)
+        query_understanding = f"'{intent.reference_title}' filmine benzer yapımlar arıyorsun."
+        if repo_hits:
+            src_id = repo_hits[0].get("id")
+            if src_id:
+                try:
+                    sim_data = await tmdb_service.get_similar_movies(src_id, page=1)
+                    for m in sim_data.get("movies", []):
+                        m_id = m.get("id")
+                        if m_id and m_id not in exclude_set:
+                            m["mood_score"] = 85.0
+                            m["reason"] = f"'{repo_hits[0]['title']}' sevenler bunu da sevdi."
+                            exclude_set.add(m_id)
+                            movies.append(m)
+                except Exception:
+                    pass
+        if not movies:
+            movies = await _search_mood_movies(["zihin", "gece", "sessiz"], limit)
+
+    elif intent.type in ("genre_recommendation", "mixed_request") and intent.genres:
+        matched_genres = [k for k, v in GENRE_KEYWORDS.items() if any(g in intent.genres for g in v)]
+        query_understanding = f"{' '.join(matched_genres)} türünde filmler arıyorsun."
+        genre_set = set(str(g) for g in intent.genres)
+        try:
+            async with _db_conn(cache.db_path) as db:
+                cursor = await db.execute(
+                    """SELECT tmdb_id, title, poster_url, overview, release_date,
+                              vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
+                       FROM movie_repository
+                       ORDER BY vote_average DESC LIMIT 200"""
+                )
+                for r in await cursor.fetchall():
+                    m_id = r[0]
+                    if m_id in exclude_set:
+                        continue
+                    gids = set(str(g) for g in (json.loads(r[6]) if r[6] else []))
+                    if gids & genre_set:
+                        m = cache._row_to_movie(r)
+                        m["mood_score"] = 80.0
+                        m["reason"] = "Aradığın türe uygun bir seçim."
+                        movies.append(m)
+                        exclude_set.add(m_id)
+                        if len(movies) >= limit * 2:
+                            break
+        except Exception:
+            pass
+        if not movies:
+            movies = await _search_mood_movies(["battaniye", "kahkaha", "adrenalin"], limit)
+
+    elif intent.type == "exact_movie_search" and intent.reference_title:
+        query_understanding = f"'{intent.reference_title}' filmini arıyorsun."
+        repo_hits = await cache.search_repository_by_title(intent.reference_title, limit=3)
+        if repo_hits:
+            movies.extend(repo_hits[:limit])
+        if not movies:
+            movies = await _search_mood_movies(["battaniye", "zihin", "gece"], limit)
+
+    elif intent.type == "mood_recommendation":
+        query_understanding = "Ruh haline göre filmler öneriyorum."
+        mood_hits = mood_analysis.get("mood_mix", [])
+        mood_ids = [m["mood_id"] for m in mood_hits] if mood_hits else ["battaniye", "zihin", "gece", "kahkaha"]
+        movies = await _search_mood_movies(mood_ids, limit * 2)
+
+    else:
+        query_understanding = "Sana en iyi filmleri öneriyorum."
+        movies = await _search_mood_movies(["battaniye", "kahkaha", "zihin", "gece", "yolculuk", "kalp"], limit * 2)
+
+    movies.sort(key=lambda x: (-x.get("mood_score", 0), -x.get("vote_average", 0)))
+    movies = movies[:limit]
+
+    return {
+        "ok": bool(movies),
+        "mode": "rule_fallback",
+        "intent": intent.to_dict(),
+        "query_understanding": query_understanding,
+        "ustad_line": mood_analysis.get("ustad_line", "İşte sana seçtiklerim."),
+        "message": mood_analysis.get("message", ""),
+        "mood_mix": mood_analysis.get("mood_mix", []),
+        "movies": movies,
+    }
+
+
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
-    Kafan mı karışık? — Zero external API calls.
-    Hybrid entity extraction + vector similarity scaling (fully local).
+    Kafan mı karışık? — Önce semantic embedding dener (timeout 8s),
+    başarısız olursa kural tabanlı fallback'e düşer.
     """
     from backend.services.chat_engine import ChatEngine
 
@@ -2856,14 +2973,17 @@ async def post_confused_recommendation(req: ConfusedRequest):
 
     engine = ChatEngine(db=cache)
 
-    result = await engine.process(
-        text=text,
-        limit=limit,
-        min_vote=min_vote,
-        exclude_ids=exclude_ids,
-    )
+    try:
+        result = await asyncio.wait_for(
+            engine.process(text=text, limit=limit, min_vote=min_vote, exclude_ids=exclude_ids),
+            timeout=8.0,
+        )
+        if result and result.get("movies"):
+            return result
+    except Exception as e:
+        logger.warning("[Confused] Semantic search failed (%s), using rule fallback.", e)
 
-    return result
+    return await _confused_fallback(text, limit, min_vote, exclude_ids)
 
 
 @app.post("/api/recommend/mood-quiz", dependencies=[Depends(rate_limit_ai)])
