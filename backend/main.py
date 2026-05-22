@@ -357,104 +357,113 @@ async def lifespan(app: FastAPI):
         logger.error(f"[FastSearch] Yükleme hatası: {e}")
 
     # ── Semantic Search Engine: local sentence-transformers (no API key) ─────
-    async def _init_semantic_engine():
-        """Load semantic search index in background — model download may take time."""
-        await asyncio.sleep(3)  # Let server start accepting requests first
-        try:
-            n = await semantic_engine.load_from_db(cache)
-            if n > 0:
-                logger.info(f"[SemanticSearch] {n} film lokal vektör indeksine yüklendi.")
-            else:
-                # load_from_db already handles the false-positive guard internally.
-                # If index still empty after repository check, retry once seed completes.
-                logger.info("[SemanticSearch] Embedding'ler RAM cache'ine yükleniyor, "
-                            "anlamsal arama arka planda aktifleşecek...")
-                await asyncio.sleep(60)
-                n2 = await semantic_engine.load_from_db(cache)
-                if n2 > 0:
-                    logger.info(f"[SemanticSearch] Retry başarılı: {n2} film indekslendi.")
-        except Exception as e:
-            logger.error(f"[SemanticSearch] Yükleme hatası: {e}")
+    # PRODUCTION OPTIMIZATION: Skip on Render free tier (512MB RAM insufficient)
+    # Semantic search still works on first request (lazy load), but won't pre-load.
+    if not IS_PRODUCTION:
+        async def _init_semantic_engine():
+            """Load semantic search index in background — model download may take time."""
+            await asyncio.sleep(3)  # Let server start accepting requests first
+            try:
+                n = await semantic_engine.load_from_db(cache)
+                if n > 0:
+                    logger.info(f"[SemanticSearch] {n} film lokal vektör indeksine yüklendi.")
+                else:
+                    # load_from_db already handles the false-positive guard internally.
+                    # If index still empty after repository check, retry once seed completes.
+                    logger.info("[SemanticSearch] Embedding'ler RAM cache'ine yükleniyor, "
+                                "anlamsal arama arka planda aktifleşecek...")
+                    await asyncio.sleep(60)
+                    n2 = await semantic_engine.load_from_db(cache)
+                    if n2 > 0:
+                        logger.info(f"[SemanticSearch] Retry başarılı: {n2} film indekslendi.")
+            except Exception as e:
+                logger.error(f"[SemanticSearch] Yükleme hatası: {e}")
 
-    asyncio.create_task(_init_semantic_engine())
+        asyncio.create_task(_init_semantic_engine())
+    else:
+        logger.info("[SemanticSearch] Production mode — pre-load atlandı (lazy load on first request).")
 
     # ── Background embedding job: vectorize movies that lack embeddings ────────
-    async def _embed_movies_bg():
-        """
-        Embed unprocessed movies in batches, then reload the in-memory matrix.
-        Runs once at startup (deferred 15s) and is safe to call repeatedly.
-        """
-        await asyncio.sleep(15)  # Let the server fully start first
+    # PRODUCTION OPTIMIZATION: Skip on Render free tier to save memory
+    if not IS_PRODUCTION:
+        async def _embed_movies_bg():
+            """
+            Embed unprocessed movies in batches, then reload the in-memory matrix.
+            Runs once at startup (deferred 15s) and is safe to call repeatedly.
+            """
+            await asyncio.sleep(15)  # Let the server fully start first
 
-        if not embedding_service.is_available:
-            logger.warning("[EmbedJob] GEMINI_API_KEY yok — embedding atlanıyor.")
-            return
-
-        try:
-            batch = await cache.get_unembedded_movies(limit=300)
-            if not batch:
-                logger.info("[EmbedJob] Tüm filmler zaten embed edilmiş.")
+            if not embedding_service.is_available:
+                logger.warning("[EmbedJob] GEMINI_API_KEY yok — embedding atlanıyor.")
                 return
 
-            logger.info(f"[EmbedJob] {len(batch)} film embed edilecek...")
-            embedded = 0
-            failed = 0
+            try:
+                batch = await cache.get_unembedded_movies(limit=300)
+                if not batch:
+                    logger.info("[EmbedJob] Tüm filmler zaten embed edilmiş.")
+                    return
 
-            for movie in batch:
-                try:
-                    # Build search document: Title + overview + genres
-                    from backend.services.fast_search import _GENRE_NAMES, _build_ustad_notu
-                    genre_ids = movie.get("genre_ids", [])
-                    genre_names = [_GENRE_NAMES.get(g, "") for g in genre_ids if g in _GENRE_NAMES]
-                    genre_str = ", ".join(genre_names) if genre_names else "film"
-                    title = movie.get("title", "")
-                    overview = (movie.get("overview") or "")[:400]
-                    release_year = (movie.get("release_date") or "")[:4]
-                    doc = f"Title: {title}. Year: {release_year}. Genres: {genre_str}. {overview}"
+                logger.info(f"[EmbedJob] {len(batch)} film embed edilecek...")
+                embedded = 0
+                failed = 0
 
-                    vec = await embedding_service.get_embedding_safe(doc)
-                    if vec is None:
+                for movie in batch:
+                    try:
+                        # Build search document: Title + overview + genres
+                        from backend.services.fast_search import _GENRE_NAMES, _build_ustad_notu
+                        genre_ids = movie.get("genre_ids", [])
+                        genre_names = [_GENRE_NAMES.get(g, "") for g in genre_ids if g in _GENRE_NAMES]
+                        genre_str = ", ".join(genre_names) if genre_names else "film"
+                        title = movie.get("title", "")
+                        overview = (movie.get("overview") or "")[:400]
+                        release_year = (movie.get("release_date") or "")[:4]
+                        doc = f"Title: {title}. Year: {release_year}. Genres: {genre_str}. {overview}"
+
+                        vec = await embedding_service.get_embedding_safe(doc)
+                        if vec is None:
+                            failed += 1
+                            continue
+
+                        from backend.services.embedding_service import encode_embedding
+                        blob = encode_embedding(vec)
+                        ustad = _build_ustad_notu(title, genre_ids, movie.get("release_date", ""))
+
+                        # Determine primary mood from mood_classification
+                        primary_mood = await cache.get_mood_for_movie(movie.get("id"))
+
+                        await cache.save_fast_search_row(
+                            tmdb_id=movie["id"],
+                            embedding_data=blob,
+                            search_document=doc,
+                            ustad_notu=ustad,
+                            title=title,
+                            poster_url=movie.get("poster_url"),
+                            backdrop_url=movie.get("backdrop_url"),
+                            overview=overview,
+                            release_date=movie.get("release_date", ""),
+                            vote_average=movie.get("vote_average", 0.0),
+                            genre_ids=genre_ids,
+                            primary_mood_id=primary_mood or "",
+                        )
+                        embedded += 1
+                        await asyncio.sleep(0.05)  # ~20 req/s, well within free tier limits
+                    except Exception as e:
                         failed += 1
-                        continue
+                        logger.debug(f"[EmbedJob] Film {movie.get('id')} hata: {e}")
 
-                    from backend.services.embedding_service import encode_embedding
-                    blob = encode_embedding(vec)
-                    ustad = _build_ustad_notu(title, genre_ids, movie.get("release_date", ""))
+                logger.info(f"[EmbedJob] Tamamlandı: {embedded} embed, {failed} hata.")
 
-                    # Determine primary mood from mood_classification
-                    primary_mood = await cache.get_mood_for_movie(movie.get("id"))
+                # Reload in-memory matrix with new embeddings
+                if embedded > 0:
+                    n = await fast_search_engine.load_from_db(cache)
+                    logger.info(f"[FastSearch] Matrix yenilendi: {n} film.")
 
-                    await cache.save_fast_search_row(
-                        tmdb_id=movie["id"],
-                        embedding_data=blob,
-                        search_document=doc,
-                        ustad_notu=ustad,
-                        title=title,
-                        poster_url=movie.get("poster_url"),
-                        backdrop_url=movie.get("backdrop_url"),
-                        overview=overview,
-                        release_date=movie.get("release_date", ""),
-                        vote_average=movie.get("vote_average", 0.0),
-                        genre_ids=genre_ids,
-                        primary_mood_id=primary_mood or "",
-                    )
-                    embedded += 1
-                    await asyncio.sleep(0.05)  # ~20 req/s, well within free tier limits
-                except Exception as e:
-                    failed += 1
-                    logger.debug(f"[EmbedJob] Film {movie.get('id')} hata: {e}")
+            except Exception as e:
+                logger.error(f"[EmbedJob] Genel hata: {e}")
 
-            logger.info(f"[EmbedJob] Tamamlandı: {embedded} embed, {failed} hata.")
-
-            # Reload in-memory matrix with new embeddings
-            if embedded > 0:
-                n = await fast_search_engine.load_from_db(cache)
-                logger.info(f"[FastSearch] Matrix yenilendi: {n} film.")
-
-        except Exception as e:
-            logger.error(f"[EmbedJob] Genel hata: {e}")
-
-    asyncio.create_task(_embed_movies_bg())
+        asyncio.create_task(_embed_movies_bg())
+    else:
+        logger.info("[EmbedJob] Production mode — background embedding atlandı (manual refresh only).")
 
     # ── NPZ Binary Cache: ultra-fast semantic search hydration ──────────
     # If matrix_cache.npz exists, memory-map it and hydrate GLOBAL_CACHE.
