@@ -1,14 +1,44 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+
+/**
+ * SplashScreen — Handshake Controller
+ *
+ * The actual splash lives in index.html as pure CSS (paints on first frame,
+ * zero JS dependency). This component's sole job is to dismiss that HTML
+ * splash once React is hydrated and the minimum 3s cinematic window completes.
+ *
+ * Flow:
+ *   1. index.html renders #sinemood-splash immediately (CSS-only)
+ *   2. React boots → this component mounts
+ *   3. On first visit: wait min 3s (background API prewarm runs during this time)
+ *      then trigger CSS fade-out and remove from DOM
+ *   4. On repeat visits within same session: splash removed instantly
+ */
 
 const SPLASH_KEY = 'sinemood_splash_seen_v2';
 const MIN_SPLASH_MS = 3000;
-const FADE_OUT_MS = 300;
+const CSS_FADE_MS = 550;
 
-function dismissHtmlSplash() {
+function dismissSplash(immediate = false) {
   const el = document.getElementById('sinemood-splash');
   if (!el) return;
+
+  if (immediate) {
+    el.remove();
+    removeSplashStyles();
+    return;
+  }
+
   el.classList.add('splash-exit');
-  setTimeout(() => { el.remove(); }, 300);
+  setTimeout(() => {
+    el.remove();
+    removeSplashStyles();
+  }, CSS_FADE_MS);
+}
+
+function removeSplashStyles() {
+  const style = document.getElementById('sinemood-splash-styles');
+  if (style) style.remove();
 }
 
 function prewarmEndpoints() {
@@ -19,63 +49,31 @@ function prewarmEndpoints() {
   ]);
 }
 
-export default function SplashScreen({ children }) {
-  const [phase, setPhase] = useState('splash'); // splash → fading → ready
+export default function SplashScreen() {
   const handled = useRef(false);
 
   useEffect(() => {
     if (handled.current) return;
     handled.current = true;
 
-    dismissHtmlSplash();
+    const splashEl = document.getElementById('sinemood-splash');
+    if (!splashEl) return;
 
-    const isRepeat = sessionStorage.getItem(SPLASH_KEY);
-    if (isRepeat) {
-      setPhase('ready');
+    if (sessionStorage.getItem(SPLASH_KEY)) {
+      dismissSplash(true);
       return;
     }
     sessionStorage.setItem(SPLASH_KEY, '1');
 
-    const boot = async () => {
-      await Promise.all([
-        new Promise((r) => setTimeout(r, MIN_SPLASH_MS)),
-        prewarmEndpoints(),
-      ]);
-      setPhase('fading');
-      setTimeout(() => setPhase('ready'), FADE_OUT_MS);
-    };
-    boot();
+    Promise.all([
+      new Promise((r) => setTimeout(r, MIN_SPLASH_MS)),
+      prewarmEndpoints(),
+    ]).then(() => {
+      dismissSplash(false);
+    }).catch(() => {
+      dismissSplash(false);
+    });
   }, []);
 
-  if (phase === 'ready') return children;
-
-  return (
-    <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#000000] select-none transition-opacity duration-300 ${phase === 'fading' ? 'opacity-0' : 'opacity-100'}`}
-    >
-      <div className="relative flex flex-col items-center gap-5">
-        <h1 className="text-4xl md:text-5xl font-light tracking-[0.25em] text-white select-none uppercase font-serif animate-pulse duration-[2000ms]">
-          SINE<span className="text-[#d4af37] font-normal">MOOD</span>
-        </h1>
-
-        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent overflow-hidden relative">
-          <div
-            className="absolute inset-0 bg-white w-1/2"
-            style={{ animation: 'spShimmer 1.5s infinite linear' }}
-          />
-        </div>
-      </div>
-
-      <p className="absolute bottom-12 text-xs font-light tracking-[0.4em] text-zinc-500 uppercase select-none">
-        Üstad ruh halini süzüyor...
-      </p>
-
-      <style>{`
-        @keyframes spShimmer {
-          0%   { transform: translateX(-150%); }
-          100% { transform: translateX(250%); }
-        }
-      `}</style>
-    </div>
-  );
+  return null;
 }
