@@ -2896,11 +2896,21 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
 async def _fast_mood_bypass(mood_id: str, limit: int, min_vote: float, exclude_ids: list, raw_text: str = "") -> dict:
     """forced_mood_override bypass: doğrudan mood_score'lu SQL, <5ms."""
     exclude_set = set(exclude_ids)
-    result = await cache.get_top_scored_movies_by_mood(mood_id, min_vote=min_vote, limit=limit * 4)
-    if result and all(m.get("mood_score", 0) == 0 for m in result):
-        result = await cache.get_top_repository_movies_by_mood(mood_id, min_vote=min_vote, limit=limit * 4)
-        for m in result:
-            m["mood_score"] = round(m.get("vote_average", 0) * 10, 1)
+    try:
+        result = await cache.get_top_scored_movies_by_mood(mood_id, min_vote=min_vote, limit=limit * 4)
+    except Exception as e:
+        logger.warning(f"[FastMoodBypass] get_top_scored_movies_by_mood failed ({e}), falling back to repository query")
+        result = []
+    
+    # Fallback: if first query failed or returned empty results, use repository query
+    if not result or all(m.get("mood_score", 0) == 0 for m in result):
+        try:
+            result = await cache.get_top_repository_movies_by_mood(mood_id, min_vote=min_vote, limit=limit * 4)
+            for m in result:
+                m["mood_score"] = round(m.get("vote_average", 0) * 10, 1)
+        except Exception as e:
+            logger.warning(f"[FastMoodBypass] get_top_repository_movies_by_mood failed ({e})")
+            result = []
 
     movies = []
     for m in result:
@@ -2942,7 +2952,10 @@ async def post_confused_recommendation(req: ConfusedRequest):
     # ── FAST PATH: known mood slug → direct SQL, zero embedding ──
     override = (req.forced_mood_override or "").strip().lower()
     if override and override in MOOD_NAMES:
-        return await _fast_mood_bypass(override, limit, min_vote, exclude_ids, req.text)
+        try:
+            return await _fast_mood_bypass(override, limit, min_vote, exclude_ids, req.text)
+        except Exception as e:
+            logger.error(f"[Confused] Fast mood bypass failed ({e}), falling back to semantic search", exc_info=True)
 
     from backend.services.chat_engine import ChatEngine
 

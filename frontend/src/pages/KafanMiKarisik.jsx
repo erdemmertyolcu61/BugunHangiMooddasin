@@ -132,11 +132,23 @@ export default function KafanMiKarisik() {
     setEarlyIntent(null);
     try {
       const data = await postConfusedRecommendation(quickMood.label, 6, 5.0, sessionExcludeIds, quickMood.slug);
-      setResult(data);
-      if (data.movies) {
-        const newIds = data.movies.map(m => m.id).filter(Boolean);
-        setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
+      
+      // Validate response
+      if (!data) {
+        throw new Error('Sunucu yanıt vermedi');
       }
+      
+      if (!data.movies || !Array.isArray(data.movies)) {
+        throw new Error('Film listesi alınamadı');
+      }
+      
+      if (data.movies.length === 0) {
+        throw new Error('Bu ruh haline uygun film bulunamadı');
+      }
+      
+      setResult(data);
+      const newIds = data.movies.map(m => m.id || m.tmdb_id).filter(Boolean);
+      setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
     } catch (err) {
       setError(err.message || 'Bir hata oluştu');
     } finally {

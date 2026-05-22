@@ -28,7 +28,7 @@ _TEMPLATES = [
     ("amazon prime",       "https://www.primevideo.com/search/?phrase={q}"),
     ("amazon video",       "https://www.primevideo.com/search/?phrase={q}"),
     ("prime video",        "https://www.primevideo.com/search/?phrase={q}"),
-    ("disney",             "https://www.disneyplus.com/search?q={q}"),
+    ("disney",             "https://www.disneyplus.com/search"),
     ("apple tv",           "https://tv.apple.com/search?term={q}"),
     ("apple itunes",       "https://tv.apple.com/search?term={q}"),
     ("itunes",             "https://tv.apple.com/search?term={q}"),
