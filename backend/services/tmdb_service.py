@@ -22,7 +22,7 @@ class TMDBService:
         """Lazy-init persistent client with connection pooling."""
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=20.0,
+                timeout=10.0,
                 limits=httpx.Limits(
                     max_connections=15,
                     max_keepalive_connections=10,

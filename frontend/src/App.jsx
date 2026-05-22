@@ -133,16 +133,19 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <SplashScreen />
-      <ThemeProvider>
-        <AuthProvider>
-          <BetaGate>
-            <MoodProvider>
-              <AppContent />
-            </MoodProvider>
-          </BetaGate>
-        </AuthProvider>
-      </ThemeProvider>
+      <SplashScreen>
+        <div className="animate-fade-in">
+          <ThemeProvider>
+            <AuthProvider>
+              <BetaGate>
+                <MoodProvider>
+                  <AppContent />
+                </MoodProvider>
+              </BetaGate>
+            </AuthProvider>
+          </ThemeProvider>
+        </div>
+      </SplashScreen>
     </Router>
   );
 }

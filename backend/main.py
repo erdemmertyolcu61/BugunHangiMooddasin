@@ -1954,8 +1954,10 @@ async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
         except Exception:
             pass
 
-        rec = await tmdb_service.get_recommendations(movie_id, page=1)
-        sim = await tmdb_service.get_similar_movies(movie_id, page=1)
+        rec, sim = await asyncio.gather(
+            tmdb_service.get_recommendations(movie_id, page=1),
+            tmdb_service.get_similar_movies(movie_id, page=1),
+        )
 
         # Recommendations öncelikli havuz
         pool = {}
@@ -2028,10 +2030,15 @@ import hashlib
 _IMAGE_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "image_cache")
 os.makedirs(_IMAGE_CACHE_DIR, exist_ok=True)
 
+def _write_cache(path: str, data: bytes) -> None:
+    """Sync helper for async disk write via asyncio.to_thread."""
+    with open(path, "wb") as f:
+        f.write(data)
+
 # Shared httpx client for connection pooling (reuses TCP connections)
 import httpx as _hx
 _image_client = _hx.AsyncClient(
-    timeout=10.0,
+    timeout=_hx.Timeout(8.0, connect=5.0),
     limits=_hx.Limits(max_connections=20, max_keepalive_connections=10),
     follow_redirects=True,
 )
@@ -2070,16 +2077,17 @@ async def image_proxy(url: str = Query(...)):
         resp = await _image_client.get(url)
         resp.raise_for_status()
         content_type = resp.headers.get("content-type", "image/jpeg")
+        body = resp.content
 
-        # Arka planda diske yaz (bloklama yok)
+        # Async disk write — event loop'i bloklama
         try:
-            with open(cache_path, "wb") as f:
-                f.write(resp.content)
+            from functools import partial
+            await asyncio.to_thread(partial(_write_cache, cache_path, body))
         except Exception:
             pass  # Disk yazma hatası poster gösterimini engellemesin
 
         return Response(
-            content=resp.content,
+            content=body,
             media_type=content_type,
             headers={"Cache-Control": "public, max-age=604800", "X-Cache": "MISS"},
         )

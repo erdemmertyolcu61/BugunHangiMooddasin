@@ -1,77 +1,81 @@
-import { useEffect, useRef } from 'react';
-
-/**
- * SplashScreen — Handshake Controller
- *
- * The actual splash lives in index.html as pure CSS (paints on first frame,
- * zero JS dependency). This component's sole job is to dismiss that HTML
- * splash once React is hydrated and the router has mounted.
- *
- * Flow:
- *   1. index.html renders #sinemood-splash immediately (CSS-only)
- *   2. React boots → this component mounts
- *   3. After a minimum display time (lets animations complete), we:
- *      a. Add .splash-exit class → triggers opacity fade-out (0.55s CSS transition)
- *      b. After transition ends, remove #sinemood-splash from DOM entirely
- *      c. Remove the <style id="sinemood-splash-styles"> tag to free memory
- *   4. On repeat visits within the same session, splash is removed instantly
- */
+import { useState, useEffect, useRef } from 'react';
 
 const SPLASH_KEY = 'sinemood_splash_seen_v2';
-const FADE_OUT_MS   = 250;     // quick exit
+const MIN_SPLASH_MS = 3000;
+const FADE_OUT_MS = 300;
 
-function dismissSplash(immediate = false) {
+function dismissHtmlSplash() {
   const el = document.getElementById('sinemood-splash');
   if (!el) return;
-
-  if (immediate) {
-    el.remove();
-    removeSplashStyles();
-    return;
-  }
-
-  // Phase 1: trigger CSS fade-out
   el.classList.add('splash-exit');
-
-  // Phase 2: remove from DOM after transition completes
-  setTimeout(() => {
-    el.remove();
-    removeSplashStyles();
-  }, FADE_OUT_MS);
+  setTimeout(() => { el.remove(); }, 300);
 }
 
-function removeSplashStyles() {
-  const style = document.getElementById('sinemood-splash-styles');
-  if (style) style.remove();
+function prewarmEndpoints() {
+  const base = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE_URL || '');
+  return Promise.allSettled([
+    fetch(`${base}/api/moods/config`).catch(() => {}),
+    fetch(`${base}/api/search/status`).catch(() => {}),
+  ]);
 }
 
-export default function SplashScreen() {
-  // Guard against React StrictMode double-mount: the first mount sets
-  // sessionStorage, StrictMode unmounts (clearing timer), then re-mounts
-  // and sees the key → instant dismiss. Using a module-level flag avoids this.
+export default function SplashScreen({ children }) {
+  const [phase, setPhase] = useState('splash'); // splash → fading → ready
   const handled = useRef(false);
 
   useEffect(() => {
     if (handled.current) return;
     handled.current = true;
 
-    const splashEl = document.getElementById('sinemood-splash');
+    dismissHtmlSplash();
 
-    // No splash element → nothing to do (already removed)
-    if (!splashEl) return;
-
-    // Repeat visit this session → remove immediately, no animation
-    if (sessionStorage.getItem(SPLASH_KEY)) {
-      dismissSplash(true);
+    const isRepeat = sessionStorage.getItem(SPLASH_KEY);
+    if (isRepeat) {
+      setPhase('ready');
       return;
     }
-
-    // First visit — mark session, then dismiss immediately.
-    // CSS splash animation has been playing for hundreds of ms by hydration time.
     sessionStorage.setItem(SPLASH_KEY, '1');
-    dismissSplash(false);
+
+    const boot = async () => {
+      await Promise.all([
+        new Promise((r) => setTimeout(r, MIN_SPLASH_MS)),
+        prewarmEndpoints(),
+      ]);
+      setPhase('fading');
+      setTimeout(() => setPhase('ready'), FADE_OUT_MS);
+    };
+    boot();
   }, []);
 
-  // This component renders nothing — the splash is in index.html
-  return null;
+  if (phase === 'ready') return children;
+
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#000000] select-none transition-opacity duration-300 ${phase === 'fading' ? 'opacity-0' : 'opacity-100'}`}
+    >
+      <div className="relative flex flex-col items-center gap-5">
+        <h1 className="text-4xl md:text-5xl font-light tracking-[0.25em] text-white select-none uppercase font-serif animate-pulse duration-[2000ms]">
+          SINE<span className="text-[#d4af37] font-normal">MOOD</span>
+        </h1>
+
+        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent overflow-hidden relative">
+          <div
+            className="absolute inset-0 bg-white w-1/2"
+            style={{ animation: 'spShimmer 1.5s infinite linear' }}
+          />
+        </div>
+      </div>
+
+      <p className="absolute bottom-12 text-xs font-light tracking-[0.4em] text-zinc-500 uppercase select-none">
+        Üstad ruh halini süzüyor...
+      </p>
+
+      <style>{`
+        @keyframes spShimmer {
+          0%   { transform: translateX(-150%); }
+          100% { transform: translateX(250%); }
+        }
+      `}</style>
+    </div>
+  );
 }
