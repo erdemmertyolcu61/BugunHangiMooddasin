@@ -426,7 +426,7 @@ class TMDBService:
     async def search_movies(self, query: str, page: int = 1) -> list:
         data = await self._get(f"{self.base_url}/search/movie", {
             "api_key": self.api_key, "query": query,
-            "language": "tr-TR", "page": page, "include_adult": False,
+            "language": "tr", "page": page, "include_adult": False,
         })
         movies = []
         for movie in data.get("results", [])[:20]:
