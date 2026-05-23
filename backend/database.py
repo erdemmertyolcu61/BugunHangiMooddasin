@@ -1081,6 +1081,18 @@ class MovieCache:
             """, rows)
             await db.commit()
 
+    async def remove_movies_from_repository(self, movie_ids: list, mood_id: str):
+        """Remove specific movies from repository for a given mood."""
+        if not movie_ids:
+            return
+        async with _get_connection(self.db_path) as db:
+            placeholders = ",".join("?" * len(movie_ids))
+            await db.execute(
+                f"DELETE FROM movie_repository WHERE mood_id = ? AND tmdb_id IN ({placeholders})",
+                [mood_id] + movie_ids
+            )
+            await db.commit()
+
     async def seed_mood_repository(self, mood_id: str, genre_ids: list,
                                     tmdb_service_obj, pages: int = 10,
                                     min_vote: float = 5.0,
@@ -1091,7 +1103,8 @@ class MovieCache:
                                     primary_release_date_lte: str = None,
                                     primary_release_date_gte: str = None,
                                     tr_pages: int = None,
-                                    tr_min_vote_override: float = None) -> int:
+                                    tr_min_vote_override: float = None,
+                                    with_runtime_lte: int = None) -> int:
         """
         Pre-fetch movies for a mood from TMDB and store locally.
         v2: PARALLEL fetching — all pages + strategies run concurrently.
@@ -1113,6 +1126,7 @@ class MovieCache:
             without_genres=without_genres,
             primary_release_date_lte=primary_release_date_lte,
             primary_release_date_gte=primary_release_date_gte,
+            with_runtime_lte=with_runtime_lte,
         )
         all_movies.extend(main_pages)
 
@@ -1136,6 +1150,7 @@ class MovieCache:
                 region="TR" if strat.get("with_origin_country") else None,
                 primary_release_date_lte=strat.get("primary_release_date_lte", primary_release_date_lte),
                 primary_release_date_gte=strat.get("primary_release_date_gte", primary_release_date_gte),
+                with_runtime_lte=strat.get("with_runtime_lte"),
             )
             return movies
 
@@ -1163,6 +1178,7 @@ class MovieCache:
                 region="TR",
                 primary_release_date_lte=primary_release_date_lte,
                 primary_release_date_gte=primary_release_date_gte,
+                with_runtime_lte=with_runtime_lte,
             )
             all_movies.extend(tr_movies)
 

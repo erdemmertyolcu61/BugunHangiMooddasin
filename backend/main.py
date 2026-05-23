@@ -231,6 +231,7 @@ async def lifespan(app: FastAPI):
                 primary_release_date_lte=rls_lte,
                 tr_pages=TR_SEED_PAGES,
                 tr_min_vote_override=tmdb_params.get("min_vote_average", 6.0) - 1.0,
+                with_runtime_lte=90 if mid == "sipsak" else None,
             )
             after = await cache.count_repository_movies(mid, 0.0)
             logger.info(f"[Seed] {mid} -> +{saved} yeni (toplam: {after}).")
@@ -392,6 +393,37 @@ async def lifespan(app: FastAPI):
         logger.info(f"[Seed] Startup pipeline: {t2 - t0:.1f}s")
 
     asyncio.create_task(auto_seed())
+
+    async def _cleanup_sipsak_long_films():
+        """Remove non-documentary sipsak films > 90 min from repository."""
+        try:
+            movies = await cache.get_all_repository_movies_by_mood("sipsak", min_vote=0.0)
+            if not movies:
+                return
+            to_check = [m for m in movies if 99 not in m.get("genre_ids", [])]
+            if not to_check:
+                logger.info("[SipsakCleanup] Tüm sipsak filmleri belgesel, temizlik gerekmedi.")
+                return
+            async def _check(m):
+                try:
+                    details = await tmdb_service.get_movie_details(m["id"])
+                    runtime = details.get("runtime")
+                    if runtime and runtime > 90:
+                        return m["id"]
+                except:
+                    pass
+                return None
+            results = await asyncio.gather(*[_check(m) for m in to_check])
+            to_remove = [r for r in results if r is not None]
+            if to_remove:
+                await cache.remove_movies_from_repository(to_remove, "sipsak")
+                logger.info(f"[SipsakCleanup] {len(to_remove)}/{len(to_check)} uzun film temizlendi.")
+            else:
+                logger.info(f"[SipsakCleanup] {len(to_check)} film kontrol edildi, temizlik gerekmedi.")
+        except Exception as e:
+            logger.warning(f"[SipsakCleanup] Hata: {e}")
+
+    asyncio.create_task(_cleanup_sipsak_long_films())
 
     # ── All heavy initializations deferred to background ──
     # Fast Search, Semantic Search, NPZ Cache, Embedding, Model pre-warm

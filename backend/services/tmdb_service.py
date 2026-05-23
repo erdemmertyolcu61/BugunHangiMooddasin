@@ -165,7 +165,8 @@ class TMDBService:
                                 with_original_language: str = None,
                                 region: str = None,
                                 primary_release_date_lte: str = None,
-                                primary_release_date_gte: str = None) -> dict:
+                                primary_release_date_gte: str = None,
+                                with_runtime_lte: int = None) -> dict:
         params = {
             "api_key": self.api_key, "language": "tr-TR",
             "sort_by": sort_by,
@@ -191,6 +192,8 @@ class TMDBService:
             params["primary_release_date.lte"] = primary_release_date_lte
         if primary_release_date_gte:
             params["primary_release_date.gte"] = primary_release_date_gte
+        if with_runtime_lte is not None:
+            params["with_runtime.lte"] = with_runtime_lte
 
         data = await self._get(f"{self.base_url}/discover/movie", params)
         return {

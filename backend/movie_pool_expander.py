@@ -154,12 +154,14 @@ async def _expand_popular(mood_id: str) -> int:
 # === TOP RATED ===
 async def _expand_top_rated(mood_id: str) -> int:
     saved = 0
+    runtime_filter = {"with_runtime_lte": 90} if mood_id == "sipsak" else {}
     for page in range(1, 501):
         try:
             result = await tmdb_service.discover_movies(
                 genre_ids=[18, 28, 35, 53, 878, 12, 80, 10749, 9648, 27, 14],
                 page=page, sort_by="vote_average.desc",
                 min_vote_average=6.0, min_vote_count=100,
+                **runtime_filter,
             )
             movies = result.get("movies", [])
             if not movies:
@@ -204,9 +206,11 @@ async def _expand_by_genre(mood_id: str) -> int:
     saved = 0
     for gid in TMDB_GENRES:
         try:
+            runtime_filter = {"with_runtime_lte": 90} if mood_id == "sipsak" and gid != 99 else {}
             kwargs = {
                 "genre_ids": [gid], "page": 1, "sort_by": "popularity.desc",
                 "min_vote_average": 4.0, "min_vote_count": 5,
+                **runtime_filter,
             }
             for page in range(1, 6):
                 kwargs["page"] = page
@@ -221,6 +225,7 @@ async def _expand_by_genre(mood_id: str) -> int:
 # === BY LANGUAGE ===
 async def _expand_by_language(mood_id: str) -> int:
     saved = 0
+    runtime_filter = {"with_runtime_lte": 90} if mood_id == "sipsak" else {}
     for lang in LANGUAGES:
         try:
             kwargs = {
@@ -228,6 +233,7 @@ async def _expand_by_language(mood_id: str) -> int:
                 "page": 1, "sort_by": "popularity.desc",
                 "min_vote_average": 4.0, "min_vote_count": 5,
                 "with_original_language": lang,
+                **runtime_filter,
             }
             if lang == "tr":
                 kwargs["with_origin_country"] = "TR"

@@ -814,12 +814,12 @@ MOOD_SEED_STRATEGIES = {
         {"genres": [14, 53], "with_origin_country": "TR", "with_original_language": "tr", "max_vote_count": 5000},
     ],
     "sipsak": [
-        {"genres": [18, 10749], "min_vote_count": 10, "max_vote_count": 5000},
-        {"genres": [18, 35], "min_vote_count": 10, "max_vote_count": 5000},
+        {"genres": [18, 10749], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [18, 35], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
         {"genres": [99], "min_vote_count": 10, "max_vote_count": 5000},
-        {"genres": [18, 14], "min_vote_count": 10, "max_vote_count": 5000},
-        {"genres": [10749], "min_vote_count": 10, "max_vote_count": 5000},
-        {"genres": [35], "min_vote_count": 10, "max_vote_count": 5000},
+        {"genres": [18, 14], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [10749], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [35], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
     ],
     "deep-chills": [
         {"genres": [27, 53]},
