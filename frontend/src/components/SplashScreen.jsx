@@ -17,6 +17,7 @@ import { useEffect, useRef } from 'react';
 
 const SPLASH_KEY = 'sinemood_splash_seen_v2';
 const MIN_SPLASH_MS = 3000;
+const MAX_APP_WAIT_MS = 3000;
 const CSS_FADE_MS = 550;
 
 function dismissSplash(immediate = false) {
@@ -49,6 +50,21 @@ function prewarmEndpoints() {
   ]);
 }
 
+function waitForAppReadiness() {
+  return new Promise((resolve) => {
+    if (window.__APP_READY) { resolve(); return; }
+    let done = false;
+    const onReady = () => { done = true; resolve(); };
+    window.addEventListener('app-ready', onReady, { once: true });
+    setTimeout(() => {
+      if (!done) {
+        window.removeEventListener('app-ready', onReady);
+        resolve();
+      }
+    }, MAX_APP_WAIT_MS);
+  });
+}
+
 export default function SplashScreen() {
   const handled = useRef(false);
 
@@ -68,6 +84,7 @@ export default function SplashScreen() {
     Promise.all([
       new Promise((r) => setTimeout(r, MIN_SPLASH_MS)),
       prewarmEndpoints(),
+      waitForAppReadiness(),
     ]).then(() => {
       dismissSplash(false);
     }).catch(() => {

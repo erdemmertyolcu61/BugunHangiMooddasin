@@ -86,6 +86,17 @@ function DiscoverSkeleton() {
   );
 }
 
+function AppReadyNotifier() {
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      window.__APP_READY = true;
+      window.dispatchEvent(new CustomEvent('app-ready'));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return null;
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -157,6 +168,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <BetaGate>
+            <AppReadyNotifier />
             <MoodProvider>
               <AppContent />
             </MoodProvider>
