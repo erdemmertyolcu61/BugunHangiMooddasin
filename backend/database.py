@@ -15,6 +15,7 @@ import aiosqlite
 import sqlite3
 import json
 import os
+import re
 import base64
 import asyncio
 import contextlib
@@ -489,6 +490,64 @@ class MovieCache:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            # ── Sosyal ağ: Arkadaşlık + Doğrudan Film Paylaşımı ──────────────
+            # username kolonu (arkadaş arama tanımlayıcısı) — güvenli migration
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN username TEXT")
+            except Exception:
+                pass  # kolon zaten var
+            # Mevcut kullanıcılara benzersiz username üret (email öneki + id)
+            try:
+                await db.execute("""
+                    UPDATE users SET username =
+                        CASE
+                            WHEN email IS NOT NULL AND instr(email,'@') > 1
+                            THEN lower(substr(email,1,instr(email,'@')-1)) || '_' || id
+                            ELSE 'user_' || id
+                        END
+                    WHERE username IS NULL OR username = ''
+                """)
+            except Exception:
+                pass
+            try:
+                await db.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)"
+                )
+            except Exception:
+                pass
+
+            # friendships — iki yönlü arkadaşlık + engelleme matrisi
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS friendships (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    friend_id INTEGER NOT NULL REFERENCES users(id),
+                    status TEXT NOT NULL DEFAULT 'PENDING'
+                        CHECK (status IN ('PENDING','ACCEPTED','DECLINED','BLOCKED')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, friend_id)
+                )
+            """)
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_friendships_lookup ON friendships(friend_id, status)"
+            )
+
+            # direct_recommendations — doğrudan film paylaşım odası
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS direct_recommendations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender_id INTEGER NOT NULL REFERENCES users(id),
+                    receiver_id INTEGER NOT NULL REFERENCES users(id),
+                    movie_id INTEGER NOT NULL,
+                    user_note TEXT,
+                    is_read INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)"
+            )
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -534,9 +593,51 @@ class MovieCache:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (tmdb_id, user_id)
             )""",
+            # ── Sosyal ağ tabloları ──────────────────────────────────────────
+            """CREATE TABLE IF NOT EXISTS friendships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                friend_id INTEGER NOT NULL REFERENCES users(id),
+                status TEXT NOT NULL DEFAULT 'PENDING'
+                    CHECK (status IN ('PENDING','ACCEPTED','DECLINED','BLOCKED')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, friend_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS direct_recommendations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL REFERENCES users(id),
+                receiver_id INTEGER NOT NULL REFERENCES users(id),
+                movie_id INTEGER NOT NULL,
+                user_note TEXT,
+                is_read INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
         ]
         for stmt in stmts:
             await _turso_client.execute(stmt)
+        # username kolonu + benzersiz index (idempotent, hata yutulur)
+        for mig in (
+            "ALTER TABLE users ADD COLUMN username TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)",
+            "CREATE INDEX IF NOT EXISTS idx_friendships_lookup ON friendships(friend_id, status)",
+            "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)",
+        ):
+            try:
+                await _turso_client.execute(mig)
+            except Exception:
+                pass
+        try:
+            await _turso_client.execute("""
+                UPDATE users SET username =
+                    CASE
+                        WHEN email IS NOT NULL AND instr(email,'@') > 1
+                        THEN lower(substr(email,1,instr(email,'@')-1)) || '_' || id
+                        ELSE 'user_' || id
+                    END
+                WHERE username IS NULL OR username = ''
+            """)
+        except Exception:
+            pass
 
     async def get_movie(self, tmdb_id: int) -> Optional[dict]:
         """Retrieve cached movie analysis by TMDB ID."""
@@ -567,6 +668,190 @@ class MovieCache:
             cursor = await db.execute("SELECT data FROM movie_cache")
             rows = await cursor.fetchall()
             return [json.loads(row[0]) for row in rows]
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # SOSYAL AĞ — Arkadaşlık & Doğrudan Film Paylaşımı
+    # Tüm sorgular user_data=True (Turso varsa kalıcı, yoksa local SQLite)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def ensure_username(self, user_id: int, email: str = "") -> str:
+        """Kullanıcının username'i yoksa email öneki + id ile benzersiz üretir."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            row = await cur.fetchone()
+            if row and row[0]:
+                return row[0]
+            prefix = (email.split("@")[0] if email and "@" in email else "user").lower()
+            prefix = re.sub(r"[^a-z0-9_]", "", prefix) or "user"
+            username = f"{prefix}_{user_id}"
+            await db.execute("UPDATE users SET username = ? WHERE id = ?", (username, user_id))
+            await db.commit()
+            return username
+
+    async def get_user_by_username(self, username: str) -> Optional[dict]:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT id, username, name, picture, email FROM users WHERE lower(username) = ?",
+                (username.strip().lower(),),
+            )
+            row = await cur.fetchone()
+            if not row:
+                return None
+            return {"id": row[0], "username": row[1], "name": row[2],
+                    "picture": row[3], "email": row[4]}
+
+    async def create_friend_request(self, user_id: int, friend_id: int) -> dict:
+        """PENDING istek oluştur. Karşı taraf zaten istek attıysa karşılıklı ACCEPTED yapar."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT id, user_id, status FROM friendships "
+                "WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
+                (user_id, friend_id, friend_id, user_id),
+            )
+            existing = await cur.fetchone()
+            if existing:
+                ex_id, ex_uid, ex_status = existing
+                if ex_status == "ACCEPTED":
+                    return {"status": "ACCEPTED", "already": True}
+                if ex_status == "BLOCKED":
+                    return {"status": "BLOCKED", "already": True}
+                # Karşı taraf bana PENDING istek attıysa → karşılıklı kabul
+                if ex_uid == friend_id and ex_status == "PENDING":
+                    await db.execute("UPDATE friendships SET status='ACCEPTED' WHERE id = ?", (ex_id,))
+                    await db.commit()
+                    return {"status": "ACCEPTED", "mutual": True}
+                # Eski isteğimi tazele (DECLINED → PENDING)
+                await db.execute("UPDATE friendships SET status='PENDING' WHERE id = ?", (ex_id,))
+                await db.commit()
+                return {"status": "PENDING", "request_id": ex_id}
+            await db.execute(
+                "INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'PENDING')",
+                (user_id, friend_id),
+            )
+            await db.commit()
+            cur = await db.execute(
+                "SELECT id FROM friendships WHERE user_id = ? AND friend_id = ?",
+                (user_id, friend_id),
+            )
+            row = await cur.fetchone()
+            return {"status": "PENDING", "request_id": row[0] if row else None}
+
+    async def respond_friend_request(self, request_id: int, user_id: int, action: str) -> bool:
+        """Sadece isteğin alıcısı (friend_id == user_id) yanıtlayabilir."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT friend_id, status FROM friendships WHERE id = ?", (request_id,)
+            )
+            row = await cur.fetchone()
+            if not row or row[0] != user_id or row[1] != "PENDING":
+                return False
+            new_status = "ACCEPTED" if action.upper() == "ACCEPT" else "DECLINED"
+            await db.execute("UPDATE friendships SET status = ? WHERE id = ?", (new_status, request_id))
+            await db.commit()
+            return True
+
+    async def get_friends(self, user_id: int) -> list:
+        """ACCEPTED arkadaşların karşı tarafının public bilgileri."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT u.id, u.username, u.name, u.picture
+                   FROM friendships f
+                   JOIN users u ON u.id = CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
+                   WHERE (f.user_id = ? OR f.friend_id = ?) AND f.status = 'ACCEPTED'
+                   ORDER BY u.name""",
+                (user_id, user_id, user_id),
+            )
+            rows = await cur.fetchall()
+            return [{"id": r[0], "username": r[1], "name": r[2], "avatar": r[3]} for r in rows]
+
+    async def get_incoming_requests(self, user_id: int) -> list:
+        """Bana gelen PENDING istekler + gönderen bilgisi."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT f.id, u.id, u.username, u.name, u.picture, f.created_at
+                   FROM friendships f JOIN users u ON u.id = f.user_id
+                   WHERE f.friend_id = ? AND f.status = 'PENDING'
+                   ORDER BY f.created_at DESC""",
+                (user_id,),
+            )
+            rows = await cur.fetchall()
+            return [{"request_id": r[0], "id": r[1], "username": r[2], "name": r[3],
+                     "avatar": r[4], "created_at": r[5]} for r in rows]
+
+    async def are_friends(self, user_id: int, other_id: int) -> bool:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT 1 FROM friendships WHERE status = 'ACCEPTED'
+                   AND ((user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?))
+                   LIMIT 1""",
+                (user_id, other_id, other_id, user_id),
+            )
+            return (await cur.fetchone()) is not None
+
+    async def create_direct_recommendation(self, sender_id: int, receiver_id: int,
+                                           movie_id: int, user_note: str = "") -> None:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                """INSERT INTO direct_recommendations (sender_id, receiver_id, movie_id, user_note)
+                   VALUES (?, ?, ?, ?)""",
+                (sender_id, receiver_id, movie_id, (user_note or "")[:250]),
+            )
+            await db.commit()
+
+    async def get_unread_shares(self, user_id: int) -> list:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT d.id, d.movie_id, d.user_note, d.created_at,
+                          u.id, u.username, u.name, u.picture
+                   FROM direct_recommendations d JOIN users u ON u.id = d.sender_id
+                   WHERE d.receiver_id = ? AND d.is_read = 0
+                   ORDER BY d.created_at DESC""",
+                (user_id,),
+            )
+            rows = await cur.fetchall()
+            return [{"id": r[0], "movie_id": r[1], "user_note": r[2], "created_at": r[3],
+                     "sender": {"id": r[4], "username": r[5], "name": r[6], "avatar": r[7]}}
+                    for r in rows]
+
+    async def count_unread_shares(self, user_id: int) -> int:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM direct_recommendations WHERE receiver_id = ? AND is_read = 0",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
+    async def mark_shares_read(self, user_id: int, share_ids: list = None) -> None:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            if share_ids:
+                placeholders = ",".join("?" for _ in share_ids)
+                await db.execute(
+                    f"UPDATE direct_recommendations SET is_read = 1 "
+                    f"WHERE receiver_id = ? AND id IN ({placeholders})",
+                    (user_id, *share_ids),
+                )
+            else:
+                await db.execute(
+                    "UPDATE direct_recommendations SET is_read = 1 WHERE receiver_id = ?",
+                    (user_id,),
+                )
+            await db.commit()
+
+    async def get_movies_meta_by_ids(self, movie_ids: list) -> dict:
+        """movie_repository'den toplu başlık/afiş çek (bildirim zenginleştirme)."""
+        if not movie_ids:
+            return {}
+        placeholders = ",".join("?" for _ in movie_ids)
+        async with _get_connection(self.db_path) as db:
+            cur = await db.execute(
+                f"""SELECT tmdb_id, title, poster_url, vote_average, release_date
+                    FROM movie_repository WHERE tmdb_id IN ({placeholders})""",
+                tuple(movie_ids),
+            )
+            rows = await cur.fetchall()
+            return {r[0]: {"title": r[1], "poster_url": r[2],
+                           "vote_average": r[3], "release_date": r[4]} for r in rows}
 
     # --- Watchlist (Defterim) Methods ---
     async def add_to_watchlist(self, tmdb_id: int, title: str, poster_url: str, user_id: int = 0):

@@ -353,3 +353,76 @@ export async function getSurpriseMovie() {
   if (!res.ok) throw new Error('Sürpriz film alınamadı');
   return res.json();
 }
+
+// --- Arkadaşıma Öner (Direct Film Sharing / Social) ---
+
+async function _socialError(res, fallback) {
+  const data = await res.json().catch(() => ({}));
+  throw new Error(data.detail || fallback);
+}
+
+export async function sendFriendRequest(username) {
+  const res = await fetch(`${BASE}/friends/request/${encodeURIComponent(username)}`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) await _socialError(res, 'Arkadaşlık isteği gönderilemedi');
+  return res.json();
+}
+
+export async function respondFriendRequest(requestId, action) {
+  const res = await fetch(`${BASE}/friends/respond/${requestId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ action }),  // "ACCEPT" | "DECLINE"
+  });
+  if (!res.ok) await _socialError(res, 'İstek yanıtlanamadı');
+  return res.json();
+}
+
+export async function getFriends() {
+  const res = await fetch(`${BASE}/friends/list`, { headers: { ...authHeaders() } });
+  if (!res.ok) return { friends: [] };
+  return res.json();
+}
+
+export async function getFriendRequests() {
+  const res = await fetch(`${BASE}/friends/requests`, { headers: { ...authHeaders() } });
+  if (!res.ok) return { requests: [] };
+  return res.json();
+}
+
+export async function recommendMovieToFriend(receiverId, movieId, userNote = '') {
+  const res = await fetch(`${BASE}/movies/recommend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ receiver_id: receiverId, movie_id: movieId, user_note: userNote }),
+  });
+  if (!res.ok) await _socialError(res, 'Öneri gönderilemedi');
+  return res.json();
+}
+
+export async function getShares() {
+  const res = await fetch(`${BASE}/notifications/shares`, { headers: { ...authHeaders() } });
+  if (!res.ok) return { shares: [], unread_count: 0 };
+  return res.json();
+}
+
+export async function getUnreadShareCount() {
+  try {
+    const res = await fetch(`${BASE}/notifications/count`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { unread_count: 0 };
+    return res.json();
+  } catch {
+    return { unread_count: 0 };
+  }
+}
+
+export async function markSharesRead() {
+  const res = await fetch(`${BASE}/notifications/shares/read`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) return { ok: false };
+  return res.json();
+}

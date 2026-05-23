@@ -728,7 +728,7 @@ class SemanticSearchEngine:
 
         Step B — Composite Vector Matrix:
           Cosine similarity + boost multipliers for entity matches
-          (actor +0.30, director +0.40, exact title +0.20).
+          (actor +0.80, director +0.80, exact title +0.50).
         """
         if not self.is_ready:
             return {
@@ -805,23 +805,27 @@ class SemanticSearchEngine:
             using_cache = False
 
         # Apply entity boost multipliers
+        # Yönetmen/oyuncu adı doğrudan yazıldığında o kişinin filmlerini tepeye çek (+0.80).
+        # İsim len>=5 guard'ı ile kısa/ortak token yanlış eşleşmeleri elenir.
         meta_list = GLOBAL_CACHE.get("meta_list", []) if using_cache else []
         if meta_list:
             boost = np.ones_like(base_scores, dtype=np.float32)
             for idx in range(len(meta_list)):
                 movie = meta_list[idx]
-                # Actor match boost (+0.30)
+                # Oyuncu eşleşmesi (+0.80) — cast alanında tam/kısmi ad
                 if movie.get("cast_slugs"):
                     for actor in movie["cast_slugs"]:
-                        if actor in query_lower:
-                            boost[idx] += 0.30
+                        if len(actor) >= 5 and actor in query_lower:
+                            boost[idx] += 0.80
                             break
-                # Director match boost (+0.40)
-                if movie.get("director_lower") and movie["director_lower"] in query_lower:
-                    boost[idx] += 0.40
-                # Title reference boost (+0.20)
-                if movie.get("title_lower") and movie["title_lower"] in query_lower:
-                    boost[idx] += 0.20
+                # Yönetmen eşleşmesi (+0.80) — director alanında ad
+                director = movie.get("director_lower")
+                if director and len(director) >= 5 and director in query_lower:
+                    boost[idx] += 0.80
+                # Başlık referansı (+0.50) — "X gibi" / direkt film adı
+                title_l = movie.get("title_lower")
+                if title_l and len(title_l) >= 4 and title_l in query_lower:
+                    boost[idx] += 0.50
             scores = base_scores * boost
         else:
             scores = base_scores

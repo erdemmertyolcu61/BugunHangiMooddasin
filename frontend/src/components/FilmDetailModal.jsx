@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Check, Eye, ExternalLink } from 'lucide-react';
+import { X, Plus, Check, Eye, ExternalLink, Users } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
 import {
   proxyImageUrl, getSimilarMovies,
@@ -14,6 +14,8 @@ import {
 import { buildWatchUrl, getPlatformInfo } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
 import UstadLoader from './UstadLoader';
+import RecommendToFriendSheet from './RecommendToFriendSheet';
+import { useAuth } from '../context/AuthContext';
 
 const IMG_LG = 'https://image.tmdb.org/t/p/original';
 
@@ -49,6 +51,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   const [saved, setSaved] = useState(false);
   const [watched, setWatched] = useState(false);
   const [activeId, setActiveId] = useState(movieId);
+  const [showFriendSheet, setShowFriendSheet] = useState(false);
+  const { token } = useAuth();
 
   useEffect(() => { setActiveId(movieId); }, [movieId]);
 
@@ -119,6 +123,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   );
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -305,6 +310,13 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                     }`}>
                     {watched ? <><Check size={14} /> İzledim</> : <><Eye size={14} /> İzledim</>}
                   </button>
+                  {/* Arkadaşına Öner — yalnızca Google ile giriş yapanlara */}
+                  {token && (
+                    <button onClick={() => setShowFriendSheet(true)}
+                      className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-amber/30 text-amber/80 hover:bg-amber/10 hover:text-amber transition-all active:scale-95">
+                      <Users size={14} /> Arkadaşına Öner
+                    </button>
+                  )}
                   {/* Opsiyonel ek aksiyonlar (örn. Paylaş, Topluluğa Öner) */}
                   {extraActions}
                   <button onClick={onClose}
@@ -327,6 +339,15 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
         </motion.div>
       </motion.div>
     </AnimatePresence>
+
+    {/* Arkadaşına Öner Bottom Sheet */}
+    {showFriendSheet && movie && (
+      <RecommendToFriendSheet
+        movie={{ id: activeId, title: movie.title }}
+        onClose={() => setShowFriendSheet(false)}
+      />
+    )}
+    </>
   );
 }
 

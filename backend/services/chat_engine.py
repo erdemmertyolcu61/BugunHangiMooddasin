@@ -9,6 +9,7 @@ Zero external API calls. All processing is local:
 import re
 import logging
 from difflib import SequenceMatcher
+from typing import Optional
 
 logger = logging.getLogger("chat_engine")
 
@@ -430,3 +431,107 @@ class ChatEngine:
             "mood_mix": [],
             "movies": [],
         }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CHAT HINT PARSER — embedding öncesi hafif string analizi
+# Çalışma süresi: <1ms (regex, dict lookup)
+# ═══════════════════════════════════════════════════════════════
+
+# Bonus tavanı — sci-fi gibi güçlü sinyaller için +0.50'ye kadar
+_MAX_BONUS = 0.50
+
+_TIME_CONSTRAINT_KWS = [
+    "kısa", "çabuk", "vaktim az", "zamanım yok", "sipsak", "hemen bitsin",
+    "az vaktim", "hızlı", "kısa film", "kısacık", "hızlıca", "çabucak",
+    "az zaman", "vakit az", "hızla", "çabuk biter", "kısaca", "zamanım az",
+]
+
+# ── Kategori/tema → mood + tür bonus haritası ──────────────────────────────────
+# Mood ID'leri kod tabanındaki GERÇEK mood'lara karşılık gelir
+# (örn. sci-fi → yolculuk+zihin; korku → deep-chills "Derin Ürperti").
+_CATEGORY_HINT_MAP: dict[str, dict] = {
+    # ── Sci-fi / uzay → yolculuk (keşif) + zihin (zihin-büken), +0.50 ──────────
+    "uzay":        {"mood_boost": {"yolculuk": 0.50, "zihin": 0.30},    "genre_ids": [878]},
+    "gelecek":     {"mood_boost": {"yolculuk": 0.40, "zihin": 0.40},    "genre_ids": [878]},
+    "bilim kurgu": {"mood_boost": {"yolculuk": 0.40, "zihin": 0.40},    "genre_ids": [878]},
+    "gezegen":     {"mood_boost": {"yolculuk": 0.50, "zihin": 0.30},    "genre_ids": [878]},
+    "galaksi":     {"mood_boost": {"yolculuk": 0.50},                   "genre_ids": [878]},
+    "yıldız":      {"mood_boost": {"yolculuk": 0.40},                   "genre_ids": [878]},
+    "yapay zeka":  {"mood_boost": {"zihin": 0.50, "karmakar": 0.30},    "genre_ids": [878]},
+
+    # ── Suç / gerilim → gece (noir) ağırlığı + suç/gerilim tür maskesi ─────────
+    "katil":       {"mood_boost": {"gece": 0.45, "adrenalin": 0.25},    "genre_ids": [53, 80]},
+    "cinayet":     {"mood_boost": {"gece": 0.45, "zihin": 0.20},        "genre_ids": [80, 53]},
+    "ajan":        {"mood_boost": {"adrenalin": 0.40, "gece": 0.25},    "genre_ids": [28, 80]},
+    "casusluk":    {"mood_boost": {"adrenalin": 0.35, "gece": 0.25},    "genre_ids": [28, 80]},
+    "polis":       {"mood_boost": {"gece": 0.40, "adrenalin": 0.25},    "genre_ids": [80]},
+    "dedektif":    {"mood_boost": {"gece": 0.40, "zihin": 0.30},        "genre_ids": [80, 9648]},
+    "gerilim":     {"mood_boost": {"gece": 0.45, "adrenalin": 0.25},    "genre_ids": [53]},
+    "suç":         {"mood_boost": {"gece": 0.40, "adrenalin": 0.25},    "genre_ids": [80]},
+    "gizem":       {"mood_boost": {"gece": 0.30, "zihin": 0.30},        "genre_ids": [9648]},
+
+    # ── Korku / ürperti → deep-chills (Derin Ürperti) + korku türü ────────────
+    "korkutucu":   {"mood_boost": {"deep-chills": 0.50},               "genre_ids": [27]},
+    "ürpertici":   {"mood_boost": {"deep-chills": 0.50},               "genre_ids": [27]},
+    "korku":       {"mood_boost": {"deep-chills": 0.50, "gece": 0.20}, "genre_ids": [27]},
+    "karanlık":    {"mood_boost": {"deep-chills": 0.40, "gece": 0.30}, "genre_ids": [27]},
+    # "gece" kelimesi "bu gece" (zamansal) ile karışmasın diye korku türü vermez:
+    "gece":        {"mood_boost": {"gece": 0.40},                      "genre_ids": []},
+
+    # ── Diğer tür/tema bonusları ──────────────────────────────────────────────
+    "savaş":       {"mood_boost": {"adrenalin": 0.40},                  "genre_ids": [10752, 28]},
+    "romantik":    {"mood_boost": {"askbahcesi": 0.40},                 "genre_ids": [10749]},
+    "aşk":         {"mood_boost": {"askbahcesi": 0.35, "gozyasi": 0.20},"genre_ids": [10749]},
+    "komedi":      {"mood_boost": {"kahkaha": 0.40, "battaniye": 0.15}, "genre_ids": [35]},
+    "nostalji":    {"mood_boost": {"zamanyolcusu": 0.40},               "genre_ids": []},
+    "animasyon":   {"mood_boost": {"battaniye": 0.30, "kahkaha": 0.20}, "genre_ids": [16]},
+    "aksiyon":     {"mood_boost": {"adrenalin": 0.40},                  "genre_ids": [28]},
+    "felsefe":     {"mood_boost": {"zihin": 0.40, "sessiz": 0.20},      "genre_ids": [18]},
+}
+
+
+class ParsedHints:
+    """
+    Embedding öncesi chat metninden çıkarılan hafif sinyaller.
+    Hybrid re-ranking'de cosine skoru ile harmanlanır.
+    """
+    __slots__ = ("sipsak_mode", "runtime_max", "mood_bonuses", "genre_ids")
+
+    def __init__(self) -> None:
+        self.sipsak_mode:   bool              = False
+        self.runtime_max:   Optional[int]     = None
+        self.mood_bonuses:  dict[str, float]  = {}   # mood_id → bonus (0.0-0.40)
+        self.genre_ids:     list[int]         = []   # TMDB tür ID'leri
+
+    def has_signals(self) -> bool:
+        return self.sipsak_mode or bool(self.mood_bonuses) or bool(self.genre_ids)
+
+
+def parse_chat_hints(text: str) -> ParsedHints:
+    """
+    Chat metnini embedding modeline göndermeden önce hafif string analizinden geçir.
+    Süre kısıtları, tür ve tema anahtar kelimeleri yakalanarak bonus sinyaller üretilir.
+    Hiçbir zaman exception fırlatmaz — her zaman geçerli ParsedHints döndürür.
+    """
+    hints = ParsedHints()
+    tl = text.lower()
+
+    # ── Süre kısıtı → sipsak modu (runtime <= 60 enjekte) ────────────────────
+    for kw in _TIME_CONSTRAINT_KWS:
+        if kw in tl:
+            hints.sipsak_mode = True
+            hints.runtime_max = 60
+            hints.mood_bonuses["sipsak"] = _MAX_BONUS  # Güçlü zaman kısıtı sinyali
+            break
+
+    # ── Kategori/tema anahtar kelimeleri → mood/tür bonus ────────────────────
+    for kw, data in _CATEGORY_HINT_MAP.items():
+        if kw in tl:
+            for mood_id, bonus in data["mood_boost"].items():
+                current = hints.mood_bonuses.get(mood_id, 0.0)
+                hints.mood_bonuses[mood_id] = min(_MAX_BONUS, current + bonus)
+            hints.genre_ids.extend(data["genre_ids"])
+
+    hints.genre_ids = list(set(hints.genre_ids))
+    return hints

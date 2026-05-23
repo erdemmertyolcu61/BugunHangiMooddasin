@@ -41,8 +41,13 @@ const QUICK_MOODS = [
   },
   {
     id: "timeless_vintage",
-    label: "Eski güzel günlerin o sıcacık sinema kokusu",
+    label: "Eski güzel günlerin o sıcancık sinema kokusu",
     slug: "zamanyolcusu",
+  },
+  {
+    id: "sipsak_ustad",
+    label: "Üstad'ın Şipşak Önerileri",
+    slug: "sipsak",
   },
 ];
 
@@ -129,7 +134,6 @@ export default function KafanMiKarisik() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setEarlyIntent(null);
     try {
       const data = await postConfusedRecommendation(quickMood.label, 6, 5.0, sessionExcludeIds, quickMood.slug);
       
@@ -288,36 +292,42 @@ export default function KafanMiKarisik() {
           </motion.div>
         )}
 
-        {/* Loading */}
+        {/* Loading — Üstad yazıyor: mistik altın nokta animasyonu */}
         {loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-20 gap-8"
+            className="flex flex-col items-center justify-center py-20 gap-10"
           >
-            <div className="relative w-20 h-20">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-                className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-[#ffbf00] shadow-[0_0_30px_rgba(255,191,0,0.15)]"
-              />
-              <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
-                className="absolute inset-3 rounded-full border border-amber/10 border-b-amber/50"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Brain size={20} className="text-amber/40" />
-              </div>
+            {/* Üç altın nokta — soluk/parlak döngüsü */}
+            <div className="flex items-center gap-3">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: '#d4af37' }}
+                  animate={{
+                    opacity: [0.15, 1, 0.15],
+                    scale:   [0.75, 1.25, 0.75],
+                  }}
+                  transition={{
+                    duration: 1.6,
+                    repeat: Infinity,
+                    delay: i * 0.28,
+                    ease: 'easeInOut',
+                  }}
+                />
+              ))}
             </div>
             <AnimatePresence mode="wait">
               <motion.p
                 key={phraseIdx}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
+                exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
-                className="text-lg font-serif italic text-amber-200/70 font-medium text-center max-w-sm"
+                className="text-lg font-serif italic font-medium text-center max-w-sm leading-relaxed"
+                style={{ color: '#d4af37', opacity: 0.75 }}
               >
                 {LOADING_PHRASES[phraseIdx]}
               </motion.p>
@@ -325,20 +335,47 @@ export default function KafanMiKarisik() {
           </motion.div>
         )}
 
-        {/* Error */}
+        {/* Üstad'ın Sinematik Fallback — teknik hata yerine şiirsel dil */}
         {error && !loading && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-16 gap-6 text-center"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex flex-col items-center justify-center py-20 gap-7 text-center"
           >
-            <p className="text-rose-400 text-xl font-serif italic">{error}</p>
-            <button
-              onClick={() => { setError(null); setResult(null); }}
-              className="px-8 py-4 border border-amber/40 text-[#ffbf00] rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-amber/5 transition-all"
+            {/* Dekoratif öge */}
+            <motion.div
+              animate={{ opacity: [0.2, 0.6, 0.2] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              className="text-4xl font-serif select-none"
+              style={{ color: '#d4af37' }}
             >
-              Tekrar Dene
-            </button>
+              ✦
+            </motion.div>
+
+            <div className="space-y-3 max-w-sm">
+              <p className="text-xl font-serif italic leading-relaxed text-amber-100/80">
+                &ldquo;Ruh halini süzerken küçük bir sinematik parazit oluştu...&rdquo;
+              </p>
+              <p className="text-sm font-serif text-amber-100/40 italic">
+                Kahveni tazelerken tekrar denemek ister misin?
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={() => { setError(null); setResult(null); }}
+                className="px-8 py-4 border border-amber/40 text-[#ffbf00] rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-amber/5 transition-all shadow-[0_0_15px_rgba(255,191,0,0.1)]"
+              >
+                Tekrar Dene
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="text-[10px] font-bold uppercase tracking-widest text-[#f5f2eb]/30 hover:text-[#f5f2eb]/60 transition-all"
+              >
+                Ana Sayfa&apos;ya Dön
+              </button>
+            </div>
           </motion.div>
         )}
 
@@ -490,11 +527,11 @@ export default function KafanMiKarisik() {
                           </div>
                         </div>
 
-                        {/* Reason — "Neden sana uygun?" */}
+                        {/* Üstad'ın Gerekçesi */}
                         {movie.reason && (
                           <div className="p-5 space-y-1.5">
                             <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-amber/50">
-                              {movie.is_primary_match ? 'EŞLEŞME' : 'GURME NOTU'}
+                              {movie.is_primary_match ? 'EŞLEŞME' : "ÜSTAD'IN GEREKÇESİ"}
                             </p>
                             <p className="text-xs font-serif font-semibold text-amber-100/70 leading-relaxed">
                               &ldquo;{movie.reason}&rdquo;

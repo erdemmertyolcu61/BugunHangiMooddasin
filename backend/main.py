@@ -542,6 +542,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Sosyal ağ rotaları: Arkadaşlık + Doğrudan Film Paylaşımı ──
+from backend.routers.social import router as social_router
+app.include_router(social_router)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.time()
@@ -820,8 +824,15 @@ async def google_login(request: Request):
         user_id = row[0] if row else 0
         created_at = row[1] if row and len(row) > 1 else None
 
+    # Sosyal ağ için benzersiz username garantile (yoksa email öneki + id ile üret)
+    username = ""
+    try:
+        username = await cache.ensure_username(user_id, email)
+    except Exception as e:
+        logger.warning("[Auth] ensure_username failed for user_id=%s: %s", user_id, e)
+
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=720)
-    return {"token": token, "user": {"id": user_id, "email": email, "name": name, "picture": picture, "created_at": created_at}}
+    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}}
 
 
 @app.get("/api/admin/users", dependencies=[Depends(verify_admin)])
@@ -2968,43 +2979,202 @@ async def _fast_mood_bypass(mood_id: str, limit: int, min_vote: float, exclude_i
     }
 
 
+def _dynamic_reason_from_hints(hints) -> str:
+    """
+    Chat'ten yakalanan amaca göre tek cümlelik dinamik 'Üstad'ın Gerekçesi' üretir.
+    Hiçbir güçlü sinyal yoksa boş döner (movie'nin mevcut mood reason'ı korunur).
+    """
+    if hints.sipsak_mode:
+        return ("Bunu seçtim; çünkü cümlendeki o kısıtlı zaman arayışını "
+                "en rafine şekilde bu kompakt sahneler karşılıyor.")
+
+    # Tür sinyallerinden öncelikli gerekçe
+    g = set(hints.genre_ids)
+    if 878 in g:
+        return ("Bunu seçtim; çünkü aradığın o uzay/bilim kurgu evrenini "
+                "ve zihin büken atmosferi tam damarından taşıyor.")
+    if 27 in g:
+        return ("Bunu seçtim; çünkü istediğin o karanlık ürpertiyi "
+                "yavaş yavaş içine işleyen sahnelerle veriyor.")
+    if {53, 80, 9648} & g:
+        return ("Bunu seçtim; çünkü aradığın gerilim ve suç gerginliğini "
+                "gözünü kırpmadan izleteceğin bir kurguyla sunuyor.")
+    if 10749 in g:
+        return ("Bunu seçtim; çünkü içini kıpır kıpır edecek o romantik "
+                "dokuyu klişeye düşmeden yakalıyor.")
+    if 35 in g:
+        return ("Bunu seçtim; çünkü modunu anında yukarı çekecek "
+                "o neşeli enerjiyi taşıyor.")
+
+    # Mood bonuslarından en güçlüsüne göre
+    if hints.mood_bonuses:
+        top_mood = max(hints.mood_bonuses, key=hints.mood_bonuses.get)
+        phrases = {
+            "yolculuk":  "keşif ve yolculuk hissini ufkunu açacak şekilde barındırıyor.",
+            "zihin":     "bittiğinde bile saatlerce kafanda yaşayacak zihinsel bir derinlik taşıyor.",
+            "gece":      "aradığın o karanlık ve gizemli atmosferi damarından veriyor.",
+            "adrenalin": "tempoyu hiç düşürmeden seni koltuğa çivileyecek bir gerilim sunuyor.",
+            "askbahcesi":"kalbinde kelebekler uçuşturacak o sıcak romantizmi taşıyor.",
+            "deep-chills":"yavaş yanan ürpertisiyle tam istediğin tedirginliği veriyor.",
+        }
+        if top_mood in phrases:
+            return f"Bunu seçtim; çünkü {phrases[top_mood]}"
+
+    return ""
+
+
+def _hybrid_rerank(movies: list, hints, limit: int) -> list:
+    """
+    Hibrit Harmanlama (Hybrid Scoring) — 3 bileşenli ağırlıklı skor:
+
+      final = 0.40 × VEKTÖR + 0.40 × METADATA/ETİKET + 0.20 × KALİTE/POPÜLERLİK
+
+    Ham vektör skoruna tek başına güvenmek "ezbere aynı popüler film" sorununu
+    doğuruyordu. Üç bileşen 0-1 aralığında normalize edilip harmanlanır:
+
+      1) %40 Vektör: semantic engine'in cosine skoru (mood_score, entity boost dahil).
+      2) %40 Metadata: ParsedHints mood bonusları + tür boolean maskesi + sipsak.
+      3) %20 Kalite: vote_average (+ varsa logaritmik popularity katkısı).
+    """
+    import math
+
+    if not movies:
+        return movies
+
+    _MAX_BONUS = 0.50  # chat_engine._MAX_BONUS ile aynı
+    genre_boost_set = set(hints.genre_ids)
+
+    # Vektör normalizasyonu için tepe skor (mood_score 0-100 ölçeğinde gelir)
+    max_vec = max((m.get("mood_score", 0.0) or 0.0 for m in movies), default=0.0) or 1.0
+
+    scored = []
+    for rank, movie in enumerate(movies):
+        # ── 1) Vektör skoru (%40) — gerçek anlamsal benzerlik, normalize ──────
+        vec_raw = movie.get("mood_score")
+        if vec_raw is None:
+            vector_score = max(0.10, 1.0 - 0.08 * rank)   # mood_score yoksa proxy
+        else:
+            vector_score = min(1.0, vec_raw / max_vec)
+
+        # ── 2) Metadata/etiket skoru (%40) — mood + tür + sipsak maskesi ──────
+        mood_id = movie.get("mood_id") or movie.get("primary_mood_id") or ""
+        candidate_moods = list(movie.get("matched_moods") or ([mood_id] if mood_id else []))
+        meta_score = max(
+            (hints.mood_bonuses.get(m, 0.0) for m in candidate_moods), default=0.0
+        ) / _MAX_BONUS  # 0-1 normalize
+
+        movie_genres = set(movie.get("genre_ids", []))
+        if genre_boost_set & movie_genres:
+            meta_score = min(1.0, meta_score + 0.40)
+        if hints.sipsak_mode and "sipsak" in candidate_moods:
+            meta_score = min(1.0, meta_score + 0.50)
+
+        # ── 3) Kalite/popülerlik skoru (%20) — vote_average + popularity ──────
+        vote = movie.get("vote_average", 0.0) or 0.0
+        quality_score = min(1.0, vote / 10.0)
+        pop = movie.get("popularity")
+        if pop:
+            # Aşırı popülerler logaritmik tavanlanır (ezbere blockbuster engeli)
+            quality_score = min(
+                1.0,
+                0.6 * (vote / 10.0) + 0.4 * min(1.0, math.log10(pop + 1) / 3.0),
+            )
+
+        final = 0.40 * vector_score + 0.40 * meta_score + 0.20 * quality_score
+        scored.append((final, movie))
+
+    scored.sort(key=lambda x: -x[0])
+    return [m for _, m in scored[:limit]]
+
+
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
-    Kafan mı karışık? — Önce semantic embedding dener (timeout 8s),
-    başarısız olursa kural tabanlı fallback'e düşer.
+    Kafan mı Karışık? — Üç katmanlı akıllı arama mimarisi:
 
-    forced_mood_override varsa embedding/model TAMAMEN BYPASS edilir,
-    doğrudan mood repository'den SQL ile filmler çekilir (<5ms).
+    PATH 0 — Exact Recipe Router (embedding YOK, ~2ms):
+      Buton label'ı BUTTON_RECIPES'te tam eşleşirse SQL + NumPy pipeline çalışır.
+      Her butonun kendine özel: min_vote, sort_by, year_filter, popularity_pct filtresi var.
+
+    PATH 1 — Slug Override / Fast Mood Bypass (embedding YOK, <5ms):
+      forced_mood_override slug'ı MOOD_NAMES'te varsa mood_score SQL'i çalışır.
+
+    PATH 2 — Hibrit Semantic Search (embedding + hybrid rerank, <8s):
+      parse_chat_hints() ile anahtar kelime sinyalleri yakalanır.
+      Semantic search + %50-%50 cosine/keyword reranking uygulanır.
+
+    PATH 3 — Kural Tabanlı Fallback (her durumda çalışır):
+      Semantic timeout veya hata durumunda regex + SQL fallback.
     """
-    limit = max(3, min(req.limit, 12))
-    min_vote = max(4.0, min(req.min_vote, 10.0))
+    limit      = max(3, min(req.limit, 12))
+    min_vote   = max(4.0, min(req.min_vote, 10.0))
     exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
+    text       = req.text.strip()
+    override   = (req.forced_mood_override or "").strip().lower()
 
-    # ── FAST PATH: known mood slug → direct SQL, zero embedding ──
-    override = (req.forced_mood_override or "").strip().lower()
+    # ── PATH 0: Exact text → recipe router (sıfır embedding) ────────────────
+    try:
+        from backend.services.exact_match_router import match_recipe, execute_recipe
+        recipe = match_recipe(text)
+        if recipe:
+            movies = await execute_recipe(recipe, limit, exclude_ids, cache)
+            if movies:
+                r_mood_id   = recipe.get("mood_id", override or "battaniye")
+                r_mood_name = MOOD_NAMES.get(r_mood_id, r_mood_id.replace("-", " ").title())
+                return {
+                    "ok":                  True,
+                    "mode":                "exact_recipe",
+                    "intent":              "quick_mood",
+                    "query_understanding": recipe.get("query_understanding", text),
+                    "ustad_line":          recipe.get("ustad_line", "İşte seçtiklerim."),
+                    "message":             recipe.get("query_understanding", ""),
+                    "mood_mix":            [{"mood_id": r_mood_id, "title": r_mood_name, "percentage": 100}],
+                    "movies":              movies,
+                }
+    except Exception as e:
+        logger.warning("[Confused] Recipe router failed (%s), falling through to next path", e)
+
+    # ── PATH 1: Slug override → fast SQL bypass ──────────────────────────────
     if override and override in MOOD_NAMES:
         try:
-            return await _fast_mood_bypass(override, limit, min_vote, exclude_ids, req.text)
+            return await _fast_mood_bypass(override, limit, min_vote, exclude_ids, text)
         except Exception as e:
-            logger.error(f"[Confused] Fast mood bypass failed ({e}), falling back to semantic search", exc_info=True)
+            logger.error("[Confused] Fast mood bypass failed (%s), falling through", e, exc_info=True)
 
-    from backend.services.chat_engine import ChatEngine
+    # ── PATH 2: Serbest chat → parse hints → semantic + hibrit rerank ────────
+    from backend.services.chat_engine import ChatEngine, parse_chat_hints
 
-    text = req.text.strip()
-
-    engine = ChatEngine(db=cache)
+    hints  = parse_chat_hints(text)
+    result = None
 
     try:
+        engine = ChatEngine(db=cache)
         result = await asyncio.wait_for(
-            engine.process(text=text, limit=limit, min_vote=min_vote, exclude_ids=exclude_ids),
+            engine.process(
+                text=text,
+                limit=limit * 2,    # Reranking için 2× çek
+                min_vote=min_vote,
+                exclude_ids=exclude_ids,
+            ),
             timeout=8.0,
         )
-        if result and result.get("movies"):
-            return result
     except Exception as e:
         logger.warning("[Confused] Semantic search failed (%s), using rule fallback.", e)
 
+    if result and result.get("movies"):
+        # Her zaman hibrit harmanlama uygula: %40 vektör + %40 metadata + %20 kalite.
+        # Bu, "ezbere aynı popüler film" tıkanıklığını kökten çözer.
+        ranked = _hybrid_rerank(result["movies"], hints, limit)
+        # Üstad'ın Gerekçesi'ni yakalanan amaca göre dinamikleştir
+        dyn_reason = _dynamic_reason_from_hints(hints)
+        if dyn_reason:
+            for m in ranked:
+                m["reason"] = dyn_reason
+        result["movies"] = ranked
+        result["mode"]   = "semantic_hybrid"
+        return result
+
+    # ── PATH 3: Kural tabanlı fallback ───────────────────────────────────────
     return await _confused_fallback(text, limit, min_vote, exclude_ids)
 
 
