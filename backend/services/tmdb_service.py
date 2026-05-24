@@ -217,6 +217,9 @@ class TMDBService:
                 overview = en_data.get("overview", "")
             except Exception:
                 pass
+        # Extract genre_ids from the genres array (each has id + name)
+        raw_genres = data.get("genres", [])
+        genre_ids = [g["id"] for g in raw_genres if "id" in g]
         return {
             "id": data["id"],
             "title": data.get("title", ""),
@@ -232,7 +235,8 @@ class TMDBService:
             "release_date": data.get("release_date"),
             "vote_average": data.get("vote_average"),
             "runtime": data.get("runtime"),
-            "genres": [g["name"] for g in data.get("genres", [])],
+            "genre_ids": genre_ids,
+            "genres": [g["name"] for g in raw_genres],
             "tagline": data.get("tagline", ""),
         }
 

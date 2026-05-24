@@ -6,6 +6,7 @@ Uses only: user signals data + movie_repository table + mood profiles.
 """
 import json
 import logging
+import asyncio
 from collections import Counter, defaultdict
 from typing import Optional
 
@@ -89,8 +90,9 @@ class TasteMapEngine:
     Never calls external APIs. Relies only on user signals and local DB.
     """
 
-    def __init__(self, cache=None):
+    def __init__(self, cache=None, tmdb_service=None):
         self.cache = cache
+        self.tmdb_service = tmdb_service
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -110,6 +112,20 @@ class TasteMapEngine:
 
         mood_scores = self._compute_mood_scores(enriched)
         genre_scores = self._compute_genre_scores(enriched)
+
+        # Fallback: if total >= 5 but enrichment yielded nothing, distribute evenly
+        if not mood_scores and total >= 5:
+            from backend.mood_profiles import MOOD_PROFILES
+            share = total / len(MOOD_PROFILES)
+            for mid in MOOD_PROFILES:
+                mood_scores[mid] = share
+
+        if not genre_scores and total >= 5:
+            # Assign neutral genre 18 (Drama) to all movies as a safe fallback
+            for item in enriched:
+                gid = 18
+                genre_scores[gid] = genre_scores.get(gid, 0) + item["weight"]
+
         era_stats = self._compute_era_stats(enriched)
         pacing = self._compute_pacing(enriched)
         style = self._compute_style(enriched)
@@ -270,6 +286,28 @@ class TasteMapEngine:
                 "popularity": popularity,
                 "sources": sig["sources"],
             })
+
+        # 4) TMDB fallback: movies still missing genre_ids
+        if self.tmdb_service:
+            missing = [e for e in enriched if not e["genre_ids"]]
+            if missing:
+                async def _fetch_one(tid: int) -> dict | None:
+                    try:
+                        return await self.tmdb_service.get_movie_details(tid)
+                    except Exception:
+                        return None
+                tasks = [_fetch_one(e["tmdb_id"]) for e in missing]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for item, result in zip(missing, results):
+                    if isinstance(result, dict) and result:
+                        if not item["genre_ids"]:
+                            item["genre_ids"] = result.get("genre_ids", []) or []
+                        if item["year"] is None:
+                            rd = result.get("release_date", "")
+                            if rd and len(rd) >= 4 and rd[:4].isdigit():
+                                item["year"] = int(rd[:4])
+                        if item["runtime"] is None:
+                            item["runtime"] = result.get("runtime")
 
         return enriched
 

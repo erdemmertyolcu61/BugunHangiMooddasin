@@ -1785,6 +1785,13 @@ async def add_to_watchlist(req: WatchlistRequest, request: Request):
         await cache.add_to_watchlist(req.tmdb_id, req.title, req.poster_url, user_id=uid)
         if uid:
             await cache.invalidate_taste_profile(uid)
+        # Seed movie metadata into movie_cache so taste analysis can use it
+        try:
+            details = await tmdb_service.get_movie_details(req.tmdb_id)
+            if details:
+                await cache.save_movie(req.tmdb_id, req.title, details)
+        except Exception:
+            pass
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -3667,7 +3674,7 @@ async def get_user_taste_map(request: Request):
             return cached["profile_data"]
 
         # Hesapla ve cache'e yaz
-        engine = TasteMapEngine(cache=cache)
+        engine = TasteMapEngine(cache=cache, tmdb_service=tmdb_service)
         result = await engine.analyze(uid)
         if result.get("signals", {}).get("total_movies", 0) >= 3:
             try:
