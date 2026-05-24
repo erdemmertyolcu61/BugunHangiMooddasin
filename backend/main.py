@@ -2802,6 +2802,22 @@ async def post_fast_recommendation(request: Request):
     }
 
 
+def _confused_ustad_line(intent_type: str, mood_analysis: dict) -> str:
+    """Intent tipine göre Üstad'ın sesini değiştirir."""
+    lines = {
+        "actor_recommendation": "Bir oyuncunun filmlerini merak ediyorsun, hemen bakalım.",
+        "director_recommendation": "Bir yönetmenin izini sürüyorsun, arşivi tarıyorum.",
+        "similar_to_movie": "Bir filme benzer yapımlar arıyorsun, en iyilerini seçtim.",
+        "exact_movie_search": "Tam olarak aradığın filmi bulmaya çalıştım.",
+        "mood_recommendation": "Kafan karışık gibi... Hadi bir bakalım arşive.",
+        "genre_recommendation": "Tür bazlı arama yapıyorsun, en uygunlarını seçtim.",
+        "mixed_request": "Birden fazla türü harmanlıyorsun, sana en uygun seçkileri hazırladım.",
+    }
+    if intent_type in ("feedback",):
+        return "Geri bildirimin için teşekkürler, hemen ayarlıyorum."
+    return lines.get(intent_type, "İşte sana seçtiklerim.")
+
+
 async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids: list) -> dict:
     """
     Kural tabanlı fallback — embedding/model KULLANMAZ.
@@ -3021,6 +3037,31 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         query_understanding = "Ruh haline göre filmler öneriyorum."
         mood_hits = mood_analysis.get("mood_mix", [])
         mood_ids = [m["mood_id"] for m in mood_hits] if mood_hits else ["battaniye", "zihin", "gece", "kahkaha"]
+
+        # Uzun metin sinyallerini mood sıralamasına yansıt
+        time_c = mood_analysis.get("time_constraint")
+        era_c = mood_analysis.get("era_preference")
+        genre_hints = mood_analysis.get("genre_hints", [])
+
+        if time_c == "short" and "sipsak" not in mood_ids:
+            mood_ids.insert(0, "sipsak")
+        if era_c == "old":
+            mood_ids = [m for m in mood_ids if m in ("zamanyolcusu", "battaniye", "sessiz", "kalp")] or mood_ids
+        if era_c == "recent":
+            mood_ids = [m for m in mood_ids if m not in ("zamanyolcusu",)] or mood_ids
+
+        # Genre ipuçlarını mood boost'a çevir
+        genre_mood_map = {35: "kahkaha", 27: "deep-chills", 28: "adrenalin",
+                          10749: "askbahcesi", 18: "gozyasi", 878: "yolculuk",
+                          14: "karmakar", 53: "gece", 80: "gece"}
+        for gid in genre_hints:
+            mapped = genre_mood_map.get(gid)
+            if mapped and mapped in mood_ids:
+                mood_ids.remove(mapped)
+                mood_ids.insert(0, mapped)
+            elif mapped:
+                mood_ids.insert(0, mapped)
+
         movies = await _search_mood_movies(mood_ids, limit * 2)
 
     else:
@@ -3055,9 +3096,9 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         "ustad_notu": "Üstad şu anda derin düşüncelere dalmış durumda, ancak yine de sana en uygun filmleri bulmaya çalıştı.",
         "intent": intent.to_dict(),
         "query_understanding": query_understanding,
-        "ustad_line": mood_analysis.get("ustad_line", "İşte sana seçtiklerim."),
+        "ustad_line": _confused_ustad_line(intent.type, mood_analysis),
         "message": mood_analysis.get("message", ""),
-        "mood_mix": mood_analysis.get("mood_mix", []),
+        "mood_mix": [],
         "movies": _sort_east_asian_to_end(movies),
     }
 

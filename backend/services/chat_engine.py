@@ -177,15 +177,40 @@ MOOD_KEYWORDS = {
 
 # Tümce düzeyinde ruh hali/distraction ifadeleri — kelime bazlı mood kontrolünden ÖNCE kontrol edilir.
 # Bunlar actor/director sanılmamalı.
+# Uzun metinlerde bile tespit edilebilmek için çeşitli tense/varyasyonlar içerir.
 MOOD_PHRASES = {
-    "kafam dağılsın", "kafamı dağıt", "kafam dağınık", "dalgın",
-    "canım sıkıldı", "canım sıkkın", "sıkıldım", "sıkıcı",
-    "yorgunum", "uykum var", "uykusuz", "bitkin",
-    "stresliyim", "stres", "gergin", "sinirli",
-    "ne bileyim", "bilmiyorum", "kararsız",
-    "zaman geçsin", "zaman geçirmek", "vakit geçsin", "vakit geçirmek",
-    "bir şey", "herhangi bir şey", "rastgele",
-    "keyfim yok", "keyifsiz", "moralim bozuk", "mutlu değilim",
+    # ── Sıkılma / Bıkkınlık ──
+    "canım sıkıldı", "canım sıkılıyor", "canım çok sıkıldı", "sıkıldım", "çok sıkıldım",
+    "sıkılıyorum", "canım sıkkın", "sıkıcı", "bıktım", "bunaldım",
+    # ── Yorgunluk / Enerjisizlik ──
+    "yorgunum", "çok yorgunum", "yorgun hissediyorum", "bitkin", "bitkin düştüm",
+    "uykum var", "uykusuzum", "uykusuz", "enerjim yok", "enerjim kalmadı",
+    # ── Kafa dağıtma / Rahatlama ──
+    "kafam dağılsın", "kafamı dağıt", "kafam dağınık", "kafam çok dağınık",
+    "kafam bulanık", "dağılmak istiyorum", "beyin yorgunu", "dalgın",
+    "rahatlamak istiyorum", "rahatlatıcı", "gevşemek",
+    # ── Stres / Gerginlik ──
+    "stresliyim", "çok stresliyim", "stres", "gergin", "gerginim", "sinirli", "sinirliyim",
+    # ── Kararsızlık / Boşvermişlik ──
+    "ne bileyim", "bilmiyorum", "kararsız", "kararsızım",
+    "bir şey", "herhangi bir şey", "rastgele", "boşver", "boş",
+    # ── Zaman geçirme ──
+    "zaman geçsin", "zaman geçirmek", "zaman geçireyim",
+    "vakit geçsin", "vakit geçirmek", "vakit öldürmek",
+    # ── Keyifsizlik / Moral ──
+    "keyfim yok", "keyfim yerinde değil", "keyifsiz", "keyifsizim",
+    "moralim bozuk", "moralim çok bozuk", "üzgün hissediyorum",
+    "mutlu değilim", "canım istemiyor",
+    # ── Genel istek / Arayış ──
+    "ne izlesem", "ne izleyeyim", "film öner", "öneri", "bir şeyler izlemek",
+    "bir film izlemek", "izleyecek bir şey", "izleme", "seyredeyim",
+    # ── Duygu durumu belirtme ──
+    "eğlenmek istiyorum", "gülmek istiyorum", "eğlenceli bir şey",
+    "heyecan istiyorum", "heyecanlı bir şey", "macera istiyorum",
+    "romantik bir şey", "duygusal bir şey", "hafif bir şey",
+    "derin bir film", "düşündüren", "felsefi bir şey", "dokunaklı",
+    "korku istiyorum", "gerilim istiyorum", "aksiyon istiyorum",
+    "komedi istiyorum", "dram istiyorum", "bilim kurgu istiyorum",
 }
 
 # Tek kelimelik ünlü yönetmen/oyuncu adları — _looks_like_person_name tek kelime için de çalışsın.
@@ -333,7 +358,9 @@ _RULE_MOOD_MAP = {
 
 
 def _rule_based_confused_analysis(text: str) -> dict:
-    """Local rule-based mood analysis — zero API calls, <1ms."""
+    """Local rule-based mood analysis — zero API calls, <1ms.
+    Uzun metinlerden mood, süre kısıtı, dönem tercihi ve tür ipuçlarını çıkarır.
+    """
     text_lower = text.lower().strip()
     scored = {}
     for triggers, mood_id in _RULE_MOOD_MAP.items():
@@ -341,12 +368,25 @@ def _rule_based_confused_analysis(text: str) -> dict:
         if score > 0:
             scored[mood_id] = score * _MOOD_WEIGHTS.get(mood_id, 0.10) * 100
 
+    # Zaman kısıtlaması
+    time_c = _extract_time_constraint(text)
+    # Dönem tercihi
+    era_c = _extract_era_constraint(text)
+    # Tür ipuçları
+    genre_hints = []
+    for gname, gids in GENRE_KEYWORDS.items():
+        if gname in text_lower:
+            genre_hints.extend(gids)
+
     if not scored:
         return {
             "mood_mix": [{"mood_id": "zihin", "title": "Zihin", "percentage": 60},
                          {"mood_id": "gece", "title": "Gece", "percentage": 40}],
             "message": "Anlat bakalım, ne tür bir gece arzuluyorsun?",
             "ustad_line": "Kafan karışık gibi... Hadi bir bakalım arşive.",
+            "time_constraint": time_c,
+            "era_preference": era_c,
+            "genre_hints": genre_hints,
         }
 
     total = sum(scored.values())
@@ -359,7 +399,39 @@ def _rule_based_confused_analysis(text: str) -> dict:
         "mood_mix": mood_mix,
         "message": f"Sana en uygun ruh hali: {top_mood.replace('-', ' ').title()}.",
         "ustad_line": f"Şu anki haline en çok '{top_mood.replace('-', ' ').title()}' yakışıyor gibi.",
+        "time_constraint": time_c,
+        "era_preference": era_c,
+        "genre_hints": genre_hints,
     }
+
+
+def _extract_time_constraint(text: str) -> str | None:
+    """Uzun metinlerden süre kısıtlaması çıkarır: 'short', 'long' veya None."""
+    t = text.lower()
+    if any(p in t for p in ("kısa", "kisa", "çabuk", "hemen bitsin", "vaktim az",
+                             "vaktim yok", "zamanım az", "zamanım yok",
+                             "kısa film", "kısacık", "hızlıca", "az vaktim",
+                             "çabucak", "uzun olmasın", "çok uzun olmasın")):
+        return "short"
+    if any(p in t for p in ("uzun film", "epik", "vaktim bol", "zamanım bol",
+                             "uzun soluklu", "akşamı kurtaracak",
+                             "2 saat", "3 saat")):
+        return "long"
+    return None
+
+
+def _extract_era_constraint(text: str) -> str | None:
+    """Uzun metinlerden dönem tercihi çıkarır: 'old', 'recent' veya None."""
+    t = text.lower()
+    if any(p in t for p in ("eski", "klasik", "90lar", "90'lar", "1980",
+                             "1990", "2000 öncesi", "geçmiş", "vintage",
+                             "retro", "kült film", "zamansız")):
+        return "old"
+    if any(p in t for p in ("yeni", "son çıkan", "güncel", "son yıllar",
+                             "202", "modern", "bu yıl", "son zamanlar",
+                             "trend", "popüler")):
+        return "recent"
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════
