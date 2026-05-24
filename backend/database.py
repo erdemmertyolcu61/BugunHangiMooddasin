@@ -936,15 +936,21 @@ class MovieCache:
             await db.commit()
 
     async def get_watchlist(self, user_id: int = 0) -> list:
-        """Get all movies in the watchlist for a user."""
+        """Get all movies in the watchlist for a user (with personal notes)."""
         async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
-                "SELECT tmdb_id, title, poster_url, added_at, watched FROM watchlist WHERE user_id = ? ORDER BY added_at DESC",
+                """SELECT w.tmdb_id, w.title, w.poster_url, w.added_at, w.watched,
+                          COALESCE(n.note_content, '') as personal_note
+                   FROM watchlist w
+                   LEFT JOIN movie_notes n ON w.tmdb_id = n.tmdb_id AND n.user_id = w.user_id
+                   WHERE w.user_id = ? ORDER BY w.added_at DESC""",
                 (user_id,)
             )
             rows = await cursor.fetchall()
             return [
-                {"tmdb_id": r[0], "title": r[1], "poster_url": r[2], "added_at": r[3], "watched": bool(r[4])}
+                {"tmdb_id": r[0], "title": r[1], "poster_url": r[2],
+                 "added_at": r[3], "watched": bool(r[4]),
+                 "personal_note": r[5] or ""}
                 for r in rows
             ]
 

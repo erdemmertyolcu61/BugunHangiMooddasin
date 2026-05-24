@@ -2855,9 +2855,9 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                     if int(m.get("vote_count", 0)) < 2:
                         continue
                     lang = (m.get("original_language") or "").lower()
-                    if lang in ("ja", "ko", "zh"):
-                        continue
-                    m["mood_score"] = 80.0
+                    # Doğu Asya filmlerini filtreleme, sadece puanı düşür (sona sırala)
+                    east_asian = lang in ("ja", "ko", "zh")
+                    m["mood_score"] = 40.0 if east_asian else 80.0
                     m["matched_mood"] = mid
                     m["reason"] = REASON_MAP.get(mid, "Ruh haline uygun bir seçim.")
                     collected.append(m)
@@ -2959,9 +2959,14 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
             movies = search_result.get("movies", [])
             if movies:
                 query_understanding = f"'{intent.reference_title}' ile ilgili yapımlar."
-        # Son çare: mood
+        # Son çare: mood (kullanıcı intent'inden veya default)
         if not movies:
-            movies = await _search_mood_movies(["zihin", "gece", "sessiz"], limit)
+            fallback_moods = ["zihin", "gece", "sessiz"]
+            if mood_analysis and mood_analysis.get("mood_mix"):
+                fallback_moods = [m["mood_id"] for m in mood_analysis["mood_mix"][:3] if m.get("mood_id")]
+                if not fallback_moods:
+                    fallback_moods = ["zihin", "gece", "sessiz"]
+            movies = await _search_mood_movies(fallback_moods, limit)
 
     elif intent.type in ("genre_recommendation", "mixed_request") and intent.genres:
         matched_genres = [k for k, v in GENRE_KEYWORDS.items() if any(g in intent.genres for g in v)]
@@ -3402,6 +3407,11 @@ async def post_confused_recommendation(req: ConfusedRequest):
     except Exception as e:
         logger.warning("[Confused] Semantic search failed (%s), using rule fallback.", e)
 
+    # Semantic sonuç boşsa üstad mesajını PATH 3'e taşı
+    _fallback_ustad = ""
+    if result and not result.get("movies"):
+        _fallback_ustad = result.get("ustad_line", "")
+
     if result and result.get("movies"):
         movies = result["movies"]
 
@@ -3425,10 +3435,12 @@ async def post_confused_recommendation(req: ConfusedRequest):
         ranked = _hybrid_rerank(movies, hints, limit)
 
         # Üstad'ın Gerekçesi'ni yakalanan amaca göre dinamikleştir
+        # Sadece reason'ı olmayan filmlere yaz (film bazlı nedenler korunsun)
         dyn_reason = _dynamic_reason_from_hints(hints)
         if dyn_reason:
             for m in ranked:
-                m["reason"] = dyn_reason
+                if not m.get("reason"):
+                    m["reason"] = dyn_reason
         result["movies"] = _sort_east_asian_to_end(ranked)
         result["mode"]   = "semantic_hybrid"
         result["is_fallback"] = False
@@ -3437,7 +3449,11 @@ async def post_confused_recommendation(req: ConfusedRequest):
         return result
 
     # ── PATH 3: Kural tabanlı fallback ───────────────────────────────────────
-    return await _confused_fallback(text, limit, min_vote, exclude_ids)
+    fallback_result = await _confused_fallback(text, limit, min_vote, exclude_ids)
+    # Semantic engine'in üstad mesajını koru (PATH 2'den taşındı)
+    if _fallback_ustad and not fallback_result.get("ustad_line"):
+        fallback_result["ustad_line"] = _fallback_ustad
+    return fallback_result
 
 
 @app.post("/api/recommend/mood-quiz", dependencies=[Depends(rate_limit_ai)])

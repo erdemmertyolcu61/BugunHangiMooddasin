@@ -157,12 +157,18 @@ export async function removeFromWatchlist(movieId) {
 
 export async function toggleWatched(tmdbId) {
   // localStorage'da toggle et
-  localToggleWatched(tmdbId);
-  // Backend'e bildir
+  const updatedList = localToggleWatched(tmdbId);
+  const localState = updatedList.find(m => m.tmdb_id === tmdbId);
+  // Backend'e bildir ve yanıtı oku
   try {
-    await fetch(`${BASE}/watchlist/${tmdbId}/toggle-watched`, { method: 'POST', headers: { ...authHeaders() } });
+    const res = await fetch(`${BASE}/watchlist/${tmdbId}/toggle-watched`, { method: 'POST', headers: { ...authHeaders() } });
+    if (res.ok) {
+      const data = await res.json();
+      return data; // {tmdb_id, watched: boolean}
+    }
   } catch {}
-  return { success: true };
+  // Backend başarısızsa localStorage durumuna güven
+  return { tmdb_id: tmdbId, watched: localState ? localState.watched : false };
 }
 
 // --- Notes API ---

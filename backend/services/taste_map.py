@@ -108,6 +108,12 @@ class TasteMapEngine:
         if total == 0:
             return self._empty_result()
 
+        # _counts'u _enrich_signals'tan önce kaydet (çünkü _enrich dict'ten siliyor)
+        counts = signals.pop("_counts", {})
+        total = len(signals)  # _counts çıktıktan sonra gerçek film sayısı
+        if total == 0:
+            return self._empty_result()
+
         enriched = await self._enrich_signals(signals)
 
         mood_scores = self._compute_mood_scores(enriched)
@@ -121,10 +127,13 @@ class TasteMapEngine:
                 mood_scores[mid] = share
 
         if not genre_scores and total >= 5:
-            # Assign neutral genre 18 (Drama) to all movies as a safe fallback
-            for item in enriched:
-                gid = 18
-                genre_scores[gid] = genre_scores.get(gid, 0) + item["weight"]
+            # Fallback: enriched varsa filmlerin genre'lerinden çek, yoksa Drama ata
+            if enriched:
+                for item in enriched:
+                    for gid in (item.get("genre_ids") or [18]):
+                        genre_scores[gid] = genre_scores.get(gid, 0) + item["weight"]
+            else:
+                genre_scores[18] = float(total)
 
         era_stats = self._compute_era_stats(enriched)
         pacing = self._compute_pacing(enriched)
@@ -173,10 +182,10 @@ class TasteMapEngine:
             "summary": summary,
             "signals": {
                 "total_movies": total,
-                "watchlist_count": signals["_counts"].get("watchlist", 0),
-                "future_count": signals["_counts"].get("future", 0),
-                "notes_count": signals["_counts"].get("note", 0),
-                "analyzed_count": signals["_counts"].get("analyzed", 0),
+                "watchlist_count": counts.get("watchlist", 0),
+                "future_count": counts.get("future", 0),
+                "notes_count": counts.get("note", 0),
+                "analyzed_count": counts.get("analyzed", 0),
             },
             "confidence": confidence,
         }
@@ -197,7 +206,7 @@ class TasteMapEngine:
         for tid, sig in signals.items():
             for src in sig.get("sources", []):
                 counts[src] += 1
-        signals["_counts"] = dict(counts)
+        counts = dict(counts)
         return signals
 
     async def _enrich_signals(self, signals: dict) -> list[dict]:
@@ -207,8 +216,8 @@ class TasteMapEngine:
         avoid N+1 and to be independent of embedding services.
         Now also fetches runtime, popularity for richer profiling.
         """
-        if "_counts" in signals:
-            del signals["_counts"]
+        # _counts zaten analyze() içinde pop ile çıkarıldı, güvenlik kontrolü
+        signals.pop("_counts", None)
 
         tmdb_ids = list(signals.keys())
         if not tmdb_ids:

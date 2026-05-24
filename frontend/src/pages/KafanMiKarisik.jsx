@@ -120,10 +120,8 @@ export default function KafanMiKarisik() {
 
       if (data?.movies?.length) {
         setResult(data);
-        const newIds = data.movies.map(m => m.id).filter(Boolean);
+        const newIds = data.movies.map(m => m.id || m.tmdb_id).filter(Boolean);
         setSessionExcludeIds(prev => [...new Set([...prev, ...newIds])]);
-      } else if (data?.mode === 'semantic_not_ready') {
-        setError('Arşiv henüz hazırlanıyor, birkaç saniye sonra tekrar dene.');
       } else {
         setError(data?.ustad_line || 'Aradığın kriterlere uygun film bulamadım. Biraz daha detay verir misin?');
       }

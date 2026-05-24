@@ -83,7 +83,8 @@ def set_global_vector_cache(ids, titles, vectors, norms, meta_list=None):
 
 
 def dump_to_disk(movie_ids, movie_titles, embeddings_matrix,
-                 cast_slugs_list=None, director_list=None, title_list=None):
+                 cast_slugs_list=None, director_list=None, title_list=None,
+                 votes_list=None):
     """Save multi-dimensional arrays to a single compressed .npz file."""
     save_kw = dict(
         ids=np.array(movie_ids, dtype=np.int32),
@@ -99,6 +100,8 @@ def dump_to_disk(movie_ids, movie_titles, embeddings_matrix,
         save_kw["directors"] = np.array(director_list, dtype=str)
     if title_list is not None:
         save_kw["titles_lower"] = np.array(title_list, dtype=str)
+    if votes_list is not None:
+        save_kw["votes"] = np.array(votes_list, dtype=np.float32)
     np.savez_compressed(CACHE_FILE, **save_kw)
 
 
@@ -134,8 +137,13 @@ async def build_and_dump_npz_cache():
                 cast_slugs_list.append([])
                 director_list.append("")
                 title_lower_list.append("")
+        votes_list = []
+        for tid in engine._tmdb_ids:
+            m = engine._meta.get(tid)
+            votes_list.append(m.get("vote_average", 0.0) if m else 0.0)
         dump_to_disk(engine._tmdb_ids, titles_list, engine._matrix,
-                     cast_slugs_list, director_list, title_lower_list)
+                     cast_slugs_list, director_list, title_lower_list,
+                     votes_list=votes_list)
         norms = np.linalg.norm(engine._matrix, axis=1)
         meta_list = [
             {"cast_slugs": c, "director_lower": d, "title_lower": t}
@@ -438,7 +446,12 @@ class SemanticSearchEngine:
                 self._tmdb_ids_np = ids_arr
                 self._tmdb_ids = ids_arr.tolist()
                 self._matrix = np.asarray(data["vectors"], dtype=np.float16)
-                self._votes_np = np.zeros(len(ids_arr), dtype=np.float32)
+                votes_raw = data.get("votes")
+                if votes_raw is not None:
+                    self._votes_np = np.asarray(votes_raw, dtype=np.float32)
+                else:
+                    # Eski cache formatı — votes yok, meta'dan doldurulacak (aşağıda)
+                    self._votes_np = np.zeros(len(ids_arr), dtype=np.float32)
                 self._movie_count = len(ids_arr)
 
                 # Load entity metadata arrays if present (new cache format)
@@ -449,6 +462,13 @@ class SemanticSearchEngine:
             if os.path.exists(self.META_FILE):
                 with open(self.META_FILE, "r", encoding="utf-8") as f:
                     self._meta = {int(k): v for k, v in json.load(f).items()}
+
+            # Eski cache'te votes yoksa meta'dan doldur
+            if self._meta and np.all(self._votes_np == 0):
+                for i, tid in enumerate(self._tmdb_ids):
+                    m = self._meta.get(tid)
+                    if m:
+                        self._votes_np[i] = m.get("vote_average", 0.0)
 
             # Build meta_list for GLOBAL_CACHE boost multipliers
             meta_list = []
@@ -516,8 +536,13 @@ class SemanticSearchEngine:
                 cast_slugs_list.append([])
                 director_list.append("")
                 title_lower_list.append("")
+        votes_list = []
+        for tid in self._tmdb_ids:
+            m = self._meta.get(tid)
+            votes_list.append(m.get("vote_average", 0.0) if m else 0.0)
         dump_to_disk(self._tmdb_ids, titles_list, self._matrix,
-                     cast_slugs_list, director_list, title_lower_list)
+                     cast_slugs_list, director_list, title_lower_list,
+                     votes_list=votes_list)
         with open(self.META_FILE, "w", encoding="utf-8") as f:
             json.dump(self._meta, f, ensure_ascii=False)
         norms = np.linalg.norm(self._matrix, axis=1)

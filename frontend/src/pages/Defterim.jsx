@@ -49,6 +49,13 @@ export default function Defterim() {
       setTasteMap(data);
     } catch (err) {
       console.error('Zevk haritası alınamadı:', err);
+      setTasteMap({
+        dynamic_title: 'Sinema Ruhu',
+        top_moods: [], mood_pct: {}, mood_full: {},
+        top_genres: [], summary: [],
+        signals: { total_movies: 0 },
+        confidence: 'low', _error: true,
+      });
     } finally {
       setTasteLoading(false);
     }
@@ -63,6 +70,11 @@ export default function Defterim() {
     try {
         await removeFromWatchlist(id);
         setSavedMovies(prev => prev.filter(m => m.tmdb_id !== id));
+        setWatchedIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
     } catch (err) {
         console.error('Silme hatası:', err);
     }

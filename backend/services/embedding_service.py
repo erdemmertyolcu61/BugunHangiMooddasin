@@ -77,8 +77,10 @@ class GeminiEmbeddingService:
                     f"Embedding circuit open ({_CB_FAILURES} failures) — "
                     f"retry in {_CB_OPEN_UNTIL - time.monotonic():.0f}s"
                 )
-            # Recovery attempt: half-open
-            _CB_FAILURES = 0
+            # Recovery attempt: half-open — counter sıfırlanmaz,
+            # başarılı olursa satır 129'da reset edilir, başarısızsa
+            # _CB_FAILURES +1 ile hemen tekrar açılır.
+            pass
 
         text = str(text or "").strip()[:_MAX_INPUT_CHARS]
         if not text:
