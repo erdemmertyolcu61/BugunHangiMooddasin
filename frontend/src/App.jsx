@@ -8,7 +8,6 @@ import BetaGate from './components/BetaGate';
 import SplashScreen from './components/SplashScreen';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
-import NotificationsBell from './components/NotificationsBell';
 import UsernameOnboardingModal from './components/UsernameOnboardingModal';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
@@ -159,7 +158,6 @@ function AppContent() {
         </Routes>
       </Suspense>
       <BottomNav />
-      <NotificationsBell />
       <UsernameOnboardingModal />
     </>
   );

@@ -4,13 +4,14 @@
  * Tema: koyu mod + buzlu cam (backdrop-blur-md bg-slate-900/80),
  * serif başlıklar + sans-serif veri tipografisi, Framer Motion fade-in.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User, Activity, Users, Check, X, UserPlus, Search, Trash2, AtSign } from 'lucide-react';
+import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User, Activity, Users, Check, X, UserPlus, Search, Trash2, AtSign, Bell, Play, Star as StarIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getWatchlist, getTasteMap, getFriends, getFriendRequests, respondFriendRequest, removeFriend, sendFriendRequest } from '../services/api';
+import { getWatchlist, getTasteMap, getFriends, getFriendRequests, respondFriendRequest, removeFriend, sendFriendRequest, getShares, markSharesRead } from '../services/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import FilmDetailModal from '../components/FilmDetailModal';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -104,25 +105,60 @@ export default function Profil() {
   const [addBusy, setAddBusy] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
 
-  // Sosyal veri çekme — tek seferlik, mount'ta
+  // ─── Film önerileri (bildirimler) ─────────────────────
+  const [shares, setShares] = useState([]);
+  const [sharesLoading, setSharesLoading] = useState(true);
+  const [detailMovie, setDetailMovie] = useState(null);
+  const pollRef = useRef(null);
+
+  // Sosyal veri çekme — mount'ta bir kez
   useEffect(() => {
-    if (!user) { setSocialLoading(false); return; }
+    if (!user) { setSocialLoading(false); setSharesLoading(false); return; }
     let alive = true;
     (async () => {
       try {
-        const [fr, rq] = await Promise.all([
+        const [fr, rq, sh] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
+          getShares().catch(() => ({ shares: [] })),
         ]);
         if (alive) {
           setFriends(fr.friends || []);
           setRequests(rq.requests || []);
+          setShares(sh.shares || []);
+          // İlk yüklemede shares okundu işaretle
+          if ((sh.shares || []).length > 0) {
+            markSharesRead().catch(() => {});
+          }
         }
       } finally {
-        if (alive) setSocialLoading(false);
+        if (alive) { setSocialLoading(false); setSharesLoading(false); }
       }
     })();
     return () => { alive = false; };
+  }, [user]);
+
+  // ─── 120sn Polling — sadece sayfa aktifken (Page Focus) ─────
+  useEffect(() => {
+    if (!user) return;
+
+    const poll = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const [rq, sh] = await Promise.all([
+          getFriendRequests().catch(() => ({ requests: [] })),
+          getShares().catch(() => ({ shares: [] })),
+        ]);
+        setRequests(rq.requests || []);
+        if ((sh.shares || []).length > 0) {
+          setShares(sh.shares || []);
+          markSharesRead().catch(() => {});
+        }
+      } catch { /* sessiz */ }
+    };
+
+    pollRef.current = setInterval(poll, 120000);
+    return () => { clearInterval(pollRef.current); };
   }, [user]);
 
   const handleRespondRequest = useCallback(async (requestId, action) => {
@@ -523,6 +559,22 @@ export default function Profil() {
 
         {/* ═══ Sosyal Panel ═══ */}
 
+        {/* Bildirimler boş durum */}
+        {!socialLoading && !sharesLoading && requests.length === 0 && shares.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className="p-8 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 text-center"
+          >
+            <span className="text-3xl opacity-30 block mb-3">🕊️</span>
+            <p className="font-serif text-sm italic text-ivory/40 leading-relaxed">
+              Henüz yeni bir bildirim yok.<br />
+              Arkadaşlarından gelen istekler ve film önerileri burada görünecek.
+            </p>
+          </motion.div>
+        )}
+
         {/* Gelen Arkadaşlık İstekleri */}
         <AnimatePresence>
           {requests.length > 0 && (
@@ -576,6 +628,85 @@ export default function Profil() {
                         title="Reddet"
                       >
                         <X size={16} className="text-rose-400" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Gelen Film Önerileri */}
+        <AnimatePresence>
+          {shares.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.27, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-4"
+            >
+              <h2 className="font-serif text-2xl font-bold tracking-tight text-ivory/80 flex items-center gap-3">
+                <Bell size={20} className="text-[#d4af37]" /> Gelen Öneriler
+                <span className="ml-auto inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] text-xs font-bold">
+                  {shares.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {shares.map((s) => (
+                  <motion.div
+                    key={s.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex gap-3 p-3 sm:p-4 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10"
+                  >
+                    {/* Sol: Film afişi */}
+                    <div className="w-14 sm:w-16 shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/5">
+                      {s.poster_url ? (
+                        <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>
+                      )}
+                    </div>
+                    {/* Sağ: Gönderen + not + buton */}
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5">
+                        {s.sender?.avatar && (
+                          <img src={s.sender.avatar} alt="" className="w-4 h-4 rounded-full object-cover" referrerPolicy="no-referrer" />
+                        )}
+                        <span className="text-[11px] text-[#d4af37]/70 font-semibold truncate">
+                          {s.sender?.name || s.sender?.username || 'Arkadaş'}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-serif font-bold text-[#f5f2eb] line-clamp-1">
+                        {s.movie_title || `Film #${s.movie_id}`}
+                      </h4>
+                      {s.vote_average > 0 && (
+                        <span className="flex items-center gap-1 text-[10px] text-[#ffbf00] font-bold">
+                          <StarIcon size={9} className="fill-[#ffbf00]" /> {s.vote_average.toFixed(1)}
+                        </span>
+                      )}
+                      {s.user_note && (
+                        <p className="text-[11px] font-serif italic text-white/50 line-clamp-2">
+                          &ldquo;{sanitize(s.user_note)}&rdquo;
+                        </p>
+                      )}
+                      <button
+                        onClick={() => {
+                          setDetailMovie({
+                            id: s.movie_id,
+                            title: s.movie_title,
+                            poster_url: s.poster_url,
+                            vote_average: s.vote_average,
+                            release_date: s.release_date,
+                          });
+                        }}
+                        className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
+                                   bg-[#ffbf00] text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
+                                   hover:bg-amber-400 transition-all active:scale-95"
+                      >
+                        <Play size={11} className="fill-[#120d0b]" /> Hemen İzle
                       </button>
                     </div>
                   </motion.div>
@@ -735,6 +866,15 @@ export default function Profil() {
           )}
         </motion.div>
       </main>
+
+      {/* Film detay modalı — gelen önerilerden açılır */}
+      {detailMovie && (
+        <FilmDetailModal
+          movieId={detailMovie.id}
+          initialMovie={detailMovie}
+          onClose={() => setDetailMovie(null)}
+        />
+      )}
     </motion.div>
   );
 }

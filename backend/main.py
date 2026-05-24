@@ -2924,6 +2924,24 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     movies.sort(key=lambda x: (-x.get("mood_score", 0), -x.get("vote_average", 0)))
     movies = movies[:limit]
 
+    # Son çare: hiçbir yol film döndüremediyse, en yüksek puanlı filmleri getir
+    if not movies:
+        try:
+            fallback_rows = await cache.get_top_repository_movies_by_mood(
+                "zihin", min_vote=min(min_vote, 6.0), limit=limit * 3
+            )
+            for row in fallback_rows:
+                mid = row.get("tmdb_id") or row.get("id")
+                if mid and mid not in exclude_set:
+                    row["reason"] = "Arşivin en beğenilen yapımlarından."
+                    movies.append(row)
+                    if len(movies) >= limit:
+                        break
+            if movies:
+                query_understanding = "Tam eşleşme bulamadım ama bunlar ilgini çekebilir."
+        except Exception:
+            pass
+
     return {
         "ok": bool(movies),
         "mode": "rule_fallback",
