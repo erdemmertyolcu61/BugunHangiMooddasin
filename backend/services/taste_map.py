@@ -113,6 +113,7 @@ class TasteMapEngine:
         era_stats = self._compute_era_stats(enriched)
         pacing = self._compute_pacing(enriched)
         style = self._compute_style(enriched)
+        runtime_stats = self._compute_runtime_stats(enriched)
 
         top_moods = self._top_n(mood_scores, 5)
         top_moods_list = [
@@ -129,7 +130,7 @@ class TasteMapEngine:
 
         mood_ids = [mid for mid, _ in top_moods]
         title = self._generate_title(mood_ids, style, era_stats)
-        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total)
+        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total, runtime_stats)
 
         confidence = "low" if total < 3 else ("medium" if total < 8 else "high")
 
@@ -144,9 +145,15 @@ class TasteMapEngine:
                 "1991_2009": era_stats["mid"],
                 "2010_plus": era_stats["post_2000"],
                 "recent_5_years": era_stats["recent"],
+                "mean_year": era_stats.get("mean_year"),
+                "year_range_min": min([e.get("year") for e in enriched if e.get("year")]) if any(e.get("year") for e in enriched) else None,
+                "year_range_max": max([e.get("year") for e in enriched if e.get("year")]) if any(e.get("year") for e in enriched) else None,
+                "dynamic_era_label": era_stats.get("dynamic_era_label", "Zamansız"),
+                "dynamic_era_desc": era_stats.get("dynamic_era_desc", ""),
             },
             "pacing_profile": pacing,
             "style_profile": style,
+            "runtime_profile": runtime_stats,
             "summary": summary,
             "signals": {
                 "total_movies": total,
@@ -182,6 +189,7 @@ class TasteMapEngine:
         Enrich each signal movie with metadata from movie_repository.
         We batch-query both mood_classifications and movie_repository to
         avoid N+1 and to be independent of embedding services.
+        Now also fetches runtime, popularity for richer profiling.
         """
         if "_counts" in signals:
             del signals["_counts"]
@@ -198,7 +206,7 @@ class TasteMapEngine:
             except Exception:
                 pass
 
-        # 2) Batch movie_repository data (mood_id, genre_ids, year)
+        # 2) Batch movie_repository data (mood_id, genre_ids, year, popularity)
         repo_data = {}
         if self.cache:
             try:
@@ -206,7 +214,7 @@ class TasteMapEngine:
             except Exception:
                 pass
 
-        # 3) Batch movie_cache data for genre_ids fallback + year
+        # 3) Batch movie_cache data for genre_ids fallback + year + runtime
         cache_data = {}
         if self.cache:
             try:
@@ -225,6 +233,8 @@ class TasteMapEngine:
             mood_id = mood_map.get(tid)
             genre_ids = []
             year = None
+            runtime = None
+            popularity = None
 
             # Try repo data first
             repo = repo_data.get(tid, {})
@@ -235,6 +245,7 @@ class TasteMapEngine:
                 rd = repo.get("release_date", "")
                 if rd and len(rd) >= 4 and rd[:4].isdigit():
                     year = int(rd[:4])
+                popularity = repo.get("popularity")
 
             # Fall back to cache data
             if not genre_ids:
@@ -244,6 +255,10 @@ class TasteMapEngine:
                     rd = cached.get("release_date", "")
                     if rd and len(rd) >= 4 and rd[:4].isdigit():
                         year = int(rd[:4])
+                if runtime is None:
+                    runtime = cached.get("runtime")
+                if popularity is None:
+                    popularity = cached.get("popularity")
 
             enriched.append({
                 "tmdb_id": tid,
@@ -251,6 +266,8 @@ class TasteMapEngine:
                 "mood_id": mood_id,
                 "genre_ids": genre_ids,
                 "year": year,
+                "runtime": runtime,
+                "popularity": popularity,
                 "sources": sig["sources"],
             })
 
@@ -299,13 +316,15 @@ class TasteMapEngine:
                 scores[gid] += item["weight"]
         return dict(scores)
 
-    def _compute_era_stats(self, enriched: list[dict]) -> dict[str, float]:
+    def _compute_era_stats(self, enriched: list[dict]) -> dict:
         stats = {"pre_1990": 0.0, "mid": 0.0, "post_2000": 0.0, "recent": 0.0}
+        years = []
         for item in enriched:
             y = item.get("year")
             w = item["weight"]
             if not y:
                 continue
+            years.append(y)
             if y <= 1990:
                 stats["pre_1990"] += w
             elif y <= 2009:
@@ -314,6 +333,38 @@ class TasteMapEngine:
                 stats["post_2000"] += w
                 if y >= 2021:
                     stats["recent"] += w
+
+        # Mean year for dynamic era description
+        mean_year = round(sum(years) / len(years)) if years else None
+        stats["mean_year"] = mean_year
+
+        # Dynamic era label
+        if not years:
+            stats["dynamic_era_label"] = "Zamansız"
+            stats["dynamic_era_desc"] = "Filmlerin yıllarına dair yeterli veri yok."
+        else:
+            year_range = max(years) - min(years) if years else 0
+            if year_range >= 40:
+                stats["dynamic_era_label"] = "Zaman Yolcusu"
+                stats["dynamic_era_desc"] = (
+                    f"{min(years)}'den {max(years)}'e uzanan geniş bir zaman algısı — "
+                    f"klasik dönemden moderne sinema yolculuğu."
+                )
+            elif year_range >= 20:
+                stats["dynamic_era_label"] = "Kuşaklar Arası Gezgin"
+                stats["dynamic_era_desc"] = (
+                    f"{min(years)}'lerden {max(years)}'lere uzanan dengeli bir zaman dağılımı."
+                )
+            elif mean_year and mean_year >= 2020:
+                stats["dynamic_era_label"] = "Modern Zamanların Sakini"
+                stats["dynamic_era_desc"] = "Güncel ve yeni çıkan filmlere odaklanıyorsun."
+            elif mean_year and mean_year < 2000:
+                stats["dynamic_era_label"] = "Klasik Sinema Tutkunu"
+                stats["dynamic_era_desc"] = "Eski dönem sinemasına ve köklü yapımlara ilgin ağır basıyor."
+            else:
+                stats["dynamic_era_label"] = "Güncel Sinema Takipçisi"
+                stats["dynamic_era_desc"] = "2000 sonrası modern sinemaya yakın duruyorsun."
+
         return stats
 
     def _compute_pacing(self, enriched: list[dict]) -> dict:
@@ -336,6 +387,7 @@ class TasteMapEngine:
             return {"label": "Dengeli Ritim", "description": "Farklı tempolarda filmlerden beslenen bir zevk haritan var."}
 
         slow_pct = slow_count / total
+        fast_pct = 1.0 - slow_pct
         if slow_pct >= 0.75:
             return {
                 "label": "Ağır ve Sindirerek İzlenen Sanatsal Yapılar",
@@ -356,6 +408,50 @@ class TasteMapEngine:
                 "label": "Dengeli Ritim",
                 "description": "Farklı tempolarda filmlerden beslenen bir zevk haritan var.",
             }
+
+    def _compute_runtime_stats(self, enriched: list[dict]) -> dict:
+        """
+        Runtime-based profiling: average runtime, shortest/longest, category.
+        Categories: <90dk = kısa, 90-120 = normal, 120-150 = uzun, >150 = epik
+        """
+        runtimes = []
+        for item in enriched:
+            r = item.get("runtime")
+            if r and isinstance(r, (int, float)) and r > 0:
+                runtimes.append(r)
+
+        if not runtimes:
+            return {
+                "label": "Bilinmiyor",
+                "description": "Film sürelerine dair yeterli veri yok.",
+                "avg_minutes": None,
+                "category": "unknown",
+            }
+
+        avg = sum(runtimes) / len(runtimes)
+        if avg < 90:
+            label = "Kısa ve Öz"
+            desc = "Kısa metrajlı ve kompakt yapımlara yöneliyorsun."
+            cat = "short"
+        elif avg < 120:
+            label = "Standart Süreli"
+            desc = "Standart sinema sürelerini tercih ediyorsun."
+            cat = "standard"
+        elif avg < 150:
+            label = "Uzun Soluklu"
+            desc = "Sindirerek izlenen, uzun soluklu yapımlara vaktin var."
+            cat = "long"
+        else:
+            label = "Epik Süreli"
+            desc = "Epik uzunlukta, kuşatıcı sinema deneyimlerine açıksın."
+            cat = "epic"
+
+        return {
+            "label": label,
+            "description": desc,
+            "avg_minutes": round(avg, 0),
+            "category": cat,
+        }
 
     def _compute_style(self, enriched: list[dict]) -> dict:
         """
@@ -428,7 +524,8 @@ class TasteMapEngine:
     # ── Summary generation ──────────────────────────────────────────────
 
     def _generate_summary(self, mood_ids: list[str], top_genres: list,
-                          era: dict, total_signals: int) -> list[str]:
+                          era: dict, total_signals: int,
+                          runtime_stats: Optional[dict] = None) -> list[str]:
         if total_signals < 3:
             return []
 
@@ -457,13 +554,15 @@ class TasteMapEngine:
         if len(romantic_moods) >= 2:
             summaries.append("Romantikte sıcak, kırılgan ve gerçekçi hikayelere daha çok yaklaşıyorsun.")
 
-        # Era
-        if era.get("pre_1990", 0) > era.get("post_2000", 0) and era.get("pre_1990", 0) > 0:
-            summaries.append(_ERA_OLD_DESC)
-        elif era.get("recent_5_years", 0) > era.get("pre_1990", 0):
-            summaries.append(_ERA_NEW_DESC)
-        else:
-            summaries.append(_ERA_BALANCED_DESC)
+        # Dynamic era description
+        dyn_label = era.get("dynamic_era_label")
+        dyn_desc = era.get("dynamic_era_desc")
+        if dyn_label and dyn_desc:
+            summaries.append(f"{dyn_label}: {dyn_desc}")
+
+        # Runtime description
+        if runtime_stats and runtime_stats.get("category") and runtime_stats["category"] != "unknown":
+            summaries.append(runtime_stats["description"])
 
         # Genre-based
         for g in top_genres[:2]:
@@ -507,6 +606,7 @@ class TasteMapEngine:
             "era_preferences": {},
             "pacing_profile": {},
             "style_profile": {},
+            "runtime_profile": {},
             "summary": [],
             "signals": {"total_movies": 0, "watchlist_count": 0, "future_count": 0, "notes_count": 0, "analyzed_count": 0},
             "confidence": "low",

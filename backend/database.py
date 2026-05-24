@@ -548,6 +548,14 @@ class MovieCache:
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)"
             )
+            # user_taste_profiles — önbelleklenmiş zevk haritası verisi
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_taste_profiles (
+                    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+                    profile_data TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -611,6 +619,11 @@ class MovieCache:
                 user_note TEXT,
                 is_read INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            """CREATE TABLE IF NOT EXISTS user_taste_profiles (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id),
+                profile_data TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
         ]
         for stmt in stmts:
@@ -1832,15 +1845,15 @@ class MovieCache:
             conn.close()
 
     async def get_movies_from_repository_batch(self, tmdb_ids: list) -> dict:
-        """Batch fetch tmdb_id, mood_id, genre_ids, release_date from movie_repository.
-        Returns {tmdb_id: {mood_id, genre_ids, release_date}}."""
+        """Batch fetch tmdb_id, mood_id, genre_ids, release_date, popularity from movie_repository.
+        Returns {tmdb_id: {mood_id, genre_ids, release_date, popularity}}."""
         if not tmdb_ids:
             return {}
         conn = self._sync_conn()
         try:
             placeholders = ",".join("?" for _ in tmdb_ids)
             cursor = conn.execute(
-                f"""SELECT tmdb_id, mood_id, genre_ids, release_date
+                f"""SELECT tmdb_id, mood_id, genre_ids, release_date, popularity
                     FROM movie_repository
                     WHERE tmdb_id IN ({placeholders})""",
                 tmdb_ids
@@ -1853,10 +1866,50 @@ class MovieCache:
                         "mood_id": r[1],
                         "genre_ids": json.loads(r[2]) if r[2] else [],
                         "release_date": r[3] or "",
+                        "popularity": r[4],
                     }
             return result
         finally:
             conn.close()
+
+    # ──────────── Taste profile cache ────────────
+
+    async def get_taste_profile(self, user_id: int) -> dict:
+        """Get cached taste profile for user. Returns {} if not found."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute(
+                "SELECT profile_data, updated_at FROM user_taste_profiles WHERE user_id = ?",
+                (user_id,)
+            )
+            row = await cursor.fetchone()
+            if not row:
+                return {}
+            try:
+                return {
+                    "profile_data": json.loads(row[0]),
+                    "updated_at": row[1],
+                }
+            except Exception:
+                return {}
+
+    async def save_taste_profile(self, user_id: int, profile_data: dict) -> None:
+        """Save taste profile to cache. Call this after computing a fresh map."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                """INSERT OR REPLACE INTO user_taste_profiles (user_id, profile_data, updated_at)
+                   VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                (user_id, json.dumps(profile_data, ensure_ascii=False))
+            )
+            await db.commit()
+
+    async def invalidate_taste_profile(self, user_id: int) -> None:
+        """Delete cached taste profile. Call when user modifies their list."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "DELETE FROM user_taste_profiles WHERE user_id = ?",
+                (user_id,)
+            )
+            await db.commit()
 
     # ──────────── Pre-computed mood scores ────────────
 

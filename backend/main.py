@@ -1783,6 +1783,8 @@ async def add_to_watchlist(req: WatchlistRequest, request: Request):
     try:
         uid = optional_user_id(request)
         await cache.add_to_watchlist(req.tmdb_id, req.title, req.poster_url, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1793,6 +1795,8 @@ async def remove_from_watchlist(tmdb_id: int, request: Request):
     try:
         uid = optional_user_id(request)
         await cache.remove_from_watchlist(tmdb_id, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1803,6 +1807,8 @@ async def toggle_watched(request: Request, tmdb_id: int = Path(..., ge=1)):
     try:
         uid = optional_user_id(request)
         new_state = await cache.toggle_watched(tmdb_id, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"tmdb_id": tmdb_id, "watched": new_state}
     except Exception as e:
         logger.error(f"Toggle watched error: {e}")
@@ -1826,6 +1832,8 @@ async def save_movie_note(movie_id: int, req: NoteRequest, request: Request):
     try:
         uid = optional_user_id(request)
         await cache.save_note(movie_id, req.content, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2192,6 +2200,8 @@ async def add_to_future(req: FuturePlanRequest, request: Request):
     try:
         uid = optional_user_id(request)
         await cache.add_to_future(req.tmdb_id, req.title, req.poster_url, req.priority, req.watch_date, req.notes, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2202,6 +2212,8 @@ async def remove_from_future(tmdb_id: int, request: Request):
     try:
         uid = optional_user_id(request)
         await cache.remove_from_future(tmdb_id, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2212,6 +2224,8 @@ async def update_future_priority(tmdb_id: int, request: Request, priority: int =
     try:
         uid = optional_user_id(request)
         await cache.update_future_priority(tmdb_id, priority, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2222,6 +2236,8 @@ async def update_future_date(tmdb_id: int, request: Request, watch_date: str = Q
     try:
         uid = optional_user_id(request)
         await cache.update_future_date(tmdb_id, watch_date, user_id=uid)
+        if uid:
+            await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -3575,88 +3591,48 @@ MOOD_NAMES = {
 }
 
 
-def _generate_taste_summary(top_moods, top_genres, era, total_signals):
-    """Kurallara dayali Turkce summary cumleleri uretir."""
-    if total_signals < 3:
-        return []
-
-    summaries = []
-    mood_ids = [m["mood_id"] for m in top_moods[:3]]
-    top_mid = mood_ids[0] if mood_ids else None
-
-    # Yavas tempo
-    slow_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "slow"]
-    if len(slow_moods) >= 2:
-        summaries.append("Yavaş tempolu, karakter odaklı ve duygusal filmler sende daha çok iz bırakıyor.")
-    elif len(slow_moods) >= 1 and top_mid in slow_moods:
-        summaries.append("Sakin ve derinlikli hikayelere daha çok yaklaşıyorsun.")
-
-    # Hizli tempo
-    fast_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "fast"]
-    if len(fast_moods) >= 2:
-        summaries.append("Yüksek tempolu, enerjik ve heyecanlı filmlere güçlü bir ilgin var.")
-
-    # Karanlik atmosfer
-    dark_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "dark"]
-    if len(dark_moods) >= 2:
-        summaries.append("Karanlık, gizemli ve düşündüren atmosferler sana daha yakın geliyor.")
-    elif top_mid == "deep-chills":
-        summaries.append("Korkuda ani sıçratmalardan çok atmosferik ve psikolojik gerilimlere yakınsın.")
-    elif top_mid == "zihin":
-        summaries.append("Beklenmedik dönüşler, karmaşık planlar ve zihin açan hikayeler seni daha çok çekiyor.")
-
-    # Romantik
-    romantic_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "romantic"]
-    if len(romantic_moods) >= 2:
-        summaries.append("Romantikte sıcak, kırılgan ve gerçekçi hikayelere daha çok yaklaşıyorsun.")
-
-    # Zamanyolcusu
-    if top_mid == "zamanyolcusu":
-        summaries.append("Eski sinema hissi, klasikler ve geçmiş dönem atmosferi ilgini çekiyor.")
-
-    # Kahkaha
-    if top_mid == "kahkaha":
-        summaries.append("Bazen sinemayı sadece rahatlamak ve gülmek için kullandığın çok belli.")
-
-    # Kalp
-    if top_mid == "kalp":
-        summaries.append("Büyük hikayelerden çok, küçük ama derin dokunuşlar seni daha çok etkiliyor.")
-
-    # Donem
-    if era.get("pre_1990", 0) > era.get("post_2000", 0) and era.get("pre_1990", 0) > 0:
-        summaries.append("1990 öncesi klasiklere ve eski sinema hissine ilgin artıyor.")
-    elif era.get("recent", 0) > era.get("pre_1990", 0):
-        summaries.append("Daha güncel ve modern tempolu filmlere yakın duruyorsun.")
-
-    # Genre bazli
-    for g in top_genres[:2]:
-        gid = g["genre_id"]
-        if gid == 18:
-            summaries.append("Drama türüne ilgin belirgin şekilde yüksek.")
-            break
-        elif gid == 27 and top_mid != "deep-chills":
-            summaries.append("Korku türüne ilgin var, özellikle atmosferik yapımlara yöneliyorsun.")
-            break
-        elif gid == 35:
-            summaries.append("Komedi türünden keyif aldığın belli oluyor.")
-            break
-        elif gid == 10749:
-            summaries.append("Romantik filmlere sıcak bakıyorsun.")
-            break
-
-    return summaries[:5]
-
 
 @app.get("/api/user/taste-map")
 async def get_user_taste_map(request: Request):
     """
     Kullanicinin watchlist, future plans, notes verilerinden kisisel zevk profilini cikarir.
     AI/embedding cagrisi yapmaz — tamamen lokal, deterministic kurallar kullanir.
+    Sonuc cache'lenir: bir sonraki sayfa yuklemesinde tekrar hesaplanmaz.
+    Cache, kullanici listede degisiklik yaptiginda (on_list_change) otomatik temizlenir.
     """
     try:
         uid = optional_user_id(request)
+        if uid is None:
+            return {
+                "dynamic_title": "Sinema Ruhu",
+                "summary": [],
+                "top_moods": [],
+                "mood_pct": {},
+                "mood_full": {},
+                "top_genres": [],
+                "era_preferences": {},
+                "pacing_profile": {},
+                "style_profile": {},
+                "runtime_profile": {},
+                "signals": {"total_movies": 0, "watchlist_count": 0, "future_count": 0, "notes_count": 0, "analyzed_count": 0},
+                "confidence": "low",
+            }
+
+        # Cache-first: cached profile varsa ve guncelse direkt don
+        cached = await cache.get_taste_profile(uid)
+        if cached and cached.get("profile_data"):
+            cached["profile_data"]["_cached"] = True
+            cached["profile_data"]["_cached_at"] = cached.get("updated_at")
+            return cached["profile_data"]
+
+        # Hesapla ve cache'e yaz
         engine = TasteMapEngine(cache=cache)
         result = await engine.analyze(uid)
+        if result.get("signals", {}).get("total_movies", 0) >= 3:
+            try:
+                await cache.save_taste_profile(uid, result)
+            except Exception:
+                pass  # Cache sorunu sessiz gec
         return result
     except Exception as e:
         logger.error(f"Taste map error: {e}")
@@ -3670,6 +3646,7 @@ async def get_user_taste_map(request: Request):
             "era_preferences": {},
             "pacing_profile": {},
             "style_profile": {},
+            "runtime_profile": {},
             "signals": {"total_movies": 0, "watchlist_count": 0, "future_count": 0, "notes_count": 0, "analyzed_count": 0},
             "confidence": "low",
             "error": str(e),
