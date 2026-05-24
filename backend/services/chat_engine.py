@@ -164,7 +164,8 @@ MOOD_KEYWORDS = {
     "istiyorum", "istemiyorum", "olsun", "olmasın", "arıyorum",
     "yorgun", "mutlu", "üzgün", "heyecanlı", "sakin", "sıkıldım",
     "ağlamak", "gülmek", "düşünmek", "gerilmek", "korkmak",
-    "rahatlamak", "kafamı", "ruh", "duygu", "hissetmek", "hissediyorum",
+    "rahatlamak", "kafamı", "kafam", "dağıl", "dağılsın", "dalgın",
+    "boşver", "boş", "ruh", "duygu", "hissetmek", "hissediyorum",
     "bugün", "bu gece", "bu akşam", "şu an", "şimdi",
     "hafif", "ağır", "karanlık", "aydınlık", "romantik", "komik",
     "duygusal", "hüzünlü", "eğlenceli", "gerilimli", "korkutucu",
@@ -172,6 +173,31 @@ MOOD_KEYWORDS = {
     "ailemle", "arkadaşlarla", "yalnız", "sevgilimle",
     "öner", "önersene", "önerir misin", "ne izlesem", "ne izleyeyim",
     "tavsiye", "bir şey", "film seç", "film bul",
+}
+
+# Tümce düzeyinde ruh hali/distraction ifadeleri — kelime bazlı mood kontrolünden ÖNCE kontrol edilir.
+# Bunlar actor/director sanılmamalı.
+MOOD_PHRASES = {
+    "kafam dağılsın", "kafamı dağıt", "kafam dağınık", "dalgın",
+    "canım sıkıldı", "canım sıkkın", "sıkıldım", "sıkıcı",
+    "yorgunum", "uykum var", "uykusuz", "bitkin",
+    "stresliyim", "stres", "gergin", "sinirli",
+    "ne bileyim", "bilmiyorum", "kararsız",
+    "zaman geçsin", "zaman geçirmek", "vakit geçsin", "vakit geçirmek",
+    "bir şey", "herhangi bir şey", "rastgele",
+    "keyfim yok", "keyifsiz", "moralim bozuk", "mutlu değilim",
+}
+
+# Tek kelimelik ünlü yönetmen/oyuncu adları — _looks_like_person_name tek kelime için de çalışsın.
+KNOWN_PERSONS = {
+    "tarantino", "nolan", "kubrick", "scorsese", "ceylan", "spielberg",
+    "hitchcock", "fellini", "bergman", "kurosawa", "lynch", "fincher",
+    "villeneuve", "tarkovsky", "herzog", "haneke", "kieslowski",
+    "kusturica", "polanski", "coppola", "godard", "truffaut",
+    "klein", "reiner", "ersoy", "sorrentino", "haggis", "cameron",
+    "pitt", "dicaprio", "deniro", "pacino", "hopkins", "streep",
+    "roberts", "hanks", "yeşilçam", "kemp", "cronenberg", "demir",
+    "şener", "emre yükselen", "martin eden",
 }
 
 GENRE_KEYWORDS = {
@@ -205,8 +231,13 @@ def _fuzzy_match(s1: str, s2: str) -> float:
 
 
 def _has_mood_words(text: str) -> bool:
+    """Kelime bazlı mood kontrolü — substring DEĞİL, tam kelime eşleşmesi yapar."""
     t = _normalize(text)
-    return sum(1 for kw in MOOD_KEYWORDS if kw in t) >= 1
+    words = set(t.split())
+    for kw in MOOD_KEYWORDS:
+        if kw in words:
+            return True
+    return False
 
 
 def _is_short_title_like(text: str) -> bool:
@@ -216,11 +247,14 @@ def _is_short_title_like(text: str) -> bool:
 
 def _looks_like_person_name(text: str) -> bool:
     """
-    2-3 kelimeli kişi adı mı?
+    2-3 kelimeli kişi adı mı? Tek kelimelik KNOWN_PERSONS da kabul.
     Heuristic: her kelime 2-15 karakter, küçük harfle başlamıyor (büyük harf beklenir),
     rakam ve noktalama yok, mood/genre keyword değil.
-    Örnekler: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan", "Christopher Nolan"
+    Örnekler: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan", "Christopher Nolan", "Tarantino"
     """
+    text_normalized = _normalize(text)
+    if text_normalized in KNOWN_PERSONS:
+        return True
     words = text.strip().split()
     if not (2 <= len(words) <= 3):
         return False
@@ -444,6 +478,12 @@ class ChatEngine:
                     genres_excluded.extend(genre_ids)
                 else:
                     genres_wanted.extend(genre_ids)
+
+        # Tümce düzeyinde ruh hali/distraction kontrolü — kişi adı tespitinden ÖNCE
+        text_norm_lower = text_norm
+        for phrase in MOOD_PHRASES:
+            if phrase in text_lower:
+                return Intent("mood_recommendation", original_text=text)
 
         # Kişi adı tespiti: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan" gibi
         # exact_movie_search'ten ÖNCE kontrol et — kısa metinleri yanlış yere atmasın.

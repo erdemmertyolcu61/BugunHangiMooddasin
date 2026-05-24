@@ -90,6 +90,8 @@ export default function Profil() {
   const [savedCount, setSavedCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
   const [topMoods, setTopMoods] = useState([]);
+  const [moodPct, setMoodPct] = useState({});
+  const [dynamicTitle, setDynamicTitle] = useState('');
   const [ustadReview, setUstadReview] = useState('');
   const [totalSignals, setTotalSignals] = useState(0);
   const [tasteStatus, setTasteStatus] = useState('empty'); // 'empty' | 'forming' | 'mature'
@@ -232,17 +234,22 @@ export default function Profil() {
           // State A: Empty — no defter interactions at all
           setTasteStatus('empty');
           setTopMoods([]);
+          setMoodPct({});
+          setDynamicTitle('');
           setUstadReview('');
           setSummaryTexts([]);
         } else if (signals <= 5) {
           // State B: Forming (Oluşuyor) — early interactions, show badge + counter
           setTasteStatus('forming');
+          setDynamicTitle(tm?.dynamic_title || 'Sinema Ruhu');
           if (tm?.top_moods?.length > 0) {
             setTopMoods(tm.top_moods.slice(0, 3));
+            setMoodPct(tm?.mood_pct || {});
             const primaryMood = tm.top_moods[0]?.mood_id;
             setUstadReview(getUstadReview(primaryMood));
           } else {
             setTopMoods([]);
+            setMoodPct({});
             setUstadReview('');
           }
           // Use backend summary array for contextual Üstad notes
@@ -250,12 +257,15 @@ export default function Profil() {
         } else {
           // State C: Mature (Olgun) — full analytical matrix, no badge
           setTasteStatus('mature');
+          setDynamicTitle(tm?.dynamic_title || 'Sinema Ruhu');
           if (tm?.top_moods?.length > 0) {
-            setTopMoods(tm.top_moods.slice(0, 3));
+            setTopMoods(tm.top_moods.slice(0, 5));
+            setMoodPct(tm?.mood_pct || {});
             const primaryMood = tm.top_moods[0]?.mood_id;
             setUstadReview(getUstadReview(primaryMood));
           } else {
             setTopMoods([]);
+            setMoodPct({});
             setUstadReview('');
           }
           setSummaryTexts(Array.isArray(tm?.summary) ? tm.summary : []);
@@ -469,6 +479,13 @@ export default function Profil() {
                     </p>
                   </div>
 
+                  {/* Dynamic Title */}
+                  {dynamicTitle && (
+                    <p className="font-serif text-lg font-bold tracking-tight text-amber/80">
+                      {sanitize(dynamicTitle)}
+                    </p>
+                  )}
+
                   {/* Mood points if available */}
                   {topMoods.length > 0 && (
                     <>
@@ -485,6 +502,31 @@ export default function Profil() {
                         ))}
                       </div>
                     </>
+                  )}
+
+                  {/* Mood bars if available */}
+                  {Object.keys(moodPct).length > 0 && (
+                    <div className="space-y-2">
+                      <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
+                        Ruh Hali Dağılımı
+                      </p>
+                      {Object.entries(moodPct).slice(0, 5).map(([mid, pct]) => (
+                        <div key={mid} className="flex items-center gap-3">
+                          <span className="font-sans text-[11px] font-semibold text-ivory/50 w-24 truncate uppercase tracking-wide">
+                            {mid.replace('-', ' ')}
+                          </span>
+                          <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
+                              style={{ width: `${Math.min(pct, 100)}%` }}
+                            />
+                          </div>
+                          <span className="font-sans text-[10px] font-bold text-amber/60 w-8 text-right">
+                            %{Math.round(pct)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
 
                   {/* Üstad notes from backend summary OR fallback to mood-based review */}
@@ -511,41 +553,71 @@ export default function Profil() {
                 </div>
               )}
 
-              {/* State C: Mature (Olgun) — full analytical matrix, no badge */}
+              {/* State C: Mature (Olgun) — >=5 signals, full analysis */}
               {tasteStatus === 'mature' && (
-                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 space-y-4">
+                <div className="p-6 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 space-y-5">
+                  {/* Status badge + signal counter */}
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
-                      En Çok Tercih Ettiğin Modlar
-                    </p>
-                    <p className="font-sans text-[10px] font-semibold text-ivory/25 tracking-wide">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald/15 border border-emerald/25 font-sans text-xs font-bold uppercase tracking-[0.15em] text-emerald">
+                        <Activity size={12} /> Oluştu ✨
+                      </span>
+                    </div>
+                    <p className="font-sans text-xs font-semibold text-ivory/35 tracking-wide">
                       {totalSignals} film sinyali
                     </p>
                   </div>
 
-                  {topMoods.length > 0 && (
-                    <div className="flex flex-wrap gap-3">
-                      {topMoods.map((m) => (
-                        <span key={m.mood_id}
-                          className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber/10 border border-amber/20 font-sans text-xs font-semibold text-amber">
-                          <Film size={12} /> {sanitize(m.title)}
-                          <span className="text-amber/50">{Math.round(m.score)}p</span>
-                        </span>
-                      ))}
+                  {/* Dynamic Title */}
+                  {dynamicTitle && (
+                    <p className="font-serif text-xl font-bold tracking-tight text-amber/90">
+                      {sanitize(dynamicTitle)}
+                    </p>
+                  )}
+
+                  {/* Mood bars with percentages */}
+                  {Object.keys(moodPct).length > 0 && (
+                    <div className="space-y-2.5">
+                      <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-ivory/40">
+                        Ruh Hali Dağılımı
+                      </p>
+                      {Object.entries(moodPct).slice(0, 8).map(([mid, pct]) => {
+                        const moodObj = topMoods.find(m => m.mood_id === mid);
+                        const label = moodObj?.title || mid.replace('-', ' ');
+                        return (
+                          <div key={mid} className="flex items-center gap-3">
+                            <span className="font-sans text-[11px] font-semibold text-ivory/50 w-28 truncate uppercase tracking-wide">
+                              {label}
+                            </span>
+                            <div className="flex-1 h-3 rounded-full bg-white/5 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-300 shadow-[0_0_8px_rgba(212,175,55,0.3)]"
+                                style={{ width: `${Math.min(pct, 100)}%` }}
+                              />
+                            </div>
+                            <span className="font-sans text-[11px] font-bold text-amber/60 w-10 text-right">
+                              %{Math.round(pct)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
-                  {/* Full Üstad analysis from backend summary */}
+                  {/* Üstad's Özeti */}
                   {(summaryTexts.length > 0 || ustadReview) && (
-                    <div className="border-t border-white/5 pt-4 space-y-2">
+                    <div className="border-t border-amber/10 pt-4 space-y-2">
+                      <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-amber/40">
+                        Üstad'ın Özeti
+                      </p>
                       {summaryTexts.length > 0 ? (
                         summaryTexts.map((text, i) => (
-                          <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/50">
+                          <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/60">
                             "{sanitize(text)}"
                           </p>
                         ))
                       ) : ustadReview ? (
-                        <p className="font-serif text-sm italic leading-relaxed text-ivory/50">
+                        <p className="font-serif text-sm italic leading-relaxed text-ivory/60">
                           "{ustadReview}"
                         </p>
                       ) : null}

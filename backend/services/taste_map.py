@@ -1,0 +1,534 @@
+"""
+Taste Map Engine — Embedding-independent local profile analysis.
+
+Purely deterministic, NumPy-free. Never calls external APIs.
+Uses only: user signals data + movie_repository table + mood profiles.
+"""
+import json
+import logging
+from collections import Counter, defaultdict
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# ── Mood metadata (tempo, atmosphere) mirrored from main.py ─────────────
+MOOD_TEMPO = {
+    "kalp": "slow", "sessiz": "slow", "gozyasi": "slow", "zamanyolcusu": "slow",
+    "kadraj-estetigi": "slow", "geceyarisi-itirafi": "slow",
+    "adrenalin": "fast", "kahkaha": "fast", "sipsak": "fast",
+}
+MOOD_ATMOSPHERE = {
+    "gece": "dark", "deep-chills": "dark", "zihin": "dark", "karmakar": "dark",
+    "askbahcesi": "romantic",
+}
+
+# ── Genre → style classification ────────────────────────────────────────
+_INDIE_GENRES = {18, 99, 36, 10402, 10749}       # Drama, Documentary, History, Music, Romance
+_MAINSTREAM_GENRES = {28, 12, 878, 53, 80, 10752, 27, 35, 10751, 14, 37, 9648}
+
+# ── Dynamic title templates ─────────────────────────────────────────────
+_TITLE_TEMPLATES: dict[str, list[str]] = {
+    "zihin":     ["Zihin Büken Sinema Kaşifi", "Labirent Ruhlu Kaşif", "Bulanık Mantık Ustası"],
+    "gece":      ["Gece Kuşu Koleksiyoneri", "Karanlık Sokakların Sakini", "Gölgelerin Efendisi"],
+    "battaniye": ["Sıcak Yuva Muhafızı", "Rahat Koltuğun Kâşifi", "Huzur Koleksiyoneri"],
+    "deep-chills": ["Karanlık Odaların Misafiri", "Ürperti Ustası", "Tedirgin Ruhların Dostu"],
+    "kahkaha":   ["Kahkaha Koleksiyoneri", "Eğlence Ustası", "Neşe Kaşifi"],
+    "yolculuk":  ["Sınır Tanımayan Gezgin", "Yol Arkadaşı", "Ufukların Kâşifi"],
+    "kalp":      ["Bağımsız Ruh", "Sanat Sinemasının Sakini", "Küçük Hikayelerin Büyük Hayranı"],
+    "adrenalin": ["Adrenalin Avcısı", "Hız Tutkunu", "Patlama Ustası"],
+    "sipsak":    ["Kısa ve Öz Ustası", "Zamanın Kıymetini Bilen", "Minimalist Sinema Hayranı"],
+    "zamanyolcusu": ["Zaman Yolcusu", "Nostalji Kaşifi", "Klasiklerin Muhafızı"],
+    "sessiz":    ["Sessizliğin Hakimi", "Meditasyon Ustası", "Sakin Ruh"],
+    "gozyasi":   ["Duygu Avcısı", "Gözyaşı Koleksiyoneri", "Katarsis Kaşifi"],
+    "askbahcesi": ["Aşk Bahçesinin Sakini", "Romantik Ruh", "Kalbimin Efendisi"],
+    "karmakar":  ["Sürrealist Ruh", "Deneysel Zihin", "Sıradışının Peşindeki"],
+    "kadraj-estetigi": ["Görsel Şölen Ustası", "Kadraj Avcısı", "Estetik Ruh"],
+    "geceyarisi-itirafi": ["Geceyarısı Sohbetçisi", "Derin Diyalogların Peşindeki", "Gece Sessizliğinin Dostu"],
+}
+
+_INDIE_TITLES = [
+    "Gurme Festival Gezgini", "Bağımsız Sinema Kâşifi",
+    "Sanat Sinemasının Derinliklerinde",
+]
+_MAINSTREAM_TITLES = [
+    "Popüler Sinema Koleksiyoneri", "Gişe Kaşifi",
+    "Blockbuster Ruhlu",
+]
+_MIXED_TITLES = [
+    "Sinema Kültürünün Çok Yönlü Kâşifi",
+    "Her Türden Beslenen Sinema Ruhu",
+]
+
+# ── Üstad summary building blocks ───────────────────────────────────────
+_MOOD_SLOW_DESC = "Yavaş tempolu, karakter odaklı ve duygusal filmler sende daha çok iz bırakıyor."
+_MOOD_FAST_DESC = "Yüksek tempolu, enerjik ve heyecanlı filmlere güçlü bir ilgin var."
+_MOOD_DARK_DESC = "Karanlık, gizemli ve düşündüren atmosferler sana daha yakın geliyor."
+
+_MOOD_SPECIAL_DESC = {
+    "deep-chills": "Korkuda ani sıçratmalardan çok atmosferik ve psikolojik gerilimlere yakınsın.",
+    "zihin": "Beklenmedik dönüşler, karmaşık planlar ve zihin açan hikayeler seni daha çok çekiyor.",
+    "zamanyolcusu": "Eski sinema hissi, klasikler ve geçmiş dönem atmosferi ilgini çekiyor.",
+    "kahkaha": "Bazen sinemayı sadece rahatlamak ve gülmek için kullandığın çok belli.",
+    "kalp": "Büyük hikayelerden çok, küçük ama derin dokunuşlar seni daha çok etkiliyor.",
+    "sessiz": "Sessizliğin ve dinginliğin içinde kaybolmayı seven bir sinema ruhun var.",
+    "geceyarisi-itirafi": "Derin diyaloglar, gece yürüyüşleri ve samimi hesaplaşmalar sana daha yakın.",
+}
+
+_STYLE_INDIE_DESC = "Bağımsız ve sanatsal yapımlara daha yakın duruyorsun."
+_STYLE_MAINSTREAM_DESC = "Popüler ve ana akım yapımlara daha sıcak bakıyorsun."
+_STYLE_MIXED_DESC = "Hem bağımsız hem popüler sinemaya açık bir zevk haritan var."
+
+_ERA_OLD_DESC = "Klasik dönem sinemasına ve zamansız yapımlara ilgin artıyor."
+_ERA_NEW_DESC = "Güncel ve modern tempolu filmlere yakın duruyorsun."
+_ERA_BALANCED_DESC = "Geçmişten günümüze geniş bir zaman aralığında film keşfediyorsun."
+
+
+class TasteMapEngine:
+    """
+    Local, deterministic, embedding-independent taste map analyzer.
+    Never calls external APIs. Relies only on user signals and local DB.
+    """
+
+    def __init__(self, cache=None):
+        self.cache = cache
+
+    # ── Public API ────────────────────────────────────────────────────────
+
+    async def analyze(self, user_id: int) -> dict:
+        """
+        Full taste analysis pipeline.
+        Returns dict with: dynamic_title, top_moods, mood_pct, mood_full,
+                          top_genres, era_preferences, pacing_profile,
+                          style_profile, summary, signals, confidence.
+        """
+        signals = await self._get_signals(user_id)
+        total = len(signals)
+        if total == 0:
+            return self._empty_result()
+
+        enriched = await self._enrich_signals(signals)
+
+        mood_scores = self._compute_mood_scores(enriched)
+        genre_scores = self._compute_genre_scores(enriched)
+        era_stats = self._compute_era_stats(enriched)
+        pacing = self._compute_pacing(enriched)
+        style = self._compute_style(enriched)
+
+        top_moods = self._top_n(mood_scores, 5)
+        top_moods_list = [
+            {"mood_id": mid, "title": self._mood_title(mid), "score": s}
+            for mid, s in top_moods
+        ]
+        mood_pct = self._to_percentages(mood_scores)
+        mood_full = {mid: round(v, 1) for mid, v in mood_pct.items()}
+
+        top_genres_list = [
+            {"genre_id": gid, "name": self._genre_name(gid), "score": s}
+            for gid, s in self._top_n(genre_scores, 5)
+        ]
+
+        mood_ids = [mid for mid, _ in top_moods]
+        title = self._generate_title(mood_ids, style, era_stats)
+        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total)
+
+        confidence = "low" if total < 3 else ("medium" if total < 8 else "high")
+
+        return {
+            "dynamic_title": title,
+            "top_moods": top_moods_list,
+            "mood_pct": mood_pct,
+            "mood_full": mood_full,
+            "top_genres": top_genres_list,
+            "era_preferences": {
+                "pre_1990": era_stats["pre_1990"],
+                "1991_2009": era_stats["mid"],
+                "2010_plus": era_stats["post_2000"],
+                "recent_5_years": era_stats["recent"],
+            },
+            "pacing_profile": pacing,
+            "style_profile": style,
+            "summary": summary,
+            "signals": {
+                "total_movies": total,
+                "watchlist_count": signals["_counts"].get("watchlist", 0),
+                "future_count": signals["_counts"].get("future", 0),
+                "notes_count": signals["_counts"].get("note", 0),
+                "analyzed_count": signals["_counts"].get("analyzed", 0),
+            },
+            "confidence": confidence,
+        }
+
+    # ── Signal fetching ──────────────────────────────────────────────────
+
+    async def _get_signals(self, user_id: int) -> dict:
+        """Get user signals from cache layer."""
+        if not self.cache:
+            return {}
+
+        signals = await self.cache.get_user_movie_signals(user_id=user_id)
+        if not signals:
+            return {}
+
+        # Add counts
+        counts = Counter()
+        for tid, sig in signals.items():
+            for src in sig.get("sources", []):
+                counts[src] += 1
+        signals["_counts"] = dict(counts)
+        return signals
+
+    async def _enrich_signals(self, signals: dict) -> list[dict]:
+        """
+        Enrich each signal movie with metadata from movie_repository.
+        We batch-query both mood_classifications and movie_repository to
+        avoid N+1 and to be independent of embedding services.
+        """
+        if "_counts" in signals:
+            del signals["_counts"]
+
+        tmdb_ids = list(signals.keys())
+        if not tmdb_ids:
+            return []
+
+        # 1) Batch mood from mood_classifications
+        mood_map = {}
+        if self.cache:
+            try:
+                mood_map = await self.cache.get_mood_classifications_batch(tmdb_ids)
+            except Exception:
+                pass
+
+        # 2) Batch movie_repository data (mood_id, genre_ids, year)
+        repo_data = {}
+        if self.cache:
+            try:
+                repo_data = await self.cache.get_movies_from_repository_batch(tmdb_ids)
+            except Exception:
+                pass
+
+        # 3) Batch movie_cache data for genre_ids fallback + year
+        cache_data = {}
+        if self.cache:
+            try:
+                for tid in tmdb_ids:
+                    movie = await self.cache.get_movie(tid)
+                    if movie:
+                        cache_data[tid] = movie
+            except Exception:
+                pass
+
+        enriched = []
+        for tid in tmdb_ids:
+            sig = signals[tid]
+            weight = min(sig["score"], 5)
+
+            mood_id = mood_map.get(tid)
+            genre_ids = []
+            year = None
+
+            # Try repo data first
+            repo = repo_data.get(tid, {})
+            if repo:
+                if not mood_id:
+                    mood_id = repo.get("mood_id")
+                genre_ids = repo.get("genre_ids", []) or []
+                rd = repo.get("release_date", "")
+                if rd and len(rd) >= 4 and rd[:4].isdigit():
+                    year = int(rd[:4])
+
+            # Fall back to cache data
+            if not genre_ids:
+                cached = cache_data.get(tid, {})
+                genre_ids = cached.get("genre_ids", []) or []
+                if year is None:
+                    rd = cached.get("release_date", "")
+                    if rd and len(rd) >= 4 and rd[:4].isdigit():
+                        year = int(rd[:4])
+
+            enriched.append({
+                "tmdb_id": tid,
+                "weight": weight,
+                "mood_id": mood_id,
+                "genre_ids": genre_ids,
+                "year": year,
+                "sources": sig["sources"],
+            })
+
+        return enriched
+
+    # ── Scoring helpers ──────────────────────────────────────────────────
+
+    def _compute_mood_scores(self, enriched: list[dict]) -> dict[str, float]:
+        """
+        Mood scoring: use mood_id from repository first, fall back to
+        genre-to-mood mapping from MOOD_PROFILES.
+        """
+        scores: dict[str, float] = defaultdict(float)
+
+        for item in enriched:
+            w = item["weight"]
+
+            # Primary: mood_id from movie_repository
+            if item["mood_id"]:
+                scores[item["mood_id"]] += w * 1.0
+                continue
+
+            # Fallback: genre → mood mapping
+            gids = item["genre_ids"]
+            if gids:
+                from backend.mood_profiles import MOOD_PROFILES
+
+                matched = set()
+                for mid, profile in MOOD_PROFILES.items():
+                    pos = set(profile.get("positive_genres", []))
+                    if pos & set(gids):
+                        matched.add(mid)
+
+                if matched:
+                    # Distribute weight across matched moods
+                    share = w / len(matched)
+                    for mid in matched:
+                        scores[mid] += share
+
+        return dict(scores)
+
+    def _compute_genre_scores(self, enriched: list[dict]) -> dict[int, float]:
+        scores: dict[int, float] = defaultdict(float)
+        for item in enriched:
+            for gid in item.get("genre_ids", []):
+                scores[gid] += item["weight"]
+        return dict(scores)
+
+    def _compute_era_stats(self, enriched: list[dict]) -> dict[str, float]:
+        stats = {"pre_1990": 0.0, "mid": 0.0, "post_2000": 0.0, "recent": 0.0}
+        for item in enriched:
+            y = item.get("year")
+            w = item["weight"]
+            if not y:
+                continue
+            if y <= 1990:
+                stats["pre_1990"] += w
+            elif y <= 2009:
+                stats["mid"] += w
+            else:
+                stats["post_2000"] += w
+                if y >= 2021:
+                    stats["recent"] += w
+        return stats
+
+    def _compute_pacing(self, enriched: list[dict]) -> dict:
+        """
+        Structural/pacing profile based on mood tempo of matched moods.
+        """
+        mood_ids = set()
+        for item in enriched:
+            if item.get("mood_id"):
+                mood_ids.add(item["mood_id"])
+
+        if not mood_ids:
+            return {"label": "Dengeli Ritim", "description": "Farklı tempolarda filmlerden beslenen bir zevk haritan var."}
+
+        slow_count = sum(1 for m in mood_ids if MOOD_TEMPO.get(m) == "slow")
+        fast_count = sum(1 for m in mood_ids if MOOD_TEMPO.get(m) == "fast")
+        total = slow_count + fast_count
+
+        if total == 0:
+            return {"label": "Dengeli Ritim", "description": "Farklı tempolarda filmlerden beslenen bir zevk haritan var."}
+
+        slow_pct = slow_count / total
+        if slow_pct >= 0.75:
+            return {
+                "label": "Ağır ve Sindirerek İzlenen Sanatsal Yapılar",
+                "description": "Karakter odaklı, yavaş akan ve derinlikli filmlere yöneliyorsun.",
+            }
+        elif slow_pct >= 0.5:
+            return {
+                "label": "Dengeli Ritim: Sanatsal ve Tempolu",
+                "description": "Hem derinlikli dramalar hem de enerjik yapılar arasında dengeli bir zevkin var.",
+            }
+        elif fast_pct >= 0.75:
+            return {
+                "label": "Yüksek Konseptli Popüler Sinema",
+                "description": "Hızlı tempolu, heyecanlı ve sürükleyici filmlere daha yakınsın.",
+            }
+        else:
+            return {
+                "label": "Dengeli Ritim",
+                "description": "Farklı tempolarda filmlerden beslenen bir zevk haritan var.",
+            }
+
+    def _compute_style(self, enriched: list[dict]) -> dict:
+        """
+        Indie vs Mainstream style classification based on genre distribution.
+        """
+        genre_ids = set()
+        counts = defaultdict(int)
+        for item in enriched:
+            for gid in item.get("genre_ids", []):
+                genre_ids.add(gid)
+                counts[gid] += item["weight"]
+
+        total_weight = sum(counts.values())
+        if total_weight == 0:
+            return {"label": "Sınıflandırılamadı", "indie_pct": 0, "mainstream_pct": 0, "description": ""}
+
+        indie_weight = sum(v for gid, v in counts.items() if gid in _INDIE_GENRES)
+        main_weight = sum(v for gid, v in counts.items() if gid in _MAINSTREAM_GENRES)
+
+        indie_pct = round(indie_weight / total_weight * 100)
+        main_pct = round(main_weight / total_weight * 100)
+        indie_pct = min(indie_pct, 100)
+        main_pct = min(main_pct, 100)
+
+        if indie_pct >= 60:
+            label = "Bağımsız Sinema Ağırlıklı"
+            desc = _STYLE_INDIE_DESC
+        elif main_pct >= 60:
+            label = "Popüler Sinema Ağırlıklı"
+            desc = _STYLE_MAINSTREAM_DESC
+        else:
+            label = "Hibrit: Bağımsız ve Popüler"
+            desc = _STYLE_MIXED_DESC
+
+        return {
+            "label": label,
+            "indie_pct": indie_pct,
+            "mainstream_pct": main_pct,
+            "description": desc,
+        }
+
+    # ── Title generation ─────────────────────────────────────────────────
+
+    def _generate_title(self, mood_ids: list[str], style: dict, era: dict) -> str:
+        if not mood_ids:
+            return "Sinema Ruhu"
+
+        top = mood_ids[0]
+
+        # Check for special combo titles
+        indie_pct = style.get("indie_pct", 0)
+        if indie_pct >= 60:
+            candidates = _INDIE_TITLES
+        elif style.get("mainstream_pct", 0) >= 60:
+            candidates = _MAINSTREAM_TITLES
+        else:
+            candidates = _MIXED_TITLES
+
+        # Mood-specific title has priority
+        mood_candidates = _TITLE_TEMPLATES.get(top)
+        if mood_candidates:
+            # Use hash of mood_ids for deterministic selection
+            idx = hash("|".join(mood_ids[:3])) % len(mood_candidates)
+            return mood_candidates[idx]
+
+        # Fall back to style-based
+        idx = hash("|".join(mood_ids[:2])) % len(candidates)
+        return candidates[idx]
+
+    # ── Summary generation ──────────────────────────────────────────────
+
+    def _generate_summary(self, mood_ids: list[str], top_genres: list,
+                          era: dict, total_signals: int) -> list[str]:
+        if total_signals < 3:
+            return []
+
+        summaries = []
+        top_mid = mood_ids[0] if mood_ids else None
+
+        # Mood-based descriptions
+        slow_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "slow"]
+        if len(slow_moods) >= 2:
+            summaries.append(_MOOD_SLOW_DESC)
+
+        fast_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "fast"]
+        if len(fast_moods) >= 2:
+            summaries.append(_MOOD_FAST_DESC)
+
+        dark_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "dark"]
+        if len(dark_moods) >= 2:
+            summaries.append(_MOOD_DARK_DESC)
+
+        # Top mood special description
+        if top_mid and top_mid in _MOOD_SPECIAL_DESC:
+            summaries.append(_MOOD_SPECIAL_DESC[top_mid])
+
+        # Romantic
+        romantic_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "romantic"]
+        if len(romantic_moods) >= 2:
+            summaries.append("Romantikte sıcak, kırılgan ve gerçekçi hikayelere daha çok yaklaşıyorsun.")
+
+        # Era
+        if era.get("pre_1990", 0) > era.get("post_2000", 0) and era.get("pre_1990", 0) > 0:
+            summaries.append(_ERA_OLD_DESC)
+        elif era.get("recent_5_years", 0) > era.get("pre_1990", 0):
+            summaries.append(_ERA_NEW_DESC)
+        else:
+            summaries.append(_ERA_BALANCED_DESC)
+
+        # Genre-based
+        for g in top_genres[:2]:
+            gid = g.get("genre_id")
+            if gid == 18:
+                summaries.append("Drama türüne ilgin belirgin şekilde yüksek.")
+                break
+            elif gid == 27:
+                summaries.append("Korku türüne ilgin var, özellikle atmosferik yapımlara yöneliyorsun.")
+                break
+            elif gid == 35:
+                summaries.append("Komedi türünden keyif aldığın belli oluyor.")
+                break
+            elif gid == 10749:
+                summaries.append("Romantik filmlere sıcak bakıyorsun.")
+                break
+
+        return summaries[:6]
+
+    # ── Pure helpers ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def _top_n(d: dict, n: int) -> list:
+        return sorted(d.items(), key=lambda x: -x[1])[:n]
+
+    @staticmethod
+    def _to_percentages(scores: dict[str, float]) -> dict[str, float]:
+        total = sum(scores.values())
+        if total == 0:
+            return {}
+        return {k: round(v / total * 100, 1) for k, v in scores.items()}
+
+    @staticmethod
+    def _empty_result() -> dict:
+        return {
+            "dynamic_title": "Sinema Ruhu",
+            "top_moods": [],
+            "mood_pct": {},
+            "mood_full": {},
+            "top_genres": [],
+            "era_preferences": {},
+            "pacing_profile": {},
+            "style_profile": {},
+            "summary": [],
+            "signals": {"total_movies": 0, "watchlist_count": 0, "future_count": 0, "notes_count": 0, "analyzed_count": 0},
+            "confidence": "low",
+        }
+
+    @staticmethod
+    def _mood_title(mood_id: str) -> str:
+        return {
+            "battaniye": "Battaniye Modu", "yolculuk": "Yolculuk Ruhu", "gece": "Gece Kuşu",
+            "kahkaha": "Kahkaha Molası", "gozyasi": "Gözyaşı Gecesi", "adrenalin": "Adrenalin Patlaması",
+            "askbahcesi": "Aşk Bahçesi", "zamanyolcusu": "Zaman Yolcusu", "sessiz": "Sessiz Yolculuk",
+            "zihin": "Zihin Savaşı", "kalp": "Kalbimin Sesi", "karmakar": "Karmaşakar",
+            "sipsak": "Şipşak", "deep-chills": "Derin Ürperti",
+            "kadraj-estetigi": "Kadraj Estetiği", "geceyarisi-itirafi": "Geceyarısı İtirafı",
+        }.get(mood_id, mood_id.replace("-", " ").title())
+
+    @staticmethod
+    def _genre_name(gid: int) -> str:
+        return {
+            28: "Aksiyon", 12: "Macera", 16: "Animasyon", 35: "Komedi",
+            80: "Suç", 99: "Belgesel", 18: "Dram", 10751: "Aile",
+            14: "Fantastik", 36: "Tarih", 27: "Korku", 10402: "Müzik",
+            9648: "Gizem", 10749: "Romantik", 878: "Bilim Kurgu",
+            10752: "Savaş", 53: "Gerilim", 37: "Western",
+        }.get(gid, "?")

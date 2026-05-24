@@ -22,6 +22,8 @@ from backend.config import (
 from backend.services.embedding_service import embedding_service
 from backend.services.fast_search import fast_search_engine
 from backend.services.semantic_search import semantic_engine
+from backend.services.search import SearchEngine
+from backend.services.taste_map import TasteMapEngine
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
@@ -39,6 +41,14 @@ from backend.services.tmdb_service import tmdb_service
 from backend.services.omdb_service import omdb_service
 from backend.services.claude_service import claude_service
 from backend.mood_profiles import MOOD_PROFILES, get_tmdb_params, get_positive_genres, GENRE_NAMES
+
+# Unified search engine with 4-tier fallback (semantic → vector → regex → curated)
+search_engine = SearchEngine(
+    semantic_engine=semantic_engine,
+    embedding_service=embedding_service,
+    fast_search_engine=fast_search_engine,
+    cache=cache,
+)
 
 # Mood → TMDB discover parametreleri (mood_profiles.py merkezli)
 MOOD_GENRE_MAP = {}
@@ -424,6 +434,17 @@ async def lifespan(app: FastAPI):
             logger.warning(f"[SipsakCleanup] Hata: {e}")
 
     asyncio.create_task(_cleanup_sipsak_long_films())
+
+    # ── Poster'siz film temizliği ──────────────────────────────────────────────
+    async def _cleanup_posterless():
+        try:
+            removed = await cache.remove_posterless_movies()
+            if removed:
+                logger.info(f"[Cleanup] {removed} poster'siz film temizlendi.")
+        except Exception as e:
+            logger.warning(f"[Cleanup] Poster temizliği hatası: {e}")
+
+    asyncio.create_task(_cleanup_posterless())
 
     # ── All heavy initializations deferred to background ──
     # Fast Search, Semantic Search, NPZ Cache, Embedding, Model pre-warm
@@ -2732,87 +2753,33 @@ async def post_fast_recommendation(request: Request):
     text = (body.get("text") or "").strip()
     limit = max(3, min(int(body.get("limit", 6)), 12))
     min_vote = max(4.0, min(float(body.get("min_vote", 5.5)), 10.0))
-    exclude_ids = set(int(x) for x in body.get("exclude_ids", []) if str(x).isdigit())
+    exclude_ids = [int(x) for x in body.get("exclude_ids", []) if str(x).isdigit()]
 
     if not text:
         raise HTTPException(status_code=400, detail="text alanı boş olamaz")
 
-    movies = []
-    source = "rule_based"
-
-    # ── Priority 1: Local semantic search (FREE, no API key) ─────────────────
-    if semantic_engine.is_ready:
-        try:
-            result = await asyncio.wait_for(
-                semantic_engine.search(
-                    query_text=text,
-                    limit=limit,
-                    exclude_ids=exclude_ids,
-                    min_vote=min_vote,
-                ),
-                timeout=5.0,
-            )
-            movies = result.get("movies", [])
-            if movies:
-                source = "semantic_local"
-        except Exception as e:
-            logger.warning(f"[FastRec] Semantic search hatası: {e}")
-
-    # ── Priority 2: Gemini vector search (API key needed) ────────────────────
-    if not movies and embedding_service.is_available and fast_search_engine.is_ready:
-        try:
-            query_vec = await asyncio.wait_for(
-                embedding_service.get_embedding(text), timeout=8.0
-            )
-            if query_vec:
-                movies = fast_search_engine.search(
-                    query_vec=query_vec,
-                    limit=limit,
-                    exclude_ids=exclude_ids,
-                    min_vote=min_vote,
-                )
-                if movies:
-                    source = "fast_vector"
-        except Exception as e:
-            logger.warning(f"[FastRec] Gemini embedding hatası: {e}")
-
-    # ── Priority 3: Rule-based fallback ──────────────────────────────────────
-    if not movies:
-        try:
-            fallback = _rule_based_confused_analysis(text)
-            mood_mix = fallback.get("mood_mix", [{"mood_id": "battaniye", "weight": 1.0}])
-            top_mood = mood_mix[0]["mood_id"] if mood_mix else "battaniye"
-            repo_result = await cache.get_repository_movies_paginated(
-                top_mood, page=1, per_page=limit * 3, min_vote=min_vote,
-            )
-            repo_movies = repo_result.get("movies", []) if isinstance(repo_result, dict) else repo_result
-            import random as _rnd
-            _rnd.shuffle(repo_movies)
-            for m in repo_movies[:limit]:
-                movies.append({
-                    "id": m["id"],
-                    "title": m.get("title", ""),
-                    "poster_url": m.get("poster_url"),
-                    "backdrop_url": m.get("backdrop_url"),
-                    "vote_average": m.get("vote_average", 0.0),
-                    "genre_ids": m.get("genre_ids", []),
-                    "overview": m.get("overview", ""),
-                    "release_date": m.get("release_date", ""),
-                    "mood_score": m.get("mood_score", 50.0),
-                    "matched_moods": [top_mood],
-                    "reason": REASON_MAP.get(top_mood, "Bu ruh haline uygun seçildi."),
-                    "ustad_notu": "",
-                })
-        except Exception as e:
-            logger.error(f"[FastRec] Fallback hatası: {e}")
+    result = await search_engine.search(
+        query_text=text,
+        limit=limit,
+        min_vote=min_vote,
+        exclude_ids=set(exclude_ids),
+    )
 
     elapsed_ms = round((_time.monotonic() - t0) * 1000, 1)
-    logger.info(f"[FastRec] '{text[:40]}' → {len(movies)} film, {elapsed_ms}ms ({source})")
+    logger.info(
+        "[FastRec] '%s' → %d film, %dms (%s%s)",
+        text[:40], len(result["movies"]), elapsed_ms, result["source"],
+        " fallback" if result["is_fallback"] else "",
+    )
+
+    movies = _sort_east_asian_to_end(result["movies"])
 
     return {
         "ok": True,
-        "source": source,
+        "source": result["source"],
         "elapsed_ms": elapsed_ms,
+        "is_fallback": result["is_fallback"],
+        "ustad_notu": result["ustad_notu"],
         "semantic_ready": semantic_engine.is_ready,
         "fast_search_ready": fast_search_engine.is_ready,
         "movies": movies,
@@ -2822,7 +2789,8 @@ async def post_fast_recommendation(request: Request):
 async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids: list) -> dict:
     """
     Kural tabanlı fallback — embedding/model KULLANMAZ.
-    Regex intent detection + SQL sorguları ile anlık sonuç döndürür.
+    Regex intent detection + SQL sorguları + TMDB API ile anlık sonuç döndürür.
+    Hedef: her türlü girdiyi (kişi adı, film adı, ruh hali) anlamak.
     """
     import json
     from backend.services.chat_engine import ChatEngine, _rule_based_confused_analysis, GENRE_KEYWORDS
@@ -2833,25 +2801,96 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
 
     exclude_set = set(exclude_ids)
 
+    # ── Kaliteli mood filmleri çeken helper (min_vote_count + poster filtresi ile) ──
     async def _search_mood_movies(mood_ids: list, count: int) -> list:
         collected = []
         for mid in mood_ids:
             try:
-                rows = await cache.get_top_repository_movies_by_mood(mid, min_vote=min_vote, limit=count * 2)
+                rows = await cache.get_top_repository_movies_by_mood(mid, min_vote=min_vote, limit=count * 3)
                 for m in rows:
                     m_id = m.get("id") or m.get("tmdb_id")
-                    if m_id and m_id not in exclude_set:
-                        m["mood_score"] = 80.0
-                        m["matched_mood"] = mid
-                        m["reason"] = REASON_MAP.get(mid, "Ruh haline uygun bir seçim.")
-                        collected.append(m)
-                        exclude_set.add(m_id)
+                    if not m_id or m_id in exclude_set:
+                        continue
+                    if not m.get("poster_url"):
+                        continue
+                    if int(m.get("vote_count", 0)) < 2:
+                        continue
+                    lang = (m.get("original_language") or "").lower()
+                    if lang in ("ja", "ko", "zh"):
+                        continue
+                    m["mood_score"] = 80.0
+                    m["matched_mood"] = mid
+                    m["reason"] = REASON_MAP.get(mid, "Ruh haline uygun bir seçim.")
+                    collected.append(m)
+                    exclude_set.add(m_id)
             except Exception:
                 continue
         collected.sort(key=lambda x: (-x.get("vote_average", 0), -x.get("vote_count", 0)))
         return collected[:count]
 
+    # ── TMDB'den kişi adına göre film getiren helper ──
+    async def _search_person_movies(person_name: str, person_type: str, count: int) -> list:
+        try:
+            persons = await tmdb_service.search_person(person_name)
+            if not persons:
+                return []
+            person_id = persons[0]["id"]
+            if person_type == "director":
+                raw = await tmdb_service.get_director_filmography(person_id, limit=count * 2, min_vote_count=50)
+            else:
+                raw = await tmdb_service.get_person_movie_credits(person_id)
+            if not raw:
+                return []
+            result = []
+            for m in raw:
+                mid = m.get("id")
+                if not mid or mid in exclude_set:
+                    continue
+                if not m.get("poster_url"):
+                    continue
+                if float(m.get("vote_average", 0) or 0) < min_vote:
+                    continue
+                m["mood_score"] = 85.0
+                m["matched_mood"] = "battaniye"
+                m["reason"] = f"'{persons[0]['name']}' kariyerinden bir seçki."
+                result.append(m)
+                exclude_set.add(mid)
+                if len(result) >= count:
+                    break
+            return result
+        except Exception:
+            return []
+
+    # ── TMDB'den referans film + benzerlerini getiren helper ──
+    async def _search_similar_via_tmdb(ref_title: str, count: int) -> list:
+        try:
+            tmdb_hits = await tmdb_service.search_movies(ref_title, page=1)
+            if not tmdb_hits:
+                return []
+            ref_id = tmdb_hits[0]["id"]
+            sim_data = await tmdb_service.get_similar_movies(ref_id, page=1)
+            result = []
+            for m in sim_data.get("movies", []):
+                mid = m.get("id")
+                if not mid or mid in exclude_set:
+                    continue
+                if not m.get("poster_url"):
+                    continue
+                if float(m.get("vote_average", 0) or 0) < min_vote:
+                    continue
+                m["mood_score"] = 85.0
+                m["matched_mood"] = "battaniye"
+                m["reason"] = f"'{tmdb_hits[0]['title']}' sevenler bunu da sevdi."
+                result.append(m)
+                exclude_set.add(mid)
+                if len(result) >= count:
+                    break
+            return result
+        except Exception:
+            return []
+
     movies = []
+    query_understanding = ""
 
     if intent.type == "similar_to_movie" and intent.reference_title:
         repo_hits = await cache.search_repository_by_title(intent.reference_title, limit=5)
@@ -2870,6 +2909,18 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                             movies.append(m)
                 except Exception:
                     pass
+        # Repo'da yoksa veya benzer film bulunamadıysa → TMDB'de ara
+        if not movies:
+            movies = await _search_similar_via_tmdb(intent.reference_title, limit)
+        # Hala yoksa → search_engine ile başlık bazlı arama
+        if not movies:
+            search_result = await search_engine.search(
+                intent.reference_title, limit=limit, min_vote=min_vote, exclude_ids=exclude_set
+            )
+            movies = search_result.get("movies", [])
+            if movies:
+                query_understanding = f"'{intent.reference_title}' ile ilgili yapımlar."
+        # Son çare: mood
         if not movies:
             movies = await _search_mood_movies(["zihin", "gece", "sessiz"], limit)
 
@@ -2883,6 +2934,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                     """SELECT tmdb_id, title, poster_url, overview, release_date,
                               vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
                        FROM movie_repository
+                       WHERE poster_url IS NOT NULL AND vote_count >= 2
                        ORDER BY vote_average DESC LIMIT 200"""
                 )
                 for r in await cursor.fetchall():
@@ -2908,8 +2960,46 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         repo_hits = await cache.search_repository_by_title(intent.reference_title, limit=3)
         if repo_hits:
             movies.extend(repo_hits[:limit])
+        # Repo'da yoksa TMDB'de ara
+        if not movies:
+            try:
+                tmdb_hits = await tmdb_service.search_movies(intent.reference_title, page=1)
+                for m in tmdb_hits:
+                    mid = m.get("id")
+                    if mid and mid not in exclude_set and m.get("poster_url"):
+                        m["mood_score"] = 90.0
+                        m["reason"] = "Aradığın film."
+                        movies.append(m)
+                        if len(movies) >= limit:
+                            break
+            except Exception:
+                pass
         if not movies:
             movies = await _search_mood_movies(["battaniye", "zihin", "gece"], limit)
+
+    elif intent.type == "actor_recommendation" and intent.person_name:
+        query_understanding = f"'{intent.person_name}' filmlerini arıyorsun."
+        movies = await _search_person_movies(intent.person_name, "actor", limit)
+        if not movies:
+            query_understanding = f"'{intent.person_name}' ile ilgili filmler."
+            search_result = await search_engine.search(
+                intent.person_name, limit=limit, min_vote=min_vote, exclude_ids=exclude_set
+            )
+            movies = search_result.get("movies", [])
+        if not movies:
+            movies = await _search_mood_movies(["battaniye", "zihin", "gece", "kahkaha"], limit)
+
+    elif intent.type == "director_recommendation" and intent.person_name:
+        query_understanding = f"'{intent.person_name}' yönetmenliğindeki filmler."
+        movies = await _search_person_movies(intent.person_name, "director", limit)
+        if not movies:
+            query_understanding = f"'{intent.person_name}' ile ilgili filmler."
+            search_result = await search_engine.search(
+                intent.person_name, limit=limit, min_vote=min_vote, exclude_ids=exclude_set
+            )
+            movies = search_result.get("movies", [])
+        if not movies:
+            movies = await _search_mood_movies(["battaniye", "zihin", "gece", "kahkaha"], limit)
 
     elif intent.type == "mood_recommendation":
         query_understanding = "Ruh haline göre filmler öneriyorum."
@@ -2932,7 +3022,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
             )
             for row in fallback_rows:
                 mid = row.get("tmdb_id") or row.get("id")
-                if mid and mid not in exclude_set:
+                if mid and mid not in exclude_set and row.get("poster_url"):
                     row["reason"] = "Arşivin en beğenilen yapımlarından."
                     movies.append(row)
                     if len(movies) >= limit:
@@ -2945,12 +3035,14 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     return {
         "ok": bool(movies),
         "mode": "rule_fallback",
+        "is_fallback": True,
+        "ustad_notu": "Üstad şu anda derin düşüncelere dalmış durumda, ancak yine de sana en uygun filmleri bulmaya çalıştı.",
         "intent": intent.to_dict(),
         "query_understanding": query_understanding,
         "ustad_line": mood_analysis.get("ustad_line", "İşte sana seçtiklerim."),
         "message": mood_analysis.get("message", ""),
         "mood_mix": mood_analysis.get("mood_mix", []),
-        "movies": movies,
+        "movies": _sort_east_asian_to_end(movies),
     }
 
 
@@ -3128,6 +3220,16 @@ def _hybrid_rerank(movies: list, hints, limit: int) -> list:
     return [m for _, m in scored[:limit]]
 
 
+# ── East Asian language sorting ──────────────────────────────────────────
+_EAST_ASIAN_LANGS = {"ja", "ko", "zh"}  # Japonca, Korece, Çince
+
+def _sort_east_asian_to_end(movies: list[dict]) -> list[dict]:
+    """Push JA/KO/ZH original_language movies to the end of the list."""
+    non_east = [m for m in movies if (m.get("original_language") or "").lower() not in _EAST_ASIAN_LANGS]
+    east = [m for m in movies if (m.get("original_language") or "").lower() in _EAST_ASIAN_LANGS]
+    return non_east + east
+
+
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
@@ -3263,8 +3365,9 @@ async def post_confused_recommendation(req: ConfusedRequest):
         if dyn_reason:
             for m in ranked:
                 m["reason"] = dyn_reason
-        result["movies"] = ranked
+        result["movies"] = _sort_east_asian_to_end(ranked)
         result["mode"]   = "semantic_hybrid"
+        result["is_fallback"] = False
         if llm_intent and llm_intent.confidence > 0.6:
             result["intent"] = llm_intent.intent_type
         return result
@@ -3547,116 +3650,26 @@ def _generate_taste_summary(top_moods, top_genres, era, total_signals):
 @app.get("/api/user/taste-map")
 async def get_user_taste_map(request: Request):
     """
-    Kullanicinin watchlist, future plans, notes ve analyze verilerinden
-    kisisel zevk profilini cikarir.
-    AI cagrisi yapmaz, deterministic kurallar kullanir.
+    Kullanicinin watchlist, future plans, notes verilerinden kisisel zevk profilini cikarir.
+    AI/embedding cagrisi yapmaz — tamamen lokal, deterministic kurallar kullanir.
     """
     try:
         uid = optional_user_id(request)
-        signals = await cache.get_user_movie_signals(user_id=uid)
-        total_signals = len(signals)
-
-        mood_scores = {}
-        genre_scores = {}
-        era_counts = {"pre_1990": 0, "mid": 0, "post_2000": 0, "recent": 0}
-
-        for tmdb_id, sig in signals.items():
-            weight = min(sig["score"], 5)
-
-            # Mood classification
-            mood = await cache.get_mood_for_movie(tmdb_id)
-            if mood:
-                mood_scores[mood] = mood_scores.get(mood, 0) + weight
-            else:
-                # Try mood_scores from attributes
-                stored = await cache.get_mood_scores_for_movie(tmdb_id)
-                if stored:
-                    for mid, sc in stored.items():
-                        if sc >= 40:
-                            mood_scores[mid] = mood_scores.get(mid, 0) + weight
-                else:
-                    # Try movie cache data for genre_ids + calculate
-                    cached = await cache.get_movie(tmdb_id)
-                    if cached:
-                        gids = cached.get("genre_ids", [])
-                        if gids:
-                            from backend.mood_scoring import calculate_mood_scores
-                            calc = calculate_mood_scores(gids, cached.get("vote_average"), tmdb_id=tmdb_id)
-                            for mid, sc in calc.items():
-                                if sc >= 40:
-                                    mood_scores[mid] = mood_scores.get(mid, 0) + weight * 0.5
-
-            # Genre from movie_cache data
-            try:
-                cached = await cache.get_movie(tmdb_id)
-                if cached:
-                    gids = cached.get("genre_ids", [])
-                    for gid in gids:
-                        genre_scores[gid] = genre_scores.get(gid, 0) + weight
-
-                    # Era
-                    rd = cached.get("release_date", "")
-                    if rd and len(rd) >= 4:
-                        year_str = rd[:4]
-                        if year_str.isdigit():
-                            year = int(year_str)
-                            if year <= 1990:
-                                era_counts["pre_1990"] += weight
-                            elif year <= 2009:
-                                era_counts["mid"] += weight
-                            else:
-                                era_counts["post_2000"] += weight
-                            if year >= 2021:
-                                era_counts["recent"] += weight
-            except Exception:
-                pass
-
-        # Build response
-        top_moods = sorted(mood_scores.items(), key=lambda x: -x[1])[:5]
-        top_moods = [{"mood_id": m, "title": MOOD_NAMES.get(m, m), "score": s}
-                     for m, s in top_moods]
-
-        top_genres = sorted(genre_scores.items(), key=lambda x: -x[1])[:5]
-        top_genres = [{"genre_id": g, "name": GENRE_NAMES_TR.get(g, "?"), "score": s}
-                      for g, s in top_genres]
-
-        era = {
-            "pre_1990": era_counts["pre_1990"],
-            "1991_2009": era_counts["mid"],
-            "2010_plus": era_counts["post_2000"],
-            "recent_5_years": era_counts["recent"],
-        }
-
-        summary = _generate_taste_summary(top_moods, top_genres, era_counts, total_signals)
-
-        if total_signals < 3:
-            confidence = "low"
-        elif total_signals < 8:
-            confidence = "medium"
-        else:
-            confidence = "high"
-
-        return {
-            "summary": summary,
-            "top_moods": top_moods,
-            "top_genres": top_genres,
-            "era_preferences": era,
-            "signals": {
-                "total_movies": total_signals,
-                "watchlist_count": sum(1 for s in signals.values() if "watchlist" in s["sources"]),
-                "future_count": sum(1 for s in signals.values() if "future" in s["sources"]),
-                "notes_count": sum(1 for s in signals.values() if "note" in s["sources"]),
-                "analyzed_count": sum(1 for s in signals.values() if "analyzed" in s["sources"]),
-            },
-            "confidence": confidence,
-        }
+        engine = TasteMapEngine(cache=cache)
+        result = await engine.analyze(uid)
+        return result
     except Exception as e:
         logger.error(f"Taste map error: {e}")
         return {
+            "dynamic_title": "Sinema Ruhu",
             "summary": [],
             "top_moods": [],
+            "mood_pct": {},
+            "mood_full": {},
             "top_genres": [],
             "era_preferences": {},
+            "pacing_profile": {},
+            "style_profile": {},
             "signals": {"total_movies": 0, "watchlist_count": 0, "future_count": 0, "notes_count": 0, "analyzed_count": 0},
             "confidence": "low",
             "error": str(e),

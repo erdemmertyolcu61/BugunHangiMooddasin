@@ -223,6 +223,13 @@ export default function Defterim() {
                       </div>
                     ) : tasteMap && tasteMap.confidence !== "low" ? (
                       <div className="space-y-6">
+                        {/* Dynamic title */}
+                        {tasteMap.dynamic_title && (
+                          <p className="text-lg font-bold font-serif text-amber/80 tracking-tight">
+                            {tasteMap.dynamic_title}
+                          </p>
+                        )}
+
                         {/* Summary cumleleri */}
                         {tasteMap.summary && tasteMap.summary.length > 0 && (
                           <div className="space-y-2">
@@ -232,27 +239,37 @@ export default function Defterim() {
                           </div>
                         )}
 
-                        {/* Top mood bars */}
-                        {tasteMap.top_moods && tasteMap.top_moods.length > 0 && (
-                          <div className="flex flex-wrap gap-6">
-                            {tasteMap.top_moods.slice(0, 3).map((m) => (
-                              <div key={m.mood_id} className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-amber/60" />
-                                <span className="text-xs font-bold uppercase tracking-wider text-ivory/50">{m.title}</span>
-                                <span className="text-[10px] font-bold text-amber/60">{m.score}p</span>
-                              </div>
-                            ))}
+                        {/* Mood bars with percentages */}
+                        {tasteMap.mood_pct && Object.keys(tasteMap.mood_pct).length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/40">Ruh Hali Dağılımı</p>
+                            {Object.entries(tasteMap.mood_pct).slice(0, 5).map(([mid, pct]) => {
+                              const moodObj = (tasteMap.top_moods || []).find(m => m.mood_id === mid);
+                              const label = moodObj?.title || mid.replace('-', ' ');
+                              return (
+                                <div key={mid} className="flex items-center gap-3">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/50 w-24 truncate">{label}</span>
+                                  <div className="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-300 shadow-[0_0_6px_rgba(212,175,55,0.25)]"
+                                      style={{ width: `${Math.min(pct, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] font-bold text-amber/60 w-8 text-right">%{Math.round(pct)}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
 
                         {/* Confidence badge */}
                         <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
                           <span className={`px-3 py-1.5 rounded-full ${
-                            tasteMap.confidence === 'high' ? 'bg-amber/10 text-amber' :
-                            tasteMap.confidence === 'medium' ? 'bg-amber/5 text-amber/70' :
+                            tasteMap.confidence === 'high' ? 'bg-emerald/10 text-emerald' :
+                            tasteMap.confidence === 'medium' ? 'bg-amber/10 text-amber' :
                             'bg-white/5 text-ivory/30'
                           }`}>
-                            {tasteMap.confidence === 'high' ? 'Güçlü profil' :
+                            {tasteMap.confidence === 'high' ? 'Oluştu ✨' :
                              tasteMap.confidence === 'medium' ? 'Oluşuyor' : 'Başlangıç'}
                           </span>
                           <span className="text-ivory/20">{tasteMap.signals?.total_movies || 0} film sinyali</span>

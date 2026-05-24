@@ -1431,6 +1431,21 @@ class MovieCache:
             )
             await db.commit()
 
+    async def remove_posterless_movies(self) -> int:
+        """Remove all movies from repository where poster_url is NULL or empty. Returns count removed."""
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM movie_repository WHERE poster_url IS NULL OR poster_url = ''"
+            )
+            count = (await cursor.fetchone())[0]
+            if count > 0:
+                await db.execute(
+                    "DELETE FROM movie_repository WHERE poster_url IS NULL OR poster_url = ''"
+                )
+                await db.commit()
+                logger.info("[Cleanup] %d poster'siz film temizlendi.", count)
+            return count
+
     async def seed_mood_repository(self, mood_id: str, genre_ids: list,
                                     tmdb_service_obj, pages: int = 10,
                                     min_vote: float = 5.0,
@@ -1812,6 +1827,33 @@ class MovieCache:
                     result[r[0]] = json.loads(r[1])
                 except Exception:
                     pass
+            return result
+        finally:
+            conn.close()
+
+    async def get_movies_from_repository_batch(self, tmdb_ids: list) -> dict:
+        """Batch fetch tmdb_id, mood_id, genre_ids, release_date from movie_repository.
+        Returns {tmdb_id: {mood_id, genre_ids, release_date}}."""
+        if not tmdb_ids:
+            return {}
+        conn = self._sync_conn()
+        try:
+            placeholders = ",".join("?" for _ in tmdb_ids)
+            cursor = conn.execute(
+                f"""SELECT tmdb_id, mood_id, genre_ids, release_date
+                    FROM movie_repository
+                    WHERE tmdb_id IN ({placeholders})""",
+                tmdb_ids
+            )
+            result = {}
+            for r in cursor.fetchall():
+                tid = r[0]
+                if tid not in result:
+                    result[tid] = {
+                        "mood_id": r[1],
+                        "genre_ids": json.loads(r[2]) if r[2] else [],
+                        "release_date": r[3] or "",
+                    }
             return result
         finally:
             conn.close()
