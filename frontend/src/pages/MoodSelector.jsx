@@ -107,9 +107,9 @@ export default function MoodSelector() {
 
         {/* Header */}
         <motion.header
-          initial={{ filter: isTouchDevice ? 'none' : 'blur(10px)', opacity: 0, y: isTouchDevice ? 0 : -20 }}
-          animate={{ filter: 'blur(0px)', opacity: 1, y: 0 }}
-          transition={{ duration: isTouchDevice ? 0.5 : 1.5, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0, y: -15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-10 sm:mb-14 max-w-3xl"
         >
           <div className="flex items-center justify-center gap-3 sm:gap-4 mb-5 sm:mb-6">
@@ -136,7 +136,7 @@ export default function MoodSelector() {
                 <motion.div key={mood.id}
                   initial={{ opacity: 0, y: 25 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: isTouchDevice ? 0 : i * 0.02, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.35, delay: isTouchDevice ? 0 : 0.65 + i * 0.015, ease: [0.16, 1, 0.3, 1] }}
                   whileHover={{ y: -5 }} whileTap={{ scale: 0.98 }}
                   onClick={() => handleMoodClick(mood)}
                   onMouseEnter={() => handleHover(mood)} onMouseLeave={handleHoverEnd}
@@ -227,7 +227,7 @@ export default function MoodSelector() {
         <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: isTouchDevice ? 0.15 : 0.8 }}
+          transition={{ duration: 0.6, delay: isTouchDevice ? 0.15 : 1.0 }}
           className="flex flex-col items-center gap-5 mt-auto pb-4"
         >
           <div className="flex items-center gap-6 flex-wrap justify-center">

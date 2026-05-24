@@ -70,13 +70,21 @@ export function AuthProvider({ children }) {
     window.__fc_user_token = null;
   }, []);
 
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => {
+      const next = { ...prev, ...patch };
+      localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   // Expose token on window for api.js to pick up
   useEffect(() => {
     window.__fc_user_token = token;
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

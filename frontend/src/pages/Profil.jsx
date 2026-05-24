@@ -6,10 +6,10 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, LogOut, Film, Eye, Clapperboard, Bookmark, CalendarDays, Mail, User, Activity, Users, Check, X, UserPlus, Search, Trash2, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getWatchlist, getTasteMap } from '../services/api';
+import { getWatchlist, getTasteMap, getFriends, getFriendRequests, respondFriendRequest, removeFriend, sendFriendRequest } from '../services/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -94,6 +94,84 @@ export default function Profil() {
   const [tasteStatus, setTasteStatus] = useState('empty'); // 'empty' | 'forming' | 'mature'
   const [summaryTexts, setSummaryTexts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ─── Sosyal durum ────────────────────────────────────
+  const [friends, setFriends] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [socialLoading, setSocialLoading] = useState(true);
+  const [addUsername, setAddUsername] = useState('');
+  const [addMsg, setAddMsg] = useState(null);
+  const [addBusy, setAddBusy] = useState(false);
+  const [friendSearch, setFriendSearch] = useState('');
+
+  // Sosyal veri çekme — tek seferlik, mount'ta
+  useEffect(() => {
+    if (!user) { setSocialLoading(false); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const [fr, rq] = await Promise.all([
+          getFriends().catch(() => ({ friends: [] })),
+          getFriendRequests().catch(() => ({ requests: [] })),
+        ]);
+        if (alive) {
+          setFriends(fr.friends || []);
+          setRequests(rq.requests || []);
+        }
+      } finally {
+        if (alive) setSocialLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [user]);
+
+  const handleRespondRequest = useCallback(async (requestId, action) => {
+    try {
+      await respondFriendRequest(requestId, action);
+      setRequests((prev) => prev.filter((r) => r.request_id !== requestId));
+      if (action === 'ACCEPT') {
+        // Arkadaş listesini tazele
+        const data = await getFriends().catch(() => ({ friends: [] }));
+        setFriends(data.friends || []);
+      }
+    } catch { /* sessiz */ }
+  }, []);
+
+  const handleRemoveFriend = useCallback(async (friendId) => {
+    try {
+      await removeFriend(friendId);
+      setFriends((prev) => prev.filter((f) => f.id !== friendId));
+    } catch { /* sessiz */ }
+  }, []);
+
+  const handleAddFriend = useCallback(async () => {
+    const u = addUsername.trim();
+    if (!u || addBusy) return;
+    setAddMsg(null);
+    setAddBusy(true);
+    try {
+      const res = await sendFriendRequest(u);
+      if (res.status === 'ACCEPTED') {
+        setAddMsg({ ok: true, text: 'Arkadaş eklendi!' });
+        const data = await getFriends().catch(() => ({ friends: [] }));
+        setFriends(data.friends || []);
+      } else {
+        setAddMsg({ ok: true, text: 'İstek gönderildi, onay bekliyor.' });
+      }
+      setAddUsername('');
+    } catch (err) {
+      setAddMsg({ ok: false, text: err.message || 'Gönderilemedi' });
+    } finally {
+      setAddBusy(false);
+    }
+  }, [addUsername, addBusy]);
+
+  const filteredFriends = friendSearch.trim()
+    ? friends.filter((f) =>
+        (f.name || '').toLowerCase().includes(friendSearch.toLowerCase()) ||
+        (f.username || '').toLowerCase().includes(friendSearch.toLowerCase())
+      )
+    : friends;
 
   useEffect(() => {
     if (!user) {
@@ -275,6 +353,11 @@ export default function Profil() {
             <h1 className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-ivory break-words">
               {displayName}
             </h1>
+            {user.username && (
+              <p className="flex items-center justify-center sm:justify-start gap-1.5 mt-1.5 font-mono text-sm text-[#d4af37]/70">
+                <AtSign size={13} />{sanitize(user.username)}
+              </p>
+            )}
             <div className="mt-3 space-y-1.5 font-sans text-sm text-ivory/50">
               {user.email && (
                 <p className="flex items-center justify-center sm:justify-start gap-2">
@@ -435,6 +518,220 @@ export default function Profil() {
                 </div>
               )}
             </>
+          )}
+        </motion.div>
+
+        {/* ═══ Sosyal Panel ═══ */}
+
+        {/* Gelen Arkadaşlık İstekleri */}
+        <AnimatePresence>
+          {requests.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-4"
+            >
+              <h2 className="font-serif text-2xl font-bold tracking-tight text-ivory/80 flex items-center gap-3">
+                <UserPlus size={20} className="text-[#d4af37]" /> Gelen İstekler
+                <span className="ml-auto inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] text-xs font-bold">
+                  {requests.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {requests.map((r) => (
+                  <motion.div
+                    key={r.request_id}
+                    layout
+                    exit={{ opacity: 0, x: -40 }}
+                    transition={{ duration: 0.3 }}
+                    className="flex items-center gap-3 p-3 sm:p-4 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10"
+                  >
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
+                      {r.avatar ? (
+                        <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="font-bold text-amber/60">
+                          {(r.name || r.username || '?')[0].toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-[#f5f2eb] truncate">{r.name || r.username}</p>
+                      <p className="text-[11px] text-white/40 truncate">@{r.username}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleRespondRequest(r.request_id, 'ACCEPT')}
+                        className="w-9 h-9 rounded-full bg-emerald-500/15 border border-emerald-500/30
+                                   flex items-center justify-center hover:bg-emerald-500/25 transition-all"
+                        title="Onayla"
+                      >
+                        <Check size={16} className="text-emerald-400" />
+                      </button>
+                      <button
+                        onClick={() => handleRespondRequest(r.request_id, 'DECLINE')}
+                        className="w-9 h-9 rounded-full bg-rose-500/15 border border-rose-500/30
+                                   flex items-center justify-center hover:bg-rose-500/25 transition-all"
+                        title="Reddet"
+                      >
+                        <X size={16} className="text-rose-400" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Sinema Arkadaşlarım */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.30, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-5"
+        >
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-ivory/80 flex items-center gap-3">
+            <Users size={20} className="text-[#d4af37]" /> Sinema Arkadaşlarım
+          </h2>
+
+          {socialLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="flex gap-2">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: '#d4af37' }}
+                    animate={{ opacity: [0.2, 1, 0.2] }}
+                    transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.25 }}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : friends.length === 0 ? (
+            /* Boş durum — arkadaş yok */
+            <div className="p-8 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 text-center space-y-5">
+              <div className="w-16 h-16 mx-auto rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center">
+                <Users size={26} className="text-amber/40" />
+              </div>
+              <div className="space-y-2">
+                <p className="font-serif text-base italic text-ivory/45 leading-relaxed">
+                  Henüz sinema arkadaşın yok.<br />
+                  Üstad'ın dünyasına arkadaşlarını davet et!
+                </p>
+              </div>
+              <div className="max-w-xs mx-auto space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    value={addUsername}
+                    onChange={(e) => { setAddUsername(e.target.value); setAddMsg(null); }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddFriend()}
+                    placeholder="kullanıcı_adı"
+                    className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full
+                               text-sm text-[#f5f2eb] placeholder:text-white/25 focus:outline-none focus:border-amber/40 transition-all font-mono"
+                  />
+                  <button
+                    onClick={handleAddFriend}
+                    disabled={addBusy}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-[#d4af37] text-[#120d0b] rounded-full text-xs font-bold uppercase tracking-wider
+                               hover:bg-amber-400 transition-all disabled:opacity-40"
+                  >
+                    <UserPlus size={14} /> Ekle
+                  </button>
+                </div>
+                {addMsg && (
+                  <p className={`text-xs font-serif ${addMsg.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {addMsg.text}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Arkadaş listesi */
+            <div className="space-y-3">
+              {/* Arama + Arkadaş Ekle */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
+                  <input
+                    value={friendSearch}
+                    onChange={(e) => setFriendSearch(e.target.value)}
+                    placeholder="Arkadaş Ara..."
+                    className="w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-full
+                               text-sm text-[#f5f2eb] placeholder:text-white/25 focus:outline-none focus:border-amber/40 transition-all"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={addUsername}
+                    onChange={(e) => { setAddUsername(e.target.value); setAddMsg(null); }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddFriend()}
+                    placeholder="kullanıcı_adı"
+                    className="w-28 sm:w-36 px-3 py-2.5 bg-white/5 border border-white/10 rounded-full
+                               text-sm text-[#f5f2eb] placeholder:text-white/25 focus:outline-none focus:border-amber/40 transition-all font-mono"
+                  />
+                  <button
+                    onClick={handleAddFriend}
+                    disabled={addBusy}
+                    className="flex items-center gap-1 px-3 py-2.5 bg-[#d4af37] text-[#120d0b] rounded-full text-xs font-bold
+                               hover:bg-amber-400 transition-all disabled:opacity-40 shrink-0"
+                    title="Arkadaş Ekle"
+                  >
+                    <UserPlus size={14} />
+                  </button>
+                </div>
+              </div>
+              {addMsg && (
+                <p className={`text-xs font-serif px-1 ${addMsg.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {addMsg.text}
+                </p>
+              )}
+
+              {/* Arkadaş kartları */}
+              <AnimatePresence>
+                {filteredFriends.length === 0 ? (
+                  <p className="text-center text-sm font-serif italic text-white/35 py-6">
+                    &ldquo;{friendSearch}&rdquo; ile eşleşen arkadaş yok.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredFriends.map((f) => (
+                      <motion.div
+                        key={f.id}
+                        layout
+                        exit={{ opacity: 0, x: -40 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex items-center gap-3 p-3 sm:p-4 rounded-2xl bg-[#1c1512]/90 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all"
+                      >
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
+                          {f.avatar ? (
+                            <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <span className="font-bold text-amber/60">
+                              {(f.name || f.username || '?')[0].toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-[#f5f2eb] truncate">{f.name || f.username}</p>
+                          <p className="text-[11px] text-white/40 truncate">@{f.username}</p>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFriend(f.id)}
+                          className="w-8 h-8 rounded-full flex items-center justify-center
+                                     text-white/20 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                          title="Arkadaşlığı Kaldır"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
         </motion.div>
       </main>

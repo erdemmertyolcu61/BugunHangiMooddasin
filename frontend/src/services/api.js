@@ -354,6 +354,39 @@ export async function getSurpriseMovie() {
   return res.json();
 }
 
+// --- Kullanıcı Profil & Username ---
+
+export async function getMe() {
+  const res = await fetch(`${BASE}/auth/me`, { headers: { ...authHeaders() } });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function setUsername(username) {
+  const res = await fetch(`${BASE}/users/set-username`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Kullanıcı adı ayarlanamadı');
+  }
+  return res.json();
+}
+
+export async function removeFriend(friendId) {
+  const res = await fetch(`${BASE}/friends/${friendId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Arkadaş silinemedi');
+  }
+  return res.json();
+}
+
 // --- Arkadaşıma Öner (Direct Film Sharing / Social) ---
 
 async function _socialError(res, fallback) {

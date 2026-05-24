@@ -1,5 +1,5 @@
 """
-Sosyal Ağ Router — "Arkadaşıma Öner" (Direct Film Sharing).
+Sosyal Ağ Router — "Arkadaşıma Öner" (Direct Film Sharing) + Kullanıcı Yönetimi.
 
 Bu modül main.py'ye `app.include_router(social_router)` ile bağlanır.
 Circular import yoktur: yalnızca backend.config (JWT_SECRET) ve backend.database (cache)
@@ -9,6 +9,7 @@ Tüm rotalar JWT tabanlı `get_current_user` bağımlılığından geçer (type 
 Beta/admin token'ları bu rotaları kullanamaz — sosyal özellik Google girişi gerektirir.
 """
 import logging
+import re
 from typing import Optional
 
 import jwt as pyjwt
@@ -21,6 +22,8 @@ from backend.database import cache
 logger = logging.getLogger("social")
 
 router = APIRouter(prefix="/api", tags=["social"])
+
+USERNAME_RE = re.compile(r"^[a-z0-9_]{3,15}$")
 
 
 # ─── Auth bağımlılığı (dependency injection) ─────────────────────────────────
@@ -42,6 +45,10 @@ async def get_current_user(request: Request) -> dict:
 
 
 # ─── Request body modelleri ──────────────────────────────────────────────────
+class UsernameBody(BaseModel):
+    username: str = Field(..., min_length=3, max_length=15)
+
+
 class RespondBody(BaseModel):
     action: str = Field(..., description="ACCEPT veya DECLINE")
 
@@ -50,6 +57,38 @@ class RecommendBody(BaseModel):
     receiver_id: int
     movie_id: int
     user_note: Optional[str] = Field(default="", max_length=250)
+
+
+# ─── Kullanıcı bilgisi / username kurulumu ──────────────────────────────────
+@router.get("/auth/me")
+async def get_me(user: dict = Depends(get_current_user)):
+    """JWT'deki kullanıcının public profil bilgisi + has_custom_username flag'i."""
+    uid = user["user_id"]
+    is_auto = await cache.is_auto_username(uid)
+    info = await cache.get_user_by_username_by_id(uid)
+    return {
+        "id": uid,
+        "username": info.get("username", "") if info else "",
+        "name": info.get("name", "") if info else "",
+        "email": info.get("email", "") if info else user.get("email", ""),
+        "picture": info.get("picture", "") if info else "",
+        "has_custom_username": not is_auto,
+    }
+
+
+@router.put("/users/set-username")
+async def set_username(body: UsernameBody, user: dict = Depends(get_current_user)):
+    """Kullanıcı adını doğrulayıp güncelle. Regex: ^[a-z0-9_]{3,15}$."""
+    un = body.username.strip().lower()
+    if not USERNAME_RE.match(un):
+        raise HTTPException(
+            status_code=400,
+            detail="Kullanıcı adı 3-15 karakter, sadece küçük harf, rakam ve alt çizgi içerebilir.",
+        )
+    ok = await cache.set_custom_username(user["user_id"], un)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Bu kullanıcı adı zaten alınmış.")
+    return {"ok": True, "username": un}
 
 
 # ─── Arkadaşlık rotaları ─────────────────────────────────────────────────────
@@ -94,6 +133,15 @@ async def list_friends(user: dict = Depends(get_current_user)):
 async def incoming_requests(user: dict = Depends(get_current_user)):
     """Bana gelen bekleyen (PENDING) arkadaşlık istekleri."""
     return {"requests": await cache.get_incoming_requests(user["user_id"])}
+
+
+@router.delete("/friends/{friend_id}")
+async def remove_friend(friend_id: int, user: dict = Depends(get_current_user)):
+    """Aktif arkadaşlığı kaldır."""
+    ok = await cache.remove_friend(user["user_id"], friend_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Arkadaşlık bulunamadı")
+    return {"ok": True}
 
 
 # ─── Doğrudan film paylaşımı ─────────────────────────────────────────────────

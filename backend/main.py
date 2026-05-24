@@ -2979,6 +2979,29 @@ async def _fast_mood_bypass(mood_id: str, limit: int, min_vote: float, exclude_i
     }
 
 
+# ── LLM Intent Parser yardımcıları ──────────────────────────────────────────
+_LLM_MOOD_SIGNAL_MAP = {
+    "gerilimli": "gece", "psikolojik": "zihin", "karanlık": "gece",
+    "huzurlu": "battaniye", "rahatlatıcı": "battaniye", "neşeli": "kahkaha",
+    "romantik": "askbahcesi", "duygusal": "gozyasi", "hüzünlü": "gozyasi",
+    "aksiyonlu": "adrenalin", "heyecanlı": "adrenalin", "nostaljik": "zamanyolcusu",
+    "ürpertici": "deep-chills", "felsefi": "zihin", "düşündürücü": "zihin",
+    "macera": "yolculuk", "epik": "yolculuk", "samimi": "kalp",
+    "melankolik": "gozyasi", "absürt": "karmakar", "minimalist": "sessiz",
+    "görsel": "kadraj-estetigi",
+}
+
+
+def _extract_year(release_date) -> int:
+    """release_date (YYYY-MM-DD veya YYYY) → int yıl. Parse hatası → 0."""
+    if not release_date:
+        return 0
+    try:
+        return int(str(release_date)[:4])
+    except (ValueError, TypeError):
+        return 0
+
+
 def _dynamic_reason_from_hints(hints) -> str:
     """
     Chat'ten yakalanan amaca göre tek cümlelik dinamik 'Üstad'ın Gerekçesi' üretir.
@@ -3141,17 +3164,51 @@ async def post_confused_recommendation(req: ConfusedRequest):
         except Exception as e:
             logger.error("[Confused] Fast mood bypass failed (%s), falling through", e, exc_info=True)
 
-    # ── PATH 2: Serbest chat → parse hints → semantic + hibrit rerank ────────
+    # ── PATH 2: Serbest chat → LLM intent + parse hints → semantic + hibrit rerank
     from backend.services.chat_engine import ChatEngine, parse_chat_hints
+    from backend.services.intent_parser import intent_parser
 
     hints  = parse_chat_hints(text)
     result = None
+
+    # ── LLM intent parsing (Claude Haiku, ~100-300ms) ──────────────────────
+    # Başarılı olursa: search_query, genre_ids, mood sinyalleri hints'e eklenir.
+    # Başarısız olursa: mevcut regex-only akış aynen devam eder.
+    llm_intent = None
+    search_text = text  # default: kullanıcının ham metni
+    try:
+        llm_intent = await intent_parser.parse(text, timeout=2.0)
+    except Exception:
+        pass  # Sessiz fallback
+
+    if llm_intent and llm_intent.confidence > 0.6:
+        # LLM'in optimize ettiği sorguyu semantic engine'e ver
+        if llm_intent.search_query:
+            search_text = llm_intent.search_query
+
+        # LLM'in çıkardığı tür ID'lerini hints'e ekle
+        if llm_intent.genre_ids:
+            hints.genre_ids = list(set(hints.genre_ids + llm_intent.genre_ids))
+
+        # Mood sinyallerini → mood_bonuses'a çevir
+        for signal in llm_intent.mood_signals:
+            mood_id = _LLM_MOOD_SIGNAL_MAP.get(signal)
+            if mood_id:
+                hints.mood_bonuses[mood_id] = min(0.50, hints.mood_bonuses.get(mood_id, 0) + 0.35)
+
+        # Puan kısıtlaması
+        llm_min_rating = llm_intent.constraints.get("min_rating")
+        if llm_min_rating and isinstance(llm_min_rating, (int, float)):
+            min_vote = max(min_vote, float(llm_min_rating))
+
+        logger.info("[Confused] LLM intent: type=%s, search='%s', genres=%s",
+                    llm_intent.intent_type, search_text[:50], llm_intent.genre_ids)
 
     try:
         engine = ChatEngine(db=cache)
         result = await asyncio.wait_for(
             engine.process(
-                text=text,
+                text=search_text,
                 limit=limit * 2,    # Reranking için 2× çek
                 min_vote=min_vote,
                 exclude_ids=exclude_ids,
@@ -3162,9 +3219,27 @@ async def post_confused_recommendation(req: ConfusedRequest):
         logger.warning("[Confused] Semantic search failed (%s), using rule fallback.", e)
 
     if result and result.get("movies"):
+        movies = result["movies"]
+
+        # LLM'in dışladığı türleri filtrele
+        if llm_intent and llm_intent.excluded_genre_ids:
+            excluded_genres = set(llm_intent.excluded_genre_ids)
+            movies = [m for m in movies
+                      if not (set(m.get("genre_ids", [])) & excluded_genres)]
+
+        # LLM'in yıl kısıtlamalarını uygula
+        if llm_intent and llm_intent.confidence > 0.6:
+            c = llm_intent.constraints
+            if c.get("min_year"):
+                movies = [m for m in movies
+                          if _extract_year(m.get("release_date")) >= c["min_year"]]
+            if c.get("max_year"):
+                movies = [m for m in movies
+                          if _extract_year(m.get("release_date")) <= c["max_year"]]
+
         # Her zaman hibrit harmanlama uygula: %40 vektör + %40 metadata + %20 kalite.
-        # Bu, "ezbere aynı popüler film" tıkanıklığını kökten çözer.
-        ranked = _hybrid_rerank(result["movies"], hints, limit)
+        ranked = _hybrid_rerank(movies, hints, limit)
+
         # Üstad'ın Gerekçesi'ni yakalanan amaca göre dinamikleştir
         dyn_reason = _dynamic_reason_from_hints(hints)
         if dyn_reason:
@@ -3172,6 +3247,8 @@ async def post_confused_recommendation(req: ConfusedRequest):
                 m["reason"] = dyn_reason
         result["movies"] = ranked
         result["mode"]   = "semantic_hybrid"
+        if llm_intent and llm_intent.confidence > 0.6:
+            result["intent"] = llm_intent.intent_type
         return result
 
     # ── PATH 3: Kural tabanlı fallback ───────────────────────────────────────

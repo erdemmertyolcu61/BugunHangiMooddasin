@@ -214,6 +214,32 @@ def _is_short_title_like(text: str) -> bool:
     return 1 <= len(words) <= 5 and not _has_mood_words(text)
 
 
+def _looks_like_person_name(text: str) -> bool:
+    """
+    2-3 kelimeli kişi adı mı?
+    Heuristic: her kelime 2-15 karakter, küçük harfle başlamıyor (büyük harf beklenir),
+    rakam ve noktalama yok, mood/genre keyword değil.
+    Örnekler: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan", "Christopher Nolan"
+    """
+    words = text.strip().split()
+    if not (2 <= len(words) <= 3):
+        return False
+    # Ruh hali veya tür kelimesi içermesin
+    if _has_mood_words(text):
+        return False
+    text_lower = text.lower()
+    for gw in GENRE_KEYWORDS:
+        if gw in text_lower:
+            return False
+    # Her kelime: harf karakterlerinden oluşsun, 2-15 karakter arasında
+    for w in words:
+        if not w.isalpha():
+            return False
+        if not (2 <= len(w) <= 15):
+            return False
+    return True
+
+
 # ═══════════════════════════════════════════════════════════════
 # INTENT RESULT
 # ═══════════════════════════════════════════════════════════════
@@ -337,7 +363,20 @@ class ChatEngine:
         # Augment response with intent info + rule-based mood mix
         mood_analysis = _rule_based_confused_analysis(text)
         result["intent"] = intent.type
-        result["query_understanding"] = text
+
+        # Intent'e göre anlaşılır query_understanding mesajı üret
+        if intent.type == "actor_recommendation" and intent.person_name:
+            result["query_understanding"] = f"'{intent.person_name}' filmlerini arıyorsun."
+        elif intent.type == "director_recommendation" and intent.person_name:
+            result["query_understanding"] = f"'{intent.person_name}' yönetmenliğindeki filmler."
+        elif intent.type == "similar_to_movie" and intent.reference_title:
+            result["query_understanding"] = f"'{intent.reference_title}' tadında filmler."
+        elif intent.type == "genre_recommendation" and intent.genres:
+            result["query_understanding"] = f"Tür bazlı arama: {text}"
+        elif intent.type == "feedback":
+            result["query_understanding"] = f"Yeni öneriler getiriyorum..."
+        else:
+            result["query_understanding"] = text
         result["mood_mix"] = mood_analysis.get("mood_mix", [])
         if not result.get("ustad_line") or result.get("mode") == "semantic_no_match":
             result["ustad_line"] = mood_analysis.get("ustad_line", result.get("ustad_line", ""))
@@ -405,6 +444,13 @@ class ChatEngine:
                     genres_excluded.extend(genre_ids)
                 else:
                     genres_wanted.extend(genre_ids)
+
+        # Kişi adı tespiti: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan" gibi
+        # exact_movie_search'ten ÖNCE kontrol et — kısa metinleri yanlış yere atmasın.
+        # TURKISH_TITLE_ALIASES'te yoksa ve kişi adı gibi görünüyorsa actor olarak işle.
+        if _looks_like_person_name(text) and _normalize(text) not in TURKISH_TITLE_ALIASES:
+            return Intent("actor_recommendation", person_name=text.strip(),
+                          person_type="actor", original_text=text)
 
         if _is_short_title_like(text):
             return Intent("exact_movie_search", reference_title=text.strip(),

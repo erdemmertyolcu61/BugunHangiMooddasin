@@ -688,6 +688,19 @@ class MovieCache:
             await db.commit()
             return username
 
+    async def get_user_by_username_by_id(self, user_id: int) -> Optional[dict]:
+        """ID ile kullanıcı bilgisi çek (auth/me endpoint'i için)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT id, username, name, picture, email FROM users WHERE id = ?",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            if not row:
+                return None
+            return {"id": row[0], "username": row[1], "name": row[2],
+                    "picture": row[3], "email": row[4]}
+
     async def get_user_by_username(self, username: str) -> Optional[dict]:
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
@@ -837,6 +850,46 @@ class MovieCache:
                     (user_id,),
                 )
             await db.commit()
+
+    async def is_auto_username(self, user_id: int) -> bool:
+        """Kullanıcının username'i otomatik backfill mi (örn. email_123) yoksa custom mı?"""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            row = await cur.fetchone()
+            if not row or not row[0]:
+                return True
+            un = row[0]
+            # Otomatik format: <prefix>_<id> (ensure_username tarafından üretilir)
+            return un.endswith(f"_{user_id}")
+
+    async def set_custom_username(self, user_id: int, username: str) -> bool:
+        """
+        Kullanıcı adını güncelle.
+        Benzersizlik çakışması varsa False döner, başarılı ise True.
+        """
+        async with _get_connection(self.db_path, user_data=True) as db:
+            # Benzersizlik: aynı username başka birinde var mı?
+            cur = await db.execute(
+                "SELECT id FROM users WHERE lower(username) = ? AND id != ?",
+                (username.lower(), user_id),
+            )
+            if await cur.fetchone():
+                return False
+            await db.execute("UPDATE users SET username = ? WHERE id = ?", (username, user_id))
+            await db.commit()
+            return True
+
+    async def remove_friend(self, user_id: int, friend_id: int) -> bool:
+        """ACCEPTED arkadaşlık kaydını sil (iki yönlü kontrol)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """DELETE FROM friendships
+                   WHERE status = 'ACCEPTED'
+                   AND ((user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?))""",
+                (user_id, friend_id, friend_id, user_id),
+            )
+            await db.commit()
+            return cur.rowcount > 0
 
     async def get_movies_meta_by_ids(self, movie_ids: list) -> dict:
         """movie_repository'den toplu başlık/afiş çek (bildirim zenginleştirme)."""
