@@ -242,35 +242,12 @@ export default function Defterim() {
                           </p>
                         )}
 
-                        {/* Summary cumleleri */}
+                        {/* Üstad'ın Detaylı Analizi */}
                         {tasteMap.summary && tasteMap.summary.length > 0 && (
-                          <div className="space-y-2">
-                            {tasteMap.summary.slice(0, 3).map((s, i) => (
+                          <div className="space-y-3">
+                            {tasteMap.summary.slice(0, 5).map((s, i) => (
                               <p key={i} className="text-sm md:text-base font-serif italic text-ivory/70 leading-relaxed">"{s}"</p>
                             ))}
-                          </div>
-                        )}
-
-                        {/* Mood bars with percentages */}
-                        {tasteMap.mood_pct && Object.keys(tasteMap.mood_pct).length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/40">Ruh Hali Dağılımı</p>
-                            {Object.entries(tasteMap.mood_pct).slice(0, 5).map(([mid, pct]) => {
-                              const moodObj = (tasteMap.top_moods || []).find(m => m.mood_id === mid);
-                              const label = moodObj?.title || mid.replace('-', ' ');
-                              return (
-                                <div key={mid} className="flex items-center gap-3">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-ivory/50 w-24 truncate">{label}</span>
-                                  <div className="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-300 shadow-[0_0_6px_rgba(212,175,55,0.25)]"
-                                      style={{ width: `${Math.min(pct, 100)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[10px] font-bold text-amber/60 w-8 text-right">%{Math.round(pct)}</span>
-                                </div>
-                              );
-                            })}
                           </div>
                         )}
 

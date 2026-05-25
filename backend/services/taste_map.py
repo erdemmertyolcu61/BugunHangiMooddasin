@@ -155,7 +155,7 @@ class TasteMapEngine:
 
         mood_ids = [mid for mid, _ in top_moods]
         title = self._generate_title(mood_ids, style, era_stats)
-        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total, runtime_stats)
+        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total, runtime_stats, style, pacing)
 
         confidence = "low" if total < 3 else ("medium" if total < 8 else "high")
 
@@ -572,62 +572,113 @@ class TasteMapEngine:
 
     def _generate_summary(self, mood_ids: list[str], top_genres: list,
                           era: dict, total_signals: int,
-                          runtime_stats: Optional[dict] = None) -> list[str]:
+                          runtime_stats: Optional[dict] = None,
+                          style: Optional[dict] = None,
+                          pacing: Optional[dict] = None) -> list[str]:
         if total_signals < 3:
             return []
 
         summaries = []
         top_mid = mood_ids[0] if mood_ids else None
 
-        # Mood-based descriptions
-        slow_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "slow"]
-        if len(slow_moods) >= 2:
-            summaries.append(_MOOD_SLOW_DESC)
+        # ── 1. Stil profili — Blockbuster/Indie/Hibrit ──
+        if style:
+            indie_pct = style.get("indie_pct", 0)
+            main_pct = style.get("mainstream_pct", 0)
+            if main_pct >= 70:
+                summaries.append(
+                    "Blockbuster ruhlusun — büyük bütçeli, geniş kitlelere hitap eden yapımlar seni çekiyor. "
+                    "Görsel efektler, yıldız kadrolar ve epik anlatılar senin alanın."
+                )
+            elif main_pct >= 50:
+                summaries.append(
+                    "Popüler sinemaya yakınsın ama zaman zaman bağımsız yapımların derinliğini de arıyorsun. "
+                    "Ana akımın kaliteli örneklerini seçen seçici bir izleyicisin."
+                )
+            elif indie_pct >= 70:
+                summaries.append(
+                    "Bağımsız sinema ruhu taşıyorsun — festival filmleri, küçük yapımlar ve yönetmen odaklı "
+                    "hikayeler seni daha çok etkiliyor. Kalabalıktan ayrışan seçimler yapıyorsun."
+                )
+            elif indie_pct >= 50:
+                summaries.append(
+                    "Sanatsal yapımlara eğilimin belirgin ama popüler sinemanın enerjisinden de kopuk değilsin. "
+                    "İki dünya arasında dengeli bir tat var zevkinde."
+                )
+            else:
+                summaries.append(
+                    "Her türden beslenen bir sinema ruhu — bağımsız yapımlardan blockbuster'lara, "
+                    "küçük hikayelerden büyük prodüksiyonlara kadar geniş bir yelpazedesin."
+                )
 
-        fast_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "fast"]
-        if len(fast_moods) >= 2:
-            summaries.append(_MOOD_FAST_DESC)
+        # ── 2. Tempo/ritim profili ──
+        if pacing and pacing.get("label"):
+            summaries.append(f"{pacing['label']}: {pacing['description']}")
 
-        dark_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "dark"]
-        if len(dark_moods) >= 2:
-            summaries.append(_MOOD_DARK_DESC)
-
-        # Top mood special description
+        # ── 3. Top mood özel açıklama ──
         if top_mid and top_mid in _MOOD_SPECIAL_DESC:
             summaries.append(_MOOD_SPECIAL_DESC[top_mid])
 
+        # ── 4. Mood kombinasyon açıklamaları ──
+        slow_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "slow"]
+        fast_moods = [m for m in mood_ids if MOOD_TEMPO.get(m) == "fast"]
+        dark_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "dark"]
+
+        if len(slow_moods) >= 2 and len(dark_moods) >= 1:
+            summaries.append("Ağır tempolu, karanlık atmosferli ve düşündüren filmler — sinema senin meditasyon aracın.")
+        elif len(slow_moods) >= 2:
+            summaries.append(_MOOD_SLOW_DESC)
+        elif len(fast_moods) >= 2:
+            summaries.append(_MOOD_FAST_DESC)
+
+        if len(dark_moods) >= 2:
+            summaries.append(_MOOD_DARK_DESC)
+
         # Romantic
         romantic_moods = [m for m in mood_ids if MOOD_ATMOSPHERE.get(m) == "romantic"]
-        if len(romantic_moods) >= 2:
+        if len(romantic_moods) >= 1:
             summaries.append("Romantikte sıcak, kırılgan ve gerçekçi hikayelere daha çok yaklaşıyorsun.")
 
-        # Dynamic era description
+        # ── 5. Dönem profili (detaylı) ──
         dyn_label = era.get("dynamic_era_label")
         dyn_desc = era.get("dynamic_era_desc")
+        mean_year = era.get("mean_year")
         if dyn_label and dyn_desc:
-            summaries.append(f"{dyn_label}: {dyn_desc}")
+            era_detail = f"{dyn_label}: {dyn_desc}"
+            # Ekstra zenginleştirme
+            if mean_year:
+                if mean_year >= 2015:
+                    era_detail += " Son 10 yılın ödüllü yapımları ve yeni nesil yönetmenler seni besliyor."
+                elif mean_year >= 2000:
+                    era_detail += " 2000'ler sinemasının olgun dönemi — Nolan, Villeneuve, Fincher kuşağı sana yakın."
+                elif mean_year >= 1990:
+                    era_detail += " 90'ların altın çağı — Tarantino, Coen Kardeşler, David Lynch atmosferi var zevkinde."
+            summaries.append(era_detail)
 
-        # Runtime description
+        # ── 6. Runtime açıklaması ──
         if runtime_stats and runtime_stats.get("category") and runtime_stats["category"] != "unknown":
             summaries.append(runtime_stats["description"])
 
-        # Genre-based
+        # ── 7. Tür tercihleri ──
+        genre_descs = {
+            18: "Drama senin temel besin kaynağın — karakter gelişimi ve duygusal derinlik her zaman önceliğin.",
+            27: "Korku türüne yakınsın — özellikle atmosferik ve psikolojik gerilimler seni daha çok çekiyor.",
+            35: "Komedi senin rahatlama aracın — zekice yazılmış diyaloglar ve absürt durumlar seni güldürüyor.",
+            10749: "Romantik filmlere sıcak bakıyorsun — büyük jestlerden çok samimi ve gerçekçi aşk hikayeleri.",
+            878: "Bilim kurgu seni büyülüyor — gelecek vizyonları, teknoloji ve felsefe bir arada.",
+            53: "Gerilim senin alanın — beklenmedik dönüşler ve süspans seni ekrana kilitleyen şey.",
+            28: "Aksiyon filmleri seni besliyor — koreografi, hız ve fiziksel sinema sana hitap ediyor.",
+            80: "Suç filmleri ilgini çekiyor — karmaşık planlar, ahlaki ikilemler ve sokak hikayeleri.",
+            16: "Animasyona ilgin var — sadece çocuk filmi değil, sanatsal ve yetişkin animasyonlar da dahil.",
+            99: "Belgeseller seni çekiyor — gerçek hikayelerin gücüne ve bilginin estetiğine inanan bir izleyicisin.",
+        }
         for g in top_genres[:2]:
             gid = g.get("genre_id")
-            if gid == 18:
-                summaries.append("Drama türüne ilgin belirgin şekilde yüksek.")
-                break
-            elif gid == 27:
-                summaries.append("Korku türüne ilgin var, özellikle atmosferik yapımlara yöneliyorsun.")
-                break
-            elif gid == 35:
-                summaries.append("Komedi türünden keyif aldığın belli oluyor.")
-                break
-            elif gid == 10749:
-                summaries.append("Romantik filmlere sıcak bakıyorsun.")
+            if gid in genre_descs:
+                summaries.append(genre_descs[gid])
                 break
 
-        return summaries[:6]
+        return summaries[:7]
 
     # ── Pure helpers ─────────────────────────────────────────────────────
 

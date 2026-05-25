@@ -1432,8 +1432,8 @@ async def get_repository_movies(
         if curated_movies and page == 1:
             actual_per_page = 20 - len(curated_movies)
 
-        # Şipşak: afişi olmayan ve az oylu şişme puanlı filmleri ele
-        min_vote_count = 20 if mood_id == "sipsak" else 0
+        # Az oylu spam/yetişkin 10 puanlı filmleri filtrele (tüm mood'lar için min 50 oy)
+        min_vote_count = 50
         result = await cache.get_repository_movies_paginated(
             mood_id, page=page, per_page=actual_per_page,
             min_vote=min_vote, min_mood_score=min_mood_score,
@@ -2852,7 +2852,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                         continue
                     if not m.get("poster_url"):
                         continue
-                    if int(m.get("vote_count", 0)) < 2:
+                    if int(m.get("vote_count", 0)) < 50:
                         continue
                     lang = (m.get("original_language") or "").lower()
                     # Doğu Asya filmlerini filtreleme, sadece puanı düşür (sona sırala)
@@ -2900,30 +2900,52 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         except Exception:
             return []
 
-    # ── TMDB'den referans film + benzerlerini getiren helper ──
+    # ── TMDB'den referans film + benzerlerini getiren helper (kalite filtreli) ──
     async def _search_similar_via_tmdb(ref_title: str, count: int) -> list:
         try:
             tmdb_hits = await tmdb_service.search_movies(ref_title, page=1)
             if not tmdb_hits:
                 return []
             ref_id = tmdb_hits[0]["id"]
-            sim_data = await tmdb_service.get_similar_movies(ref_id, page=1)
-            result = []
-            for m in sim_data.get("movies", []):
+            ref_genres = set(tmdb_hits[0].get("genre_ids") or [])
+            # Hem recommendations hem similar (aynı /similar endpoint mantığı)
+            rec, sim = await asyncio.gather(
+                tmdb_service.get_recommendations(ref_id, page=1),
+                tmdb_service.get_similar_movies(ref_id, page=1),
+            )
+            pool = {}
+            for m in rec.get("movies", []):
+                pool[m["id"]] = m
+            for m in sim.get("movies", []):
+                pool.setdefault(m["id"], m)
+            pool.pop(ref_id, None)
+
+            candidates = []
+            for m in pool.values():
                 mid = m.get("id")
                 if not mid or mid in exclude_set:
                     continue
                 if not m.get("poster_url"):
                     continue
-                if float(m.get("vote_average", 0) or 0) < min_vote:
+                vc = int(m.get("vote_count") or 0)
+                va = float(m.get("vote_average") or 0)
+                if vc < 60 or va < 5.8:
                     continue
+                candidates.append(m)
+
+            def relevance(m):
+                gids = set(m.get("genre_ids") or [])
+                overlap = len(gids & ref_genres) if ref_genres else 0
+                return overlap * 3.0 + min((m.get("vote_average") or 0), 9.0) * 0.5 + min((m.get("vote_count") or 0) / 1000.0, 5.0) * 0.3
+
+            candidates.sort(key=relevance, reverse=True)
+            result = []
+            for m in candidates[:count]:
                 m["mood_score"] = 85.0
                 m["matched_mood"] = "battaniye"
                 m["reason"] = f"'{tmdb_hits[0]['title']}' sevenler bunu da sevdi."
                 result.append(m)
-                exclude_set.add(mid)
-                if len(result) >= count:
-                    break
+                exclude_set.add(m["id"])
             return result
         except Exception:
             return []
@@ -2934,21 +2956,73 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     if intent.type == "similar_to_movie" and intent.reference_title:
         repo_hits = await cache.search_repository_by_title(intent.reference_title, limit=5)
         query_understanding = f"'{intent.reference_title}' filmine benzer yapımlar arıyorsun."
+
+        # Referans filmi bul (repo veya TMDB'den)
+        src_id = None
+        src_title = intent.reference_title
+        src_genres = set()
+
         if repo_hits:
             src_id = repo_hits[0].get("id")
-            if src_id:
-                try:
-                    sim_data = await tmdb_service.get_similar_movies(src_id, page=1)
-                    for m in sim_data.get("movies", []):
-                        m_id = m.get("id")
-                        if m_id and m_id not in exclude_set:
-                            m["mood_score"] = 85.0
-                            m["reason"] = f"'{repo_hits[0]['title']}' sevenler bunu da sevdi."
-                            exclude_set.add(m_id)
-                            movies.append(m)
-                except Exception:
-                    pass
-        # Repo'da yoksa veya benzer film bulunamadıysa → TMDB'de ara
+            src_title = repo_hits[0].get("title", src_title)
+            src_genres = set(repo_hits[0].get("genre_ids", []) or [])
+        else:
+            # TMDB'de ara
+            try:
+                tmdb_hits = await tmdb_service.search_movies(intent.reference_title, page=1)
+                if tmdb_hits:
+                    src_id = tmdb_hits[0]["id"]
+                    src_title = tmdb_hits[0].get("title", src_title)
+                    src_genres = set(tmdb_hits[0].get("genre_ids", []) or [])
+            except Exception:
+                pass
+
+        if src_id:
+            # /similar endpoint ile aynı kalite mantığı:
+            # hem recommendations hem similar + genre overlap + vote_count filtresi
+            try:
+                rec, sim = await asyncio.gather(
+                    tmdb_service.get_recommendations(src_id, page=1),
+                    tmdb_service.get_similar_movies(src_id, page=1),
+                )
+                pool = {}
+                for m in rec.get("movies", []):
+                    pool[m["id"]] = m
+                for m in sim.get("movies", []):
+                    pool.setdefault(m["id"], m)
+
+                # Kaynak filmi havuzdan ayıkla
+                pool.pop(src_id, None)
+
+                candidates = []
+                for m in pool.values():
+                    m_id = m.get("id")
+                    if not m_id or m_id in exclude_set:
+                        continue
+                    if not m.get("poster_url"):
+                        continue
+                    vc = int(m.get("vote_count") or 0)
+                    va = float(m.get("vote_average") or 0)
+                    if vc < 60 or va < 5.8:
+                        continue
+                    candidates.append(m)
+
+                # Genre overlap + kalite skoruyla sırala (aynı relevance fonksiyonu)
+                def relevance(m):
+                    gids = set(m.get("genre_ids") or [])
+                    overlap = len(gids & src_genres) if src_genres else 0
+                    return overlap * 3.0 + min((m.get("vote_average") or 0), 9.0) * 0.5 + min((m.get("vote_count") or 0) / 1000.0, 5.0) * 0.3
+
+                candidates.sort(key=relevance, reverse=True)
+                for m in candidates[:limit]:
+                    m["mood_score"] = 85.0
+                    m["reason"] = f"'{src_title}' sevenler bunu da sevdi."
+                    exclude_set.add(m["id"])
+                    movies.append(m)
+            except Exception:
+                pass
+
+        # Hala yoksa → search_engine ile başlık bazlı arama
         if not movies:
             movies = await _search_similar_via_tmdb(intent.reference_title, limit)
         # Hala yoksa → search_engine ile başlık bazlı arama
