@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import LottieAnimation from './LottieAnimation';
 
 const texts = [
   "Üstad perdedeki yerini alıyor...",
@@ -22,12 +23,11 @@ export default function UstadLoader() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[300px] w-full">
-      <div className="relative mb-6 animate-pulse">
-        <img
-          src="/sinemod-mark.png"
-          alt="Sinemood"
-          className="h-16 w-auto object-contain rounded-xl"
-          style={{ filter: 'drop-shadow(0 0 15px rgba(212,175,55,0.6))' }}
+      <div className="relative mb-6">
+        <LottieAnimation
+          path="/lottie/film-reel.json"
+          className="w-24 h-24"
+          speed={0.8}
         />
       </div>
       <p className="text-md font-medium text-zinc-300 tracking-wide text-center max-w-md transition-all duration-500 ease-in-out">

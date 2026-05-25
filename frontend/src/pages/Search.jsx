@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Search as SearchIcon, X } from 'lucide-react';
 import { searchMovies, proxyImageUrl } from '../services/api';
+import LottieAnimation from '../components/LottieAnimation';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
 
@@ -95,9 +96,11 @@ export default function SearchPage() {
         {/* Boş durum */}
         {results === null && !loading && (
           <div className="flex flex-col items-center justify-center text-center py-24 sm:py-32 gap-5">
-            <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center">
-              <SearchIcon size={30} className="text-amber/50" />
-            </div>
+            <LottieAnimation
+              path="/lottie/search-empty.json"
+              className="w-28 h-28"
+              speed={0.7}
+            />
             <div>
               <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ivory mb-2">Ne aramıştın evlat?</h2>
               <p className="font-sans text-sm text-ivory/40 max-w-xs leading-relaxed">
@@ -118,11 +121,16 @@ export default function SearchPage() {
 
         {/* Sonuç yok */}
         {!loading && results !== null && results.length === 0 && (
-          <div className="text-center py-24 sm:py-32">
+          <div className="flex flex-col items-center text-center py-24 sm:py-32 gap-4">
+            <LottieAnimation
+              path="/lottie/empty-state.json"
+              className="w-24 h-24 opacity-60"
+              speed={0.6}
+            />
             <p className="font-serif text-xl sm:text-2xl italic text-ivory/40">
-              "{query}" için bir şey bulamadım evlat.
+              &ldquo;{query}&rdquo; için bir şey bulamadım evlat.
             </p>
-            <p className="font-sans text-sm text-ivory/25 mt-3">Başka bir isimle dene.</p>
+            <p className="font-sans text-sm text-ivory/25 mt-1">Başka bir isimle dene.</p>
           </div>
         )}
 

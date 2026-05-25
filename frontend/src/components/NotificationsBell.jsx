@@ -8,6 +8,7 @@ import {
   getFriendRequests, respondFriendRequest,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
+import LottieAnimation from './LottieAnimation';
 
 const POLL_MS = 30000;
 
@@ -152,7 +153,11 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                   </div>
                 ) : !hasContent ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6">
-                    <span className="text-4xl opacity-40">🕊️</span>
+                    <LottieAnimation
+                      path="/lottie/empty-state.json"
+                      className="w-24 h-24 opacity-50"
+                      speed={0.5}
+                    />
                     <p className="text-sm font-serif italic text-white/40">
                       Henüz yeni bir bildirim yok.
                     </p>

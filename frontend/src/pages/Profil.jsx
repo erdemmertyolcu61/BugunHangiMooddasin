@@ -31,6 +31,7 @@ import { getApiUrl } from '../utils/apiConfig';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import NotificationsBell from '../components/NotificationsBell';
 import FilmDetailModal from '../components/FilmDetailModal';
+import LottieAnimation from '../components/LottieAnimation';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -702,7 +703,12 @@ export default function Profil() {
         {!socialLoading && !sharesLoading && requests.length === 0 && shares.length === 0 && (
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.26, ease: [0.16, 1, 0.3, 1] }}
-            className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
+            className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center flex flex-col items-center gap-3">
+            <LottieAnimation
+              path="/lottie/empty-state.json"
+              className="w-20 h-20 opacity-50"
+              speed={0.5}
+            />
             <p className="font-serif text-sm italic text-ivory/65 leading-relaxed">
               Henüz yeni bir bildirim yok.
               Arkadaşlarından gelen istekler ve film önerileri burada görünecek.
@@ -859,9 +865,11 @@ export default function Profil() {
             </div>
           ) : friends.length === 0 ? (
             <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-4">
-              <div className="w-14 h-14 mx-auto rounded-full bg-amber/10 border border-amber/15 flex items-center justify-center">
-                <Users size={22} className="text-amber/30" />
-              </div>
+              <LottieAnimation
+                path="/lottie/empty-state.json"
+                className="w-16 h-16 mx-auto opacity-40"
+                speed={0.6}
+              />
               <p className="font-serif text-sm italic text-ivory/70 leading-relaxed">
                 Henüz sinema arkadaşın yok. Üstad'ın dünyasına arkadaşlarını davet et!
               </p>

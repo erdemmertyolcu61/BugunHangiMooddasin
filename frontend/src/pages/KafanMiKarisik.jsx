@@ -7,6 +7,7 @@ import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatche
 import OptimizedImage from '../components/OptimizedImage';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { playMoodAudio } from '../utils/moodAudioManager';
+import LottieAnimation from '../components/LottieAnimation';
 
 const QUICK_MOODS = [
   {
@@ -307,26 +308,12 @@ export default function KafanMiKarisik() {
             animate={{ opacity: 1 }}
             className="flex flex-col items-center justify-center py-20 gap-10"
           >
-            {/* Üç altın nokta — soluk/parlak döngüsü */}
-            <div className="flex items-center gap-3">
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: '#d4af37' }}
-                  animate={{
-                    opacity: [0.15, 1, 0.15],
-                    scale:   [0.75, 1.25, 0.75],
-                  }}
-                  transition={{
-                    duration: 1.6,
-                    repeat: Infinity,
-                    delay: i * 0.28,
-                    ease: 'easeInOut',
-                  }}
-                />
-              ))}
-            </div>
+            {/* Film makarası Lottie animasyonu */}
+            <LottieAnimation
+              path="/lottie/film-reel.json"
+              className="w-20 h-20"
+              speed={0.8}
+            />
             <AnimatePresence mode="wait">
               <motion.p
                 key={phraseIdx}
