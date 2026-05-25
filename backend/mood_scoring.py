@@ -315,11 +315,13 @@ def _popularity_adjustment(popularity_policy: str, vote_count: int = None, vote_
         return 1.0
 
     elif popularity_policy == "boutique_indie":
-        # Sessiz: indie ceza
+        # Sessiz / Şipşak: indie ceza
         if vote_count >= 15000:
             return 0.2
         elif vote_count >= 8000:
             return 0.5
+        elif vote_count is not None and vote_count < 50:
+            return 0.6  # Çok az oy = muhtemelen çöp/spam
         return 1.0
 
     elif popularity_policy == "boutique_horror":
@@ -556,7 +558,7 @@ def calculate_mood_scores(genre_ids: list, vote_average: float = None,
                           tmdb_id: int = None, vote_count: int = None,
                           overview: str = None, release_date: str = None,
                           tmdb_keywords: list = None, popularity: float = None,
-                          original_language: str = None) -> dict:
+                          original_language: str = None, runtime: int = None) -> dict:
     """
     Bir filmin her mood'a uygunluk skorunu hesaplar (0-100).
     Çok bileşenli: genre + keyword + tmdb_keyword + tone + popülerite + quality + dil
@@ -684,6 +686,20 @@ def calculate_mood_scores(genre_ids: list, vote_average: float = None,
             elif year >= 2000:
                 year_bonus = 0.04
 
+        # 9b. Runtime bonus (sadece sipsak — mood'un kimliği kısa runtime)
+        runtime_bonus = 0.0
+        if mood_id == "sipsak" and runtime and runtime > 0:
+            if runtime <= 45:
+                runtime_bonus = 0.25   # Gerçek kısa film
+            elif runtime <= 70:
+                runtime_bonus = 0.15   # İdeal kompakt aralık
+            elif runtime <= 90:
+                runtime_bonus = 0.05   # Kabul edilebilir
+            elif runtime <= 120:
+                runtime_bonus = -0.10  # Biraz uzun
+            else:
+                runtime_bonus = -0.30  # Şipşak için çok uzun
+
         # Final = weighted combination (v4: dil bazlı ağırlıklandırma eklendi)
         if has_tmdb_kw:
             # With TMDB keywords: genre 40% + overview 10% + tmdb_kw 15% + quality 10% = 75% base
@@ -692,14 +708,14 @@ def calculate_mood_scores(genre_ids: list, vote_average: float = None,
                 + overview_kw_score * 0.10
                 + tmdb_kw_score * 0.15
                 + quality_score * 0.10
-            ) * neg_penalty * pop_adj * blockbuster_penalty + (mood_bonus * 10) + (year_bonus * 30)
+            ) * neg_penalty * pop_adj * blockbuster_penalty + (mood_bonus * 10) + (year_bonus * 30) + (runtime_bonus * 30)
         else:
             # Without TMDB keywords: genre 45% + overview 20% + quality 10% = 75% base (backward compat)
             final_score = (
                 genre_score * 0.45
                 + overview_kw_score * 0.20
                 + quality_score * 0.10
-            ) * neg_penalty * pop_adj * blockbuster_penalty + (mood_bonus * 10) + (year_bonus * 30)
+            ) * neg_penalty * pop_adj * blockbuster_penalty + (mood_bonus * 10) + (year_bonus * 30) + (runtime_bonus * 30)
 
         # 10. Dil bazlı ağırlıklandırma (v4)
         # Türkçe: yerli sinema önceliği, Japon/Hint: aşırı temsili azalt

@@ -210,76 +210,187 @@ export default function Defterim() {
                 </p>
             </motion.div>
 
-            {/* ═══ Zevk Haritasi ═══ */}
+            {/* ═══ Zevk Haritası — Sinematik Analiz Kartı ═══ */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <div className="p-10 md:p-14 rounded-[3rem] bg-gradient-to-br from-amber-500/[0.03] to-purple-600/[0.03] border border-white/[0.06] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-amber-500/5 to-purple-600/5 blur-[100px] rounded-full pointer-events-none" />
-                
-                <div className="relative z-10 flex flex-col lg:flex-row gap-10 items-start">
-                  {/* Sol: Icon + Baslik */}
-                  <div className="flex items-start gap-5 lg:w-64 shrink-0">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-                      <Brain size={26} className="text-bg" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-serif font-bold tracking-tight text-ivory">Zevk Haritam</h2>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/50 mt-1">Kişisel Sinema Profilin</p>
-                    </div>
-                  </div>
+              <div className="rounded-[2rem] sm:rounded-[3rem] border border-white/[0.08] relative overflow-hidden">
+                {/* Atmospheric background layers */}
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.04] via-transparent to-purple-600/[0.03]" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-500/[0.06] to-transparent blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-purple-600/[0.04] to-transparent blur-[80px] rounded-full pointer-events-none" />
 
-                  {/* Sag: Icerek */}
-                  <div className="flex-1 w-full">
-                    {tasteLoading ? (
-                      <div className="flex items-center gap-4 text-ivory/30 font-serif italic text-sm">
-                        <RefreshCw size={14} className="animate-spin" /> Zevk haritan hazırlanıyor...
+                {/* Header band */}
+                <div className="relative z-10 px-8 sm:px-12 pt-8 sm:pt-10 pb-6 border-b border-white/[0.05]">
+                  <div className="flex items-center gap-4 sm:gap-5">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-[0_4px_24px_rgba(245,158,11,0.25)]">
+                      <Brain size={24} className="text-[#120d0b]" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-[#f5f2eb]">Zevk Haritam</h2>
+                      <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50 mt-0.5">Kişisel Sinema Profilin</p>
+                    </div>
+                    <button onClick={fetchTasteMap} className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-amber/40 hover:text-amber hover:border-amber/30 transition-all" title="Yenile">
+                      <RefreshCw size={14} className={tasteLoading ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="relative z-10 px-8 sm:px-12 py-8 sm:py-10">
+                  {tasteLoading ? (
+                    <div className="flex items-center justify-center gap-3 py-12">
+                      <div className="flex gap-2">
+                        {[0, 1, 2].map(i => (
+                          <motion.div key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#d4af37' }}
+                            animate={{ opacity: [0.2, 1, 0.2] }}
+                            transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.25 }} />
+                        ))}
                       </div>
-                    ) : tasteMap && tasteMap.confidence !== "low" ? (
-                      <div className="space-y-6">
-                        {/* Dynamic title */}
-                        {tasteMap.dynamic_title && (
-                          <p className="text-lg font-bold font-serif text-amber/80 tracking-tight">
+                      <span className="text-sm font-serif italic text-[#f5f2eb]/40">Zevk haritan hazırlanıyor...</span>
+                    </div>
+                  ) : tasteMap && tasteMap.confidence !== "low" ? (
+                    <div className="space-y-8">
+                      {/* Dynamic title — hero typography */}
+                      {tasteMap.dynamic_title && (
+                        <div>
+                          <p className="text-2xl sm:text-3xl font-serif font-bold text-amber tracking-tight leading-snug">
                             {tasteMap.dynamic_title}
                           </p>
-                        )}
+                          <div className="w-16 h-[2px] bg-gradient-to-r from-amber/60 to-transparent mt-3 rounded-full" />
+                        </div>
+                      )}
 
-                        {/* Üstad'ın Detaylı Analizi */}
-                        {tasteMap.summary && tasteMap.summary.length > 0 && (
-                          <div className="space-y-3">
+                      {/* Mood chips — renkli sinema DNA'n */}
+                      {tasteMap.top_moods && tasteMap.top_moods.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#f5f2eb]/30">Sinema DNA'n</p>
+                          <div className="flex flex-wrap gap-2.5">
+                            {tasteMap.top_moods.slice(0, 5).map(m => {
+                              const MOOD_COLORS = {
+                                battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
+                                askbahcesi: '#f43f5e', kahkaha: '#10b981', adrenalin: '#ef4444',
+                                yolculuk: '#10b981', zamanyolcusu: '#f59e0b', sessiz: '#a8a29e',
+                                zihin: '#8b5cf6', kalp: '#ec4899', karmakar: '#f97316',
+                                sipsak: '#d4af37', 'deep-chills': '#3b82f6',
+                                'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
+                              };
+                              const dotColor = MOOD_COLORS[m.mood_id] || '#d4af37';
+                              const pct = tasteMap.mood_pct?.[m.mood_id];
+                              return (
+                                <span key={m.mood_id}
+                                  className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full
+                                    bg-white/[0.06] border border-white/[0.08] backdrop-blur-sm
+                                    text-[13px] font-semibold text-[#f5f2eb]/80 transition-all hover:border-white/15">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                                    style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}40` }} />
+                                  {m.title}
+                                  {pct != null && (
+                                    <span className="text-[11px] font-bold text-[#f5f2eb]/40 ml-0.5">%{Math.round(pct)}</span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mood distribution bars */}
+                      {tasteMap.mood_pct && Object.keys(tasteMap.mood_pct).length > 0 && (
+                        <div className="space-y-2.5">
+                          {Object.entries(tasteMap.mood_pct).slice(0, 4).map(([mid, pct]) => {
+                            const MOOD_COLORS = {
+                              battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
+                              askbahcesi: '#f43f5e', kahkaha: '#10b981', adrenalin: '#ef4444',
+                              yolculuk: '#10b981', zamanyolcusu: '#f59e0b', sessiz: '#a8a29e',
+                              zihin: '#8b5cf6', kalp: '#ec4899', karmakar: '#f97316',
+                              sipsak: '#d4af37', 'deep-chills': '#3b82f6',
+                              'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
+                            };
+                            const moodObj = tasteMap.top_moods?.find(m => m.mood_id === mid);
+                            const label = moodObj?.title || mid.replace('-', ' ');
+                            const barColor = MOOD_COLORS[mid] || '#d4af37';
+                            return (
+                              <div key={mid} className="flex items-center gap-3">
+                                <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-28 truncate capitalize">
+                                  {label}
+                                </span>
+                                <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min(pct, 100)}%` }}
+                                    transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    className="h-full rounded-full"
+                                    style={{ backgroundColor: barColor, opacity: 0.75 }}
+                                  />
+                                </div>
+                                <span className="text-[12px] font-bold text-[#f5f2eb]/50 w-10 text-right tabular-nums">
+                                  %{Math.round(pct)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      {tasteMap.summary && tasteMap.summary.length > 0 && (
+                        <div className="h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                      )}
+
+                      {/* Üstad'ın Detaylı Analizi */}
+                      {tasteMap.summary && tasteMap.summary.length > 0 && (
+                        <div className="space-y-4">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/40 flex items-center gap-2">
+                            <Sparkles size={11} /> Üstad'ın Analizi
+                          </p>
+                          <div className="space-y-4 pl-4 border-l-2 border-amber/15">
                             {tasteMap.summary.slice(0, 5).map((s, i) => (
-                              <p key={i} className="text-sm md:text-base font-serif italic text-ivory/70 leading-relaxed">"{s}"</p>
+                              <motion.p
+                                key={i}
+                                initial={{ opacity: 0, x: -8 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.3 + i * 0.1 }}
+                                className="text-[15px] sm:text-[16px] font-serif italic text-[#f5f2eb]/80 leading-[1.75] tracking-wide"
+                              >
+                                &ldquo;{s}&rdquo;
+                              </motion.p>
                             ))}
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        {/* Confidence badge */}
-                        <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-                          <span className={`px-3 py-1.5 rounded-full ${
-                            tasteMap.confidence === 'high' ? 'bg-emerald/10 text-emerald' :
-                            tasteMap.confidence === 'medium' ? 'bg-amber/10 text-amber' :
-                            'bg-white/5 text-ivory/30'
-                          }`}>
-                            {tasteMap.confidence === 'high' ? 'Oluştu ✨' :
-                             tasteMap.confidence === 'medium' ? 'Oluşuyor' : 'Başlangıç'}
-                          </span>
-                          <span className="text-ivory/20">{tasteMap.signals?.total_movies || 0} film sinyali</span>
-                          <button onClick={fetchTasteMap} className="text-amber/40 hover:text-amber transition-colors">
-                            <RefreshCw size={12} />
-                          </button>
-                        </div>
+                      {/* Footer: Confidence + Signals */}
+                      <div className="flex items-center gap-3 sm:gap-4 flex-wrap pt-2">
+                        <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] ${
+                          tasteMap.confidence === 'high'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : tasteMap.confidence === 'medium'
+                            ? 'bg-amber/10 text-amber border border-amber/20'
+                            : 'bg-white/5 text-[#f5f2eb]/30 border border-white/[0.06]'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            tasteMap.confidence === 'high' ? 'bg-emerald-400' :
+                            tasteMap.confidence === 'medium' ? 'bg-amber' : 'bg-white/30'
+                          }`} />
+                          {tasteMap.confidence === 'high' ? 'Oluştu' :
+                           tasteMap.confidence === 'medium' ? 'Oluşuyor' : 'Başlangıç'}
+                        </span>
+                        <span className="text-[11px] font-bold text-[#f5f2eb]/25 uppercase tracking-wider">
+                          {tasteMap.signals?.total_movies || 0} film sinyali
+                        </span>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <p className="text-sm md:text-base font-serif italic text-ivory/50 leading-relaxed">
-                          "Zevk haritan henüz oluşuyor. Birkaç filmi defterine ekledikçe, not yazdıkça ve gelecek programına aldıkça seni daha iyi tanıyacağız."
-                        </p>
-                        <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest">
-                          <span className="text-amber/40 flex items-center gap-2"><Book size={12} /> Film ekle</span>
-                          <span className="text-ivory/20">·</span>
-                          <span className="text-amber/40 flex items-center gap-2"><MessageCircle size={12} /> Not yaz</span>
-                        </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5 py-4">
+                      <p className="text-[16px] font-serif italic text-[#f5f2eb]/60 leading-relaxed max-w-lg">
+                        &ldquo;Zevk haritan henüz oluşuyor. Birkaç filmi defterine ekledikçe, not yazdıkça seni daha iyi tanıyacağız.&rdquo;
+                      </p>
+                      <div className="flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.2em]">
+                        <span className="text-amber/50 flex items-center gap-2"><Book size={13} /> Film ekle</span>
+                        <span className="text-[#f5f2eb]/15">·</span>
+                        <span className="text-amber/50 flex items-center gap-2"><MessageCircle size={13} /> Not yaz</span>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

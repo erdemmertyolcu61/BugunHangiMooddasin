@@ -3475,31 +3475,33 @@ async def post_confused_recommendation(req: ConfusedRequest):
     search_text = text  # default: kullanıcının ham metni
     try:
         llm_intent = await intent_parser.parse(text, timeout=2.0)
-    except Exception:
-        pass  # Sessiz fallback
+    except Exception as e:
+        logger.warning("[Confused] LLM intent parse failed: %s — text='%s'", str(e)[:100], text[:80])
 
-    if llm_intent and llm_intent.confidence > 0.6:
-        # LLM'in optimize ettiği sorguyu semantic engine'e ver
+    if llm_intent and llm_intent.confidence > 0.4:
+        # search_query her zaman kullan (0.4+ yeterli — LLM'in optimize ettiği sorgu ham Türkçe'den iyi)
         if llm_intent.search_query:
             search_text = llm_intent.search_query
 
-        # LLM'in çıkardığı tür ID'lerini hints'e ekle
-        if llm_intent.genre_ids:
-            hints.genre_ids = list(set(hints.genre_ids + llm_intent.genre_ids))
+        # Genre ve mood sinyalleri sadece yüksek güvende (0.6+)
+        if llm_intent.confidence > 0.6:
+            # LLM'in çıkardığı tür ID'lerini hints'e ekle
+            if llm_intent.genre_ids:
+                hints.genre_ids = list(set(hints.genre_ids + llm_intent.genre_ids))
 
-        # Mood sinyallerini → mood_bonuses'a çevir
-        for signal in llm_intent.mood_signals:
-            mood_id = _LLM_MOOD_SIGNAL_MAP.get(signal)
-            if mood_id:
-                hints.mood_bonuses[mood_id] = min(0.50, hints.mood_bonuses.get(mood_id, 0) + 0.35)
+            # Mood sinyallerini → mood_bonuses'a çevir
+            for signal in llm_intent.mood_signals:
+                mood_id = _LLM_MOOD_SIGNAL_MAP.get(signal)
+                if mood_id:
+                    hints.mood_bonuses[mood_id] = min(0.50, hints.mood_bonuses.get(mood_id, 0) + 0.35)
 
-        # Puan kısıtlaması
+        # Puan kısıtlaması (0.4+ güvende de uygula)
         llm_min_rating = llm_intent.constraints.get("min_rating")
         if llm_min_rating and isinstance(llm_min_rating, (int, float)):
             min_vote = max(min_vote, float(llm_min_rating))
 
-        logger.info("[Confused] LLM intent: type=%s, search='%s', genres=%s",
-                    llm_intent.intent_type, search_text[:50], llm_intent.genre_ids)
+        logger.info("[Confused] LLM intent: type=%s, conf=%.2f, search='%s', genres=%s",
+                    llm_intent.intent_type, llm_intent.confidence, search_text[:50], llm_intent.genre_ids)
 
     try:
         engine = ChatEngine(db=cache)

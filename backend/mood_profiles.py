@@ -458,7 +458,7 @@ MOOD_PROFILES = {
             "without_genres": "28,878,27,53,80,10752",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.0,
-            "min_vote_count": 10,
+            "min_vote_count": 30,
         },
     },
     "kadraj-estetigi": {
@@ -814,12 +814,12 @@ MOOD_SEED_STRATEGIES = {
         {"genres": [14, 53], "with_origin_country": "TR", "with_original_language": "tr", "max_vote_count": 5000},
     ],
     "sipsak": [
-        {"genres": [18, 10749], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
-        {"genres": [18, 35], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
-        {"genres": [99], "min_vote_count": 10, "max_vote_count": 5000},
-        {"genres": [18, 14], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
-        {"genres": [10749], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
-        {"genres": [35], "min_vote_count": 10, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [18, 10749], "min_vote_count": 30, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [18, 35], "min_vote_count": 30, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [99], "min_vote_count": 30, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [18, 14], "min_vote_count": 30, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [10749], "min_vote_count": 30, "max_vote_count": 5000, "with_runtime_lte": 90},
+        {"genres": [35], "min_vote_count": 30, "max_vote_count": 5000, "with_runtime_lte": 90},
     ],
     "deep-chills": [
         {"genres": [27, 53]},

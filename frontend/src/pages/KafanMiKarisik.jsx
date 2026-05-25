@@ -108,8 +108,11 @@ export default function KafanMiKarisik() {
   }, [loading]);
 
   const analyze = async (inputText, feedbackMode = false) => {
-    const txt = inputText || text;
-    if (!txt.trim()) return;
+    const txt = (inputText || text).trim().replace(/\s+/g, ' ');
+    if (!txt || txt.length < 3) {
+      setError('En az 3 karakter yazmalısın evlat.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
