@@ -15,7 +15,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LogOut, Eye, Bookmark, CalendarDays, User, Activity, Users,
+  LogOut, Eye, Bookmark, CalendarDays, User, Users,
   Check, X, UserPlus, Search, Trash2, AtSign, Bell, Play,
   Star as StarIcon, Settings, Palette, Database, AlertTriangle,
   Film, ChevronRight, ChevronLeft,
@@ -31,6 +31,7 @@ import { getApiUrl } from '../utils/apiConfig';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import NotificationsBell from '../components/NotificationsBell';
 import FilmDetailModal from '../components/FilmDetailModal';
+import EditProfileModal from '../components/EditProfileModal';
 import LottieAnimation from '../components/LottieAnimation';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -72,23 +73,6 @@ const MOOD_DOT_COLORS = {
   'geceyarisi-itirafi': '#6366f1',
 };
 
-/* ─── Üstad Mood Yorumları ───────────────────────────────────────── */
-const USTAD_MOOD_REVIEWS = {
-  battaniye: 'Sakin ve derinlikli hikayelere daha çok yaklaşıyorsun.',
-  gece: 'Gecenin sessizliğinde parlayan, karanlık anlatılara çekiliyorsun.',
-  gozyasi: 'Duygusal ve insani hikayelere kalbini açıyorsun.',
-  askbahcesi: 'Romantikte sıcak, kırılgan ve gerçekçi hikayelere daha çok yaklaşıyorsun.',
-  kahkaha: 'Hayatı hafifletmeyi seven, neşeli bir ruhun var.',
-  adrenalin: 'Daha güncel ve modern tempolu filmlere yakın duruyorsun.',
-  yolculuk: 'Sınırları zorlayan, ufuk açan yolculuklara düşkünsün.',
-  zamanyolcusu: 'Geçmişle gelecek arasındaki köprülere ilgi duyuyorsun.',
-  sessiz: 'Minimal ve sessiz anlatıların gücüne inanıyorsun.',
-  zihin: 'Zihnin labirentlerinde dolaşmayı seviyorsun.',
-  kalp: 'Festival sinemasının bağımsız ruhuna yakınsın.',
-  karmakar: 'Türleri karıştıran cesur hikayelere açıksın.',
-  sipsak: 'Kısa ve kompakt başyapıtlara ilgi duyuyorsun.',
-  'deep-chills': 'Seni ürperten, derinden sarsan yapıtlara yöneliyorsun.',
-};
 
 /* ═══════════════════════════════════════════════════════════════════
    PROFIL
@@ -118,12 +102,6 @@ export default function Profil() {
   const [watchedCount, setWatchedCount] = useState(0);
   const [thisMonthCount, setThisMonthCount] = useState(0);
   const [topMoods, setTopMoods] = useState([]);
-  const [moodPct, setMoodPct] = useState({});
-  const [dynamicTitle, setDynamicTitle] = useState('');
-  const [ustadReview, setUstadReview] = useState('');
-  const [totalSignals, setTotalSignals] = useState(0);
-  const [tasteStatus, setTasteStatus] = useState('empty');
-  const [summaryTexts, setSummaryTexts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   /* ─── Social ───────────────────────────────────────────────────── */
@@ -140,6 +118,7 @@ export default function Profil() {
   const [shares, setShares] = useState([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [detailMovie, setDetailMovie] = useState(null);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const pollRef = useRef(null);
 
   /* ─── Fetch social data on mount ───────────────────────────────── */
@@ -167,17 +146,19 @@ export default function Profil() {
     return () => { alive = false; };
   }, [user]);
 
-  /* ─── 120s polling (visibility-aware) ──────────────────────────── */
+  /* ─── 30s polling + visibility-change immediate refetch ────────── */
   useEffect(() => {
     if (!user) return;
     const poll = async () => {
       if (document.visibilityState !== 'visible') return;
       try {
         setSocialError('');
-        const [rq, sh] = await Promise.all([
+        const [fr, rq, sh] = await Promise.all([
+          getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
           getShares().catch(() => ({ shares: [] })),
         ]);
+        setFriends(fr.friends || []);
         setRequests(rq.requests || []);
         if ((sh.shares || []).length > 0) {
           setShares(sh.shares || []);
@@ -185,8 +166,15 @@ export default function Profil() {
         }
       } catch {}
     };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
     pollRef.current = setInterval(poll, 30000);
-    return () => clearInterval(pollRef.current);
+    return () => {
+      clearInterval(pollRef.current);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [user]);
 
   /* ─── Social handlers ──────────────────────────────────────────── */
@@ -227,6 +215,17 @@ export default function Profil() {
         setFriends(data.friends || []);
       } else {
         setAddMsg({ ok: true, text: 'İstek gönderildi, onay bekliyor.' });
+        // 5 saniye sonra güncel veriyi çek (karşı taraf hızlı kabul ederse)
+        setTimeout(async () => {
+          try {
+            const [fr, rq] = await Promise.all([
+              getFriends().catch(() => ({ friends: [] })),
+              getFriendRequests().catch(() => ({ requests: [] })),
+            ]);
+            setFriends(fr.friends || []);
+            setRequests(rq.requests || []);
+          } catch {}
+        }, 5000);
       }
       setAddUsername('');
     } catch (err) {
@@ -266,32 +265,11 @@ export default function Profil() {
         });
         setThisMonthCount(thisMonth.length);
 
-        // Taste Matrix Progression Engine
-        const signals = tm?.signals?.total_movies || 0;
-        setTotalSignals(signals);
-
-        if (signals === 0) {
-          setTasteStatus('empty');
-          setTopMoods([]); setMoodPct({}); setDynamicTitle('');
-          setUstadReview(''); setSummaryTexts([]);
-        } else if (signals <= 5) {
-          setTasteStatus('forming');
-          setDynamicTitle(tm?.dynamic_title || 'Sinema Ruhu');
-          if (tm?.top_moods?.length > 0) {
-            setTopMoods(tm.top_moods.slice(0, 3));
-            setMoodPct(tm?.mood_pct || {});
-            setUstadReview(USTAD_MOOD_REVIEWS[tm.top_moods[0]?.mood_id] || '');
-          } else { setTopMoods([]); setMoodPct({}); setUstadReview(''); }
-          setSummaryTexts(Array.isArray(tm?.summary) ? tm.summary : []);
+        // Top moods for timeline
+        if (tm?.top_moods?.length > 0) {
+          setTopMoods(tm.top_moods.slice(0, 5));
         } else {
-          setTasteStatus('mature');
-          setDynamicTitle(tm?.dynamic_title || 'Sinema Ruhu');
-          if (tm?.top_moods?.length > 0) {
-            setTopMoods(tm.top_moods.slice(0, 5));
-            setMoodPct(tm?.mood_pct || {});
-            setUstadReview(USTAD_MOOD_REVIEWS[tm.top_moods[0]?.mood_id] || '');
-          } else { setTopMoods([]); setMoodPct({}); setUstadReview(''); }
-          setSummaryTexts(Array.isArray(tm?.summary) ? tm.summary : []);
+          setTopMoods([]);
         }
       } finally { setLoading(false); }
     })();
@@ -299,7 +277,8 @@ export default function Profil() {
 
   /* ─── Derived ──────────────────────────────────────────────────── */
   const displayName = user ? (sanitize(user.name) || sanitize(user.email) || 'Sinemasever') : '';
-  const avatar = user?.picture || '';
+  const rawAvatar = user?.picture || '';
+  const avatar = rawAvatar.startsWith('/uploads') ? `${getApiUrl('')}${rawAvatar}` : rawAvatar;
   const initials = displayName.slice(0, 1).toUpperCase();
 
   // Son izlenen 4 film (timeline için)
@@ -449,6 +428,14 @@ export default function Profil() {
               <CalendarDays size={11} className="text-amber/50" />
               {formatDate(user.created_at)} tarihinde katıldı
             </p>
+            <button
+              onClick={() => setEditProfileOpen(true)}
+              className="mt-2 px-5 py-2 rounded-full bg-white/5 border border-white/10
+                       text-[12px] font-semibold text-ivory/70 hover:text-amber hover:border-amber/30
+                       transition-all active:scale-95"
+            >
+              Profili Düzenle
+            </button>
           </div>
         </motion.div>
 
@@ -460,12 +447,11 @@ export default function Profil() {
               <div className="sinemood-spinner" />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { icon: Eye, label: 'İzlendi', value: watchedCount, color: '#34d399' },
                 { icon: Bookmark, label: 'Kayıtlı', value: savedCount, color: '#fbbf24' },
                 { icon: CalendarDays, label: 'Bu Ay', value: thisMonthCount, color: '#60a5fa' },
-                { icon: Activity, label: 'Sinyal', value: totalSignals, color: '#a78bfa' },
               ].map(({ icon: Icon, label, value, color }) => (
                 <div key={label}
                   className="p-5 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] flex flex-col gap-2">
@@ -482,169 +468,6 @@ export default function Profil() {
           )}
         </motion.div>
 
-        {/* ═══ ÜSTAD'IN OKUMASI ═══ */}
-        {!loading && (
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}>
-
-            {/* State A: Empty */}
-            {tasteStatus === 'empty' && (
-              <div className="p-6 sm:p-8 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-3">
-                <p className="font-sans text-[13px] font-bold uppercase tracking-[0.2em] text-amber/60">
-                  Üstad'ın Okuması
-                </p>
-                <p className="font-serif text-base italic leading-relaxed text-ivory/55 max-w-md mx-auto">
-                  Zevk haritanı çizmeye henüz başlayamadım evlat.
-                  Defterine birkaç film ekle, senin sinema ruhunu keşfedeyim.
-                </p>
-              </div>
-            )}
-
-            {/* State B: Forming */}
-            {tasteStatus === 'forming' && (
-              <div className="p-6 sm:p-8 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] space-y-5">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.3em] text-amber/50">
-                    Üstad'ın Okuması
-                  </p>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber/10 border border-amber/20
-                    font-sans text-[11px] font-bold uppercase tracking-[0.12em] text-amber/70">
-                    <Activity size={10} /> Oluşuyor · {totalSignals} sinyal
-                  </span>
-                </div>
-
-                {dynamicTitle && (
-                  <p className="font-serif text-lg font-bold tracking-tight text-amber/80">
-                    {sanitize(dynamicTitle)}
-                  </p>
-                )}
-
-                {/* Mood chips with colored dots */}
-                {topMoods.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {topMoods.map(m => (
-                      <span key={m.mood_id}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.10]
-                          font-sans text-[13px] font-semibold text-ivory/75">
-                        <span className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: MOOD_DOT_COLORS[m.mood_id] || '#d4af37' }} />
-                        {sanitize(m.title)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Üstad quotes */}
-                {(summaryTexts.length > 0 || ustadReview) && (
-                  <div className="border-t border-white/5 pt-4 space-y-2">
-                    {summaryTexts.length > 0 ? (
-                      summaryTexts.slice(0, 2).map((text, i) => (
-                        <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/75">
-                          "{sanitize(text)}"
-                        </p>
-                      ))
-                    ) : ustadReview ? (
-                      <p className="font-serif text-sm italic leading-relaxed text-ivory/75">
-                        "{ustadReview}"
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-
-                <p className="font-sans text-[12px] text-ivory/70 text-center pt-1">
-                  Birkaç film daha ekle — zevk haritanın tam analizi açılsın.
-                </p>
-              </div>
-            )}
-
-            {/* State C: Mature */}
-            {tasteStatus === 'mature' && (
-              <div className="p-6 sm:p-8 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] space-y-5">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.3em] text-amber/50">
-                    Üstad'ın Okuması
-                  </p>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20
-                    font-sans text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-400/70">
-                    <Activity size={10} /> Oluştu · {totalSignals} sinyal
-                  </span>
-                </div>
-
-                {dynamicTitle && (
-                  <p className="font-serif text-xl font-bold tracking-tight text-amber/90">
-                    {sanitize(dynamicTitle)}
-                  </p>
-                )}
-
-                {/* Mood chips with colored dots */}
-                {topMoods.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {topMoods.map(m => (
-                      <span key={m.mood_id}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.10]
-                          font-sans text-[13px] font-semibold text-ivory/75">
-                        <span className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: MOOD_DOT_COLORS[m.mood_id] || '#d4af37' }} />
-                        {sanitize(m.title)}
-                        <span className="text-ivory/50">{Math.round(moodPct[m.mood_id] || 0)}%</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Mood distribution bars */}
-                {Object.keys(moodPct).length > 0 && (
-                  <div className="space-y-2 pt-1">
-                    {Object.entries(moodPct).slice(0, 6).map(([mid, pct]) => {
-                      const moodObj = topMoods.find(m => m.mood_id === mid);
-                      const label = moodObj?.title || mid.replace('-', ' ');
-                      const dotColor = MOOD_DOT_COLORS[mid] || '#d4af37';
-                      return (
-                        <div key={mid} className="flex items-center gap-3">
-                          <span className="font-sans text-[12px] font-semibold text-ivory/70 w-24 truncate uppercase tracking-wide">
-                            {label}
-                          </span>
-                          <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${Math.min(pct, 100)}%` }}
-                              transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                              className="h-full rounded-full"
-                              style={{ backgroundColor: dotColor, opacity: 0.7 }}
-                            />
-                          </div>
-                          <span className="font-sans text-[12px] font-bold text-ivory/65 w-8 text-right">
-                            %{Math.round(pct)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Üstad quotes */}
-                {(summaryTexts.length > 0 || ustadReview) && (
-                  <div className="border-t border-white/5 pt-4 space-y-2">
-                    <p className="font-sans text-[12px] font-bold uppercase tracking-[0.2em] text-amber/50 mb-2">
-                      Üstad'ın Özeti
-                    </p>
-                    {summaryTexts.length > 0 ? (
-                      summaryTexts.map((text, i) => (
-                        <p key={i} className="font-serif text-[14px] italic leading-relaxed text-ivory/80">
-                          "{sanitize(text)}"
-                        </p>
-                      ))
-                    ) : ustadReview ? (
-                      <p className="font-serif text-[14px] italic leading-relaxed text-ivory/80">
-                        "{ustadReview}"
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
 
         {/* ═══ ZAMAN ÇİZGİSİ ═══ */}
         {!loading && recentWatched.length > 0 && (
@@ -790,36 +613,36 @@ export default function Profil() {
                 </span>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {shares.map(s => (
                   <motion.div key={s.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-3 p-3 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
+                    className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
 
-                    <div className="w-12 sm:w-14 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
+                    <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
                       {s.poster_url
                         ? <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-xl opacity-30">🎬</div>}
+                        : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>}
                     </div>
 
-                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
                         {s.sender?.avatar && (
-                          <img src={s.sender.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
                         )}
-                        <span className="text-[11px] text-amber/60 font-semibold truncate">
+                        <span className="text-[12px] text-amber/75 font-semibold truncate">
                           {s.sender?.name || s.sender?.username || 'Arkadaş'}
                         </span>
                       </div>
-                      <h4 className="text-[13px] font-serif font-bold text-[#f5f2eb] line-clamp-1">
+                      <h4 className="text-[15px] font-serif font-bold text-[#f5f2eb] line-clamp-1">
                         {s.movie_title || `Film #${s.movie_id}`}
                       </h4>
                       {s.vote_average > 0 && (
                         <span className="flex items-center gap-1 text-[11px] text-amber font-bold">
-                          <StarIcon size={8} className="fill-amber" /> {s.vote_average.toFixed(1)}
+                          <StarIcon size={9} className="fill-amber" /> {s.vote_average.toFixed(1)}
                         </span>
                       )}
                       {s.user_note && (
-                        <p className="text-[11px] font-serif italic text-white/40 line-clamp-2">
+                        <p className="text-[13px] font-serif italic text-white/65 line-clamp-3 leading-relaxed">
                           &ldquo;{sanitize(s.user_note)}&rdquo;
                         </p>
                       )}
@@ -828,10 +651,10 @@ export default function Profil() {
                           id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
                           vote_average: s.vote_average, release_date: s.release_date,
                         })}
-                        className="mt-auto self-start flex items-center gap-1 px-4 py-1 rounded-full
-                          bg-amber text-[#120d0b] text-[9px] font-bold uppercase tracking-wider
+                        className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
+                          bg-amber text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
                           hover:bg-amber-400 transition-all active:scale-95">
-                        <Play size={9} className="fill-[#120d0b]" /> Hemen İzle
+                        <Play size={10} className="fill-[#120d0b]" /> Hemen İzle
                       </button>
                     </div>
                   </motion.div>
@@ -1035,6 +858,14 @@ export default function Profil() {
           movieId={detailMovie.id}
           initialMovie={detailMovie}
           onClose={() => setDetailMovie(null)}
+        />
+      )}
+
+      {/* Profil düzenleme modalı */}
+      {editProfileOpen && (
+        <EditProfileModal
+          onClose={() => setEditProfileOpen(false)}
+          onSaved={() => setEditProfileOpen(false)}
         />
       )}
     </motion.div>

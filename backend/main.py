@@ -568,6 +568,13 @@ app.add_middleware(
 from backend.routers.social import router as social_router
 app.include_router(social_router)
 
+# ── Statik dosyalar: Avatar yüklemeleri ──
+import os
+from fastapi.staticfiles import StaticFiles
+_uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+os.makedirs(_uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.time()

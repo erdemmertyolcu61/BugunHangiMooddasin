@@ -38,14 +38,21 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
     } catch { /* sessiz */ }
   }, [token]);
 
-  // Sayım yoklaması (mount + interval, sadece sekme görünürken)
+  // Sayım yoklaması (mount + interval + tab visibility)
   useEffect(() => {
     if (!token) { setCount(0); return; }
     refreshCount();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshCount();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
     const id = setInterval(() => {
       if (document.visibilityState === 'visible') refreshCount();
     }, POLL_MS);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [token, refreshCount]);
 
   const openPanel = async () => {
@@ -225,34 +232,34 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                           <motion.div
                             key={s.id}
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                            className="flex gap-3 p-3 rounded-2xl bg-white/[0.04] border border-white/8"
+                            className="flex gap-3.5 p-4 rounded-2xl bg-white/[0.04] border border-white/8"
                           >
-                            <div className="w-16 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/10">
+                            <div className="w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/10">
                               {s.poster_url ? (
                                 <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0 flex flex-col">
-                              <div className="flex items-center gap-1.5 mb-0.5">
+                            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2 mb-0.5">
                                 {s.sender?.avatar && (
-                                  <img src={s.sender.avatar} alt="" className="w-4 h-4 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                  <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
                                 )}
-                                <span className="text-[11px] text-amber/70 font-semibold truncate">
+                                <span className="text-[12px] text-amber/80 font-semibold truncate">
                                   {s.sender?.name || s.sender?.username}
                                 </span>
                               </div>
-                              <h4 className="text-sm font-serif font-bold text-[#f5f2eb] line-clamp-1">
+                              <h4 className="text-[15px] font-serif font-bold text-[#f5f2eb] line-clamp-1">
                                 {s.movie_title || `Film #${s.movie_id}`}
                               </h4>
                               {s.vote_average > 0 && (
-                                  <span className="flex items-center gap-1 text-[10px] text-amber font-bold mt-0.5">
-                                    <Star size={9} className="fill-amber" />{s.vote_average.toFixed(1)}
+                                  <span className="flex items-center gap-1 text-[11px] text-amber font-bold mt-0.5">
+                                    <Star size={10} className="fill-amber" />{s.vote_average.toFixed(1)}
                                 </span>
                               )}
                               {s.user_note && (
-                                <p className="text-[11px] font-serif italic text-white/50 line-clamp-2 mt-1">
+                                <p className="text-[13px] font-serif italic text-white/70 line-clamp-3 mt-1 leading-relaxed">
                                   &ldquo;{s.user_note}&rdquo;
                                 </p>
                               )}

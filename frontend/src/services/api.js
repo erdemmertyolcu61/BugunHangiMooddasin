@@ -381,6 +381,32 @@ export async function setUsername(username) {
   return res.json();
 }
 
+export async function updateProfile({ username, name }) {
+  const res = await fetch(`${BASE}/users/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ username, name }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Profil güncellenemedi');
+  }
+  return res.json();
+}
+
+export async function uploadAvatar(base64Image) {
+  const res = await fetch(`${BASE}/users/avatar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ image: base64Image }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Avatar yüklenemedi');
+  }
+  return res.json();
+}
+
 export async function removeFriend(friendId) {
   const res = await fetch(`${BASE}/friends/${friendId}`, {
     method: 'DELETE',

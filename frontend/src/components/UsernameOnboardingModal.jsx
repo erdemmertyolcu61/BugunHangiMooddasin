@@ -4,7 +4,7 @@ import { Sparkles, AlertCircle, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getMe, setUsername } from '../services/api';
 
-const VALID_RE = /^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,15}$/;
+const VALID_RE = /^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,20}$/;
 const FORBIDDEN_CHARS_RE = /[^a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]/;
 
 /**
@@ -40,7 +40,7 @@ export default function UsernameOnboardingModal() {
 
   const handleChange = useCallback((e) => {
     const cleaned = e.target.value.replace(/\s/g, '').replace(FORBIDDEN_CHARS_RE, '');
-    setValue(cleaned.slice(0, 15));
+    setValue(cleaned.slice(0, 20));
     setError('');
   }, []);
 

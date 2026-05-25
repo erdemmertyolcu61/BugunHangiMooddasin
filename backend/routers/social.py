@@ -8,8 +8,11 @@ import edilir; bunlar router'ı import etmez.
 Tüm rotalar JWT tabanlı `get_current_user` bağımlılığından geçer (type == "user").
 Beta/admin token'ları bu rotaları kullanamaz — sosyal özellik Google girişi gerektirir.
 """
+import base64
 import logging
+import os
 import re
+import uuid
 from typing import Optional
 
 import jwt as pyjwt
@@ -23,7 +26,7 @@ logger = logging.getLogger("social")
 
 router = APIRouter(prefix="/api", tags=["social"])
 
-USERNAME_RE = re.compile(r"^[a-z0-9_]{3,15}$")
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,20}$")
 
 
 # ─── Auth bağımlılığı (dependency injection) ─────────────────────────────────
@@ -46,7 +49,7 @@ async def get_current_user(request: Request) -> dict:
 
 # ─── Request body modelleri ──────────────────────────────────────────────────
 class UsernameBody(BaseModel):
-    username: str = Field(..., min_length=3, max_length=15)
+    username: str = Field(..., min_length=3, max_length=20)
 
 
 class RespondBody(BaseModel):
@@ -78,12 +81,12 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 @router.put("/users/set-username")
 async def set_username(body: UsernameBody, user: dict = Depends(get_current_user)):
-    """Kullanıcı adını doğrulayıp güncelle. Regex: ^[a-z0-9_]{3,15}$."""
-    un = body.username.strip().lower()
+    """Kullanıcı adını doğrulayıp güncelle. Türkçe + büyük harf destekli."""
+    un = body.username.strip()
     if not USERNAME_RE.match(un):
         raise HTTPException(
             status_code=400,
-            detail="Kullanıcı adı 3-15 karakter, sadece küçük harf, rakam ve alt çizgi içerebilir.",
+            detail="Kullanıcı adı 3-20 karakter, harf (Türkçe dahil), rakam ve alt çizgi içerebilir.",
         )
     ok = await cache.set_custom_username(user["user_id"], un)
     if not ok:
@@ -193,3 +196,95 @@ async def mark_shares_read(user: dict = Depends(get_current_user)):
     """Tüm paylaşımları okundu olarak işaretle (rozeti sıfırlar)."""
     await cache.mark_shares_read(user["user_id"])
     return {"ok": True}
+
+
+# ─── Profil Düzenleme ────────────────────────────────────────────────────────
+
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "avatars")
+MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
+
+
+@router.put("/users/profile")
+async def update_profile(request: Request, user: dict = Depends(get_current_user)):
+    """Profil bilgilerini güncelle: name ve/veya username."""
+    body = await request.json()
+    uid = user["user_id"]
+
+    # Username değiştir
+    if body.get("username"):
+        un = body["username"].strip()
+        if not USERNAME_RE.match(un):
+            raise HTTPException(400, "Geçersiz kullanıcı adı. 3-20 karakter, harf (Türkçe dahil), rakam ve _ kullanın.")
+        ok = await cache.set_custom_username(uid, un)
+        if not ok:
+            raise HTTPException(400, "Bu kullanıcı adı zaten alınmış.")
+
+    # Name değiştir
+    if body.get("name"):
+        name = body["name"].strip()[:50]
+        await cache.update_user_name(uid, name)
+
+    return {"ok": True}
+
+
+@router.post("/users/avatar")
+async def upload_avatar(request: Request, user: dict = Depends(get_current_user)):
+    """
+    Avatar yükle — base64 encoded resim.
+    Max 2MB, JPEG/PNG/WebP kabul edilir.
+    Sunucuda uploads/avatars/{user_id}_{uuid}.webp olarak kaydedilir.
+    """
+    body = await request.json()
+    image_data = body.get("image", "")
+
+    if not image_data:
+        raise HTTPException(400, "Resim verisi bulunamadı.")
+
+    # data:image/... prefix'ini kaldır
+    if "," in image_data:
+        image_data = image_data.split(",", 1)[1]
+
+    try:
+        raw = base64.b64decode(image_data)
+    except Exception:
+        raise HTTPException(400, "Geçersiz base64 formatı.")
+
+    if len(raw) > MAX_AVATAR_BYTES:
+        raise HTTPException(400, "Resim boyutu 2MB'ı aşamaz.")
+
+    # Dosya tipi kontrolü (magic bytes)
+    if raw[:2] == b'\xff\xd8':
+        ext = "jpg"
+    elif raw[:8] == b'\x89PNG\r\n\x1a\n':
+        ext = "png"
+    elif raw[:4] == b'RIFF' and raw[8:12] == b'WEBP':
+        ext = "webp"
+    else:
+        raise HTTPException(400, "Sadece JPEG, PNG ve WebP formatları kabul edilir.")
+
+    # Klasörü oluştur
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    uid = user["user_id"]
+    filename = f"{uid}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+
+    # Eski avatar dosyalarını temizle
+    try:
+        for f in os.listdir(UPLOADS_DIR):
+            if f.startswith(f"{uid}_"):
+                os.remove(os.path.join(UPLOADS_DIR, f))
+    except Exception:
+        pass
+
+    # Yeni dosyayı yaz
+    with open(filepath, "wb") as f:
+        f.write(raw)
+
+    # URL oluştur (relative path — frontend proxy veya doğrudan erişecek)
+    picture_url = f"/uploads/avatars/{filename}"
+
+    # DB güncelle
+    await cache.update_user_picture(uid, picture_url)
+
+    return {"ok": True, "picture": picture_url}

@@ -908,6 +908,18 @@ class MovieCache:
             await db.commit()
             return True
 
+    async def update_user_name(self, user_id: int, name: str):
+        """Kullanıcının görüntü adını güncelle."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute("UPDATE users SET name = ? WHERE id = ?", (name, user_id))
+            await db.commit()
+
+    async def update_user_picture(self, user_id: int, picture_url: str):
+        """Kullanıcının profil fotoğrafı URL'sini güncelle."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute("UPDATE users SET picture = ? WHERE id = ?", (picture_url, user_id))
+            await db.commit()
+
     async def remove_friend(self, user_id: int, friend_id: int) -> bool:
         """ACCEPTED arkadaşlık kaydını sil (iki yönlü kontrol)."""
         async with _get_connection(self.db_path, user_data=True) as db:
