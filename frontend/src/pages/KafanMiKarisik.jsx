@@ -394,12 +394,12 @@ export default function KafanMiKarisik() {
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-start gap-3 p-5 rounded-2xl bg-amber-500/[0.06] border border-amber/15"
+                  className="flex items-start gap-4 p-5 sm:p-6 rounded-2xl bg-amber-500/[0.06] border border-amber/15"
                 >
-                  <Sparkles size={16} className="text-amber/50 mt-0.5 shrink-0" />
+                  <Sparkles size={18} className="text-amber/60 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-1">SENİ ŞÖYLE ANLADIM</p>
-                    <p className="text-sm font-serif text-amber-100/80 leading-relaxed">{result.query_understanding}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber/50 mb-1.5">Seni Şöyle Anladım</p>
+                    <p className="text-base font-serif text-amber-100/85 leading-relaxed">{result.query_understanding}</p>
                   </div>
                 </motion.div>
               )}
@@ -409,9 +409,9 @@ export default function KafanMiKarisik() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-8 md:p-12 rounded-[2.5rem] bg-gradient-to-br from-amber-500/[0.05] to-amber-900/[0.08] border border-white/10"
+                  className="p-6 sm:p-8 md:p-10 rounded-[2rem] bg-gradient-to-br from-amber-500/[0.05] to-amber-900/[0.08] border border-white/10"
                 >
-                  <p className="text-2xl md:text-3xl font-serif italic font-medium leading-relaxed text-amber-100/85 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
+                  <p className="text-xl sm:text-2xl md:text-[1.65rem] font-serif italic font-medium leading-[1.6] text-amber-100/90 text-center">
                     &ldquo;{quote}&rdquo;
                   </p>
                 </motion.div>
@@ -420,19 +420,19 @@ export default function KafanMiKarisik() {
               {/* Mood mix chips — only show for mood-based results */}
               {result.mood_mix && result.mood_mix.length > 0 && (
                 <div className="space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/70">RUH HALİN</p>
-                  <div className="flex flex-wrap gap-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber/60">Ruh Halin</p>
+                  <div className="flex flex-wrap gap-3">
                     {result.mood_mix.map((m) => (
                       <button
                         key={m.mood_id}
                         onClick={() => goToMood(m.mood_id)}
-                        className="group flex items-center gap-3 px-5 py-3 rounded-full bg-white/8 border border-white/15 hover:border-amber/40 transition-all"
+                        className="group flex items-center gap-2.5 px-5 py-3 rounded-full bg-white/8 border border-white/15 hover:border-amber/40 transition-all"
                       >
-                        <Brain size={16} className="text-amber/60" />
-                        <span className="text-sm font-bold uppercase tracking-wider text-amber-100/70 group-hover:text-[#ffbf00] transition-colors">
+                        <Brain size={15} className="text-amber/60" />
+                        <span className="text-[13px] font-bold uppercase tracking-wide text-amber-100/75 group-hover:text-[#ffbf00] transition-colors">
                           {m.title}
                         </span>
-                        <span className="text-xs font-bold text-amber/70">{m.percentage}%</span>
+                        <span className="text-[11px] font-bold text-amber/70">{m.percentage}%</span>
                       </button>
                     ))}
                   </div>
@@ -442,10 +442,10 @@ export default function KafanMiKarisik() {
               {/* Movie cards */}
               {result.movies && result.movies.length > 0 && (
                 <div className="space-y-6">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/70">
-                    {result.intent === 'similar_to_movie' ? 'BENZER FİLMLER'
-                      : result.intent === 'actor_recommendation' || result.intent === 'director_recommendation' ? 'FİLMOGRAFİ'
-                      : 'BUNLARI ÖNERİYORUM'}
+                  <p className="text-[12px] font-bold uppercase tracking-[0.25em] text-amber/70">
+                    {result.intent === 'similar_to_movie' ? 'Benzer Filmler'
+                      : result.intent === 'actor_recommendation' || result.intent === 'director_recommendation' ? 'Filmografi'
+                      : 'Bunları Öneriyorum'}
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {result.movies.map((movie) => (
@@ -531,11 +531,11 @@ export default function KafanMiKarisik() {
 
                         {/* Üstad'ın Gerekçesi */}
                         {movie.reason && (
-                          <div className="p-5 space-y-1.5">
-                            <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-amber/50">
-                              {movie.is_primary_match ? 'EŞLEŞME' : "ÜSTAD'IN GEREKÇESİ"}
+                          <div className="p-5 space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/55">
+                              {movie.is_primary_match ? 'Eşleşme' : "Üstad'ın Gerekçesi"}
                             </p>
-                            <p className="text-xs font-serif font-semibold text-amber-100/70 leading-relaxed">
+                            <p className="text-sm font-serif text-amber-100/80 leading-relaxed">
                               &ldquo;{movie.reason}&rdquo;
                             </p>
                           </div>
@@ -548,15 +548,15 @@ export default function KafanMiKarisik() {
 
               {/* Feedback buttons — adjust recommendations */}
               <div className="space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">BEĞENMEDİN Mİ? AYARLA</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-amber/55">Beğenmedin mi? Ayarla</p>
+                <div className="flex flex-wrap gap-2.5">
                   {FEEDBACK_BUTTONS.map(({ label, text: fbText, icon: Icon }) => (
                     <button
                       key={label}
                       onClick={() => handleFeedback(fbText)}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-amber/30 transition-all text-[11px] font-bold uppercase tracking-wider text-[#f5f2eb]/50 hover:text-amber-100"
+                      className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-amber/30 transition-all text-[12px] font-semibold tracking-wide text-[#f5f2eb]/55 hover:text-amber-100"
                     >
-                      <Icon size={12} />
+                      <Icon size={14} />
                       {label}
                     </button>
                   ))}

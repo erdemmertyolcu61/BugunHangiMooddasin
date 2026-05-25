@@ -90,6 +90,7 @@ export default function Discover() {
 
   const [quizOpen, setQuizOpen] = useState(false);
   const searchTimeout = useRef(null);
+  const lastRequestId = useRef(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const autoAnalyzeTriggered = useRef(false);
   const filmSectionRef = useRef(null);

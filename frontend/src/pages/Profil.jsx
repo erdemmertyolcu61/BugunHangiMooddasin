@@ -18,7 +18,7 @@ import {
   LogOut, Eye, Bookmark, CalendarDays, User, Activity, Users,
   Check, X, UserPlus, Search, Trash2, AtSign, Bell, Play,
   Star as StarIcon, Settings, Palette, Database, AlertTriangle,
-  Film, ChevronRight,
+  Film, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -302,8 +302,11 @@ export default function Profil() {
 
         {/* Header */}
         <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-center gap-3">
-            <img src="/sinemod-mark.png" alt="" className="w-7 h-7 object-contain opacity-80" />
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+            <button onClick={() => navigate(-1)}
+              className="w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
+              <ChevronLeft size={20} />
+            </button>
             <span className="font-sans text-[10px] font-bold uppercase tracking-[0.5em] text-amber/50"
               style={{ textShadow: '0 0 20px rgba(255,191,0,0.15)' }}>
               Profil
@@ -373,7 +376,10 @@ export default function Profil() {
       <header className="sticky top-0 z-50 bg-[#120d0b]/98 backdrop-blur-sm border-b border-white/5 pt-safe">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/sinemod-mark.png" alt="" className="w-7 h-7 object-contain opacity-80" />
+            <button onClick={() => navigate(-1)}
+              className="w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
+              <ChevronLeft size={20} />
+            </button>
             <span className="font-sans text-[10px] font-bold uppercase tracking-[0.5em] text-amber/50"
               style={{ textShadow: '0 0 20px rgba(255,191,0,0.15)' }}>
               Profil
