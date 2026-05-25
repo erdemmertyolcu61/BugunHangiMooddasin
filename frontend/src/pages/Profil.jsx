@@ -21,11 +21,13 @@ import {
   Film, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
   getShares, markSharesRead,
 } from '../services/api';
+import { getApiUrl } from '../utils/apiConfig';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import FilmDetailModal from '../components/FilmDetailModal';
 
@@ -93,6 +95,7 @@ const USTAD_MOOD_REVIEWS = {
 export default function Profil() {
   const navigate = useNavigate();
   const { user, logout, login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   /* ─── Auth ─────────────────────────────────────────────────────── */
   const [authBusy, setAuthBusy] = useState(false);
@@ -307,7 +310,7 @@ export default function Profil() {
               className="w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
               <ChevronLeft size={20} />
             </button>
-            <span className="font-sans text-[10px] font-bold uppercase tracking-[0.5em] text-amber/50"
+            <span className="font-sans text-[12px] font-bold uppercase tracking-[0.35em] text-amber/70"
               style={{ textShadow: '0 0 20px rgba(255,191,0,0.15)' }}>
               Profil
             </span>
@@ -380,7 +383,7 @@ export default function Profil() {
               className="w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
               <ChevronLeft size={20} />
             </button>
-            <span className="font-sans text-[10px] font-bold uppercase tracking-[0.5em] text-amber/50"
+            <span className="font-sans text-[12px] font-bold uppercase tracking-[0.35em] text-amber/70"
               style={{ textShadow: '0 0 20px rgba(255,191,0,0.15)' }}>
               Profil
             </span>
@@ -426,8 +429,8 @@ export default function Profil() {
                 <AtSign size={13} />{sanitize(user.username)}
               </p>
             )}
-            <p className="font-sans text-[11px] text-ivory/30 flex items-center justify-center gap-1.5">
-              <CalendarDays size={11} className="text-amber/30" />
+            <p className="font-sans text-[12px] text-ivory/50 flex items-center justify-center gap-1.5">
+              <CalendarDays size={11} className="text-amber/50" />
               {formatDate(user.created_at)} tarihinde katıldı
             </p>
           </div>
@@ -454,7 +457,7 @@ export default function Profil() {
                   <p className="font-sans text-2xl sm:text-3xl font-bold text-ivory tracking-tight leading-none">
                     {value}
                   </p>
-                  <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.18em] text-ivory/30">
+                  <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.15em] text-ivory/50">
                     {label}
                   </p>
                 </div>
@@ -471,10 +474,10 @@ export default function Profil() {
             {/* State A: Empty */}
             {tasteStatus === 'empty' && (
               <div className="p-6 sm:p-8 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-3">
-                <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-amber/30">
+                <p className="font-sans text-[12px] font-bold uppercase tracking-[0.2em] text-amber/60">
                   Üstad'ın Okuması
                 </p>
-                <p className="font-serif text-base italic leading-relaxed text-ivory/35 max-w-md mx-auto">
+                <p className="font-serif text-base italic leading-relaxed text-ivory/55 max-w-md mx-auto">
                   Zevk haritanı çizmeye henüz başlayamadım evlat.
                   Defterine birkaç film ekle, senin sinema ruhunu keşfedeyim.
                 </p>
@@ -505,8 +508,8 @@ export default function Profil() {
                   <div className="flex flex-wrap gap-2">
                     {topMoods.map(m => (
                       <span key={m.mood_id}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08]
-                          font-sans text-[11px] font-semibold text-ivory/60">
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.10]
+                          font-sans text-[12px] font-semibold text-ivory/75">
                         <span className="w-2 h-2 rounded-full shrink-0"
                           style={{ backgroundColor: MOOD_DOT_COLORS[m.mood_id] || '#d4af37' }} />
                         {sanitize(m.title)}
@@ -520,19 +523,19 @@ export default function Profil() {
                   <div className="border-t border-white/5 pt-4 space-y-2">
                     {summaryTexts.length > 0 ? (
                       summaryTexts.slice(0, 2).map((text, i) => (
-                        <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/45">
+                        <p key={i} className="font-serif text-sm italic leading-relaxed text-ivory/65">
                           "{sanitize(text)}"
                         </p>
                       ))
                     ) : ustadReview ? (
-                      <p className="font-serif text-sm italic leading-relaxed text-ivory/45">
+                      <p className="font-serif text-sm italic leading-relaxed text-ivory/65">
                         "{ustadReview}"
                       </p>
                     ) : null}
                   </div>
                 )}
 
-                <p className="font-sans text-[10px] text-ivory/15 text-center pt-1">
+                <p className="font-sans text-[11px] text-ivory/40 text-center pt-1">
                   Birkaç film daha ekle — zevk haritanın tam analizi açılsın.
                 </p>
               </div>
@@ -562,12 +565,12 @@ export default function Profil() {
                   <div className="flex flex-wrap gap-2">
                     {topMoods.map(m => (
                       <span key={m.mood_id}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08]
-                          font-sans text-[11px] font-semibold text-ivory/60">
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.10]
+                          font-sans text-[12px] font-semibold text-ivory/75">
                         <span className="w-2 h-2 rounded-full shrink-0"
                           style={{ backgroundColor: MOOD_DOT_COLORS[m.mood_id] || '#d4af37' }} />
                         {sanitize(m.title)}
-                        <span className="text-ivory/25">{Math.round(moodPct[m.mood_id] || 0)}%</span>
+                        <span className="text-ivory/50">{Math.round(moodPct[m.mood_id] || 0)}%</span>
                       </span>
                     ))}
                   </div>
@@ -582,7 +585,7 @@ export default function Profil() {
                       const dotColor = MOOD_DOT_COLORS[mid] || '#d4af37';
                       return (
                         <div key={mid} className="flex items-center gap-3">
-                          <span className="font-sans text-[10px] font-semibold text-ivory/40 w-24 truncate uppercase tracking-wide">
+                          <span className="font-sans text-[11px] font-semibold text-ivory/60 w-24 truncate uppercase tracking-wide">
                             {label}
                           </span>
                           <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
@@ -594,7 +597,7 @@ export default function Profil() {
                               style={{ backgroundColor: dotColor, opacity: 0.7 }}
                             />
                           </div>
-                          <span className="font-sans text-[10px] font-bold text-ivory/25 w-8 text-right">
+                          <span className="font-sans text-[11px] font-bold text-ivory/50 w-8 text-right">
                             %{Math.round(pct)}
                           </span>
                         </div>
@@ -606,17 +609,17 @@ export default function Profil() {
                 {/* Üstad quotes */}
                 {(summaryTexts.length > 0 || ustadReview) && (
                   <div className="border-t border-white/5 pt-4 space-y-2">
-                    <p className="font-sans text-[9px] font-bold uppercase tracking-[0.3em] text-amber/25 mb-2">
+                    <p className="font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-amber/50 mb-2">
                       Üstad'ın Özeti
                     </p>
                     {summaryTexts.length > 0 ? (
                       summaryTexts.map((text, i) => (
-                        <p key={i} className="font-serif text-[13px] italic leading-relaxed text-ivory/50">
+                        <p key={i} className="font-serif text-[14px] italic leading-relaxed text-ivory/70">
                           "{sanitize(text)}"
                         </p>
                       ))
                     ) : ustadReview ? (
-                      <p className="font-serif text-[13px] italic leading-relaxed text-ivory/50">
+                      <p className="font-serif text-[14px] italic leading-relaxed text-ivory/70">
                         "{ustadReview}"
                       </p>
                     ) : null}
@@ -633,7 +636,7 @@ export default function Profil() {
             transition={{ duration: 0.6, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-4">
 
-            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/25 px-1">
+            <p className="font-sans text-[12px] font-bold uppercase tracking-[0.2em] text-amber/50 px-1">
               Son İzlenenler
             </p>
 
@@ -665,10 +668,10 @@ export default function Profil() {
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <p className="font-serif text-sm font-semibold text-ivory/70 truncate">
+                        <p className="font-serif text-sm font-semibold text-ivory/85 truncate">
                           {sanitize(movie.title)}
                         </p>
-                        <p className="font-sans text-[10px] text-ivory/25">
+                        <p className="font-sans text-[11px] text-ivory/45">
                           {formatDate(movie.added_at)}
                         </p>
                       </div>
@@ -685,7 +688,7 @@ export default function Profil() {
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.26, ease: [0.16, 1, 0.3, 1] }}
             className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
-            <p className="font-serif text-sm italic text-ivory/30 leading-relaxed">
+            <p className="font-serif text-sm italic text-ivory/50 leading-relaxed">
               Henüz yeni bir bildirim yok.
               Arkadaşlarından gelen istekler ve film önerileri burada görünecek.
             </p>
@@ -820,7 +823,7 @@ export default function Profil() {
 
           <div className="flex items-center gap-2.5 px-1">
             <Users size={14} className="text-[#d4af37]/60" />
-            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/25">
+            <p className="font-sans text-[12px] font-bold uppercase tracking-[0.25em] text-amber/60">
               Sinema Arkadaşlarım
             </p>
           </div>
@@ -840,7 +843,7 @@ export default function Profil() {
               <div className="w-14 h-14 mx-auto rounded-full bg-amber/10 border border-amber/15 flex items-center justify-center">
                 <Users size={22} className="text-amber/30" />
               </div>
-              <p className="font-serif text-sm italic text-ivory/35 leading-relaxed">
+              <p className="font-serif text-sm italic text-ivory/55 leading-relaxed">
                 Henüz sinema arkadaşın yok. Üstad'ın dünyasına arkadaşlarını davet et!
               </p>
               <div className="max-w-xs mx-auto space-y-3">
@@ -869,7 +872,7 @@ export default function Profil() {
               {/* Search + Add */}
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
                   <input value={friendSearch} onChange={e => setFriendSearch(e.target.value)}
                     placeholder="Arkadaş Ara..."
                     className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/[0.08] rounded-full
@@ -898,7 +901,7 @@ export default function Profil() {
               {/* Friend cards */}
               <AnimatePresence>
                 {filteredFriends.length === 0 ? (
-                  <p className="text-center text-sm font-serif italic text-white/25 py-4">
+                  <p className="text-center text-sm font-serif italic text-white/45 py-4">
                     &ldquo;{friendSearch}&rdquo; ile eşleşen arkadaş yok.
                   </p>
                 ) : (
@@ -916,7 +919,7 @@ export default function Profil() {
 
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{f.name || f.username}</p>
-                          <p className="text-[10px] text-white/30 truncate">@{f.username}</p>
+                          <p className="text-[11px] text-white/45 truncate">@{f.username}</p>
                         </div>
 
                         <button onClick={() => handleRemoveFriend(f.id)}
@@ -939,30 +942,59 @@ export default function Profil() {
           className="space-y-3">
 
           <div className="flex items-center gap-2.5 px-1">
-            <Settings size={14} className="text-ivory/20" />
-            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/20">
+            <Settings size={14} className="text-amber/50" />
+            <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">
               Ayarlar
             </p>
           </div>
 
           <div className="rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">
             {[
-              { icon: Bell, label: 'Bildirimler', desc: 'Öneri ve istek bildirimleri', action: null },
-              { icon: Palette, label: 'Görünüm', desc: 'Tema ve renk tercihleri', action: null },
-              { icon: Database, label: 'Verilerim', desc: 'Dışa aktar veya yedekle', action: null },
-              { icon: AlertTriangle, label: 'Hesabı Sil', desc: 'Tüm verileri kalıcı olarak sil', danger: true, action: null },
-            ].map(({ icon: Icon, label, desc, danger }) => (
-              <button key={label}
-                className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-left transition-all
-                  ${danger ? 'hover:bg-rose-500/5' : 'hover:bg-white/[0.02]'}`}>
-                <Icon size={16} className={danger ? 'text-rose-400/50' : 'text-ivory/25'} />
+              { icon: Bell, label: 'Bildirimler', desc: 'Öneri ve istek bildirimleri',
+                action: () => navigate('/profil') },
+              { icon: Palette, label: 'Görünüm', desc: theme === 'dark' ? 'Aydınlık temaya geç' : 'Karanlık temaya geç',
+                action: toggleTheme, badge: theme === 'dark' ? 'Karanlık' : 'Aydınlık' },
+              { icon: Database, label: 'Verilerim', desc: 'Dışa aktar veya yedekle',
+                action: async () => {
+                  try {
+                    const wl = await getWatchlist();
+                    const blob = new Blob([JSON.stringify(wl, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'sinemood-verilerim.json'; a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { alert('Veri dışa aktarılamadı.'); }
+                }},
+              { icon: AlertTriangle, label: 'Hesabı Sil', desc: 'Tüm verileri kalıcı olarak sil', danger: true,
+                action: async () => {
+                  if (!window.confirm('Hesabınız ve tüm verileriniz kalıcı olarak silinecek. Bu işlem geri alınamaz. Emin misiniz?')) return;
+                  try {
+                    const token = window.__fc_user_token;
+                    const res = await fetch(getApiUrl('/api/auth/account'), {
+                      method: 'DELETE',
+                      headers: { 'Authorization': `Bearer ${token}` },
+                    });
+                    if (res.ok) { logout(); navigate('/'); }
+                    else alert('Hesap silinemedi. Lütfen tekrar deneyin.');
+                  } catch { alert('Bir hata oluştu.'); }
+                }},
+            ].map(({ icon: Icon, label, desc, danger, action, badge }) => (
+              <button key={label} onClick={action}
+                className={`w-full flex items-center gap-3.5 px-5 py-4 text-left transition-all
+                  ${danger ? 'hover:bg-rose-500/8' : 'hover:bg-white/[0.04]'}`}>
+                <Icon size={17} className={danger ? 'text-rose-400/70' : 'text-ivory/50'} />
                 <div className="flex-1 min-w-0">
-                  <p className={`font-sans text-[13px] font-semibold ${danger ? 'text-rose-400/70' : 'text-ivory/60'}`}>
+                  <p className={`font-sans text-[14px] font-semibold ${danger ? 'text-rose-400/80' : 'text-ivory/80'}`}>
                     {label}
                   </p>
-                  <p className="font-sans text-[10px] text-ivory/20">{desc}</p>
+                  <p className="font-sans text-[11px] text-ivory/40 mt-0.5">{desc}</p>
                 </div>
-                <ChevronRight size={14} className="text-ivory/15 shrink-0" />
+                {badge && (
+                  <span className="px-2.5 py-1 rounded-full bg-amber/10 border border-amber/20 font-sans text-[10px] font-bold text-amber/70 uppercase tracking-wide shrink-0">
+                    {badge}
+                  </span>
+                )}
+                <ChevronRight size={14} className="text-ivory/30 shrink-0" />
               </button>
             ))}
           </div>
