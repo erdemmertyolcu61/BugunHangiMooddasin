@@ -2963,17 +2963,28 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         src_genres = set()
 
         if repo_hits:
-            src_id = repo_hits[0].get("id")
-            src_title = repo_hits[0].get("title", src_title)
-            src_genres = set(repo_hits[0].get("genre_ids", []) or [])
+            # Belgesel olmayan + en popüler sonucu seç
+            best_repo = max(
+                (m for m in repo_hits if 99 not in (m.get("genre_ids") or [])),
+                key=lambda m: (m.get("vote_count") or 0),
+                default=repo_hits[0]
+            )
+            src_id = best_repo.get("id")
+            src_title = best_repo.get("title", src_title)
+            src_genres = set(best_repo.get("genre_ids", []) or [])
         else:
-            # TMDB'de ara
+            # TMDB'de ara — belgesel olmayan + en popüler sonucu seç
             try:
                 tmdb_hits = await tmdb_service.search_movies(intent.reference_title, page=1)
                 if tmdb_hits:
-                    src_id = tmdb_hits[0]["id"]
-                    src_title = tmdb_hits[0].get("title", src_title)
-                    src_genres = set(tmdb_hits[0].get("genre_ids", []) or [])
+                    best = max(
+                        (m for m in tmdb_hits if 99 not in (m.get("genre_ids") or [])),
+                        key=lambda m: (m.get("vote_count") or 0),
+                        default=tmdb_hits[0]
+                    )
+                    src_id = best["id"]
+                    src_title = best.get("title", src_title)
+                    src_genres = set(best.get("genre_ids", []) or [])
             except Exception:
                 pass
 
@@ -3000,6 +3011,9 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                     if not m_id or m_id in exclude_set:
                         continue
                     if not m.get("poster_url"):
+                        continue
+                    # Belgeselleri öneri havuzundan çıkar
+                    if 99 in (m.get("genre_ids") or []):
                         continue
                     vc = int(m.get("vote_count") or 0)
                     va = float(m.get("vote_average") or 0)
