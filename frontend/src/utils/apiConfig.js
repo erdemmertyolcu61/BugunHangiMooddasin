@@ -22,6 +22,16 @@ export const getApiUrl = (path) => {
   return `${API_BASE_URL}${cleanPath}`;
 };
 
+/**
+ * Avatar URL çözümleyici — /uploads ile başlayan yerel yolları API base'e bağlar,
+ * Google/harici URL'leri olduğu gibi döndürür.
+ */
+export const resolveAvatarUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
+  return url;
+};
+
 export const checkBackendHealth = async () => {
   try {
     const urls = [getApiUrl('/api/health'), getApiUrl('/health')];

@@ -27,7 +27,7 @@ import {
   respondFriendRequest, removeFriend, sendFriendRequest,
   getShares, markSharesRead, getMe,
 } from '../services/api';
-import { getApiUrl } from '../utils/apiConfig';
+import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import NotificationsBell from '../components/NotificationsBell';
 import FilmDetailModal from '../components/FilmDetailModal';
@@ -573,7 +573,7 @@ export default function Profil() {
 
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
                       {r.avatar && !failedAvatars.has(r.request_id)
-                        ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                        ? <img src={resolveAvatarUrl(r.avatar)} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
                             onError={() => onAvatarError(r.request_id)} />
                         : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
                     </div>
@@ -633,7 +633,7 @@ export default function Profil() {
                     <div className="flex-1 min-w-0 flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         {s.sender?.avatar && (
-                          <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={resolveAvatarUrl(s.sender.avatar)} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
                         )}
                         <span className="text-[12px] text-amber/75 font-semibold truncate">
                           {s.sender?.username || s.sender?.name || 'Arkadaş'}
@@ -769,7 +769,7 @@ export default function Profil() {
 
                         <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
                           {f.avatar && !failedAvatars.has(f.id)
-                            ? <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                            ? <img src={resolveAvatarUrl(f.avatar)} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
                                 onError={() => onAvatarError(f.id)} />
                             : <span className="font-bold text-[11px] text-amber/60">{(f.username || f.name || '?')[0].toUpperCase()}</span>}
                         </div>

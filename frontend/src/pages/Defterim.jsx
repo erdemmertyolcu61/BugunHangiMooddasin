@@ -464,7 +464,7 @@ export default function Defterim() {
                                         value={noteDraft}
                                         onChange={(e) => setNoteDraft(e.target.value)}
                                         placeholder="Bu başyapıt sende nasıl bir iz bıraktı?"
-                                        className="w-full h-28 sm:h-40 bg-black/40 border border-white/10 rounded-xl sm:rounded-[2rem] p-4 sm:p-8 text-sm sm:text-2xl font-serif italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all"
+                                        className="w-full h-28 sm:h-40 bg-black/40 border border-white/10 rounded-xl sm:rounded-[2rem] p-4 sm:p-8 text-sm sm:text-2xl font-playfair italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all"
                                     />
                                     <div className="flex gap-3 sm:gap-4">
                                         <button onClick={() => handleSaveNote(movie.tmdb_id)} className="px-6 sm:px-10 py-3 sm:py-4 bg-amber text-bg font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] rounded-full flex items-center gap-2 sm:gap-3">
@@ -476,7 +476,7 @@ export default function Defterim() {
                                     </div>
                                 </motion.div>
                             ) : (
-                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-base sm:text-4xl font-serif italic leading-snug tracking-tight ${movie.personal_note ? 'text-ivory' : 'text-ivory/10'}`}>
+                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-base sm:text-4xl font-playfair italic leading-snug tracking-tight ${movie.personal_note ? 'text-ivory' : 'text-ivory/10'}`}>
                                     {movie.personal_note || "Henüz bir not düşülmemiş..." }
                                 </motion.p>
                             )}

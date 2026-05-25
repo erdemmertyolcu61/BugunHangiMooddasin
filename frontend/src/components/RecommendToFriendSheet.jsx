@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Send, Check, X, Users, UserPlus, Sparkles } from 'lucide-react';
 import { getFriends, recommendMovieToFriend, sendFriendRequest } from '../services/api';
+import { resolveAvatarUrl } from '../utils/apiConfig';
 import OptimizedImage from './OptimizedImage';
 
 /**
@@ -230,7 +231,7 @@ export default function RecommendToFriendSheet({ movie, onClose }) {
                       >
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0">
                           {f.avatar && !failedAvatars.has(f.id) ? (
-                            <img src={f.avatar} alt={f.name} className="w-full h-full object-cover"
+                            <img src={resolveAvatarUrl(f.avatar)} alt={f.name} className="w-full h-full object-cover"
                               onError={() => onAvatarError(f.id)} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-amber/60 font-bold">

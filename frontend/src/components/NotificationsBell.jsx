@@ -9,6 +9,7 @@ import {
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
 import LottieAnimation from './LottieAnimation';
+import { resolveAvatarUrl } from '../utils/apiConfig';
 
 const POLL_MS = 30000;
 
@@ -194,7 +195,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                           >
                             <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
                               {r.avatar && !failedAvatars.has(r.request_id)
-                                ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                                ? <img src={resolveAvatarUrl(r.avatar)} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
                                     onError={() => onAvatarError(r.request_id)} />
                                 : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
                             </div>
@@ -249,7 +250,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                               <div className="flex items-center gap-2 mb-0.5">
                                 {s.sender?.avatar && !failedAvatars.has(`share-${s.id}`) && (
-                                  <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer"
+                                  <img src={resolveAvatarUrl(s.sender.avatar)} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer"
                                     onError={() => onAvatarError(`share-${s.id}`)} />
                                 )}
                                 <span className="text-[12px] text-amber/80 font-semibold truncate">

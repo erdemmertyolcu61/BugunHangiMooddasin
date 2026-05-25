@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
 import UpcomingSlider from '../components/UpcomingSlider';
 import QuizModal from '../components/QuizModal';
-import { getApiUrl } from '../utils/apiConfig';
+import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
 import FilmDetailModal from '../components/FilmDetailModal';
@@ -918,7 +918,7 @@ export default function Discover() {
                 {recommenders.slice(0, 3).map((r) => (
                   <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-[#1a1a1a] bg-amber/15 flex items-center justify-center">
                     {r.avatar
-                      ? <img src={r.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ? <img src={resolveAvatarUrl(r.avatar)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       : <span className="font-serif text-[11px] font-bold text-amber">{(r.username || '?').slice(0, 1).toUpperCase()}</span>}
                   </span>
                 ))}
