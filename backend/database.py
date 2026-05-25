@@ -854,6 +854,16 @@ class MovieCache:
             row = await cur.fetchone()
             return row[0] if row else 0
 
+    async def count_pending_requests(self, user_id: int) -> int:
+        """Bana gelen bekleyen arkadaşlık isteklerinin sayısı."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM friendships WHERE friend_id = ? AND status = 'PENDING'",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            return row[0] if row else 0
+
     async def mark_shares_read(self, user_id: int, share_ids: list = None) -> None:
         async with _get_connection(self.db_path, user_data=True) as db:
             if share_ids:

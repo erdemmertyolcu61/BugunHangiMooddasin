@@ -177,8 +177,15 @@ async def get_shares(user: dict = Depends(get_current_user)):
 
 @router.get("/notifications/count")
 async def unread_count(user: dict = Depends(get_current_user)):
-    """Zil rozetini beslemek için okunmamış paylaşım sayısı."""
-    return {"unread_count": await cache.count_unread_shares(user["user_id"])}
+    """Zil rozetini beslemek için toplam bildirim sayısı (film önerileri + arkadaşlık istekleri)."""
+    uid = user["user_id"]
+    share_count = await cache.count_unread_shares(uid)
+    request_count = await cache.count_pending_requests(uid)
+    return {
+        "unread_count": share_count + request_count,
+        "shares": share_count,
+        "requests": request_count,
+    }
 
 
 @router.post("/notifications/shares/read")

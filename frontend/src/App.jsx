@@ -12,6 +12,7 @@ import UsernameOnboardingModal from './components/UsernameOnboardingModal';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
+import NotificationsBell from './components/NotificationsBell';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -158,6 +159,7 @@ function AppContent() {
         </Routes>
       </Suspense>
       <BottomNav />
+      <NotificationsBell />
       <UsernameOnboardingModal />
     </>
   );

@@ -131,6 +131,7 @@ export default function Profil() {
   const [addMsg, setAddMsg] = useState(null);
   const [addBusy, setAddBusy] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
+  const [socialError, setSocialError] = useState('');
 
   /* ─── Shares ───────────────────────────────────────────────────── */
   const [shares, setShares] = useState([]);
@@ -144,6 +145,7 @@ export default function Profil() {
     let alive = true;
     (async () => {
       try {
+        setSocialError('');
         const [fr, rq, sh] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
@@ -168,6 +170,7 @@ export default function Profil() {
     const poll = async () => {
       if (document.visibilityState !== 'visible') return;
       try {
+        setSocialError('');
         const [rq, sh] = await Promise.all([
           getFriendRequests().catch(() => ({ requests: [] })),
           getShares().catch(() => ({ shares: [] })),
@@ -186,20 +189,26 @@ export default function Profil() {
   /* ─── Social handlers ──────────────────────────────────────────── */
   const handleRespondRequest = useCallback(async (requestId, action) => {
     try {
+      setSocialError('');
       await respondFriendRequest(requestId, action);
       setRequests(prev => prev.filter(r => r.request_id !== requestId));
       if (action === 'ACCEPT') {
         const data = await getFriends().catch(() => ({ friends: [] }));
         setFriends(data.friends || []);
       }
-    } catch {}
+    } catch (err) {
+      setSocialError(err?.message || 'İstek işlenemedi.');
+    }
   }, []);
 
   const handleRemoveFriend = useCallback(async (friendId) => {
     try {
+      setSocialError('');
       await removeFriend(friendId);
       setFriends(prev => prev.filter(f => f.id !== friendId));
-    } catch {}
+    } catch (err) {
+      setSocialError(err?.message || 'Arkadaş silinemedi.');
+    }
   }, []);
 
   const handleAddFriend = useCallback(async () => {
@@ -704,13 +713,17 @@ export default function Profil() {
 
               <div className="flex items-center gap-2.5 px-1">
                 <UserPlus size={14} className="text-[#d4af37]/60" />
-                <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/25">
+                <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60">
                   Gelen İstekler
                 </p>
                 <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-bold">
                   {requests.length}
                 </span>
               </div>
+
+              {socialError && (
+                <p className="px-1 text-[11px] font-serif italic text-rose-400">{socialError}</p>
+              )}
 
               <div className="space-y-1.5">
                 {requests.map(r => (
@@ -726,7 +739,7 @@ export default function Profil() {
 
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.name || r.username}</p>
-                      <p className="text-[10px] text-white/30 truncate">@{r.username}</p>
+                      <p className="text-[10px] text-white/45 truncate">@{r.username}</p>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -757,7 +770,7 @@ export default function Profil() {
 
               <div className="flex items-center gap-2.5 px-1">
                 <Bell size={14} className="text-[#d4af37]/60" />
-                <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/25">
+                <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60">
                   Gelen Öneriler
                 </p>
                 <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-bold">
