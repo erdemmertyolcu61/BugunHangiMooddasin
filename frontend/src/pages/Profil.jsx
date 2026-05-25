@@ -850,7 +850,7 @@ export default function Profil() {
                     onKeyDown={e => e.key === 'Enter' && handleAddFriend()}
                     placeholder="kullanıcı_adı"
                     className="flex-1 px-4 py-2 bg-white/5 border border-white/[0.08] rounded-full
-                      text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/30 transition-all font-mono" />
+                      text-sm text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus:border-amber/30 transition-all font-mono" />
                   <button onClick={handleAddFriend} disabled={addBusy}
                     className="flex items-center gap-1.5 px-4 py-2 bg-[#d4af37] text-[#120d0b] rounded-full text-[10px] font-bold uppercase tracking-wider
                       hover:bg-amber-400 transition-all disabled:opacity-40">
@@ -873,7 +873,7 @@ export default function Profil() {
                   <input value={friendSearch} onChange={e => setFriendSearch(e.target.value)}
                     placeholder="Arkadaş Ara..."
                     className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/[0.08] rounded-full
-                      text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/30 transition-all" />
+                      text-sm text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus:border-amber/30 transition-all" />
                 </div>
                 <div className="flex gap-1.5">
                   <input value={addUsername}
@@ -881,7 +881,7 @@ export default function Profil() {
                     onKeyDown={e => e.key === 'Enter' && handleAddFriend()}
                     placeholder="kullanıcı_adı"
                     className="w-24 sm:w-32 px-3 py-2 bg-white/5 border border-white/[0.08] rounded-full
-                      text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/30 transition-all font-mono" />
+                      text-sm text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus:border-amber/30 transition-all font-mono" />
                   <button onClick={handleAddFriend} disabled={addBusy}
                     className="flex items-center gap-1 px-3 py-2 bg-[#d4af37] text-[#120d0b] rounded-full text-[10px] font-bold
                       hover:bg-amber-400 transition-all disabled:opacity-40 shrink-0" title="Arkadaş Ekle">
@@ -921,7 +921,7 @@ export default function Profil() {
 
                         <button onClick={() => handleRemoveFriend(f.id)}
                           className="w-7 h-7 rounded-full flex items-center justify-center
-                            text-white/15 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Kaldır">
+                            text-white/30 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Kaldır">
                           <Trash2 size={13} />
                         </button>
                       </motion.div>

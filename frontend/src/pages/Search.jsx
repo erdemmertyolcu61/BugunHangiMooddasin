@@ -78,7 +78,8 @@ export default function SearchPage() {
               value={query}
               onChange={onChange}
               placeholder="Film ara — isim, konu, yönetmen..."
-              className="w-full pl-11 pr-11 py-3.5 bg-white/5 border border-white/10 rounded-full text-[15px] text-ivory placeholder:text-ivory/25 focus:outline-none focus:border-amber/50 focus:bg-white/[0.07] transition-all"
+              aria-label="Film ara"
+              className="w-full pl-11 pr-11 py-3.5 bg-white/5 border border-white/10 rounded-full text-[15px] text-ivory placeholder:text-ivory/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/50 focus:bg-white/[0.07] transition-all"
             />
             {query && (
               <button onClick={clear}

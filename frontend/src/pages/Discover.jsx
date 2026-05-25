@@ -19,13 +19,22 @@ import { useCache } from '../hooks/useCache';
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
 const IMG_BASE_LG = 'https://image.tmdb.org/t/p/original';  // Modal detail poster (tam kalite)
 
-// Caching logic using localStorage (V3 as per Master Prompt)
+// Caching logic using localStorage (V3) — 7 gün TTL
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 gün
 const getCachedAnalysis = (id) => {
-  const cached = localStorage.getItem(`analysis_v3_${id}`);
-  return cached ? JSON.parse(cached) : null;
+  const raw = localStorage.getItem(`analysis_v3_${id}`);
+  if (!raw) return null;
+  try {
+    const { data, ts } = JSON.parse(raw);
+    if (ts && Date.now() - ts > CACHE_TTL_MS) {
+      localStorage.removeItem(`analysis_v3_${id}`);
+      return null;
+    }
+    return data || JSON.parse(raw); // eski format uyumluluğu
+  } catch { return null; }
 };
 const setCachedAnalysis = (id, data) => {
-  localStorage.setItem(`analysis_v3_${id}`, JSON.stringify(data));
+  localStorage.setItem(`analysis_v3_${id}`, JSON.stringify({ data, ts: Date.now() }));
 };
 
 // TMDB vote_average az oyda şişer (2 oy → 10.0). Güvenilir puanı seç:
@@ -702,7 +711,7 @@ export default function Discover() {
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Arşivde ara..."
-                className="w-full px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/60 transition-all"
+                className="w-full px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/60 transition-all"
             />
           </div>
 

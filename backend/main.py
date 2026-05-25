@@ -133,6 +133,7 @@ async def lifespan(app: FastAPI):
     await setup_dns_bypass()
     await cache.init_db()
     await cache.prune_tmdb_cache()
+    await cache.prune_mood_query_cache()
     logger.info("🎬 [Backend] Film Connoisseur API starting...")
     logger.info("📡 [Health] http://127.0.0.1:8002/health")
     logger.info("🎵 [AudioDebug] http://127.0.0.1:8002/api/audio/debug")
@@ -559,8 +560,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Admin-Password", "X-Beta-Token"],
 )
 
 # ── Sosyal ağ rotaları: Arkadaşlık + Doğrudan Film Paylaşımı ──
@@ -676,6 +677,11 @@ def _check_rate_limit(request: Request, limit: int):
     if len(_rate_store[key]) >= limit:
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Please try again later.")
     _rate_store[key].append(now)
+    # Bellek sınırı: max 50K key
+    if len(_rate_store) > 50000:
+        oldest = sorted(_rate_store.keys(), key=lambda k: min(_rate_store[k]) if _rate_store[k] else 0)[:10000]
+        for k in oldest:
+            del _rate_store[k]
 
 def rate_limit_general(request: Request):
     _check_rate_limit(request, RATE_LIMIT_GENERAL)
@@ -737,10 +743,9 @@ async def beta_login(request: Request):
         raise HTTPException(status_code=400, detail="Invalid request body")
     password = body.get("password", "")
     if not BETA_PASSWORD:
-        # No beta password configured — allow access
-        return {"token": _create_token({"type": "beta"}, expires_hours=720), "expires_in": 2592000}
+        raise HTTPException(status_code=403, detail="Beta erişim yapılandırılmamış")
     if password == BETA_PASSWORD:
-        return {"token": _create_token({"type": "beta"}, expires_hours=720), "expires_in": 2592000}
+        return {"token": _create_token({"type": "beta"}, expires_hours=168), "expires_in": 604800}  # 7 gün
     raise HTTPException(status_code=401, detail="Invalid beta password")
 
 @app.post("/api/auth/admin")
@@ -852,7 +857,7 @@ async def google_login(request: Request):
     except Exception as e:
         logger.warning("[Auth] ensure_username failed for user_id=%s: %s", user_id, e)
 
-    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=720)
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)  # 7 gün
     return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}}
 
 
@@ -998,7 +1003,7 @@ async def perf_test():
     }
 
 
-@app.get("/api/movies/turkish")
+@app.get("/api/movies/turkish", dependencies=[Depends(rate_limit_general)])
 async def get_turkish_movies(
     page: int = Query(1, ge=1, le=100),
     sort_by: str = Query("popularity.desc", regex="^(popularity.desc|vote_average.desc|primary_release_date.desc|revenue.desc)$"),
@@ -1018,7 +1023,7 @@ async def get_turkish_movies(
     return {"movies": result["movies"], "page": result["page"], "total_pages": min(result["total_pages"], 100), "total_results": result["total_results"]}
 
 
-@app.get("/api/movies/upcoming")
+@app.get("/api/movies/upcoming", dependencies=[Depends(rate_limit_general)])
 async def get_upcoming_movies():
     """Fetch upcoming releases (6h cache)."""
     result = await _cached_tmdb("upcoming", "upcoming:1", tmdb_service.get_upcoming_movies)
@@ -1027,7 +1032,7 @@ async def get_upcoming_movies():
     return {"movies": result["movies"], "page": result.get("page", 1), "total_pages": result.get("total_pages", 1)}
 
 
-@app.get("/api/movies/now-playing")
+@app.get("/api/movies/now-playing", dependencies=[Depends(rate_limit_general)])
 async def get_now_playing():
     """Fetch movies currently in theaters (6h cache)."""
     result = await _cached_tmdb("nowplaying", "nowplaying:1", tmdb_service.get_now_playing)
@@ -1036,7 +1041,7 @@ async def get_now_playing():
     return {"movies": result["movies"], "page": result.get("page", 1), "total_pages": result.get("total_pages", 1)}
 
 
-@app.get("/api/movies/search")
+@app.get("/api/movies/search", dependencies=[Depends(rate_limit_general)])
 async def search_movies(q: str = Query(..., min_length=1, max_length=200)):
     """Search TMDB for movies by title (6h cache)."""
     q_clean = q.strip()
@@ -1048,7 +1053,7 @@ async def search_movies(q: str = Query(..., min_length=1, max_length=200)):
     return {"movies": result, "query": q_clean}
 
 
-@app.get("/api/movies/discover")
+@app.get("/api/movies/discover", dependencies=[Depends(rate_limit_general)])
 async def discover_movies(
     genres: str = Query(..., description="Comma-separated TMDB genre IDs"),
     page: int = Query(1, ge=1, le=3),
@@ -1128,7 +1133,7 @@ async def get_movies(
 
 # --- Movie Repository Endpoints (kaliteli film havuzu) ---
 
-@app.get("/api/repository/seed")
+@app.get("/api/repository/seed", dependencies=[Depends(verify_admin)])
 async def seed_repository(mood_id: str = Query(None)):
     """
     Pre-fetch high-rated movies for all moods (or a specific mood) and store locally.

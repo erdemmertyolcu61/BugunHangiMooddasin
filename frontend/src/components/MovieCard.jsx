@@ -20,7 +20,7 @@ const reliableRating = (movie) => {
 
 function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onAnalyze }) {
   return (
-    <div className="group cursor-pointer relative" onClick={() => onAnalyze(movie)}>
+    <div className="group cursor-pointer relative" role="button" tabIndex={0} aria-label={`${movie.title} detaylarını aç`} onClick={() => onAnalyze(movie)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAnalyze(movie); } }}>
       <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
         {movie.poster_url || movie.poster_path
           ? <OptimizedImage
@@ -57,6 +57,7 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-1.5 sm:gap-3 p-2 sm:p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-1 sm:group-hover:translate-y-0">
           <button
             onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
+            aria-label={isSaved ? `${movie.title} defterden çıkar` : `${movie.title} deftere ekle`}
             title="Deftere Ekle"
             className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-7 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
               ${isSaved
@@ -71,6 +72,7 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
+            aria-label={isWatched ? `${movie.title} izlenmedi olarak işaretle` : `${movie.title} izledim olarak işaretle`}
             title="İzledim"
             className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-7 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
               ${isWatched

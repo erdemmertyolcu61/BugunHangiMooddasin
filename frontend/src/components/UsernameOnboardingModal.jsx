@@ -134,8 +134,8 @@ export default function UsernameOnboardingModal() {
                     placeholder="kullanici_adi"
                     autoFocus
                     className="w-full pl-9 pr-4 py-3.5 bg-white/5 border-2 border-[#d4af37]/30 rounded-2xl
-                               text-[#f5f2eb] text-base placeholder:text-white/20
-                               focus:outline-none focus:border-[#d4af37]/70 transition-all font-mono tracking-wide"
+                               text-[#f5f2eb] text-base placeholder:text-white/45
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-[#d4af37]/70 transition-all font-mono tracking-wide"
                   />
                 </div>
                 {validationHint && (

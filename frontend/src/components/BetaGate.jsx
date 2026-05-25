@@ -168,7 +168,7 @@ export default function BetaGate({ children }) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Beta sifresi"
               autoFocus
-              className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-[#f5f2eb] placeholder:text-white/20 focus:outline-none focus:border-amber/50 focus:bg-white/[0.07] transition-all text-base"
+              className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/50 focus:bg-white/[0.07] transition-all text-base"
             />
             <button
               type="button"

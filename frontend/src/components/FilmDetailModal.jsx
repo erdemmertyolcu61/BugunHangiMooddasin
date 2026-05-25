@@ -3,7 +3,7 @@
  * çalışan tam film detay pop-up'ı. Mood'a yönlendirmez, yerinde açılır.
  * İçerik: poster, özet, Üstad notu, Nerede İzlenir, Benzer Filmler.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Check, Eye, ExternalLink, Users } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
@@ -44,6 +44,10 @@ const reliableRating = (m) => {
 };
 
 export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null }) {
+  // Escape tuşuyla kapat
+  const handleEsc = useCallback((e) => { if (e.key === 'Escape') onClose(); }, [onClose]);
+  useEffect(() => { document.addEventListener('keydown', handleEsc); return () => document.removeEventListener('keydown', handleEsc); }, [handleEsc]);
+
   // initialMovie verilmişse modal ANINDA dolu açılır; /analyze arka planda
   // sadece eksikleri (ai_analysis, watch_providers vb.) tamamlar.
   const [movie, setMovie] = useState(initialMovie ? { id: movieId, ...initialMovie } : null);
@@ -127,6 +131,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        role="dialog" aria-modal="true" aria-label="Film detayları"
         className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center overflow-y-auto p-0 sm:p-6 md:p-12"
       >
         {/* fixed: kaydırınca blur kaybolmasın — tüm ekranı sabit kaplar */}

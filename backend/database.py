@@ -548,6 +548,12 @@ class MovieCache:
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)"
             )
+            # Ek performans index'leri
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_watchlist_user_date ON watchlist(user_id, added_at DESC)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_future_priority ON future_plans(user_id, priority DESC, added_at DESC)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_movie_cache_created ON movie_cache(created_at)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_mood_class_mood ON mood_classifications(classified_mood)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_community_created ON community_recommendations(created_at DESC)")
             # user_taste_profiles — önbelleklenmiş zevk haritası verisi
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS user_taste_profiles (
@@ -1219,17 +1225,23 @@ class MovieCache:
                     seen_ids.add(r[0])
                     results.append(self._row_to_movie(r))
 
+            # Helper: parameterized NOT IN clause
+            def _not_in_clause(ids_set):
+                if not ids_set:
+                    return "1=1", ()  # no exclusion
+                ph = ','.join('?' * len(ids_set))
+                return f"tmdb_id NOT IN ({ph})", tuple(ids_set)
+
             # 2. Title starts with query
             if len(results) < limit:
+                excl_sql, excl_params = _not_in_clause(seen_ids)
                 cursor = await db.execute(
-                    """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                    f"""SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
                               vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
                        FROM movie_repository
-                       WHERE LOWER(title) LIKE ? AND tmdb_id NOT IN ({})
-                       ORDER BY vote_average DESC LIMIT ?""".format(
-                           ','.join(str(i) for i in seen_ids) if seen_ids else '0'
-                       ),
-                    (f"{q}%", limit - len(results))
+                       WHERE LOWER(title) LIKE ? AND {excl_sql}
+                       ORDER BY vote_average DESC LIMIT ?""",
+                    (f"{q}%", *excl_params, limit - len(results))
                 )
                 for r in await cursor.fetchall():
                     if r[0] not in seen_ids:
@@ -1238,15 +1250,14 @@ class MovieCache:
 
             # 3. Title contains query
             if len(results) < limit:
+                excl_sql, excl_params = _not_in_clause(seen_ids)
                 cursor = await db.execute(
-                    """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                    f"""SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
                               vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
                        FROM movie_repository
-                       WHERE LOWER(title) LIKE ? AND tmdb_id NOT IN ({})
-                       ORDER BY vote_average DESC LIMIT ?""".format(
-                           ','.join(str(i) for i in seen_ids) if seen_ids else '0'
-                       ),
-                    (f"%{q}%", limit - len(results))
+                       WHERE LOWER(title) LIKE ? AND {excl_sql}
+                       ORDER BY vote_average DESC LIMIT ?""",
+                    (f"%{q}%", *excl_params, limit - len(results))
                 )
                 for r in await cursor.fetchall():
                     if r[0] not in seen_ids:
@@ -1257,15 +1268,14 @@ class MovieCache:
             if len(results) < limit and ' ' in q:
                 words = [w for w in q.split() if len(w) >= 3]
                 for word in words[:3]:
+                    excl_sql, excl_params = _not_in_clause(seen_ids)
                     cursor = await db.execute(
-                        """SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
+                        f"""SELECT DISTINCT tmdb_id, title, poster_url, overview, release_date,
                                   vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity, mood_id
                            FROM movie_repository
-                           WHERE LOWER(title) LIKE ? AND tmdb_id NOT IN ({})
-                           ORDER BY vote_average DESC LIMIT ?""".format(
-                               ','.join(str(i) for i in seen_ids) if seen_ids else '0'
-                           ),
-                        (f"%{word}%", limit - len(results))
+                           WHERE LOWER(title) LIKE ? AND {excl_sql}
+                           ORDER BY vote_average DESC LIMIT ?""",
+                        (f"%{word}%", *excl_params, limit - len(results))
                     )
                     for r in await cursor.fetchall():
                         if r[0] not in seen_ids:
@@ -2308,6 +2318,20 @@ class MovieCache:
             await db.execute(
                 "DELETE FROM tmdb_response_cache WHERE created_at < datetime('now', ?)",
                 (f'-{max_age_hours} hours',)
+            )
+            await db.commit()
+
+    async def prune_mood_query_cache(self, max_age_days: int = 30, max_rows: int = 10000):
+        """Remove old mood query cache entries to prevent unbounded growth."""
+        async with _get_connection(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM mood_query_cache WHERE last_used < datetime('now', ?)",
+                (f'-{max_age_days} days',)
+            )
+            await db.execute(
+                """DELETE FROM mood_query_cache WHERE id NOT IN (
+                    SELECT id FROM mood_query_cache ORDER BY hits DESC LIMIT ?
+                )""", (max_rows,)
             )
             await db.commit()
 
