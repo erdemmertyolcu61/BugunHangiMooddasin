@@ -14,6 +14,7 @@ import {
 import { buildWatchUrl, getPlatformInfo } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
 import UstadLoader from './UstadLoader';
+import UstadinNotu from './UstadinNotu';
 import RecommendToFriendSheet from './RecommendToFriendSheet';
 import { useAuth } from '../context/AuthContext';
 
@@ -206,16 +207,16 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   {movie.overview || 'Bu yapıt hakkında henüz bir özet bulunmuyor...'}
                 </p>
 
-                <div className="p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-black/40 border border-white/5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/40 mb-4">Üstadın Notu</p>
-                  {movie.ai_analysis ? (
-                    <p className="text-lg sm:text-3xl font-serif italic leading-relaxed sm:leading-[1.25] text-ivory tracking-tight first-letter:text-4xl sm:first-letter:text-6xl first-letter:float-left first-letter:mr-3 first-letter:font-bold first-letter:text-amber">
-                      {movie.ai_analysis}
-                    </p>
-                  ) : (
-                    <UstadLoader />
-                  )}
-                </div>
+                {movie.ai_analysis ? (
+                  <UstadinNotu
+                    noteText={movie.ai_analysis
+                      .replace(/^Üstadın Notu:?\s*/i, '')
+                      .trim()}
+                    movieName={movie.title}
+                  />
+                ) : (
+                  <UstadLoader />
+                )}
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 border-t border-white/5 pt-7">
                   <div className="space-y-2">
