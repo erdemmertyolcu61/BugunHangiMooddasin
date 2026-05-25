@@ -95,7 +95,7 @@ export default function MoodSelector() {
       >
         <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
           {user?.picture
-            ? <img src={`${getApiUrl(user.picture)}?t=${Date.now()}`} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ? <img src={user.picture.startsWith('/uploads') ? `${getApiUrl(user.picture)}?t=${Date.now()}` : user.picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             : <User size={14} className="text-amber/60" />}
         </span>
         <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">

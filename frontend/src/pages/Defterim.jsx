@@ -177,7 +177,7 @@ export default function Defterim() {
             >
               <span className="w-8 h-8 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
                 {user?.picture
-                  ? <img src={`${getApiUrl(user.picture)}?t=${Date.now()}`} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ? <img src={user.picture.startsWith('/uploads') ? `${getApiUrl(user.picture)}?t=${Date.now()}` : user.picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   : <span className="font-serif text-sm font-bold text-amber">{user ? (user.username || user.name || '?').slice(0, 1).toUpperCase() : '?'}</span>}
               </span>
               <span className="hidden sm:inline font-sans text-[11px] font-semibold text-ivory/70 max-w-[120px] truncate">
