@@ -25,7 +25,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
-  getShares, markSharesRead,
+  getShares, markSharesRead, getMe,
 } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -80,7 +80,7 @@ const MOOD_DOT_COLORS = {
 
 export default function Profil() {
   const navigate = useNavigate();
-  const { user, logout, login } = useAuth();
+  const { user, logout, login, updateUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   /* ─── Auth ─────────────────────────────────────────────────────── */
@@ -278,7 +278,8 @@ export default function Profil() {
   /* ─── Derived ──────────────────────────────────────────────────── */
   const displayName = user ? (sanitize(user.name) || sanitize(user.email) || 'Sinemasever') : '';
   const rawAvatar = user?.picture || '';
-  const avatar = rawAvatar.startsWith('/uploads') ? `${getApiUrl('')}${rawAvatar}` : rawAvatar;
+  const avatarT = Date.now();
+  const avatar = rawAvatar.startsWith('/uploads') ? `${getApiUrl('')}${rawAvatar}?t=${avatarT}` : rawAvatar;
   const initials = displayName.slice(0, 1).toUpperCase();
 
   // Son izlenen 4 film (timeline için)
@@ -865,7 +866,10 @@ export default function Profil() {
       {editProfileOpen && (
         <EditProfileModal
           onClose={() => setEditProfileOpen(false)}
-          onSaved={() => setEditProfileOpen(false)}
+          onSaved={() => {
+            setEditProfileOpen(false);
+            getMe().then((data) => updateUser(data)).catch(() => {});
+          }}
         />
       )}
     </motion.div>
