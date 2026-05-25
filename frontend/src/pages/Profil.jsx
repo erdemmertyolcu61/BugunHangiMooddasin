@@ -29,6 +29,7 @@ import {
 } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import NotificationsBell from '../components/NotificationsBell';
 import FilmDetailModal from '../components/FilmDetailModal';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -361,11 +362,10 @@ export default function Profil() {
                 )}
               </div>
             ) : (
-              <p className="font-sans text-xs text-ivory/20">Google girişi henüz yapılandırılmamış.</p>
-            )}
+              <p className="font-sans text-xs text-ivory/40">Google girişi henüz yapılandırılmamış.</p>
 
-            <button onClick={() => navigate(-1)}
-              className="font-sans text-xs text-ivory/25 hover:text-ivory/50 transition-colors underline underline-offset-4">
+              <a href="#" onClick={e => { e.preventDefault(); setGuestView(false); }}
+                className="font-sans text-xs text-ivory/35 hover:text-ivory/60 transition-colors underline underline-offset-4">
               Şimdi değil
             </button>
           </motion.div>
@@ -397,12 +397,15 @@ export default function Profil() {
               Profil
             </span>
           </div>
-          <button onClick={() => { logout(); navigate('/'); }}
-            title="Çıkış Yap"
-            className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full
-                       text-ivory/30 hover:text-red-400 transition-all">
-            <LogOut size={17} />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationsBell />
+            <button onClick={() => { logout(); navigate('/'); }}
+              title="Çıkış Yap"
+              className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full
+                         text-ivory/45 hover:text-red-400 transition-all">
+              <LogOut size={17} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -434,7 +437,7 @@ export default function Profil() {
               {displayName}
             </h1>
             {user.username && (
-              <p className="flex items-center justify-center gap-1.5 font-mono text-sm text-[#d4af37]/60">
+                <p className="flex items-center justify-center gap-1.5 font-mono text-sm text-amber/60">
                 <AtSign size={13} />{sanitize(user.username)}
               </p>
             )}
@@ -544,7 +547,7 @@ export default function Profil() {
                   </div>
                 )}
 
-                <p className="font-sans text-[11px] text-ivory/40 text-center pt-1">
+                <p className="font-sans text-[11px] text-ivory/55 text-center pt-1">
                   Birkaç film daha ekle — zevk haritanın tam analizi açılsın.
                 </p>
               </div>
@@ -712,11 +715,11 @@ export default function Profil() {
               className="space-y-3">
 
               <div className="flex items-center gap-2.5 px-1">
-                <UserPlus size={14} className="text-[#d4af37]/60" />
+                <UserPlus size={14} className="text-amber/60" />
                 <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60">
                   Gelen İstekler
                 </p>
-                <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-bold">
+                <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber/15 text-amber text-[10px] font-bold">
                   {requests.length}
                 </span>
               </div>
@@ -769,11 +772,11 @@ export default function Profil() {
               className="space-y-3">
 
               <div className="flex items-center gap-2.5 px-1">
-                <Bell size={14} className="text-[#d4af37]/60" />
+                <Bell size={14} className="text-amber/60" />
                 <p className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-amber/60">
                   Gelen Öneriler
                 </p>
-                <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-bold">
+                <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber/15 text-amber text-[10px] font-bold">
                   {shares.length}
                 </span>
               </div>
@@ -794,7 +797,7 @@ export default function Profil() {
                         {s.sender?.avatar && (
                           <img src={s.sender.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" referrerPolicy="no-referrer" />
                         )}
-                        <span className="text-[10px] text-[#d4af37]/60 font-semibold truncate">
+                        <span className="text-[10px] text-amber/60 font-semibold truncate">
                           {s.sender?.name || s.sender?.username || 'Arkadaş'}
                         </span>
                       </div>
@@ -802,8 +805,8 @@ export default function Profil() {
                         {s.movie_title || `Film #${s.movie_id}`}
                       </h4>
                       {s.vote_average > 0 && (
-                        <span className="flex items-center gap-1 text-[10px] text-[#ffbf00]/70 font-bold">
-                          <StarIcon size={8} className="fill-[#ffbf00]" /> {s.vote_average.toFixed(1)}
+                        <span className="flex items-center gap-1 text-[10px] text-amber font-bold">
+                          <StarIcon size={8} className="fill-amber" /> {s.vote_average.toFixed(1)}
                         </span>
                       )}
                       {s.user_note && (
@@ -817,7 +820,7 @@ export default function Profil() {
                           vote_average: s.vote_average, release_date: s.release_date,
                         })}
                         className="mt-auto self-start flex items-center gap-1 px-4 py-1 rounded-full
-                          bg-[#ffbf00] text-[#120d0b] text-[9px] font-bold uppercase tracking-wider
+                          bg-amber text-[#120d0b] text-[9px] font-bold uppercase tracking-wider
                           hover:bg-amber-400 transition-all active:scale-95">
                         <Play size={9} className="fill-[#120d0b]" /> Hemen İzle
                       </button>
@@ -835,7 +838,7 @@ export default function Profil() {
           className="space-y-4">
 
           <div className="flex items-center gap-2.5 px-1">
-            <Users size={14} className="text-[#d4af37]/60" />
+            <Users size={14} className="text-amber/60" />
             <p className="font-sans text-[12px] font-bold uppercase tracking-[0.25em] text-amber/60">
               Sinema Arkadaşlarım
             </p>
@@ -868,7 +871,7 @@ export default function Profil() {
                     className="flex-1 px-4 py-2 bg-white/5 border border-white/[0.08] rounded-full
                       text-sm text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus:border-amber/30 transition-all font-mono" />
                   <button onClick={handleAddFriend} disabled={addBusy}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#d4af37] text-[#120d0b] rounded-full text-[10px] font-bold uppercase tracking-wider
+                    className="flex items-center gap-1.5 px-4 py-2 bg-amber text-[#120d0b] rounded-full text-[10px] font-bold uppercase tracking-wider
                       hover:bg-amber-400 transition-all disabled:opacity-40">
                     <UserPlus size={13} /> Ekle
                   </button>
@@ -1007,7 +1010,7 @@ export default function Profil() {
                     {badge}
                   </span>
                 )}
-                <ChevronRight size={14} className="text-ivory/30 shrink-0" />
+                <ChevronRight size={14} className="text-ivory/45 shrink-0" />
               </button>
             ))}
           </div>

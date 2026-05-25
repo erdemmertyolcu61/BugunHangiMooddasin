@@ -94,22 +94,20 @@ export default function NotificationsBell() {
 
   return (
     <>
-      {/* Zil butonu — sağ üst, güvenli alan */}
+      {/* Zil butonu — profil header icinde inline */}
       <button
         onClick={openPanel}
         aria-label="Bildirimler"
-        className="fixed top-4 right-4 z-[80] w-11 h-11 rounded-full bg-[#161010]/90 border border-white/10
-                   backdrop-blur-md flex items-center justify-center shadow-lg hover:border-amber/40 transition-all
-                   mt-safe"
+        className="relative w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all"
       >
-        <Bell size={19} className="text-[#f5f2eb]/80" />
+        <Bell size={17} className="text-[#f5f2eb]/80" />
         {count > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full
-                       flex items-center justify-center text-[10px] font-bold text-black"
-            style={{ backgroundColor: '#d4af37', boxShadow: '0 0 8px rgba(212,175,55,0.7)' }}
+                       flex items-center justify-center text-[10px] font-bold text-black bg-amber"
+            style={{ boxShadow: '0 0 8px rgba(212,175,55,0.7)' }}
           >
             {count > 9 ? '9+' : count}
           </motion.span>
@@ -133,7 +131,7 @@ export default function NotificationsBell() {
             >
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <Bell size={18} className="text-[#d4af37]" />
+                  <Bell size={18} className="text-amber" />
                   <h3 className="font-serif text-lg font-bold text-[#f5f2eb]">Bildirimler</h3>
                 </div>
                 <button onClick={() => setOpen(false)} className="p-2 -mr-2 rounded-full hover:bg-white/5">
@@ -164,11 +162,11 @@ export default function NotificationsBell() {
                     {requests.length > 0 && (
                       <div className="space-y-2.5">
                         <div className="flex items-center gap-2 px-1">
-                          <UserPlus size={13} className="text-[#d4af37]/70" />
+                          <UserPlus size={13} className="text-amber/60" />
                           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber/60">
                             Arkadaşlık İstekleri
                           </p>
-                          <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-bold">
+                          <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber/15 text-amber text-[10px] font-bold">
                             {requests.length}
                           </span>
                         </div>
@@ -209,11 +207,11 @@ export default function NotificationsBell() {
                     {shares.length > 0 && (
                       <div className="space-y-2.5">
                         <div className="flex items-center gap-2 px-1">
-                          <Play size={13} className="text-[#d4af37]/70 fill-[#d4af37]/70" />
+                          <Play size={13} className="text-amber/60 fill-amber/60" />
                           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber/60">
                             Gelen Öneriler
                           </p>
-                          <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-bold">
+                          <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber/15 text-amber text-[10px] font-bold">
                             {shares.length}
                           </span>
                         </div>
@@ -243,8 +241,8 @@ export default function NotificationsBell() {
                                 {s.movie_title || `Film #${s.movie_id}`}
                               </h4>
                               {s.vote_average > 0 && (
-                                <span className="flex items-center gap-1 text-[10px] text-[#ffbf00] font-bold mt-0.5">
-                                  <Star size={9} className="fill-[#ffbf00]" />{s.vote_average.toFixed(1)}
+                                  <span className="flex items-center gap-1 text-[10px] text-amber font-bold mt-0.5">
+                                    <Star size={9} className="fill-amber" />{s.vote_average.toFixed(1)}
                                 </span>
                               )}
                               {s.user_note && (
@@ -255,7 +253,7 @@ export default function NotificationsBell() {
                               <button
                                 onClick={() => watchNow(s)}
                                 className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
-                                           bg-[#ffbf00] text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
+                                           bg-amber text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
                                            hover:bg-amber-400 transition-all active:scale-95"
                               >
                                 <Play size={11} className="fill-[#120d0b]" /> Hemen İzle

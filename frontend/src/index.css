@@ -82,6 +82,26 @@
 [data-theme="light"] [class*="border-white/"] { border-color: rgba(42, 32, 23, 0.15) !important; }
 /* Koyu yarı saydam zeminler (etiket/rozet) → açık */
 [data-theme="light"] [class*="bg-black/"] { background-color: rgba(255, 255, 255, 0.6) !important; }
+/* Panel/koyu yüzey zeminleri → açık bej */
+[data-theme="light"] [class*="bg-[#161010]"] { background-color: #f3ecdb !important; color: #2a2017; }
+/* Altın (#d4af37) metinler → koyu altın */
+[data-theme="light"] [class*="text-[#d4af37]"] { color: #8a6508 !important; }
+[data-theme="light"] [class*="bg-[#d4af37]"] { background-color: #8a6508 !important; }
+[data-theme="light"] [class*="fill-[#d4af37]"] { fill: #8a6508 !important; }
+[data-theme="light"] [class*="stroke-[#d4af37]"] { stroke: #8a6508 !important; }
+/* Zümrüt yeşili metinler → koyu yeşil */
+[data-theme="light"] [class*="text-emerald"] { color: #1e6b4a !important; }
+[data-theme="light"] [class*="bg-emerald"] { background-color: #1e6b4a !important; }
+[data-theme="light"] [class*="border-emerald"] { border-color: rgba(30, 107, 74, 0.25) !important; }
+/* Kırmızı metinler → koyu bordo */
+[data-theme="light"] [class*="text-red-400"] { color: #a53030 !important; }
+[data-theme="light"] [class*="text-red-5"] { color: #a53030 !important; }
+[data-theme="light"] [class*="text-rose"] { color: #7a5c5c !important; }
+[data-theme="light"] [class*="bg-rose"] { background-color: rgba(122, 92, 92, 0.12) !important; }
+[data-theme="light"] [class*="border-rose"] { border-color: rgba(122, 92, 92, 0.25) !important; }
+/* Arka plan metinleri (buton içi) → koyu espresso, aynı kalsın */
+[data-theme="light"] [class*="text-[#120d0b]"] { color: #2a2017 !important; }
+[data-theme="light"] [class*="fill-[#120d0b]"] { fill: #2a2017 !important; }
 
 /* Listeler & kart koyu gradyanları → düz açık bej (okunur olsun) */
 [data-theme="light"] [class*="bg-gradient-to"][class*="to-black"],
