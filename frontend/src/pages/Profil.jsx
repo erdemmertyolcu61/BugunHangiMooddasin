@@ -362,12 +362,14 @@ export default function Profil() {
                 )}
               </div>
             ) : (
-              <p className="font-sans text-xs text-ivory/40">Google girişi henüz yapılandırılmamış.</p>
-
-              <a href="#" onClick={e => { e.preventDefault(); setGuestView(false); }}
-                className="font-sans text-xs text-ivory/35 hover:text-ivory/60 transition-colors underline underline-offset-4">
-              Şimdi değil
-            </button>
+              <div className="space-y-2">
+                <p className="font-sans text-xs text-ivory/40">Google girişi henüz yapılandırılmamış.</p>
+                <button onClick={() => setGuestView(false)}
+                  className="font-sans text-xs text-ivory/35 hover:text-ivory/60 transition-colors underline underline-offset-4 cursor-pointer bg-transparent border-none">
+                  Şimdi değil
+                </button>
+              </div>
+            )}
           </motion.div>
         </div>
       </motion.div>
