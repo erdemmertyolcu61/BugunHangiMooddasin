@@ -136,6 +136,7 @@ export default function KafanMiKarisik() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setLastQuery(quickMood.label);
     try {
       const data = await postConfusedRecommendation(quickMood.label, 6, 5.0, sessionExcludeIds, quickMood.slug);
       
@@ -173,7 +174,12 @@ export default function KafanMiKarisik() {
   }, [location.state?.quickMoodId, navigate]);
 
   const handleFeedback = (feedbackText) => {
-    analyze(feedbackText, true);
+    // Orijinal sorgu bağlamını feedback'e ekle
+    // Örn: "Interstellar gibi film öner" + "daha karanlık" → "Interstellar gibi ama daha karanlık filmler öner"
+    const contextQuery = lastQuery
+      ? `${lastQuery} ama ${feedbackText} filmler öner`
+      : feedbackText;
+    analyze(contextQuery, true);
   };
 
   const goToMood = (moodId) => {
