@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Bell, X, Play, Star, UserPlus, Check, UserX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -9,7 +9,7 @@ import {
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
 
-const POLL_MS = 120000; // 2 dk
+const POLL_MS = 30000;
 
 /**
  * Global bildirim zili — arkadaşlık istekleri + film önerileri.
@@ -17,11 +17,13 @@ const POLL_MS = 120000; // 2 dk
  *  - Panel açılınca: önce arkadaşlık istekleri, sonra film önerileri
  *  - Yalnızca Google ile giriş yapan kullanıcıya görünür
  */
-export default function NotificationsBell() {
+export default function NotificationsBell({ open: externalOpen, onOpenChange }) {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [count, setCount] = useState(0);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [shares, setShares] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -115,20 +117,19 @@ export default function NotificationsBell() {
       </button>
 
       {/* Panel */}
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              className="fixed top-0 right-0 bottom-0 z-[1001] w-full max-w-md flex flex-col
-                         bg-[#161010] border-l border-amber/15 shadow-2xl pt-safe pb-safe"
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-            >
+      {open && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            onClick={() => setOpen(false)}
+          />
+          <motion.div
+            className="fixed top-0 right-0 bottom-0 z-[1001] w-full max-w-md flex flex-col
+                       bg-[#161010] border-l border-amber/15 shadow-2xl pt-safe pb-safe"
+            initial={{ x: '100%' }} animate={{ x: 0 }}
+            transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+          >
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 shrink-0">
                 <div className="flex items-center gap-2.5">
                   <Bell size={18} className="text-amber" />
@@ -267,9 +268,8 @@ export default function NotificationsBell() {
                 )}
               </div>
             </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+        </>
+      )}
 
       {detailMovie && (
         <FilmDetailModal

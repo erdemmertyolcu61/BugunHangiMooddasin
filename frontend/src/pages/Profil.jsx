@@ -101,6 +101,7 @@ export default function Profil() {
   /* ─── Auth ─────────────────────────────────────────────────────── */
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [notifOpen, setNotifOpen] = useState(false);
   const handleCredential = useCallback(async (cred) => {
     if (!cred) return;
     setAuthBusy(true);
@@ -183,7 +184,7 @@ export default function Profil() {
         }
       } catch {}
     };
-    pollRef.current = setInterval(poll, 120000);
+    pollRef.current = setInterval(poll, 30000);
     return () => clearInterval(pollRef.current);
   }, [user]);
 
@@ -400,7 +401,7 @@ export default function Profil() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <NotificationsBell />
+            <NotificationsBell open={notifOpen} onOpenChange={setNotifOpen} />
             <button onClick={() => { logout(); navigate('/'); }}
               title="Çıkış Yap"
               className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full
@@ -969,7 +970,7 @@ export default function Profil() {
           <div className="rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">
             {[
               { icon: Bell, label: 'Bildirimler', desc: 'Öneri ve istek bildirimleri',
-                action: () => navigate('/profil') },
+                action: () => setNotifOpen(true) },
               { icon: Palette, label: 'Görünüm', desc: theme === 'dark' ? 'Aydınlık temaya geç' : 'Karanlık temaya geç',
                 action: toggleTheme, badge: theme === 'dark' ? 'Karanlık' : 'Aydınlık' },
               { icon: Database, label: 'Verilerim', desc: 'Dışa aktar veya yedekle',
