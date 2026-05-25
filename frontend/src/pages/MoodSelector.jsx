@@ -98,7 +98,7 @@ export default function MoodSelector() {
             : <User size={14} className="text-amber/60" />}
         </span>
         <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">
-          {user?.name || 'Giriş Yap'}
+          {user?.username || user?.name || 'Giriş Yap'}
         </span>
       </button>
 

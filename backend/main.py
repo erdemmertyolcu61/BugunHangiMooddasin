@@ -958,10 +958,10 @@ async def community_recommend(request: Request, user=Depends(verify_user)):
     user_id = user.get("user_id", 0)
 
     async with _db_conn(cache.db_path, user_data=True) as db:
-        cur = await db.execute("SELECT name, picture FROM users WHERE id = ?", (user_id,))
+        cur = await db.execute("SELECT username, name, picture FROM users WHERE id = ?", (user_id,))
         row = await cur.fetchone()
         username = (row[0] if row and row[0] else user.get("email", "Sinemasever"))
-        avatar = (row[1] if row and len(row) > 1 else "") or ""
+        avatar = (row[2] if row and len(row) > 2 else "") or ""
         await db.execute("""
             INSERT INTO community_recommendations (tmdb_id, user_id, username, avatar)
             VALUES (?, ?, ?, ?)

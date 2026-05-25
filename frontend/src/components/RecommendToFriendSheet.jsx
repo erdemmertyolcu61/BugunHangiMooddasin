@@ -229,12 +229,12 @@ export default function RecommendToFriendSheet({ movie, onClose }) {
                             <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-amber/60 font-bold">
-                              {(f.name || f.username || '?')[0].toUpperCase()}
+                              {(f.username || f.name || '?')[0].toUpperCase()}
                             </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#f5f2eb] truncate">{f.name || f.username}</p>
+                          <p className="text-sm font-semibold text-[#f5f2eb] truncate">{f.username || f.name}</p>
                           <p className="text-[11px] text-white/40 truncate">@{f.username}</p>
                         </div>
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all

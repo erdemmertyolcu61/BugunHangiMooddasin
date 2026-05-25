@@ -570,11 +570,11 @@ export default function Profil() {
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
                       {r.avatar
                         ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        : <span className="font-bold text-[11px] text-amber/60">{(r.name || r.username || '?')[0].toUpperCase()}</span>}
-                    </div>
+                        : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.name || r.username}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.username || r.name}</p>
                       <p className="text-[11px] text-white/45 truncate">@{r.username}</p>
                     </div>
 
@@ -631,7 +631,7 @@ export default function Profil() {
                           <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
                         )}
                         <span className="text-[12px] text-amber/75 font-semibold truncate">
-                          {s.sender?.name || s.sender?.username || 'Arkadaş'}
+                          {s.sender?.username || s.sender?.name || 'Arkadaş'}
                         </span>
                       </div>
                       <h4 className="text-[15px] font-serif font-bold text-[#f5f2eb] line-clamp-1">
@@ -765,11 +765,11 @@ export default function Profil() {
                         <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
                           {f.avatar
                             ? <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            : <span className="font-bold text-[11px] text-amber/60">{(f.name || f.username || '?')[0].toUpperCase()}</span>}
+                            : <span className="font-bold text-[11px] text-amber/60">{(f.username || f.name || '?')[0].toUpperCase()}</span>}
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{f.name || f.username}</p>
+                          <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{f.username || f.name}</p>
                           <p className="text-[12px] text-white/45 truncate">@{f.username}</p>
                         </div>
 

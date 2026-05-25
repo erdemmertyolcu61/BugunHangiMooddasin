@@ -191,23 +191,23 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                             <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
                               {r.avatar
                                 ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                : <span className="font-bold text-[11px] text-amber/60">{(r.name || r.username || '?')[0].toUpperCase()}</span>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.name || r.username}</p>
+                                : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.username || r.name}</p>
                               <p className="text-[11px] text-white/45 truncate">@{r.username}</p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button onClick={() => handleRespond(r.request_id, 'ACCEPT')}
                                 className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20
                                   flex items-center justify-center hover:bg-emerald-500/20 transition-all"
-                                title="Onayla" aria-label={`${r.name || r.username} isteğini onayla`}>
+                                title="Onayla" aria-label={`${r.username || r.name} isteğini onayla`}>
                                 <Check size={14} className="text-emerald-400" />
                               </button>
                               <button onClick={() => handleRespond(r.request_id, 'DECLINE')}
                                 className="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/20
                                   flex items-center justify-center hover:bg-rose-500/20 transition-all"
-                                title="Reddet" aria-label={`${r.name || r.username} isteğini reddet`}>
+                                title="Reddet" aria-label={`${r.username || r.name} isteğini reddet`}>
                                 <X size={14} className="text-rose-400" />
                               </button>
                             </div>
@@ -247,7 +247,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                                   <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
                                 )}
                                 <span className="text-[12px] text-amber/80 font-semibold truncate">
-                                  {s.sender?.name || s.sender?.username}
+                                  {s.sender?.username || s.sender?.name}
                                 </span>
                               </div>
                               <h4 className="text-[15px] font-serif font-bold text-[#f5f2eb] line-clamp-1">

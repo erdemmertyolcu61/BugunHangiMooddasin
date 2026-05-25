@@ -744,7 +744,7 @@ export default function Discover() {
                   : <Users size={13} className="text-amber/60" />}
               </span>
               <span className="font-sans text-[11px] font-semibold text-ivory/60 max-w-[100px] truncate">
-                {user?.name || 'Giriş Yap'}
+                {user?.username || user?.name || 'Giriş Yap'}
               </span>
             </button>
           </div>
