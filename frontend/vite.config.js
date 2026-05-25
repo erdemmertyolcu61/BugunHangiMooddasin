@@ -123,6 +123,10 @@ export default defineConfig({
         timeout: 60000,
         proxyTimeout: 60000,
       },
+      '/uploads': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+      },
     },
   },
 })

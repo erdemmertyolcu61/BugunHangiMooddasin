@@ -2,6 +2,8 @@
 
 @import "tailwindcss";
 
+@custom-variant theme-light (&:where([data-theme="light"] *));
+
 @theme {
   --color-bg: #120d0b; /* Deep Espresso */
   --color-surface: #1c1512; /* Lighter Espresso */

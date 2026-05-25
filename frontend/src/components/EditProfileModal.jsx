@@ -125,29 +125,29 @@ export default function EditProfileModal({ onClose, onSaved }) {
   };
 
   const displayAvatar = avatarPreview || (currentAvatar?.startsWith('/uploads')
-    ? `${getApiUrl('')}${currentAvatar}`
+    ? getApiUrl(currentAvatar)
     : currentAvatar);
 
   return (
     <>
       <motion.div
-        className="fixed inset-0 z-[1100] bg-black/70 data-[theme=light]:bg-white/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[1100] bg-black/70 theme-light:bg-white/70 backdrop-blur-sm"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         onClick={onClose}
       />
       <motion.div
         className="fixed inset-x-4 top-[10vh] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2
                    z-[1101] w-auto sm:w-full sm:max-w-md
-                   bg-[#1a1210] data-[theme=light]:bg-[#f3ecdb] border border-white/10 data-[theme=light]:border-black/10 rounded-3xl shadow-2xl overflow-hidden"
+                   bg-[#1a1210] theme-light:bg-[#f3ecdb] border border-white/10 theme-light:border-black/10 rounded-3xl shadow-2xl overflow-hidden"
         initial={{ opacity: 0, y: 40, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 data-[theme=light]:border-black/8">
-          <h3 className="font-serif text-lg font-bold text-[#f5f2eb] data-[theme=light]:text-[#2a2017]">Profili Duzenle</h3>
-          <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-white/5 data-[theme=light]:hover:bg-black/5 transition-colors">
-            <X size={20} className="text-white/60 data-[theme=light]:text-black/60" />
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 theme-light:border-black/8">
+          <h3 className="font-serif text-lg font-bold text-[#f5f2eb] theme-light:text-[#2a2017]">Profili Duzenle</h3>
+          <button onClick={onClose} className="p-2 -mr-2 rounded-full hover:bg-white/5 theme-light:hover:bg-black/5 transition-colors">
+            <X size={20} className="text-white/60 theme-light:text-black/60" />
           </button>
         </div>
 
@@ -193,8 +193,8 @@ export default function EditProfileModal({ onClose, onSaved }) {
               value={name}
               onChange={(e) => setName(e.target.value.slice(0, 50))}
               placeholder="Adiniz"
-              className="w-full px-4 py-3 bg-white/5 data-[theme=light]:bg-black/5 border border-white/10 data-[theme=light]:border-black/10 rounded-xl
-                       text-[15px] text-[#f5f2eb] data-[theme=light]:text-[#2a2017] placeholder:text-white/30 data-[theme=light]:placeholder:text-black/30
+              className="w-full px-4 py-3 bg-white/5 theme-light:bg-black/5 border border-white/10 theme-light:border-black/10 rounded-xl
+                       text-[15px] text-[#f5f2eb] theme-light:text-[#2a2017] placeholder:text-white/30 theme-light:placeholder:text-black/30
                        focus:outline-none focus:border-amber/40 transition-all"
             />
           </div>
@@ -213,11 +213,11 @@ export default function EditProfileModal({ onClose, onSaved }) {
                 setError('');
               }}
               placeholder="kullanici_adi"
-              className="w-full px-4 py-3 bg-white/5 data-[theme=light]:bg-black/5 border border-white/10 data-[theme=light]:border-black/10 rounded-xl
-                       text-[15px] text-[#f5f2eb] data-[theme=light]:text-[#2a2017] placeholder:text-white/30 data-[theme=light]:placeholder:text-black/30 font-mono
+              className="w-full px-4 py-3 bg-white/5 theme-light:bg-black/5 border border-white/10 theme-light:border-black/10 rounded-xl
+                       text-[15px] text-[#f5f2eb] theme-light:text-[#2a2017] placeholder:text-white/30 theme-light:placeholder:text-black/30 font-mono
                        focus:outline-none focus:border-amber/40 transition-all"
             />
-            <p className="text-[12px] text-ivory/50 data-[theme=light]:text-black/50 px-1">
+            <p className="text-[12px] text-ivory/50 theme-light:text-black/50 px-1">
               3-20 karakter. Harf (Turkce dahil), rakam ve alt cizgi (_) kullanabilirsiniz.
             </p>
           </div>
