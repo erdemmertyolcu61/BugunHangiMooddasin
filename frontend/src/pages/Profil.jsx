@@ -119,6 +119,10 @@ export default function Profil() {
   const [sharesLoading, setSharesLoading] = useState(true);
   const [detailMovie, setDetailMovie] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [failedAvatars, setFailedAvatars] = useState(new Set());
+  const onAvatarError = useCallback((id) => {
+    setFailedAvatars((prev) => { const n = new Set(prev); n.add(id); return n; });
+  }, []);
   const pollRef = useRef(null);
 
   /* ─── Fetch social data on mount ───────────────────────────────── */
@@ -568,13 +572,14 @@ export default function Profil() {
                     className="flex items-center gap-3 p-3 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
 
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
-                      {r.avatar
-                        ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      {r.avatar && !failedAvatars.has(r.request_id)
+                        ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                            onError={() => onAvatarError(r.request_id)} />
                         : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
-                      </div>
+                    </div>
 
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.username || r.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.username || r.name}</p>
                       <p className="text-[11px] text-white/45 truncate">@{r.username}</p>
                     </div>
 
@@ -763,8 +768,9 @@ export default function Profil() {
                         className="flex items-center gap-3 p-3 rounded-xl bg-[#1c1512]/90 border border-white/[0.06] hover:border-white/10 transition-all">
 
                         <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
-                          {f.avatar
-                            ? <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          {f.avatar && !failedAvatars.has(f.id)
+                            ? <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                                onError={() => onAvatarError(f.id)} />
                             : <span className="font-bold text-[11px] text-amber/60">{(f.username || f.name || '?')[0].toUpperCase()}</span>}
                         </div>
 

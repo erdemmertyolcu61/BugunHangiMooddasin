@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Send, Check, X, Users, UserPlus, Sparkles } from 'lucide-react';
 import { getFriends, recommendMovieToFriend, sendFriendRequest } from '../services/api';
@@ -18,6 +18,10 @@ export default function RecommendToFriendSheet({ movie, onClose }) {
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [failedAvatars, setFailedAvatars] = useState(new Set());
+  const onAvatarError = useCallback((id) => {
+    setFailedAvatars((prev) => { const n = new Set(prev); n.add(id); return n; });
+  }, []);
   const [error, setError] = useState(null);
 
   // Arkadaş ekleme (boş liste için kısa yol)
@@ -225,8 +229,9 @@ export default function RecommendToFriendSheet({ movie, onClose }) {
                           ${isSel ? 'bg-amber/10 border-amber/40' : 'bg-white/[0.03] border-white/8 hover:border-white/20'}`}
                       >
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0">
-                          {f.avatar ? (
-                            <img src={f.avatar} alt={f.name} className="w-full h-full object-cover" />
+                          {f.avatar && !failedAvatars.has(f.id) ? (
+                            <img src={f.avatar} alt={f.name} className="w-full h-full object-cover"
+                              onError={() => onAvatarError(f.id)} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-amber/60 font-bold">
                               {(f.username || f.name || '?')[0].toUpperCase()}

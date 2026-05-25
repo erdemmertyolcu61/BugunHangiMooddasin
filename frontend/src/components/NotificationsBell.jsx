@@ -29,6 +29,10 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [detailMovie, setDetailMovie] = useState(null);
+  const [failedAvatars, setFailedAvatars] = useState(new Set());
+  const onAvatarError = useCallback((id) => {
+    setFailedAvatars((prev) => { const n = new Set(prev); n.add(id); return n; });
+  }, []);
 
   const refreshCount = useCallback(async () => {
     if (!token) return;
@@ -189,10 +193,11 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                             className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.04] border border-white/8"
                           >
                             <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
-                              {r.avatar
-                                ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              {r.avatar && !failedAvatars.has(r.request_id)
+                                ? <img src={r.avatar} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                                    onError={() => onAvatarError(r.request_id)} />
                                 : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
-                              </div>
+                            </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-[13px] text-[#f5f2eb] truncate">{r.username || r.name}</p>
                               <p className="text-[11px] text-white/45 truncate">@{r.username}</p>
@@ -243,8 +248,9 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                             </div>
                             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                               <div className="flex items-center gap-2 mb-0.5">
-                                {s.sender?.avatar && (
-                                  <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                {s.sender?.avatar && !failedAvatars.has(`share-${s.id}`) && (
+                                  <img src={s.sender.avatar} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer"
+                                    onError={() => onAvatarError(`share-${s.id}`)} />
                                 )}
                                 <span className="text-[12px] text-amber/80 font-semibold truncate">
                                   {s.sender?.username || s.sender?.name}
