@@ -1266,21 +1266,6 @@ CURATED_TITLES_BY_MOOD = {
         "Blade Runner 2049",
         "The Fall",
         "In the Mood for Love",
-        "Hero",
-        "The Revenant",
-        "Lawrence of Arabia",
-        "Apocalypse Now",
-        "Baraka",
-        "Days of Heaven",
-        "The Tree of Life",
-        "Ran",
-        "The Assassination of Jesse James by the Coward Robert Ford",
-        "The Thin Red Line",
-        "Mirror",
-        "Crouching Tiger, Hidden Dragon",
-        "Amélie",
-        "Life of Pi",
-        "Mad Max: Fury Road",
     ],
     "geceyarisi-itirafi": [
         "Before Sunrise",
@@ -1288,18 +1273,6 @@ CURATED_TITLES_BY_MOOD = {
         "Before Midnight",
         "My Dinner with Andre",
         "The Sunset Limited",
-        "12 Angry Men",
-        "Coherence",
-        "Certified Copy",
-        "Lost in Translation",
-        "Her",
-        "The Man from Earth",
-        "Tape",
-        "The Breakfast Club",
-        "Closer",
-        "Who's Afraid of Virginia Woolf?",
-        "Glengarry Glen Ross",
-        "The Before Trilogy",
     ],
 }
 
@@ -1390,6 +1363,41 @@ async def get_repository_movies(
                     curated_movies = curated
             except Exception as e:
                 logger.warning(f"[Curator] {mood_id} seçki hatası (fallback'e düşüyor): {e}")
+
+        elif not curated_titles and page == 1:
+            # ── [AUTO-CURATOR] Manuel seçki yoksa repository'den en uygun 5 film ──
+            try:
+                top = await cache.get_repository_movies_paginated(
+                    mood_id, page=1, per_page=5,
+                    min_vote=min_vote, min_mood_score=40,
+                    sort_by="recommended", min_vote_count=50,
+                )
+                if top["movies"]:
+                    auto_ids = [m["id"] for m in top["movies"]]
+                    c_map, cl_map = await asyncio.gather(
+                        cache.get_movies_batch(auto_ids),
+                        cache.get_mood_classifications_batch(auto_ids),
+                    )
+                    for m in top["movies"]:
+                        mid = m["id"]
+                        m["mood_match_label"] = "Üstad'ın Seçkisi"
+                        m["ai_classified"] = cl_map.get(mid) == mood_id
+                        m["primaryMoods"] = [mood_id]
+                        m["secondaryMoods"] = []
+                        m["blockedMoods"] = []
+                        m["moodReason"] = REASON_MAP.get(mood_id, "")
+                        cd = c_map.get(mid)
+                        if cd:
+                            m["mood"] = cd.get("mood")
+                            m["ai_analysis"] = cd.get("ai_analysis")
+                            m["analyzed"] = True
+                        else:
+                            m["mood"] = None
+                            m["ai_analysis"] = None
+                            m["analyzed"] = False
+                    curated_movies = top["movies"]
+            except Exception as e:
+                logger.warning(f"[Auto-Curator] {mood_id} oto-seçki hatası: {e}")
 
         # Count current movies
         count = await cache.count_repository_movies(mood_id, min_vote)
