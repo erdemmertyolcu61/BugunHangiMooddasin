@@ -50,10 +50,10 @@ const MOOD_AUDIO_DIRECT = {
   "zihin":        "/audio/zihin.mp3",
   "kalp":         "/audio/kalp.mp3",
   "karmakar":     "/audio/karmakar.mp3",
-  "sipsak":             "/audio/sessiz.mp3",
+  "sipsak":             "/audio/retro.mp3",        // Indie lo-fi retro — festival kısa filmlerin estetiği
   "deep-chills":        "/audio/deep-chills.mp3",
-  "kadraj-estetigi":    "/audio/sessiz.mp3",    // Fallback: minimalist piano pads & ambient strings
-  "geceyarisi-itirafi": "/audio/gece.mp3",      // Nocturnal ambient — lo-fi midnight talk atmosphere
+  "kadraj-estetigi":    "/audio/sessiz.mp3",      // Minimalist piyano & ambient arjeler — görsel şölen için sessiz seyir
+  "geceyarisi-itirafi": "/audio/gece.mp3",        // Gece ambiyansı — gece yarısı itiraflarının atmosferi
 };
 
 /**
