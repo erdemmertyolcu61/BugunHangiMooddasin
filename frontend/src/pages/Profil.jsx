@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LogOut, ChevronLeft, User, Share2, Link2 } from 'lucide-react';
+import { LogOut, ChevronLeft, User, Share2, Link2, Brain, Users, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -80,6 +80,7 @@ export default function Profil() {
   const [detailMovie, setDetailMovie] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
+  const [profileTab, setProfileTab] = useState('taste');
   const pollRef = useRef(null);
 
   /* ─── Fetch social on mount ────────────────────────────────────── */
@@ -354,37 +355,64 @@ export default function Profil() {
           loading={loading}
         />
 
-        {/* ─── Taste Map (FULL — genres, era, pacing, style, runtime) ─── */}
-        <ProfileTasteMap
-          tasteMap={tasteMap}
-          loading={loading}
-          username={displayName}
-        />
+        {/* ─── Tab Navigation ─── */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}>
+          <div className="flex gap-1 p-1 rounded-full bg-[#1c1512]/90 border border-white/[0.06]">
+            {[
+              { id: 'taste', label: 'Zevk Haritam', icon: Brain },
+              { id: 'social', label: 'Sosyal', icon: Users },
+              { id: 'settings', label: 'Ayarlar', icon: Settings },
+            ].map(tab => (
+              <button key={tab.id}
+                onClick={() => setProfileTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
+                  profileTab === tab.id
+                    ? 'bg-amber/15 text-amber border border-amber/20'
+                    : 'text-ivory/40 hover:text-ivory/60'
+                }`}>
+                <tab.icon size={13} />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
 
-        {/* ─── Recent Watched Timeline ─── */}
-        {!loading && <ProfileTimeline recentWatched={recentWatched} topMoods={topMoods} />}
+        {/* ─── Tab Content ─── */}
+        {profileTab === 'taste' && (
+          <>
+            <ProfileTasteMap
+              tasteMap={tasteMap}
+              loading={loading}
+              username={displayName}
+            />
+            {!loading && <ProfileTimeline recentWatched={recentWatched} topMoods={topMoods} />}
+          </>
+        )}
 
-        {/* ─── Social (tabbed) ─── */}
-        <ProfileSocial
-          friends={friends}
-          requests={requests}
-          shares={shares}
-          socialLoading={socialLoading || sharesLoading}
-          socialError={socialError}
-          onRespondRequest={handleRespondRequest}
-          onRemoveFriend={handleRemoveFriend}
-          onAddFriend={handleAddFriend}
-          onDetailMovie={setDetailMovie}
-        />
+        {profileTab === 'social' && (
+          <ProfileSocial
+            friends={friends}
+            requests={requests}
+            shares={shares}
+            socialLoading={socialLoading || sharesLoading}
+            socialError={socialError}
+            onRespondRequest={handleRespondRequest}
+            onRemoveFriend={handleRemoveFriend}
+            onAddFriend={handleAddFriend}
+            onDetailMovie={setDetailMovie}
+          />
+        )}
 
-        {/* ─── Settings ─── */}
-        <ProfileSettings
-          theme={theme}
-          toggleTheme={toggleTheme}
-          logout={logout}
-          navigate={navigate}
-          onNotifOpen={() => setNotifOpen(true)}
-        />
+        {profileTab === 'settings' && (
+          <ProfileSettings
+            theme={theme}
+            toggleTheme={toggleTheme}
+            logout={logout}
+            navigate={navigate}
+            onNotifOpen={() => setNotifOpen(true)}
+          />
+        )}
 
       </main>
 
