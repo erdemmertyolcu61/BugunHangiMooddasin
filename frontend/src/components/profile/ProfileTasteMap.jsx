@@ -12,6 +12,22 @@ const MOOD_COLORS = {
   'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
 };
 
+const ERA_LABELS = {
+  '2010_plus': '2010+',
+  '2000s': "2000'ler",
+  '1990s': "1990'lar", '1980s': "1980'ler",
+  '1970s': "1970'ler", '1960s': "1960'lar", '1950s': "1950'ler",
+};
+const YEAR_STAT_KEYS = new Set(['year_range_min', 'year_range_max', 'mean_year']);
+
+const PROFILE_SKIP = new Set(['label', 'description']);
+
+const PROFILE_LABELS = {
+  slow_pct: 'Yavaş', medium_pct: 'Orta', fast_pct: 'Hızlı',
+  mainstream_pct: 'Ana Akım', indie_pct: 'Bağımsız',
+  avg_minutes: 'Ort. Süre',
+};
+
 /**
  * Full taste map profile section — moods, genres, era, pacing, style, runtime.
  *
@@ -87,9 +103,9 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
 
           {/* ─── Mood Chips ─── */}
           {tasteMap.top_moods?.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 text-center">
               <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/30">Sinema DNA'n</p>
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap gap-2.5 justify-center">
                 {tasteMap.top_moods.slice(0, 5).map(m => {
                   const dotColor = MOOD_COLORS[m.mood_id] || '#d4af37';
                   const pct = tasteMap.mood_pct?.[m.mood_id];
@@ -166,11 +182,12 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
               </p>
               <div className="space-y-2">
                 {Object.entries(eraPref)
+                  .filter(([k]) => !YEAR_STAT_KEYS.has(k))
                   .sort(([, a], [, b]) => b - a)
                   .slice(0, 4)
                   .map(([era, pct]) => (
                     <div key={era} className="flex items-center gap-3">
-                      <span className="text-[12px] font-semibold text-ivory/60 w-20">{era}</span>
+                      <span className="text-[12px] font-semibold text-ivory/60 w-20">{ERA_LABELS[era] || era.replace('_', ' ')}</span>
                       <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
@@ -182,6 +199,16 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                       <span className="text-[11px] font-bold text-ivory/40 w-10 text-right">%{Math.round(pct)}</span>
                     </div>
                   ))}
+                {eraPref.year_range_min != null && eraPref.year_range_max != null && (
+                  <div className="flex items-center gap-2 pt-1 text-[11px] text-ivory/50 font-mono">
+                    <span>{eraPref.year_range_min}</span>
+                    <span className="text-ivory/20">—</span>
+                    <span>{eraPref.year_range_max}</span>
+                    {eraPref.mean_year != null && (
+                      <span className="text-ivory/35 ml-auto">ort. {Math.round(eraPref.mean_year)}</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -194,11 +221,12 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                 <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
                   <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/40">Tempo</p>
                   {Object.entries(pacingProfile)
+                    .filter(([k]) => !PROFILE_SKIP.has(k))
                     .sort(([, a], [, b]) => b - a)
                     .slice(0, 3)
                     .map(([k, v]) => (
                       <div key={k} className="flex items-center justify-between">
-                        <span className="text-[11px] text-ivory/60 capitalize">{k}</span>
+                        <span className="text-[11px] text-ivory/60">{PROFILE_LABELS[k] || k.replace('_pct', '').replace('_', ' ')}</span>
                         <span className="text-[11px] font-bold text-ivory/40">%{Math.round(v)}</span>
                       </div>
                     ))}
@@ -210,11 +238,12 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                 <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
                   <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/40">Stil</p>
                   {Object.entries(styleProfile)
+                    .filter(([k]) => !PROFILE_SKIP.has(k))
                     .sort(([, a], [, b]) => b - a)
                     .slice(0, 3)
                     .map(([k, v]) => (
                       <div key={k} className="flex items-center justify-between">
-                        <span className="text-[11px] text-ivory/60 capitalize">{k}</span>
+                        <span className="text-[11px] text-ivory/60">{PROFILE_LABELS[k] || k.replace('_pct', '').replace('_', ' ')}</span>
                         <span className="text-[11px] font-bold text-ivory/40">%{Math.round(v)}</span>
                       </div>
                     ))}
@@ -226,14 +255,20 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                 <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
                   <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/40">Süre</p>
                   {Object.entries(runtimeProfile)
+                    .filter(([k]) => !PROFILE_SKIP.has(k))
                     .sort(([, a], [, b]) => b - a)
                     .slice(0, 3)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between">
-                        <span className="text-[11px] text-ivory/60 capitalize">{k}</span>
-                        <span className="text-[11px] font-bold text-ivory/40">%{Math.round(v)}</span>
-                      </div>
-                    ))}
+                    .map(([k, v]) => {
+                      const isMinutes = k === 'avg_minutes';
+                      return (
+                        <div key={k} className="flex items-center justify-between">
+                          <span className="text-[11px] text-ivory/60">{PROFILE_LABELS[k] || k.replace('_pct', '').replace('_', ' ')}</span>
+                          <span className="text-[11px] font-bold text-ivory/40">
+                            {isMinutes ? `${Math.round(v)} dk` : `%${Math.round(v)}`}
+                          </span>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>
