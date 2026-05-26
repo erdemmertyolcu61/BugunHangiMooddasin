@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Camera, User, AtSign, Sparkles, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, uploadAvatar } from '../services/api';
-import { getApiUrl } from '../utils/apiConfig';
+import { resolveAvatarUrl } from '../utils/apiConfig';
 
 const USERNAME_RE = /^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,20}$/;
 
@@ -124,9 +124,7 @@ export default function EditProfileModal({ onClose, onSaved }) {
     }
   };
 
-  const displayAvatar = avatarPreview || (currentAvatar?.startsWith('/uploads')
-    ? getApiUrl(currentAvatar)
-    : currentAvatar);
+  const displayAvatar = avatarPreview || resolveAvatarUrl(currentAvatar);
 
   return (
     <>

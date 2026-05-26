@@ -17,6 +17,7 @@ from typing import Optional
 
 import jwt as pyjwt
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from backend.config import JWT_SECRET
@@ -232,7 +233,7 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
     """
     Avatar yükle — base64 encoded resim.
     Max 2MB, JPEG/PNG/WebP kabul edilir.
-    Sunucuda uploads/avatars/{user_id}_{uuid}.webp olarak kaydedilir.
+    Binary veri SQLite'a BLOB olarak kaydedilir (filesystem gerekmez, Render restart'ta kaybolmaz).
     """
     body = await request.json()
     image_data = body.get("image", "")
@@ -254,37 +255,46 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
 
     # Dosya tipi kontrolü (magic bytes)
     if raw[:2] == b'\xff\xd8':
-        ext = "jpg"
+        pass  # JPEG
     elif raw[:8] == b'\x89PNG\r\n\x1a\n':
-        ext = "png"
+        pass  # PNG
     elif raw[:4] == b'RIFF' and raw[8:12] == b'WEBP':
-        ext = "webp"
+        pass  # WebP
     else:
         raise HTTPException(400, "Sadece JPEG, PNG ve WebP formatları kabul edilir.")
 
-    # Klasörü oluştur
-    os.makedirs(UPLOADS_DIR, exist_ok=True)
-
     uid = user["user_id"]
-    filename = f"{uid}_{uuid.uuid4().hex[:8]}.{ext}"
-    filepath = os.path.join(UPLOADS_DIR, filename)
 
-    # Eski avatar dosyalarını temizle
-    try:
-        for f in os.listdir(UPLOADS_DIR):
-            if f.startswith(f"{uid}_"):
-                os.remove(os.path.join(UPLOADS_DIR, f))
-    except Exception:
-        pass
+    # BLOB olarak DB'ye kaydet (filesystem kullanma)
+    await cache.update_user_avatar_data(uid, raw)
 
-    # Yeni dosyayı yaz
-    with open(filepath, "wb") as f:
-        f.write(raw)
-
-    # URL oluştur (relative path — frontend proxy veya doğrudan erişecek)
-    picture_url = f"/uploads/avatars/{filename}"
-
-    # DB güncelle
+    # URL: /api/users/{id}/avatar endpoint'i üzerinden servis edilecek
+    picture_url = f"/api/users/{uid}/avatar"
     await cache.update_user_picture(uid, picture_url)
 
     return {"ok": True, "picture": picture_url}
+
+
+@router.get("/users/{user_id}/avatar")
+async def get_user_avatar(user_id: int):
+    """
+    Kullanıcı avatar'ını DB'den okuyup image olarak döndür.
+    Kimlik doğrulama gerekmez — herkese açık (sadece binary veri, kişisel veri yok).
+    """
+    data = await cache.get_user_avatar_data(user_id)
+    if not data:
+        raise HTTPException(404, "Avatar bulunamadı.")
+
+    # Magic bytes'a göre content-type belirle
+    if data[:4] == b'RIFF' and len(data) > 12 and data[8:12] == b'WEBP':
+        content_type = "image/webp"
+    elif data[:2] == b'\xff\xd8':
+        content_type = "image/jpeg"
+    else:
+        content_type = "image/png"
+
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )

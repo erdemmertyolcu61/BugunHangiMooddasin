@@ -740,7 +740,7 @@ export default function Discover() {
             >
               <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
                 {user?.picture
-                  ? <img src={user.picture.startsWith('/uploads') ? `${getApiUrl(user.picture)}?t=${Date.now()}` : user.picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   : <Users size={13} className="text-amber/60" />}
               </span>
               <span className="font-sans text-[11px] font-semibold text-ivory/60 max-w-[100px] truncate">

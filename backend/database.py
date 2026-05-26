@@ -497,6 +497,21 @@ class MovieCache:
                 await db.execute("ALTER TABLE users ADD COLUMN username TEXT")
             except Exception:
                 pass  # kolon zaten var
+
+            # avatar_data kolonu — BLOB, filesystem'siz kalıcı avatar depolama
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN avatar_data BLOB")
+            except Exception:
+                pass  # kolon zaten var
+
+            # Eski /uploads yollarını temizle (ephemeral filesystem'de dosya yok)
+            try:
+                await db.execute("""
+                    UPDATE users SET picture = NULL
+                    WHERE picture LIKE '/uploads/%' AND avatar_data IS NULL
+                """)
+            except Exception:
+                pass
             # Mevcut kullanıcılara benzersiz username üret (email öneki + id)
             try:
                 await db.execute("""
@@ -919,6 +934,26 @@ class MovieCache:
         async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute("UPDATE users SET picture = ? WHERE id = ?", (picture_url, user_id))
             await db.commit()
+
+    async def update_user_avatar_data(self, user_id: int, data: bytes):
+        """Avatar binary verisini DB'ye kaydet (filesystem'siz kalıcı depolama)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "UPDATE users SET avatar_data = ? WHERE id = ?",
+                (data, user_id)
+            )
+            await db.commit()
+
+    async def get_user_avatar_data(self, user_id: int):
+        """Avatar binary verisini DB'den oku. Yoksa None döner."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT avatar_data FROM users WHERE id = ?", (user_id,)
+            )
+            row = await cur.fetchone()
+            if row and row[0]:
+                return bytes(row[0])
+            return None
 
     async def remove_friend(self, user_id: int, friend_id: int) -> bool:
         """ACCEPTED arkadaşlık kaydını sil (iki yönlü kontrol)."""

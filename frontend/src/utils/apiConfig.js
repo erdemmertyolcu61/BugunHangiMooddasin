@@ -23,12 +23,14 @@ export const getApiUrl = (path) => {
 };
 
 /**
- * Avatar URL çözümleyici — /uploads ile başlayan yerel yolları API base'e bağlar,
- * Google/harici URL'leri olduğu gibi döndürür.
+ * Avatar URL çözümleyici — /uploads veya /api ile başlayan lokal yolları
+ * API base'e bağlar. Google/harici URL'leri olduğu gibi döndürür.
  */
 export const resolveAvatarUrl = (url) => {
   if (!url) return '';
-  if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
+  if (url.startsWith('/uploads') || url.startsWith('/api')) {
+    return `${API_BASE_URL}${url}`;
+  }
   return url;
 };
 

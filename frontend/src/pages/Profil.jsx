@@ -282,8 +282,7 @@ export default function Profil() {
   /* ─── Derived ──────────────────────────────────────────────────── */
   const displayName = user ? (sanitize(user.name) || sanitize(user.email) || 'Sinemasever') : '';
   const rawAvatar = user?.picture || '';
-  const avatarT = Date.now();
-  const avatar = rawAvatar.startsWith('/uploads') ? `${getApiUrl(rawAvatar)}?t=${avatarT}` : rawAvatar;
+  const avatar = resolveAvatarUrl(rawAvatar);
   const initials = displayName.slice(0, 1).toUpperCase();
 
   // Son izlenen 4 film (timeline için)
