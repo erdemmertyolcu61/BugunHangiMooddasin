@@ -14,6 +14,18 @@ const LOADING_PHRASES = [
   "Üstad düşünüyor...",
 ];
 
+const SURPRISE_STYLE = `
+  .surprise-film-root [class*="hover:bg-white/10"]:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  .surprise-film-root [class*="hover:bg-white/20"]:hover {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+  }
+  .surprise-film-root [class*="hover:text-white"]:hover {
+    color: rgb(255, 255, 255) !important;
+  }
+`;
+
 export default function SurpriseFilm() {
   const navigate = useNavigate();
   const [movie, setMovie] = useState(null);
@@ -80,7 +92,8 @@ export default function SurpriseFilm() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans relative overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-black text-white font-sans relative overflow-hidden flex flex-col surprise-film-root">
+      <style>{SURPRISE_STYLE}</style>
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#1a0533] via-[#2d1b69] to-[#1a0a2e]">
         <div className="absolute inset-0 opacity-30" style={{
@@ -97,7 +110,8 @@ export default function SurpriseFilm() {
 
       <header className="relative z-10 p-4 sm:p-6 pt-safe flex items-center">
         <button onClick={() => navigate('/')}
-          className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-white/10 rounded-full border border-white/20 transition-all text-white/70 hover:text-white">
+          className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-white/10 rounded-full border border-white/20 transition-all text-white/70 hover:text-white"
+          style={{ color: 'rgba(255,255,255,0.7) !important', borderColor: 'rgba(255,255,255,0.2) !important' }}>
           <ChevronLeft size={24} />
         </button>
       </header>
@@ -145,7 +159,8 @@ export default function SurpriseFilm() {
             className="flex flex-col items-center gap-6 text-center">
             <p className="text-xl font-serif italic text-[#ff6b35] max-w-md">{error}</p>
             <button onClick={fetchSurprise}
-              className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center gap-3 transition-all text-sm font-bold uppercase tracking-widest">
+              className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center gap-3 transition-all text-sm font-bold uppercase tracking-widest"
+              style={{ color: 'white !important', backgroundColor: 'rgba(255,255,255,0.1) !important', borderColor: 'rgba(255,255,255,0.2) !important' }}>
               <RefreshCw size={16} /> Tekrar Dene
             </button>
           </motion.div>
@@ -176,11 +191,13 @@ export default function SurpriseFilm() {
                   <img src={proxyImageUrl(movie.poster_url)} className="w-full h-full object-cover object-center" alt={movie.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl">
+                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl"
+                      style={{ color: 'white !important' }}>
                       {movie.title}
                     </h2>
                     {ustadLine && (
-                      <p className="mt-3 text-[15px] sm:text-xl text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">"{ustadLine}"</p>
+                      <p className="mt-3 text-[15px] sm:text-xl text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+                        style={{ color: '#ffe9b8 !important' }}>"{ustadLine}"</p>
                     )}
                   </div>
                 </div>
@@ -191,7 +208,8 @@ export default function SurpriseFilm() {
                     <Shuffle size={14} /> Yeni Sürpriz
                   </button>
                   <button onClick={handleInspect}
-                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold uppercase tracking-widest text-xs transition-all border border-white/20">
+                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold uppercase tracking-widest text-xs transition-all border border-white/20"
+                    style={{ color: 'white !important', backgroundColor: 'rgba(255,255,255,0.1) !important', borderColor: 'rgba(255,255,255,0.2) !important' }}>
                     <BookOpen size={14} /> Filmi İncele
                   </button>
                 </div>
