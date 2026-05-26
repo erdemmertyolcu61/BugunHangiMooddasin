@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../utils/apiConfig';
+import TasteMapCard from '../components/TasteMapCard';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
 
@@ -105,11 +106,11 @@ export default function Defterim() {
 
   const [shareCopiedId, setShareCopiedId] = useState(null);
   const handleShare = async (movie) => {
-    const shareUrl = `${window.location.origin}/discover?film=${movie.tmdb_id}`;
+    const shareUrl = getApiUrl(`/share/${movie.tmdb_id}`);
     const note = (movie.personal_note || '').trim();
     const shareData = {
-      title: `${movie.title} — Film Eleştirmeni`,
-      text: note ? `"${note.slice(0, 140)}"` : `${movie.title} — Film Eleştirmeni defterimden.`,
+      title: `${movie.title} — Sinemood`,
+      text: note ? `"${note.slice(0, 140)}"` : `${movie.title} — Sinemood defterimden.`,
       url: shareUrl,
     };
     try {
@@ -378,6 +379,14 @@ export default function Defterim() {
                         <span className="text-[11px] font-bold text-[#f5f2eb]/25 uppercase tracking-wider">
                           {tasteMap.signals?.total_movies || 0} film sinyali
                         </span>
+                      </div>
+
+                      {/* Zevk Haritamı Paylaş */}
+                      <div className="pt-4">
+                        <TasteMapCard
+                          tasteMap={tasteMap}
+                          username={user?.name || ''}
+                        />
                       </div>
                     </div>
                   ) : (

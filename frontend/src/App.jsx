@@ -55,6 +55,7 @@ const SearchPage = lazyRetry(() => import('./pages/Search'));
 const DesignPreview = lazyRetry(() => import('./pages/DesignPreview'));
 const Home = lazyRetry(() => import('./pages/Home'));
 const TasteMapCollision = lazyRetry(() => import('./pages/TasteMapCollision'));
+const PublicProfile = lazyRetry(() => import('./pages/PublicProfile'));
 
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -146,6 +147,7 @@ function AppContent() {
           <Route path="/listeler" element={<Listeler />} />
           <Route path="/listeler/:slug" element={<Listeler />} />
           <Route path="/profil" element={<Profil />} />
+          <Route path="/u/:username" element={<PublicProfile />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/carpistir" element={<TasteMapCollision />} />
 

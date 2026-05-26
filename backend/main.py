@@ -4506,8 +4506,8 @@ async def share_movie_page(movie_id: int):
     """Film paylaşım sayfası — OG meta tag'larıyla önizleme."""
     title = "Film Eleştirmeni"
     description = "Ruh haline göre yapay zeka destekli film keşif platformu."
-    poster = "https://film-elestirmeni.com/favicon.svg"
-    app_url = "https://film-elestirmeni.com"
+    poster = "https://film-elestirmeni.vercel.app/sinemod-mark.png"
+    app_url = "https://film-elestirmeni.vercel.app"
 
     try:
         cached = await cache.get_movie(movie_id)
@@ -4527,7 +4527,7 @@ async def share_movie_page(movie_id: int):
     safe_poster = html.escape(poster)
     safe_redirect = html.escape(redirect_url)
 
-    html = f"""<!DOCTYPE html>
+    page_html = f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
@@ -4539,7 +4539,7 @@ async def share_movie_page(movie_id: int):
   <meta property="og:description" content="{safe_desc}">
   <meta property="og:image" content="{safe_poster}">
   <meta property="og:url" content="{safe_redirect}">
-  <meta property="og:site_name" content="Film Eleştirmeni">
+  <meta property="og:site_name" content="Sinemood">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{safe_title}">
   <meta name="twitter:description" content="{safe_desc}">
@@ -4556,4 +4556,4 @@ async def share_movie_page(movie_id: int):
   <script>window.location.replace("{safe_redirect}")</script>
 </body>
 </html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=page_html)

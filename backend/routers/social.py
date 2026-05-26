@@ -275,6 +275,69 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
     return {"ok": True, "picture": picture_url}
 
 
+@router.get("/users/public/{username}")
+async def get_public_profile(username: str):
+    """
+    Herkese açık profil — kimlik doğrulama gerekmez.
+    Kullanıcının adı, avatarı, istatistikleri, taste map'i ve son izledikleri döner.
+    """
+    user_info = await cache.get_user_by_username(username)
+    if not user_info:
+        raise HTTPException(404, "Kullanıcı bulunamadı.")
+
+    uid = user_info["id"]
+
+    # Watchlist stats
+    try:
+        watchlist = await cache.get_watchlist(uid)
+    except Exception:
+        watchlist = []
+
+    watched = [m for m in watchlist if m.get("watched")]
+    saved_count = len(watchlist)
+    watched_count = len(watched)
+
+    # This month count
+    from datetime import datetime
+    now = datetime.now()
+    this_month_count = 0
+    for m in watchlist:
+        try:
+            d = datetime.fromisoformat(str(m.get("added_at", "")).replace(" ", "T"))
+            if d.month == now.month and d.year == now.year:
+                this_month_count += 1
+        except Exception:
+            pass
+
+    # Recent watched (last 4)
+    recent_watched = watched[:4]
+
+    # Taste map
+    taste_map = None
+    try:
+        cached_profile = await cache.get_taste_profile(uid)
+        if cached_profile and cached_profile.get("profile_data"):
+            taste_map = cached_profile["profile_data"]
+    except Exception:
+        pass
+
+    # Avatar URL
+    avatar_url = f"/api/users/{uid}/avatar" if user_info.get("picture") else ""
+
+    return {
+        "id": uid,
+        "username": user_info.get("username", ""),
+        "name": user_info.get("name", ""),
+        "picture": avatar_url,
+        "created_at": None,  # Not exposed publicly
+        "watched_count": watched_count,
+        "saved_count": saved_count,
+        "this_month_count": this_month_count,
+        "recent_watched": recent_watched,
+        "taste_map": taste_map,
+    }
+
+
 @router.get("/users/{user_id}/avatar")
 async def get_user_avatar(user_id: int):
     """

@@ -461,11 +461,11 @@ export default function Discover() {
   const [shareCopied, setShareCopied] = useState(false);
   const handleShare = async () => {
     if (!selectedMovie) return;
-    const shareUrl = `${window.location.origin}/discover?film=${selectedMovie.id}`;
+    const shareUrl = getApiUrl(`/share/${selectedMovie.id}`);
     const analysis = selectedMovie.ai_analysis?.replace('Üstadın Notu:', '').trim() || '';
     const shareData = {
-      title: `${selectedMovie.title} — Film Eleştirmeni`,
-      text: analysis ? `"${analysis.slice(0, 120)}..."` : 'Film Eleştirmeni\'nde izle.',
+      title: `${selectedMovie.title} — Sinemood`,
+      text: analysis ? `"${analysis.slice(0, 120)}..."` : 'Sinemood\'da keşfet.',
       url: shareUrl,
     };
     try {

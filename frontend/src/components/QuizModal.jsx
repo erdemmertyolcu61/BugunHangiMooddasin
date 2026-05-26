@@ -4,6 +4,7 @@ import { X, ChevronLeft, Heart, ArrowRight, Star, Eye, BookmarkPlus, Check, Spar
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
 import { moodQuizSearch } from '../services/api';
 import OptimizedImage from './OptimizedImage';
+import QuizShareCard from './QuizShareCard';
 
 export default function QuizModal({ isOpen, onClose, onComplete }) {
   const [step, setStep] = useState(0);
@@ -306,11 +307,26 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                   </motion.div>
                 )}
 
+                {/* Share Card — "Hangi Film Ruh Hali Seninki?" */}
+                {!searching && quizResult?.topMoods && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8 }}
+                    className="flex justify-center"
+                  >
+                    <QuizShareCard
+                      topMoods={quizResult.topMoods}
+                      resultMessage={getResultMessage(quizResult.topMoods)}
+                    />
+                  </motion.div>
+                )}
+
                 {/* Actions */}
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.9 }}
+                  transition={{ delay: 1.0 }}
                   className="flex flex-col sm:flex-row gap-3 justify-center pt-2"
                 >
                   <button
