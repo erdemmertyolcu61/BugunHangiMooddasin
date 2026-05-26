@@ -19,9 +19,42 @@ import re
 import base64
 import asyncio
 import contextlib
+from collections import deque
 import httpx
 from typing import Optional
 from backend.config import DATABASE_PATH
+
+# ── SQLite Connection Pool ───────────────────────────────────────────────────
+# Prevents ~30ms open/close overhead on every database operation.
+# Initialized once at startup via MovieCache.init_pool(), closed via close_pool().
+_sqlite_pool: deque = deque()
+_pool_init: bool = False
+_POOL_SIZE: int = 3
+
+
+async def init_pool(db_path: str, size: int = 3):
+    """Create persistent SQLite connections (call once after init_db)."""
+    global _sqlite_pool, _pool_init, _POOL_SIZE
+    if _pool_init:
+        return
+    _POOL_SIZE = size
+    for _ in range(size):
+        conn = await aiosqlite.connect(db_path)
+        await conn.execute("PRAGMA journal_mode=WAL")
+        await conn.execute("PRAGMA synchronous=NORMAL")
+        await conn.execute("PRAGMA busy_timeout=30000")
+        _sqlite_pool.append(conn)
+    _pool_init = True
+
+
+async def close_pool():
+    """Close all pooled connections (call at shutdown)."""
+    global _sqlite_pool, _pool_init
+    _pool_init = False
+    while _sqlite_pool:
+        conn = _sqlite_pool.popleft()
+        await conn.close()
+
 
 # ── Turso HTTP API (Hrana v2 pipeline, plain httpx) ──────────────────────────
 _TURSO_URL   = os.getenv("TURSO_DATABASE_URL")
@@ -145,15 +178,20 @@ async def _get_connection(db_path: str, user_data: bool = False):
 
     user_data=True  → Turso HTTP client (if configured) for persistent user tables.
     user_data=False → always local aiosqlite (movie caches, repository, etc.).
+    Uses a persistent connection pool when available (init_pool called at startup).
     """
     if user_data and _turso_client is not None:
         yield _turso_client
+    elif _pool_init and _sqlite_pool:
+        conn = _sqlite_pool.popleft()
+        try:
+            yield conn
+        finally:
+            _sqlite_pool.append(conn)
     else:
         async with aiosqlite.connect(db_path) as db:
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute("PRAGMA synchronous=NORMAL")
-            # Wait up to 30s for a writer lock instead of raising
-            # "database is locked" under concurrent cache writes.
             await db.execute("PRAGMA busy_timeout=30000")
             yield db
 

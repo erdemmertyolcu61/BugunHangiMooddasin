@@ -10,6 +10,9 @@ from backend.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_FAST_MODEL
 
 logger = logging.getLogger("claude_service")
 
+# En fazla 3 eşzamanlı Claude API çağrısı (429 hatası ve maliyet patlamasını önler)
+CLAUDE_SEMAPHORE = asyncio.Semaphore(3)
+
 FALLBACK_TEMPLATES = [
     "Üstadın Notu: {title} sıradan bir {genre} filmi değil — {year} yılında çekilmiş olmasına rağmen her izleyişte taze kalan nadir yapımlardan. Bir akşamını buna ayır, pişman olmayacaksın.",
     "Üstadın Notu: {genre} türünde {title} kadar içtenlikle konuşan film az bulunur. {year} yapımı bu eser, jenerik akarken bile sende bir iz bırakacak cinsten.",
@@ -141,7 +144,8 @@ class ClaudeService:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                message = await self.client.messages.create(
+                async with CLAUDE_SEMAPHORE:
+                    message = await self.client.messages.create(
                     model=self.model,
                     max_tokens=450,
                     messages=[{"role": "user", "content": prompt}],
@@ -280,7 +284,8 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
         models = [self.fast_model, self.model, self.model]
         for attempt, model in enumerate(models):
             try:
-                message = await self.client.messages.create(
+                async with CLAUDE_SEMAPHORE:
+                    message = await self.client.messages.create(
                     model=model, max_tokens=900,
                     messages=[{"role": "user", "content": prompt}],
                 )
@@ -400,10 +405,11 @@ SADECE geçerli JSON döndür:
 }}"""
 
         try:
-            message = await self.client.messages.create(
-                model=self.model, max_tokens=1200,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            async with CLAUDE_SEMAPHORE:
+                message = await self.client.messages.create(
+                    model=self.model, max_tokens=1200,
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
             response_text = message.content[0].text.strip()
             if "```json" in response_text:

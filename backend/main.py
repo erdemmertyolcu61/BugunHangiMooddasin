@@ -132,6 +132,8 @@ async def lifespan(app: FastAPI):
     """Initialize the database cache, DNS bypass, seed movie repository, and download audio."""
     await setup_dns_bypass()
     await cache.init_db()
+    from backend.database import init_pool as _init_pool
+    await _init_pool(cache.db_path)
     await cache.prune_tmdb_cache()
     await cache.prune_mood_query_cache()
     logger.info("🎬 [Backend] Film Connoisseur API starting...")
@@ -545,6 +547,9 @@ async def lifespan(app: FastAPI):
             await _tc.aclose()
         except Exception:
             pass
+    # Cleanup SQLite connection pool
+    from backend.database import close_pool as _close_pool
+    await _close_pool()
     # Cleanup Gemini embedding client
     await embedding_service.close()
 
@@ -945,7 +950,7 @@ def optional_user_id(request: Request) -> int:
 
 # ─── Topluluk Önerileri (Community Sharing) ───
 
-@app.post("/api/community/recommend")
+@app.post("/api/community/recommend", dependencies=[Depends(rate_limit_general)])
 async def community_recommend(request: Request, user=Depends(verify_user)):
     """Giriş yapmış kullanıcı bir filmi topluluğa önerir."""
     try:
@@ -972,7 +977,7 @@ async def community_recommend(request: Request, user=Depends(verify_user)):
     return {"success": True, "shared_by": {"uid": user_id, "username": username, "avatar": avatar}}
 
 
-@app.get("/api/community/recommendations/{tmdb_id}")
+@app.get("/api/community/recommendations/{tmdb_id}", dependencies=[Depends(rate_limit_general)])
 async def community_recommendations(tmdb_id: int = Path(..., ge=1)):
     """Bir filmi topluluğa öneren kullanıcıları döndürür (en yeniler önce)."""
     async with _db_conn(cache.db_path, user_data=True) as db:
@@ -1102,7 +1107,7 @@ async def discover_movies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/movies")
+@app.get("/api/movies", dependencies=[Depends(rate_limit_general)])
 async def get_movies(
     page: int = Query(1, ge=1, le=500),
     slim: bool = Query(True, description="Strip payloads for mobile"),
@@ -1285,7 +1290,7 @@ CURATED_TITLES_BY_MOOD = {
 
 CURATOR_PAGE_SIZE = 20
 
-@app.get("/api/repository/movies/{mood_id}")
+@app.get("/api/repository/movies/{mood_id}", dependencies=[Depends(rate_limit_general)])
 async def get_repository_movies(
     mood_id: str,
     page: int = Query(1, ge=1),
@@ -1709,7 +1714,7 @@ async def expand_similar_movies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/repository/classify-movie/{movie_id}")
+@app.get("/api/repository/classify-movie/{movie_id}", dependencies=[Depends(rate_limit_general)])
 async def classify_single_movie(movie_id: int):
     """
     Classify a single movie — returns primaryMoods, secondaryMoods, blockedMoods, moodScores.
@@ -1787,7 +1792,7 @@ class FuturePlanRequest(BaseModel):
 
 # --- Watchlist (Defterim) Endpoints ---
 
-@app.get("/api/watchlist")
+@app.get("/api/watchlist", dependencies=[Depends(rate_limit_general)])
 async def get_watchlist(request: Request):
     """Get all movies in the watchlist (kullanıcıya özel)."""
     try:
@@ -1797,7 +1802,7 @@ async def get_watchlist(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/watchlist")
+@app.post("/api/watchlist", dependencies=[Depends(rate_limit_general)])
 async def add_to_watchlist(req: WatchlistRequest, request: Request):
     """Add a movie to the watchlist."""
     try:
@@ -1816,7 +1821,7 @@ async def add_to_watchlist(req: WatchlistRequest, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/watchlist/{tmdb_id}")
+@app.delete("/api/watchlist/{tmdb_id}", dependencies=[Depends(rate_limit_general)])
 async def remove_from_watchlist(tmdb_id: int, request: Request):
     """Remove a movie from the watchlist."""
     try:
@@ -1828,7 +1833,7 @@ async def remove_from_watchlist(tmdb_id: int, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/watchlist/{tmdb_id}/toggle-watched")
+@app.post("/api/watchlist/{tmdb_id}/toggle-watched", dependencies=[Depends(rate_limit_general)])
 async def toggle_watched(request: Request, tmdb_id: int = Path(..., ge=1)):
     """Toggle the watched status of a movie in the watchlist."""
     try:
@@ -1843,7 +1848,7 @@ async def toggle_watched(request: Request, tmdb_id: int = Path(..., ge=1)):
 
 # --- Personal Notes Endpoints ---
 
-@app.get("/api/movies/{movie_id}/notes")
+@app.get("/api/movies/{movie_id}/notes", dependencies=[Depends(rate_limit_general)])
 async def get_movie_note(movie_id: int, request: Request):
     """Get the personal note for a movie."""
     try:
@@ -1853,7 +1858,7 @@ async def get_movie_note(movie_id: int, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/movies/{movie_id}/notes")
+@app.post("/api/movies/{movie_id}/notes", dependencies=[Depends(rate_limit_general)])
 async def save_movie_note(movie_id: int, req: NoteRequest, request: Request):
     """Save or update a personal note for a movie."""
     try:
@@ -2043,7 +2048,7 @@ def _with_layout(movie: dict) -> dict:
     return movie
 
 
-@app.get("/api/movies/{movie_id}/similar")
+@app.get("/api/movies/{movie_id}/similar", dependencies=[Depends(rate_limit_general)])
 async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
     """Bir filme gerçekten yakın filmler (24h cache). Recommendations + similar, tür örtüşmesi + kalite skoruyla sıralanır."""
     async def _compute():
@@ -2083,7 +2088,7 @@ async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
     return result or {"movies": []}
 
 
-@app.get("/api/movies/{movie_id}/watch-providers")
+@app.get("/api/movies/{movie_id}/watch-providers", dependencies=[Depends(rate_limit_general)])
 async def get_movie_watch_providers_endpoint(
     movie_id: int = Path(..., ge=1),
     region: str = Query("TR", min_length=2, max_length=4),
@@ -2136,7 +2141,7 @@ _image_client = _hx.AsyncClient(
     follow_redirects=True,
 )
 
-@app.get("/api/image-proxy")
+@app.get("/api/image-proxy", dependencies=[Depends(rate_limit_general)])
 async def image_proxy(url: str = Query(...)):
     """
     TMDB görsel proxy — ISP DNS engelini aşmak için.
@@ -2211,7 +2216,7 @@ async def health_check():
 
 # --- Future Plans Endpoints (Gelecek Planları) ---
 
-@app.get("/api/future")
+@app.get("/api/future", dependencies=[Depends(rate_limit_general)])
 async def get_future_plans(request: Request):
     """Get all movies in future plans (kullanıcıya özel)."""
     try:
@@ -2221,7 +2226,7 @@ async def get_future_plans(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/future")
+@app.post("/api/future", dependencies=[Depends(rate_limit_general)])
 async def add_to_future(req: FuturePlanRequest, request: Request):
     """Add a movie to future plans."""
     try:
@@ -2233,7 +2238,7 @@ async def add_to_future(req: FuturePlanRequest, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/future/{tmdb_id}")
+@app.delete("/api/future/{tmdb_id}", dependencies=[Depends(rate_limit_general)])
 async def remove_from_future(tmdb_id: int, request: Request):
     """Remove a movie from future plans."""
     try:
@@ -2245,7 +2250,7 @@ async def remove_from_future(tmdb_id: int, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.put("/api/future/{tmdb_id}/priority")
+@app.put("/api/future/{tmdb_id}/priority", dependencies=[Depends(rate_limit_general)])
 async def update_future_priority(tmdb_id: int, request: Request, priority: int = Query(0, ge=0, le=5)):
     """Update priority of a future plan."""
     try:
@@ -2257,7 +2262,7 @@ async def update_future_priority(tmdb_id: int, request: Request, priority: int =
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.put("/api/future/{tmdb_id}/date")
+@app.put("/api/future/{tmdb_id}/date", dependencies=[Depends(rate_limit_general)])
 async def update_future_date(tmdb_id: int, request: Request, watch_date: str = Query(None)):
     """Update watch date of a future plan."""
     try:
@@ -2272,7 +2277,7 @@ async def update_future_date(tmdb_id: int, request: Request, watch_date: str = Q
 
 # --- "Kafan mı Karışık?" AI Öneri Endpoint ---
 
-@app.get("/api/repository/stats")
+@app.get("/api/repository/stats", dependencies=[Depends(rate_limit_general)])
 async def repository_stats():
     """Debug: repository stats per mood."""
     try:
@@ -2592,7 +2597,7 @@ async def get_surprise_movie(exclude_ids: str = Query("")):
         return {"movie": None, "message": "Sürpriz film alınırken bir hata oluştu.", "source": "error"}
 
 
-@app.post("/api/recommend/random")
+@app.post("/api/recommend/random", dependencies=[Depends(rate_limit_general)])
 async def post_random_recommendation(req: RandomRecommendRequest):
     """Surpriz / random film onerisi. Mood bazli veya genel."""
     import random as rnd
@@ -2666,7 +2671,7 @@ async def post_random_recommendation(req: RandomRecommendRequest):
     }
 
 
-@app.post("/api/recommend/quick-mix")
+@app.post("/api/recommend/quick-mix", dependencies=[Depends(rate_limit_general)])
 async def post_quick_mood_mix(req: QuickMoodMixRequest):
     """
     Hızlı mood karışımı — <50ms hedef.
@@ -3766,7 +3771,7 @@ MOOD_NAMES = {
 
 
 
-@app.get("/api/user/taste-map")
+@app.get("/api/user/taste-map", dependencies=[Depends(rate_limit_general)])
 async def get_user_taste_map(request: Request):
     """
     Kullanicinin watchlist, future plans, notes verilerinden kisisel zevk profilini cikarir.
@@ -4124,7 +4129,7 @@ async def audio_debug():
         "sample_files": all_mp3s[:10]
     }
 
-@app.get("/api/audio/{mood_id}")
+@app.get("/api/audio/{mood_id}", dependencies=[Depends(rate_limit_general)])
 async def stream_audio(mood_id: str):
     """Önce lokal CC0 open-lofi dosyası, yoksa Pixabay proxy ile dene."""
     if mood_id == "debug":
@@ -4177,7 +4182,7 @@ def _load_lists():
     return _LISTS_DATA
 
 
-@app.get("/api/lists")
+@app.get("/api/lists", dependencies=[Depends(rate_limit_general)])
 async def get_all_lists():
     """Tüm küratöryel listeleri döndür (filmler olmadan)."""
     lists = _load_lists()
@@ -4226,7 +4231,7 @@ def _build_movie_entry(raw: dict, fallback_id: int = None) -> dict:
     }
 
 
-@app.get("/api/lists/{slug}")
+@app.get("/api/lists/{slug}", dependencies=[Depends(rate_limit_general)])
 async def get_list_detail(slug: str):
     """Tek bir listenin detayı + filmlerin TMDB verileri.
 
