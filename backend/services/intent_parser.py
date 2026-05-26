@@ -61,22 +61,37 @@ INTENT_SYSTEM_PROMPT = """Sen bir Türkçe film arama motoru için niyet çözü
 
 KURALLAR:
 - Türkçe film adlarını İngilizce karşılıklarına çevir (Başlangıç→Inception, Esaretin Bedeli→The Shawshank Redemption, Zindan Adası→Shutter Island, Yıldızlararası→Interstellar, Dövüş Kulübü→Fight Club, Ucuz Roman→Pulp Fiction, Prestij→The Prestige, Kara Şövalye→The Dark Knight, vb.)
-- Yazım hatalarını düzelt (Intersellar→Interstellar, Tarantno→Tarantino, Nuri Bilge→Nuri Bilge Ceylan)
+- Yazım hatalarını düzelt (Intersellar→Interstellar, Tarantno→Tarantino, Nuri Bilge→Nuri Bilge Ceylan, Kubrik→Kubrick, Vilenöv→Villeneuve)
 - Olumsuzluk/dışlama ifadelerini yakala ("korku olmasın", "klişe değil", "romantik hariç")
 - Dönem/yıl kısıtlamalarını çıkar ("2000'lerden"→min_year:2000/max_year:2009, "90'lar"→min_year:1990/max_year:1999, "yeni filmler"→min_year:2020, "eski klasikler"→max_year:1990)
 - IMDb/puan kısıtlamalarını çıkar ("IMDb 8 üstü"→min_rating:8.0, "yüksek puanlı"→min_rating:7.5)
 - Süre kısıtlamalarını çıkar ("kısa"→max_duration:90, "2 saatten az"→max_duration:120, "vaktim yok"→max_duration:90)
-- Atmosferik/durumsal ifadelerden ruh hali sinyalleri üret ("yağmurlu gün"→huzurlu, "gece geç saatte"→karanlık, "sevgilimle"→romantik)
+- Atmosferik/durumsal ifadelerden ruh hali sinyalleri üret (aşağıdaki BAĞLAM bölümüne bak)
 - Birden fazla varlık varsa hepsini çıkar
 - Kullanıcı Türkçe yazıyor ama search_query alanı İngilizce/Türkçe karışık olabilir (semantic engine multilingual)
 - search_query alanı semantik arama motoruna verilecek — film bulmak için optimize et (ör. "psychological thriller similar to Shutter Island with mind-bending plot twists" gibi açıklayıcı bir sorgu)
 
+YÖNETMEN TANIMA:
+- Sadece soyadı geçse bile yönetmeni tanı: "Nolan", "Tarantino", "Kubrick", "Villeneuve", "Scorsese", "Fincher", "Ceylan", "Lynch", "Wes Anderson", "Spielberg", "Hitchcock", "Ridley Scott", "Yılmaz Güney", "Ferzan Özpetek", "Zeki Demirkubuz", "Semih Kaplanoğlu"
+- Tam adını yaz: "Nolan" → directors: ["Christopher Nolan"], "Tarantino" → directors: ["Quentin Tarantino"], "Ceylan" → directors: ["Nuri Bilge Ceylan"]
+- "X filmleri", "X'in çektiği", "X gibi çeken", "X tarzı yönetmenler" → intent_type: "director_filmography"
+- "X tarzında filmler" (yönetmen adıysa) → intent_type: "director_filmography" + search_query: "films similar to [director]'s style"
+
+BAĞLAM BAZLI ANLAMA:
+- "sevgilimle" / "romantik gece" / "şehvetli" / "tutkulu" → genre_ids: [10749], mood_signals: ["romantik"], search_query: intimate/romantic/passionate films
+- "ailemle" / "aile filmi" / "hep birlikte" → genre_ids: [10751, 35], mood_signals: ["huzurlu", "neşeli"], search_query: family-friendly
+- "çocuğuma" / "çocuklar için" / "çocuk filmi" → genre_ids: [16, 10751], mood_signals: ["neşeli"], search_query: animated family children movie
+- "arkadaşlarla" / "eğlenceli gece" → genre_ids: [35], mood_signals: ["neşeli"], search_query: fun group comedy
+- "yalnızken" / "tek başıma" / "kafa dinle" → mood_signals: ["huzurlu", "düşündürücü"], search_query: introspective solo viewing
+- "uyumadan önce" / "gece geç" → mood_signals: ["huzurlu", "karanlık"], search_query: late-night contemplative
+- "ağlatacak" / "ağlamak istiyorum" → mood_signals: ["duygusal", "hüzünlü"], search_query: emotional tearjerker drama
+
 INTENT TİPLERİ:
 - similar_to_movie: Bir filme benzer öneriler ("X gibi", "X tarzında", "X'e benzer")
 - actor_filmography: Oyuncunun filmleri ("Brad Pitt filmleri", "X'in oynadığı")
-- director_filmography: Yönetmenin filmleri ("Nolan'ın çektiği")
+- director_filmography: Yönetmenin filmleri ("Nolan'ın çektiği", "Tarantino filmleri", "Kubrick gibi")
 - genre_request: Tür bazlı arama ("bilim kurgu öner", "komedi istiyorum")
-- mood_search: Ruh hali/atmosfer bazlı ("rahatlatıcı", "gerilimli", "ağlatacak bir film")
+- mood_search: Ruh hali/atmosfer/bağlam bazlı ("rahatlatıcı", "gerilimli", "ağlatacak", "sevgilimle", "ailemle")
 - complex_query: Birden fazla kısıt kombinasyonu ("2000'lerden psikolojik gerilim ama korku olmasın")
 - feedback: Önceki önerilere tepki ("daha farklı", "bunları izledim", "daha karanlık")
 

@@ -646,6 +646,57 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     "animasyon":   {"mood_boost": {"battaniye": 0.30, "kahkaha": 0.20}, "genre_ids": [16]},
     "aksiyon":     {"mood_boost": {"adrenalin": 0.40},                  "genre_ids": [28]},
     "felsefe":     {"mood_boost": {"zihin": 0.40, "sessiz": 0.20},      "genre_ids": [18]},
+
+    # ── Bağlam/izleyici bazlı sinyaller ──────────────────────────────────────
+    # Sevgili / romantik gece
+    "sevgilimle":  {"mood_boost": {"askbahcesi": 0.50},                 "genre_ids": [10749]},
+    "sevgili":     {"mood_boost": {"askbahcesi": 0.40},                 "genre_ids": [10749]},
+    "şehvetli":    {"mood_boost": {"askbahcesi": 0.50},                 "genre_ids": [10749, 18]},
+    "tutkulu":     {"mood_boost": {"askbahcesi": 0.45},                 "genre_ids": [10749, 18]},
+    "erotik":      {"mood_boost": {"askbahcesi": 0.50},                 "genre_ids": [10749, 18]},
+
+    # Aile / çocuk
+    "ailemle":     {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.25}, "genre_ids": [10751]},
+    "aile filmi":  {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.25}, "genre_ids": [10751]},
+    "çocuğuma":    {"mood_boost": {"battaniye": 0.35, "kahkaha": 0.25}, "genre_ids": [16, 10751]},
+    "çocuklar":    {"mood_boost": {"battaniye": 0.30, "kahkaha": 0.25}, "genre_ids": [16, 10751]},
+    "çocuk filmi": {"mood_boost": {"battaniye": 0.35, "kahkaha": 0.20}, "genre_ids": [16, 10751]},
+
+    # Sosyal bağlam
+    "arkadaşlarla":{"mood_boost": {"kahkaha": 0.45, "adrenalin": 0.20}, "genre_ids": [35]},
+    "arkadaşımla": {"mood_boost": {"kahkaha": 0.40, "adrenalin": 0.20}, "genre_ids": [35]},
+    "yalnız":      {"mood_boost": {"sessiz": 0.35, "geceyarisi-itirafi": 0.30}, "genre_ids": [18]},
+    "yalnızken":   {"mood_boost": {"sessiz": 0.35, "geceyarisi-itirafi": 0.30}, "genre_ids": [18]},
+    "tek başıma":  {"mood_boost": {"sessiz": 0.30, "geceyarisi-itirafi": 0.25}, "genre_ids": [18]},
+
+    # Duygusal ifadeler
+    "ağlatacak":   {"mood_boost": {"gozyasi": 0.50},                    "genre_ids": [18, 10749]},
+    "ağlamak":     {"mood_boost": {"gozyasi": 0.45},                    "genre_ids": [18]},
+    "güldürecek":  {"mood_boost": {"kahkaha": 0.50},                    "genre_ids": [35]},
+    "kahkaha":     {"mood_boost": {"kahkaha": 0.45},                    "genre_ids": [35]},
+    "rahatlatıcı": {"mood_boost": {"battaniye": 0.45},                  "genre_ids": [35, 10749]},
+    "rahatlat":    {"mood_boost": {"battaniye": 0.40},                   "genre_ids": [35, 10749]},
+    "düşündürecek":{"mood_boost": {"zihin": 0.45, "geceyarisi-itirafi": 0.20}, "genre_ids": [18]},
+    "düşündürücü": {"mood_boost": {"zihin": 0.45},                      "genre_ids": [18]},
+    "heyecanlı":   {"mood_boost": {"adrenalin": 0.40},                  "genre_ids": [28, 53]},
+    "macera":      {"mood_boost": {"yolculuk": 0.45, "adrenalin": 0.20},"genre_ids": [12, 28]},
+    "keşif":       {"mood_boost": {"yolculuk": 0.40},                   "genre_ids": [12]},
+
+    # Üretim / köken
+    "türk filmi":  {"mood_boost": {"kalp": 0.30},                       "genre_ids": [18]},
+    "yerli":       {"mood_boost": {"kalp": 0.25},                       "genre_ids": [18]},
+    "bağımsız":    {"mood_boost": {"kalp": 0.40, "sessiz": 0.20},       "genre_ids": [18]},
+    "festival":    {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.25}, "genre_ids": [18]},
+    "belgesel":    {"mood_boost": {"sessiz": 0.30, "zihin": 0.20},      "genre_ids": [99]},
+
+    # Estetik / deneysel
+    "sürreal":     {"mood_boost": {"karmakar": 0.50},                   "genre_ids": [14]},
+    "deneysel":    {"mood_boost": {"karmakar": 0.45, "kadraj-estetigi": 0.25}, "genre_ids": []},
+    "görsel":      {"mood_boost": {"kadraj-estetigi": 0.45},            "genre_ids": []},
+    "sinematografi":{"mood_boost": {"kadraj-estetigi": 0.50},           "genre_ids": []},
+    "estetik":     {"mood_boost": {"kadraj-estetigi": 0.45},            "genre_ids": []},
+    "retro":       {"mood_boost": {"zamanyolcusu": 0.40},               "genre_ids": []},
+    "klasik":      {"mood_boost": {"zamanyolcusu": 0.40},               "genre_ids": []},
 }
 
 

@@ -3508,6 +3508,47 @@ async def post_confused_recommendation(req: ConfusedRequest):
         logger.info("[Confused] LLM intent: type=%s, conf=%.2f, search='%s', genres=%s",
                     llm_intent.intent_type, llm_intent.confidence, search_text[:50], llm_intent.genre_ids)
 
+    # ── PATH 2a: LLM yönetmen/oyuncu tespiti → direkt TMDB filmografisi ────
+    # LLM yüksek güvenle director/actor tespit ettiyse, semantic search'ü atla
+    # ve direkt TMDB person API'dan filmografiyi çek.
+    if llm_intent and llm_intent.confidence > 0.6:
+        _llm_directors = (llm_intent.entities or {}).get("directors", [])
+        _llm_actors = (llm_intent.entities or {}).get("actors", [])
+
+        if llm_intent.intent_type == "director_filmography" and _llm_directors:
+            director_name = _llm_directors[0]
+            logger.info("[Confused] LLM detected director: '%s' — routing to TMDB filmography", director_name)
+            try:
+                person_movies = await _search_person_movies(director_name, "director", limit)
+                if person_movies:
+                    return {
+                        "movies": person_movies[:limit],
+                        "query_understanding": f"'{director_name}' yönetmenliğindeki filmler.",
+                        "ustad_line": f"Üstad {director_name}'ın sinema evreninden bir seçki hazırladım.",
+                        "intent": "director_filmography",
+                        "mode": "llm_director_search",
+                        "is_fallback": False,
+                    }
+            except Exception as e:
+                logger.warning("[Confused] LLM director search failed: %s", e)
+
+        elif llm_intent.intent_type == "actor_filmography" and _llm_actors:
+            actor_name = _llm_actors[0]
+            logger.info("[Confused] LLM detected actor: '%s' — routing to TMDB filmography", actor_name)
+            try:
+                person_movies = await _search_person_movies(actor_name, "actor", limit)
+                if person_movies:
+                    return {
+                        "movies": person_movies[:limit],
+                        "query_understanding": f"'{actor_name}' filmlerini arıyorsun.",
+                        "ustad_line": f"'{actor_name}' performanslarından bir seçki hazırladım.",
+                        "intent": "actor_filmography",
+                        "mode": "llm_actor_search",
+                        "is_fallback": False,
+                    }
+            except Exception as e:
+                logger.warning("[Confused] LLM actor search failed: %s", e)
+
     try:
         engine = ChatEngine(db=cache)
         result = await asyncio.wait_for(
