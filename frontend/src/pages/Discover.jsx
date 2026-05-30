@@ -953,7 +953,7 @@ export default function Discover() {
                   title={alreadyRecommended ? 'Bu filmi zaten topluluğa önerdin' : 'Topluluğa öner'}
                   className={`inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap transition-all active:scale-95 ${
                     alreadyRecommended
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 cursor-default'
+                      ? 'bg-emerald-500 text-white border border-emerald-400/70 cursor-default shadow-[0_0_18px_-4px_rgba(16,185,129,0.6)]'
                       : 'bg-amber/12 border border-amber/40 text-amber hover:bg-amber/20'
                   }`}
                 >
