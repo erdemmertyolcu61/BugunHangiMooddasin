@@ -1,0 +1,9 @@
+# Railway/mise build fix:
+# python-build-standalone bazı sürümler için GitHub artifact attestation
+# yayınlamıyor; mise bunu zorununca build "No GitHub artifact attestations
+# found for python@3.11.9" ile patlıyor. Doğrulamayı kapatıyoruz.
+[settings]
+python.github_attestations = false
+
+[tools]
+python = "3.11.9"
