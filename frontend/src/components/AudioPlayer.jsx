@@ -229,7 +229,7 @@ function MobileVinyl({ muted, isPlaying, volume, mood, onToggleMute }) {
   const glowIntensity = isPlaying && !muted ? volume : 0;
 
   return (
-    <div className="fixed right-4 bottom-24 z-[95]">
+    <div className="fixed right-4 bottom-24 mb-safe z-[95]">
       <div className="relative">
         <div className="absolute inset-0 rounded-full pointer-events-none transition-all" style={{
           boxShadow: glowIntensity > 0 ? `0 0 ${12 + glowIntensity * 20}px ${4 + glowIntensity * 8}px rgba(234,179,8,${0.08 + glowIntensity * 0.18})` : 'none',

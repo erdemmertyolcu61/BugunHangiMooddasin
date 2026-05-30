@@ -890,11 +890,12 @@ export default function Discover() {
             </div>
 
             {searchResults === null && totalPages > 1 && (
-              <div className="flex items-center justify-center gap-10 pt-12 pb-4">
+              <div className="flex items-center justify-center gap-6 sm:gap-10 pt-12 pb-4">
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="w-16 h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
+                  aria-label="Önceki sayfa"
+                  className="w-11 h-11 sm:w-16 sm:h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
                 >
                   ←
                 </button>
@@ -905,7 +906,8 @@ export default function Discover() {
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="w-16 h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
+                  aria-label="Sonraki sayfa"
+                  className="w-11 h-11 sm:w-16 sm:h-16 flex items-center justify-center bg-white/5 border border-white/10 rounded-full disabled:opacity-10 hover:bg-amber hover:text-bg transition-all duration-500"
                 >
                   →
                 </button>
