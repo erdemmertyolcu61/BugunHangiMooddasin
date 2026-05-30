@@ -11,6 +11,7 @@ import BottomNav from './components/BottomNav';
 import UsernameOnboardingModal from './components/UsernameOnboardingModal';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
+import GamePeekTab from './components/GamePeekTab';
 import AuraBackground from './components/AuraBackground.jsx';
 import ConsentBanner from './components/ConsentBanner';
 
@@ -135,6 +136,7 @@ function AppContent() {
       <ScrollChrome />
       <AuraBackground />
       <ThemeToggle />
+      <GamePeekTab />
       <AudioPlayer />
 
       <Suspense fallback={<DiscoverSkeleton />}>

@@ -2918,6 +2918,21 @@ async def trigger_daily_push(simulate: str = Query(None, description="Ödül tes
             "award_sent": award_sent, "awards": awarded, "movie_id": movie_id}
 
 
+@app.post("/api/admin/game-push", dependencies=[Depends(verify_admin)])
+async def trigger_game_push():
+    """Gece yarısı Mood Kâhini sıfırlanınca tüm abonelere 'yeni oyun hazır' push'lar.
+    Harici cron'la 00:00'da tetiklenir (günün filmi push'undan ayrı zamanlanabilir)."""
+    from backend.services.push_service import send_push_broadcast, PUSH_ENABLED
+    if not PUSH_ENABLED:
+        return {"ok": False, "enabled": False, "sent": 0}
+    sent = await send_push_broadcast(
+        "🔮 Mood Kâhini yenilendi",
+        "Bugünün filmleri hazır — filmin ruhunu oku, Üstad'ın güvenini kazan.",
+        url="/oyun", tag="mood-oracle-daily",
+    )
+    return {"ok": True, "enabled": True, "sent": sent}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # MİNİ OYUN — "Mood Kâhini": filmin ruh halini (mood) tahmin et
 # Mood sistemini öğreten, markaya özgü oyun. Skor cihazda (localStorage) tutulur;
