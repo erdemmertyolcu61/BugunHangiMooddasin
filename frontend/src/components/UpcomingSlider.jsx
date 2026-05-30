@@ -106,7 +106,7 @@ export default function UpcomingSlider() {
           animate="center"
           exit="exit"
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute inset-0 flex flex-col md:flex-row items-center"
+          className="absolute inset-0 flex flex-row items-center"
         >
           {/* Background blur */}
           <div
@@ -118,28 +118,28 @@ export default function UpcomingSlider() {
             }}
           />
 
-          <div className="relative z-10 w-full md:w-1/3 h-full p-4 flex items-center justify-center">
+          <div className="relative z-10 w-[120px] sm:w-1/3 h-full px-3 sm:p-4 flex items-center justify-center shrink-0">
             <img
               src={proxyImageUrl(film.poster_url)}
               alt={film.title}
-              className="h-[140px] rounded-xl shadow-xl transform group-hover:scale-105 transition-transform duration-1000"
+              className="h-[120px] sm:h-[140px] rounded-xl shadow-xl transform group-hover:scale-105 transition-transform duration-1000"
               draggable={false}
             />
           </div>
 
-          <div className="relative z-10 flex-1 p-6 space-y-3">
-            <div className="flex items-center gap-2">
+          <div className="relative z-10 flex-1 min-w-0 pr-4 sm:p-6 space-y-2 sm:space-y-3">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="px-2 py-0.5 bg-amber/20 border border-amber/40 text-amber text-[9px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
                 <Sparkles size={8} /> Yakında
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-ivory/30 flex items-center gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-ivory/40 flex items-center gap-1">
                 <Calendar size={8} /> {formatDate(film.release_date)}
               </span>
             </div>
-            <h2 className="text-2xl font-serif font-bold tracking-tighter leading-none">
+            <h2 className="text-lg sm:text-2xl font-serif font-bold tracking-tight leading-tight line-clamp-2 pr-2">
               {film.title}
             </h2>
-            <p className="text-sm font-serif italic text-amber/60 max-w-xl">
+            <p className="text-[13px] sm:text-sm font-serif italic text-amber/60 max-w-xl">
               Yakında bizlerle.
             </p>
           </div>

@@ -38,7 +38,7 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         {/* Üstad'ın Seçkisi Rozeti — solda, daima görünür */}
         {movie.mood_match_label === "Üstad'ın Seçkisi" && (
           <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 max-w-[90%]">
-            <div className="px-3 py-1.5 bg-gradient-to-r from-amber-600/95 to-amber-500/95 backdrop-blur-md rounded-full border border-amber-300/60 shadow-[0_0_12px_rgba(245,158,11,0.35)]">
+            <div className="px-3 py-1.5 bg-gradient-to-r from-amber-600/95 to-amber-500/95 sm:backdrop-blur-md rounded-full border border-amber-300/60 shadow-[0_0_12px_rgba(245,158,11,0.35)]">
               <p className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-black flex items-center gap-1.5">
                 <Star size={9} className="fill-black" /> Üstad'ın Seçkisi
               </p>
@@ -47,7 +47,7 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         )}
 
         {/* Mood Uyum Overlay — sağda, hover'da görünür */}
-        <div className={`absolute z-10 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:translate-x-4 sm:group-hover:translate-x-0 ${movie.mood_match_label === "Üstad'ın Seçkisi" ? 'top-3 right-3 sm:top-6 sm:right-6' : 'top-3 left-3 sm:top-6 sm:left-6'}`}>
+        <div className={`absolute z-10 px-3 py-1.5 bg-black/75 sm:bg-black/60 sm:backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:translate-x-4 sm:group-hover:translate-x-0 ${movie.mood_match_label === "Üstad'ın Seçkisi" ? 'top-3 right-3 sm:top-6 sm:right-6' : 'top-3 left-3 sm:top-6 sm:left-6'}`}>
           <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
             <Clapperboard size={10} /> %{movie.mood_score || movie.match}
           </p>
@@ -59,30 +59,30 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
             onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
             aria-label={isSaved ? `${movie.title} defterden çıkar` : `${movie.title} deftere ekle`}
             title="Deftere Ekle"
-            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-7 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-7 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider sm:backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
               ${isSaved
                 ? 'bg-amber/90 border-amber/60 text-black'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
               }`}
           >
             {isSaved
-              ? <><Check size={6} className="shrink-0" /> Eklendi</>
-              : <><BookmarkPlus size={6} className="shrink-0" /> Deftere</>
+              ? <><Check size={13} className="shrink-0" /> Eklendi</>
+              : <><BookmarkPlus size={13} className="shrink-0" /> Deftere</>
             }
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
             aria-label={isWatched ? `${movie.title} izlenmedi olarak işaretle` : `${movie.title} izledim olarak işaretle`}
             title="İzledim"
-            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-7 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-7 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-wider sm:backdrop-blur-md border transition-colors duration-200 active:scale-95 min-w-0
               ${isWatched
                 ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
                 : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
               }`}
           >
             {isWatched
-              ? <><Check size={6} className="shrink-0" /> İzledim</>
-              : <><Eye size={6} className="shrink-0" /> İzledim</>
+              ? <><Check size={13} className="shrink-0" /> İzledim</>
+              : <><Eye size={13} className="shrink-0" /> İzledim</>
             }
           </button>
         </div>

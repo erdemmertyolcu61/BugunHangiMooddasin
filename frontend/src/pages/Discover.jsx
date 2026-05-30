@@ -859,17 +859,20 @@ export default function Discover() {
                     </div>
                   ))
                 : displayMovies.length === 0
-                  ? <div className="col-span-5 py-40 text-center">
+                  ? <div className="col-span-2 lg:col-span-5 py-28 sm:py-40 text-center">
                       {error ? (
                         <div className="space-y-4">
-                          <p className="text-amber text-3xl font-serif italic">{error}</p>
-                          <p className="text-ivory/40 text-sm">
-                            İpucu: Backend'i başlatmak için <code>python start.py</code> komutunu kullanın. 
-                            Eğer port 8002 çakışması varsa terminaldeki talimatları izleyin.
-                          </p>
+                          <p className="text-amber text-2xl sm:text-3xl font-serif italic px-6">Üstad bu aralar biraz yorgun.</p>
+                          <p className="text-ivory/40 text-sm px-6">Birkaç saniye sonra tekrar dene.</p>
+                          <button
+                            onClick={() => setCurrentPage(1)}
+                            className="mt-2 px-6 py-3 rounded-full bg-amber/15 border border-amber/30 text-amber text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-amber/25 transition-all"
+                          >
+                            Tekrar Dene
+                          </button>
                         </div>
                       ) : (
-                        <p className="text-ivory/20 font-serif italic text-3xl">Üstad bu arama için uygun bir başyapıt bulamadı...</p>
+                        <p className="text-ivory/20 font-serif italic text-2xl sm:text-3xl px-6">Üstad bu arama için uygun bir başyapıt bulamadı...</p>
                       )}
                     </div>
                   : displayMovies.map((movie) => (
