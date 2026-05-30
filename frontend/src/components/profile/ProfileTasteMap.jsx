@@ -98,7 +98,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
 
       <div className="rounded-[2rem] border border-default bg-surface/60 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] via-transparent to-purple-600/[0.03] pointer-events-none" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-500/[0.07] to-transparent blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-500/[0.07] to-transparent blur-[60px] sm:blur-[120px] rounded-full pointer-events-none" />
 
         <div className="relative z-10 p-5 sm:p-8 space-y-9">
 

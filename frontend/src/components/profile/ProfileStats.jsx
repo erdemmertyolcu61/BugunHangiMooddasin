@@ -26,10 +26,10 @@ export default function ProfileStats({ watchedCount = 0, savedCount = 0, thisMon
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         {stats.map(({ icon: Icon, label, value, color }) => (
           <div key={label}
-            className="p-5 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] flex flex-col gap-2">
+            className="p-4 sm:p-5 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] flex flex-col gap-2">
             <Icon size={16} style={{ color }} className="opacity-70" />
             <p className="font-sans text-2xl sm:text-3xl font-bold text-ivory tracking-tight leading-none">
               {value}

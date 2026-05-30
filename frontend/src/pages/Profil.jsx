@@ -393,18 +393,19 @@ export default function Profil() {
           transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}>
           <div className="flex gap-1 p-1 rounded-full bg-[#1c1512]/90 border border-white/[0.06]">
             {[
-              { id: 'taste', label: 'Zevk Haritam', icon: Brain },
-              { id: 'social', label: 'Sosyal', icon: Users },
-              { id: 'settings', label: 'Ayarlar', icon: Settings },
+              { id: 'taste', label: 'Zevk Haritam', short: 'Zevk', icon: Brain },
+              { id: 'social', label: 'Sosyal', short: 'Sosyal', icon: Users },
+              { id: 'settings', label: 'Ayarlar', short: 'Ayarlar', icon: Settings },
             ].map(tab => (
               <button key={tab.id}
                 onClick={() => setProfileTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.15em] transition-all ${
                   profileTab === tab.id
                     ? 'bg-amber/15 text-amber border border-amber/20'
                     : 'text-ivory/40 hover:text-ivory/60'
                 }`}>
-                <tab.icon size={13} />
+                <tab.icon size={13} className="shrink-0" />
+                <span className="truncate sm:hidden">{tab.short}</span>
                 <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
