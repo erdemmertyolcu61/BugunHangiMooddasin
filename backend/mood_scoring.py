@@ -9,6 +9,32 @@ from backend.mood_profiles import (
     get_popularity_policy, get_positive_genres, get_negative_genres
 )
 
+# ── Asya filmi kalite kapısı ───────────────────────────────────────────────
+# Türk kullanıcısı niş/obskür Japon-Kore-Çin filmlerini genelde izlemiyor ve
+# saçma buluyor. Bu yüzden Doğu Asya (ja/ko/zh) dilli filmleri YALNIZCA gerçekten
+# tanınmış ve yüksek puanlıysa sistemde tutuyoruz (Parasite, Sen to Chihiro, Oldboy,
+# Drive My Car, Shoplifters, Train to Busan vb. geçer; binlerce obskür yapım elenir).
+EAST_ASIAN_LANGS = {"ja", "ko", "zh", "cn"}
+ASIAN_MIN_VOTE_AVERAGE = 7.2
+ASIAN_MIN_VOTE_COUNT = 600
+
+
+def is_low_quality_asian(movie: dict) -> bool:
+    """Doğu Asya dilli bir film ise ve tanınırlık/puan eşiğini geçemiyorsa True.
+    Asya dışı tüm filmler için her zaman False (filtre yalnız Asya filmlerine uygulanır)."""
+    lang = (movie.get("original_language") or "").lower()
+    if lang not in EAST_ASIAN_LANGS:
+        return False
+    try:
+        va = float(movie.get("vote_average") or 0)
+    except (TypeError, ValueError):
+        va = 0.0
+    try:
+        vc = int(movie.get("vote_count") or 0)
+    except (TypeError, ValueError):
+        vc = 0
+    return not (va >= ASIAN_MIN_VOTE_AVERAGE and vc >= ASIAN_MIN_VOTE_COUNT)
+
 # TMDB keyword ID -> mood affinity mapping
 # Her keyword ID'si hangi mood'lara ne kadar katkı sağlıyor
 TMDB_KEYWORD_MOOD_MAP = {

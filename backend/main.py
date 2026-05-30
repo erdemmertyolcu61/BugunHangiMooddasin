@@ -11,6 +11,8 @@ import logging
 import time
 import os
 import html
+import json
+import re
 from typing import Optional
 
 from backend.dns_resolver import setup_dns_bypass, refresh_dns
@@ -18,6 +20,8 @@ from backend.config import (
     ALLOWED_ORIGINS, BETA_PASSWORD, ADMIN_PASSWORD, JWT_SECRET,
     IS_PRODUCTION, ENVIRONMENT, RATE_LIMIT_GENERAL, RATE_LIMIT_AI,
     TMDB_API_KEY, ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GEMINI_API_KEY,
+    FRONTEND_BASE_URL,
+    VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT,
 )
 from backend.services.embedding_service import embedding_service
 from backend.services.fast_search import fast_search_engine
@@ -39,7 +43,7 @@ from backend.database import cache, _get_connection as _db_conn
 from backend.services.streaming_links import build_streaming_availability
 from backend.services.tmdb_service import tmdb_service
 from backend.services.omdb_service import omdb_service
-from backend.services.claude_service import claude_service
+from backend.services.claude_service import claude_service, ANALYSIS_VERSION
 from backend.mood_profiles import MOOD_PROFILES, get_tmdb_params, get_positive_genres, GENRE_NAMES
 
 # Unified search engine with 4-tier fallback (semantic → vector → regex → curated)
@@ -849,8 +853,18 @@ async def google_login(request: Request):
     name = idinfo.get("name", "")
     picture = idinfo.get("picture", "")
 
-    # Upsert user
+    # Davet atıfı (referral) — frontend ?ref=<username> ile gelir
+    ref_username = ""
+    try:
+        ref_username = str(body.get("ref") or "").strip().lower()[:32]
+    except Exception:
+        ref_username = ""
+
+    # Upsert user — önce var mı diye bak (yeni kullanıcı tespiti için)
     async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,))
+        existing = await cur.fetchone()
+        is_new = existing is None
         await db.execute("""
             INSERT INTO users (google_id, email, name, picture)
             VALUES (?, ?, ?, ?)
@@ -869,8 +883,54 @@ async def google_login(request: Request):
     except Exception as e:
         logger.warning("[Auth] ensure_username failed for user_id=%s: %s", user_id, e)
 
+    # Yeni kullanıcı + geçerli davet eden → atıf kaydet
+    if is_new and ref_username and ref_username != (username or "").lower():
+        try:
+            referrer = await cache.get_user_by_username(ref_username)
+            if referrer and referrer.get("id"):
+                await cache.record_referral(referrer["id"], user_id)
+        except Exception as e:
+            logger.warning("[Auth] referral kaydı başarısız (ref=%s): %s", ref_username, e)
+
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)  # 7 gün
-    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}}
+    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}
+
+
+@app.post("/api/auth/dev-login")
+async def dev_login():
+    """SADECE YEREL/GELİŞTİRME — Google olmadan sahte bir kullanıcıyla giriş.
+    Üretimde tamamen kapalı (403). Profil/sosyal özellikleri yerelde test etmek için."""
+    if IS_PRODUCTION:
+        raise HTTPException(status_code=403, detail="Dev giriş üretimde kapalıdır")
+
+    google_id = "dev-local"
+    email = "dev@sinemood.local"
+    name = "Dev Kullanıcı"
+    picture = ""
+
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,))
+        existing = await cur.fetchone()
+        is_new = existing is None
+        await db.execute("""
+            INSERT INTO users (google_id, email, name, picture)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name, picture=excluded.picture
+        """, (google_id, email, name, picture))
+        await db.commit()
+        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,))
+        row = await cur.fetchone()
+        user_id = row[0] if row else 0
+        created_at = row[1] if row and len(row) > 1 else None
+
+    username = ""
+    try:
+        username = await cache.ensure_username(user_id, email)
+    except Exception as e:
+        logger.warning("[DevAuth] ensure_username failed: %s", e)
+
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)
+    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}
 
 
 @app.get("/api/admin/users", dependencies=[Depends(verify_admin)])
@@ -927,6 +987,71 @@ def verify_user(request: Request) -> dict:
     if payload.get("type") != "user":
         raise HTTPException(status_code=403, detail="Bu işlem için hesabınla giriş yapmalısın")
     return payload
+
+
+@app.get("/api/user/referrals")
+async def get_my_referrals(request: Request, user=Depends(verify_user)):
+    """Giriş yapmış kullanıcının davet (referral) istatistikleri + davet linki + ödüller."""
+    uid = user["user_id"]
+    try:
+        count = await cache.get_referral_count(uid)
+    except Exception:
+        count = 0
+    try:
+        info = await cache.get_user_by_username_by_id(uid)
+    except Exception:
+        info = None
+    username = (info or {}).get("username", "") or ""
+    # Ödül eşikleri (rozet / kilit açma)
+    rewards = [(1, "Davetçi"), (3, "Sinefil Elçi"), (10, "Üstad'ın Çırağı")]
+    unlocked = [name for thr, name in rewards if count >= thr]
+    nxt = next(((thr, name) for thr, name in rewards if count < thr), None)
+    return {
+        "username": username,
+        "count": count,
+        "invite_url": f"{FRONTEND_BASE_URL}/?ref={username}" if username else "",
+        "rewards_unlocked": unlocked,
+        "next_reward": ({"at": nxt[0], "name": nxt[1]} if nxt else None),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WEB PUSH — VAPID bildirimleri (anahtar yoksa tamamen no-op)
+# ═══════════════════════════════════════════════════════════════════════════
+from backend.services.push_service import PUSH_ENABLED, send_push_to_user
+
+
+@app.get("/api/push/public-key")
+async def push_public_key():
+    """Frontend'in aboneliği için VAPID public key. Boşsa özellik kapalı demektir."""
+    return {"enabled": PUSH_ENABLED, "public_key": VAPID_PUBLIC_KEY if PUSH_ENABLED else ""}
+
+
+class PushSubscribeBody(BaseModel):
+    endpoint: str
+    keys: dict
+
+
+@app.post("/api/push/subscribe")
+async def push_subscribe(body: PushSubscribeBody, user=Depends(verify_user)):
+    """Cihaz push aboneliğini kaydeder."""
+    if not PUSH_ENABLED:
+        return {"ok": False, "enabled": False}
+    keys = body.keys or {}
+    ok = await cache.save_push_subscription(
+        user["user_id"], body.endpoint, keys.get("p256dh", ""), keys.get("auth", "")
+    )
+    return {"ok": ok, "enabled": True}
+
+
+class PushUnsubscribeBody(BaseModel):
+    endpoint: str
+
+
+@app.post("/api/push/unsubscribe")
+async def push_unsubscribe(body: PushUnsubscribeBody, user=Depends(verify_user)):
+    await cache.delete_push_subscription(body.endpoint)
+    return {"ok": True}
 
 
 def optional_user_id(request: Request) -> int:
@@ -1271,22 +1396,99 @@ async def classify_repository_movies(
 # ── Curator Override: Üstad'ın kişisel seçkileri ─────────────────────
 # Premium odalara giren kullanıcıların boş ekran görmemesi için,
 # semantic/seed pipeline'ı hazır olana kadar bu başyapıtlar gösterilir.
+# ── Üstad'ın Seçkisi: her mood için elle küratörlük (4 dünya + 1 Türk filmi) ──
+# Başlıklar "Başlık (YIL)" biçiminde; yıl belirsiz başlıkların doğru filme
+# çözülmesi için kullanılır (bkz. _parse_curated_title / _pick_movie_by_year).
 CURATED_TITLES_BY_MOOD = {
+    "battaniye": [
+        "Little Forest (2018)", "Our Little Sister (2015)", "Kikujiro (1999)",
+        "Paterson (2016)", "Vizontele (2001)",
+    ],
+    "yolculuk": [
+        "The Motorcycle Diaries (2004)", "The Straight Story (1999)", "Tracks (2013)",
+        "The Way (2010)", "Yol (1982)",
+    ],
+    "gece": [
+        "Good Time (2017)", "Nightcrawler (2014)", "Kyua (1997)",
+        "Memories of Murder (2003)", "Masumiyet (1997)",
+    ],
+    "kahkaha": [
+        "What We Do in the Shadows (2014)", "Hunt for the Wilderpeople (2016)",
+        "The Nice Guys (2016)", "In Bruges (2008)", "G.O.R.A. (2004)",
+    ],
+    "gozyasi": [
+        "The Broken Circle Breakdown (2012)", "Okuribito (2008)", "Still Walking (2008)",
+        "A Monster Calls (2016)", "Babam ve Oğlum (2005)",
+    ],
+    "adrenalin": [
+        "The Raid: Redemption (2012)", "Victoria (2015)", "13 Assassins (2010)",
+        "Headhunters (2011)", "Nefes: Vatan Sağolsun (2009)",
+    ],
+    "askbahcesi": [
+        "Past Lives (2023)", "Like Crazy (2011)", "Weekend (2011)",
+        "5 Centimeters per Second (2007)", "Issız Adam (2008)",
+    ],
+    "zamanyolcusu": [
+        "Cinema Paradiso (1988)", "Tokyo Story (1953)", "Le Samouraï (1967)",
+        "Il conformista (1971)", "Susuz Yaz (1963)",
+    ],
+    "sessiz": [
+        "Le Quattro Volte (2010)", "The Turin Horse (2011)", "Silent Light (2007)",
+        "Uncle Boonmee Who Can Recall His Past Lives (2010)", "Bal (2010)",
+    ],
+    "zihin": [
+        "Coherence (2014)", "Primer (2004)", "The Man from Earth (2007)",
+        "Triangle (2009)", "Vavien (2009)",
+    ],
+    "kalp": [
+        "Aftersun (2022)", "The Florida Project (2017)", "Columbus (2017)",
+        "A Ghost Story (2017)", "Uzak (2002)",
+    ],
+    "karmakar": [
+        "Holy Motors (2012)", "Songs from the Second Floor (2000)", "The Holy Mountain (1973)",
+        "Hausu (1977)", "Kosmos (2009)",
+    ],
+    "sipsak": [
+        "La Jetée (1962)", "The Red Balloon (1956)", "World of Tomorrow (2015)",
+        "Two Cars, One Night (2004)", "Sessiz / Bê Deng (2012)",
+    ],
+    "deep-chills": [
+        "Lake Mungo (2008)", "The Wailing (2016)", "Kill List (2011)",
+        "Saint Maud (2019)", "Baskın (2015)",
+    ],
     "kadraj-estetigi": [
-        "2001: A Space Odyssey",
-        "The Grand Budapest Hotel",
-        "Blade Runner 2049",
-        "The Fall",
-        "In the Mood for Love",
+        "In the Mood for Love (2000)", "The Fall (2006)", "Nie Yinniang (2015)",
+        "The Color of Pomegranates (1969)", "Bir Zamanlar Anadolu'da (2011)",
     ],
     "geceyarisi-itirafi": [
-        "Before Sunrise",
-        "Before Sunset",
-        "Before Midnight",
-        "My Dinner with Andre",
-        "The Sunset Limited",
+        "Before Sunrise (1995)", "Before Sunset (2004)", "Before Midnight (2013)",
+        "My Dinner with Andre (1981)", "Kış Uykusu (2014)",
     ],
 }
+
+_CURATED_TITLE_RE = re.compile(r"^(.*?)\s*\((\d{4})\)\s*$")
+
+
+def _parse_curated_title(entry: str):
+    """'Başlık (YYYY)' → (başlık, yıl:int|None). Yıl yoksa (entry, None)."""
+    m = _CURATED_TITLE_RE.match(entry.strip())
+    if m:
+        return m.group(1).strip(), int(m.group(2))
+    return entry.strip(), None
+
+
+def _pick_movie_by_year(candidates: list, year):
+    """Aynı başlığa sahip adaylardan yıla uyanı seç. Yıl yoksa ilkini döndür."""
+    if not candidates:
+        return None
+    if year is None:
+        return candidates[0]
+    for c in candidates:
+        rd = (c.get("release_date") or "")[:4]
+        if rd == str(year):
+            return c
+    return None
+
 
 CURATOR_PAGE_SIZE = 20
 
@@ -1322,28 +1524,47 @@ async def get_repository_movies(
         curated_movies = []
         if curated_titles and page == 1:
             try:
-                curated = await cache.fetch_movies_by_exact_titles(curated_titles, CURATOR_PAGE_SIZE)
-                # Phase 2: TMDB fallback — repository'de yeterli yoksa TMDB'den ara
-                if len(curated) < 6:
-                    search_tasks = [tmdb_service.search_movies(t) for t in curated_titles]
+                # "Başlık (YYYY)" → [(başlık, yıl)]
+                curated_entries = [_parse_curated_title(t) for t in curated_titles]
+                plain_titles = [t for (t, _y) in curated_entries]
+
+                # Repository'de başlık eşleşmesi ara; yıla göre doğru filmi seç
+                repo_rows = await cache.fetch_movies_by_exact_titles(plain_titles, CURATOR_PAGE_SIZE)
+                by_title = {}
+                for r in repo_rows:
+                    by_title.setdefault((r.get("title") or "").strip().lower(), []).append(r)
+
+                curated = []
+                seen_ids = set()
+                missing = []  # repo'da bulunamayan → TMDB fallback
+                for (title, year) in curated_entries:
+                    pick = _pick_movie_by_year(by_title.get(title.lower(), []), year)
+                    if pick and pick["id"] not in seen_ids:
+                        seen_ids.add(pick["id"])
+                        curated.append(pick)
+                    else:
+                        missing.append((title, year))
+
+                # Phase 2: TMDB fallback — eksik başlıkları TMDB'den (yıl-duyarlı) çek
+                if missing:
+                    search_tasks = [tmdb_service.search_movies(t) for (t, _y) in missing]
                     s_results = await asyncio.gather(*search_tasks, return_exceptions=True)
-                    seen_ids = set(m["id"] for m in curated)
                     new_for_db = []
-                    for results in s_results:
-                        if isinstance(results, BaseException):
+                    for (title, year), results in zip(missing, s_results):
+                        if isinstance(results, BaseException) or not results:
                             continue
-                        if results:
-                            m = results[0]
-                            tid = m["id"]
-                            if tid not in seen_ids:
-                                seen_ids.add(tid)
-                                m["backdrop_url"] = None
-                                m["vote_count"] = 0
-                                m["original_language"] = ""
-                                m["popularity"] = 0
-                                m["mood_score"] = 0
-                                new_for_db.append(m)
-                                curated.append(m)
+                        m = _pick_movie_by_year(results, year) or results[0]
+                        tid = m["id"]
+                        if tid in seen_ids:
+                            continue
+                        seen_ids.add(tid)
+                        m["backdrop_url"] = None
+                        m["vote_count"] = 0
+                        m["original_language"] = ""
+                        m["popularity"] = 0
+                        m["mood_score"] = 0
+                        new_for_db.append(m)
+                        curated.append(m)
                     # TMDB'den bulunanları repository'e kaydet (arkaplanda)
                     if new_for_db:
                         asyncio.create_task(
@@ -1452,21 +1673,22 @@ async def get_repository_movies(
                 }
 
         # ── FAST PATH: SQL-level pagination with pre-computed mood_score ──
-        # On page 1, reduce per_page to make room for curated picks
-        actual_per_page = 20
-        if curated_movies and page == 1:
-            actual_per_page = 20 - len(curated_movies)
-
+        # per_page TÜM sayfalarda sabit (20). Önceden page 1'de curated için
+        # per_page düşürülüyordu (20-N); bu hem total_pages'i tutarsız yapıyordu
+        # (sf1'de ceil(total/15), sf2'de ceil(total/20) → "161 → 121"), hem de
+        # iki sayfa arasındaki regular filmleri (15-19) atlatıyordu. Sabit 20 ile
+        # sf1 sadece curated'ı en üste ekler (biraz daha uzun), pagination tutarlı.
+        PER_PAGE = 20
         # Az oylu spam/yetişkin 10 puanlı filmleri filtrele (tüm mood'lar için min 50 oy)
         min_vote_count = 50
         result = await cache.get_repository_movies_paginated(
-            mood_id, page=page, per_page=actual_per_page,
+            mood_id, page=page, per_page=PER_PAGE,
             min_vote=min_vote, min_mood_score=min_mood_score,
             sort_by=sort_by, min_vote_count=min_vote_count,
         )
         page_movies = result["movies"]
 
-        # Prepend curated movies on page 1
+        # Prepend curated movies on page 1 (regular listeden tekilleştir)
         if curated_movies and page == 1:
             seen_curated_ids = set(m["id"] for m in curated_movies)
             page_movies = curated_movies + [m for m in page_movies if m["id"] not in seen_curated_ids]
@@ -1953,6 +2175,7 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
         "awards": ratings["awards"],
         "mood": analysis["mood"],
         "ai_analysis": analysis["analysis"],
+        "analysis_version": ANALYSIS_VERSION,
         "analyzed": True,
         "in_watchlist": in_watchlist,
         "personal_note": personal_note
@@ -2141,12 +2364,17 @@ _image_client = _hx.AsyncClient(
     follow_redirects=True,
 )
 
-@app.get("/api/image-proxy", dependencies=[Depends(rate_limit_general)])
+@app.get("/api/image-proxy")
 async def image_proxy(url: str = Query(...)):
     """
     TMDB görsel proxy — ISP DNS engelini aşmak için.
     Disk cache ile aynı poster tekrar TMDB'den çekilmez.
     Connection pooling ile paralel istekler hızlı.
+
+    NOT: Genel API rate-limit'ine (60/dk/IP) TABİ DEĞİL. Tek bir mood sayfası
+    ~20 poster'ı aynı anda ister; rate-limit'e tabi olsaydı IP bütçesini anında
+    tüketip 429 döndürürdü (posterler yüklenmezdi). Endpoint yalnız image.tmdb.org
+    host'una izin verir ve disk cache'lidir → kötüye kullanım riski düşük.
     """
     from fastapi.responses import FileResponse, Response
     from urllib.parse import urlparse
@@ -2501,6 +2729,7 @@ class ConfusedRequest(BaseModel):
     min_mood_score: float = 0.0
     exclude_ids: list = []
     forced_mood_override: str = ""  # Session-based anti-repetition
+    refine: str = ""  # "" | more_popular | newer | different | less_known (4 buton)
 
 class QuickMoodMixRequest(BaseModel):
     mood_mix: list  # [{"mood_id": "battaniye", "percentage": 50}, ...]
@@ -2573,6 +2802,9 @@ async def get_surprise_movie(exclude_ids: str = Query("")):
             # Poster zorunlu
             if not candidate.get("poster_url"):
                 continue
+            # Niş/obskür Asya filmlerini sürprizde gösterme
+            if is_low_quality_asian(candidate):
+                continue
             # Minimum puan filtresi (çöp filmlerden kaçın)
             vote = candidate.get("vote_average", 0)
             if vote and vote >= 5.5:
@@ -2595,6 +2827,179 @@ async def get_surprise_movie(exclude_ids: str = Query("")):
     except Exception as e:
         logger.error(f"Surprise error: {e}")
         return {"movie": None, "message": "Sürpriz film alınırken bir hata oluştu.", "source": "error"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GÜNÜN FİLMİ — "Üstad'ın Bugünkü Filmi" (retention + dağıtım içeriği)
+# Tarihe göre deterministik: gün boyu aynı film döner, gece yarısı yenilenir.
+# ═══════════════════════════════════════════════════════════════════════════
+_daily_film_cache: dict = {}  # { "YYYY-MM-DD": {film payload} }
+
+
+async def _compute_daily_film(date_key: str) -> Optional[dict]:
+    """O güne özel bir film seç (deterministik seed = tarih). Posterli, puanı iyi."""
+    import random as rnd
+    seed = int(date_key.replace("-", ""))
+    best = None
+    for _ in range(25):
+        candidate = await cache.get_random_repository_movie()
+        if not candidate or not candidate.get("poster_url"):
+            continue
+        if is_low_quality_asian(candidate):
+            continue
+        vote = candidate.get("vote_average", 0) or 0
+        if vote >= 6.8:
+            best = candidate
+            break
+        if best is None:
+            best = candidate
+    if not best:
+        return None
+    ustad_line = rnd.Random(seed).choice(SURPRISE_USTAD_LINES)
+    return {
+        "date": date_key,
+        "movie": best,
+        "ustad_line": ustad_line,
+        "title": "Üstad'ın Bugünkü Filmi",
+    }
+
+
+async def _get_daily_film() -> Optional[dict]:
+    date_key = datetime.utcnow().strftime("%Y-%m-%d")
+    if date_key in _daily_film_cache:
+        return _daily_film_cache[date_key]
+    payload = await _compute_daily_film(date_key)
+    if payload:
+        _daily_film_cache.clear()  # eski günleri at
+        _daily_film_cache[date_key] = payload
+    return payload
+
+
+@app.get("/api/daily/film")
+async def daily_film():
+    """Günün filmi — gün boyu sabit, paylaşılabilir kart + push için kaynak."""
+    payload = await _get_daily_film()
+    if not payload:
+        return {"movie": None, "message": "Bugünün filmi henüz hazır değil."}
+    return payload
+
+
+@app.post("/api/admin/daily-push", dependencies=[Depends(verify_admin)])
+async def trigger_daily_push(simulate: str = Query(None, description="Ödül testi için MM-DD")):
+    """Günün filmini + (varsa) bugün töreni olan ödülü tüm abonelere push'lar (harici cron)."""
+    from backend.services.push_service import send_push_broadcast, PUSH_ENABLED
+    if not PUSH_ENABLED:
+        return {"ok": False, "enabled": False, "sent": 0}
+
+    film_sent = 0
+    movie_id = None
+    payload = await _get_daily_film()
+    if payload and payload.get("movie"):
+        m = payload["movie"]
+        movie_id = m.get("id") or m.get("tmdb_id")
+        film_sent = await send_push_broadcast(
+            "🎬 Üstad'ın Bugünkü Filmi",
+            f"{m.get('title') or 'Bugünün Filmi'} — bugün bunu izlemeni öneriyor.",
+            url="/gunun-filmi", tag="daily-film",
+        )
+
+    # ── Ödül günü: bugün töreni olan ödülleri duyur ──
+    award_sent = 0
+    awarded = []
+    for aw in _awards_matching(simulate=simulate, window_days=0):  # yalnız "today"
+        award_sent += await send_push_broadcast(
+            f"🏆 {aw['ceremony']} sahiplerini buldu",
+            "Bu yılın ödüllü filmleri Sinemood'da hazır — keşfet.",
+            url=f"/listeler/{aw['slug']}", tag=f"award-{aw['slug']}",
+        )
+        awarded.append(aw["slug"])
+
+    return {"ok": True, "enabled": True, "film_sent": film_sent,
+            "award_sent": award_sent, "awards": awarded, "movie_id": movie_id}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MİNİ OYUN — "Mood Kâhini": filmin ruh halini (mood) tahmin et
+# Mood sistemini öğreten, markaya özgü oyun. Skor cihazda (localStorage) tutulur;
+# bu uç yalnız tur üretir (yazma yok).
+# ═══════════════════════════════════════════════════════════════════════════
+MOOD_ORACLE_PRAISE = [
+    "Hah! İşte sinemadan anlayan bir göz. Üstad gururlandı.",
+    "Doğru bildin evlat — bu filmin ruhunu okudun resmen.",
+    "Bravo. Demek perdenin ardındaki frekansı duyuyorsun.",
+    "Tam isabet. Üstad'ın güveni sana biraz daha arttı.",
+    "İşte bu! Filmin damarına bastın evlat.",
+]
+MOOD_ORACLE_ROAST = [
+    "Yok evlat, tutmadı. Bu filmi o rafa koymak Üstad'ın içini sızlatır.",
+    "Olmadı. Posteri güzel diye ruhunu yanlış okudun.",
+    "Iskaladın. Üstad bu filmi başka bir frekansta dinliyor.",
+    "Hayır evlat — bu filmin kalbi orada atmıyor.",
+    "Pas geçtin. Bir dahakine perdeye biraz daha dikkatli bak.",
+]
+
+
+@app.get("/api/game/mood-oracle", dependencies=[Depends(rate_limit_general)])
+async def mood_oracle_rounds(rounds: int = Query(5, ge=1, le=10)):
+    """'Mood Kâhini' oyunu için tur üretir. Her tur: bir film + doğru mood + 4 seçenek."""
+    import random as rnd
+    all_moods = [m for m in REASON_MAP.keys() if m in MOOD_GENRE_MAP]
+    rnd.shuffle(all_moods)
+
+    result_rounds = []
+    used_movie_ids = set()
+    # Hedeflenen mood'lar + yetmezse kalanlarla doldur
+    mood_queue = all_moods[:]
+    attempts = 0
+    while len(result_rounds) < rounds and mood_queue and attempts < rounds * 4:
+        attempts += 1
+        mood_id = mood_queue.pop(0)
+        try:
+            page = rnd.randint(1, 3)
+            res = await cache.get_repository_movies_paginated(
+                mood_id, page=page, per_page=10,
+                min_vote=5.5, min_mood_score=55,
+                sort_by="recommended", min_vote_count=100,
+            )
+            pool = [m for m in (res.get("movies") or [])
+                    if m.get("poster_url") and m["id"] not in used_movie_ids]
+            if not pool:
+                # daha gevşek dene
+                res2 = await cache.get_repository_movies_paginated(
+                    mood_id, page=1, per_page=10, min_vote=5.0,
+                    min_mood_score=40, sort_by="recommended", min_vote_count=50,
+                )
+                pool = [m for m in (res2.get("movies") or [])
+                        if m.get("poster_url") and m["id"] not in used_movie_ids]
+            if not pool:
+                continue
+            film = rnd.choice(pool)
+            used_movie_ids.add(film["id"])
+
+            distractors = [m for m in all_moods if m != mood_id]
+            rnd.shuffle(distractors)
+            options = [mood_id] + distractors[:3]
+            rnd.shuffle(options)
+
+            result_rounds.append({
+                "film": {
+                    "id": film["id"],
+                    "title": film.get("title"),
+                    "year": (film.get("release_date") or "")[:4],
+                    "poster_url": film.get("poster_url"),
+                    "overview": (film.get("overview") or "")[:240],
+                },
+                "correct_mood": mood_id,
+                "options": options,
+                "reason": REASON_MAP.get(mood_id, ""),
+                "ustad_correct": rnd.choice(MOOD_ORACLE_PRAISE),
+                "ustad_wrong": rnd.choice(MOOD_ORACLE_ROAST),
+            })
+        except Exception as e:
+            logger.warning(f"[MoodOracle] {mood_id} tur üretilemedi: {e}")
+            continue
+
+    return {"rounds": result_rounds, "count": len(result_rounds)}
 
 
 @app.post("/api/recommend/random", dependencies=[Depends(rate_limit_general)])
@@ -2850,6 +3255,43 @@ def _confused_ustad_line(intent_type: str, mood_analysis: dict) -> str:
     return lines.get(intent_type, "İşte sana seçtiklerim.")
 
 
+# ── TMDB'den kişi adına göre film getiren üst-seviye helper ──────────────────
+async def _search_person_movies_top(
+    person_name: str, person_type: str, count: int,
+    min_vote: float, exclude_set: set,
+) -> list:
+    try:
+        persons = await tmdb_service.search_person(person_name)
+        if not persons:
+            return []
+        person_id = persons[0]["id"]
+        if person_type == "director":
+            raw = await tmdb_service.get_director_filmography(person_id, limit=count * 2, min_vote_count=50)
+        else:
+            raw = await tmdb_service.get_person_movie_credits(person_id)
+        if not raw:
+            return []
+        result = []
+        for m in raw:
+            mid = m.get("id")
+            if not mid or mid in exclude_set:
+                continue
+            if not m.get("poster_url"):
+                continue
+            if float(m.get("vote_average", 0) or 0) < min_vote:
+                continue
+            m["mood_score"] = 85.0
+            m["matched_mood"] = "battaniye"
+            m["reason"] = f"'{persons[0]['name']}' kariyerinden bir seçki."
+            result.append(m)
+            exclude_set.add(mid)
+            if len(result) >= count:
+                break
+        return result
+    except Exception:
+        return []
+
+
 async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids: list) -> dict:
     """
     Kural tabanlı fallback — embedding/model KULLANMAZ.
@@ -2857,17 +3299,24 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     Hedef: her türlü girdiyi (kişi adı, film adı, ruh hali) anlamak.
     """
     import json
-    from backend.services.chat_engine import ChatEngine, _rule_based_confused_analysis, GENRE_KEYWORDS
+    from backend.services.chat_engine import ChatEngine, _rule_based_confused_analysis, GENRE_KEYWORDS, parse_chat_hints
 
     engine = ChatEngine(db=cache)
     intent = engine.detect_intent(text)
     mood_analysis = _rule_based_confused_analysis(text)
+    hints = parse_chat_hints(text)
+
+    logger.info("[PATH3] text=%r intent=%s hints.mood=%s hints.genre=%s",
+                text, intent.type, hints.mood_bonuses, hints.genre_ids)
 
     exclude_set = set(exclude_ids)
 
     # ── Kaliteli mood filmleri çeken helper (min_vote_count + poster filtresi ile) ──
-    async def _search_mood_movies(mood_ids: list, count: int) -> list:
+    async def _search_mood_movies(mood_ids: list, count: int, genre_filter: set = None) -> list:
         collected = []
+        # Sipsak modunda bucket'taki şişirilmiş (az oy, yüksek avg) filmleri ele:
+        # TMDB Discover ile aynı güvenilir eşik (150 oy) uygulanır.
+        _min_vc = SIPSAK_MIN_VOTE_COUNT if getattr(hints, "sipsak_mode", False) else 50
         for mid in mood_ids:
             try:
                 rows = await cache.get_top_repository_movies_by_mood(mid, min_vote=min_vote, limit=count * 3)
@@ -2877,10 +3326,18 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                         continue
                     if not m.get("poster_url"):
                         continue
-                    if int(m.get("vote_count", 0)) < 50:
+                    if int(m.get("vote_count", 0)) < _min_vc:
                         continue
+                    # Genre filtre (varsa) — tür uyumlu filmleri öncele
+                    if genre_filter:
+                        movie_genres = set(m.get("genre_ids") or [])
+                        genre_overlap = movie_genres & genre_filter
+                        if not genre_overlap:
+                            continue
+                        # Daha fazla genre eşleşen film → daha yüksek skor
+                        genre_bonus = len(genre_overlap) * 10.0
+                        m["genre_match_bonus"] = genre_bonus
                     lang = (m.get("original_language") or "").lower()
-                    # Doğu Asya filmlerini filtreleme, sadece puanı düşür (sona sırala)
                     east_asian = lang in ("ja", "ko", "zh")
                     m["mood_score"] = 40.0 if east_asian else 80.0
                     m["matched_mood"] = mid
@@ -2889,40 +3346,60 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                     exclude_set.add(m_id)
             except Exception:
                 continue
-        collected.sort(key=lambda x: (-x.get("vote_average", 0), -x.get("vote_count", 0)))
+        collected.sort(key=lambda x: (
+            -x.get("genre_match_bonus", 0),   # Daha fazla genre eşleşen → önce
+            -x.get("vote_average", 0),
+            -x.get("vote_count", 0),
+        ))
         return collected[:count]
 
-    # ── TMDB'den kişi adına göre film getiren helper ──
-    async def _search_person_movies(person_name: str, person_type: str, count: int) -> list:
+    # ── TMDB Discover API ile genre + era + runtime + hidden_gem filtrelemesi ──
+    async def _tmdb_discover_for_hints(
+        genre_ids: list,
+        era_c: dict,
+        runtime_lte: int,
+        hidden_gem: bool,
+        count: int,
+        tmdb_keywords: list = None,
+    ) -> list:
+        # genre_ids zorunlu değil — runtime/era/hidden_gem tek başına yeterli
+        if not genre_ids and not runtime_lte and not era_c and not hidden_gem:
+            return []
         try:
-            persons = await tmdb_service.search_person(person_name)
-            if not persons:
-                return []
-            person_id = persons[0]["id"]
-            if person_type == "director":
-                raw = await tmdb_service.get_director_filmography(person_id, limit=count * 2, min_vote_count=50)
-            else:
-                raw = await tmdb_service.get_person_movie_credits(person_id)
-            if not raw:
-                return []
-            result = []
-            for m in raw:
-                mid = m.get("id")
-                if not mid or mid in exclude_set:
+            kwargs = {
+                "sort_by": "vote_average.desc",
+                "min_vote_average": min_vote,
+                "min_vote_count": 150,
+            }
+            if era_c and isinstance(era_c, dict):
+                if era_c.get("min_year"):
+                    kwargs["primary_release_date_gte"] = f"{era_c['min_year']}-01-01"
+                if era_c.get("max_year"):
+                    kwargs["primary_release_date_lte"] = f"{era_c['max_year']}-12-31"
+            if runtime_lte:
+                kwargs["with_runtime_lte"] = runtime_lte
+            if hidden_gem:
+                kwargs["max_vote_count"] = 3000  # Popüler olmayan = gizli kalmış
+            if tmdb_keywords:
+                kwargs["with_keywords"] = "|".join(str(k) for k in tmdb_keywords)
+
+            result = await tmdb_service.discover_movies(genre_ids, **kwargs)
+            movies = []
+            for m in result.get("movies", []):
+                m_id = m.get("id")
+                if not m_id or m_id in exclude_set or not m.get("poster_url"):
                     continue
-                if not m.get("poster_url"):
+                if int(m.get("vote_count", 0)) < 50:
                     continue
-                if float(m.get("vote_average", 0) or 0) < min_vote:
-                    continue
-                m["mood_score"] = 85.0
-                m["matched_mood"] = "battaniye"
-                m["reason"] = f"'{persons[0]['name']}' kariyerinden bir seçki."
-                result.append(m)
-                exclude_set.add(mid)
-                if len(result) >= count:
-                    break
-            return result
-        except Exception:
+                m["mood_score"] = 70.0   # Bucket filmlerinden (80.0) biraz düşük
+                m["matched_mood"] = "tmdb_discover"
+                m["genre_match_bonus"] = 5.0  # TMDB discover zaten genre-filtered
+                movies.append(m)
+            logger.info("[TMDB-Discover] genres=%s era=%s runtime_lte=%s → %d films",
+                        genre_ids, era_c, runtime_lte, len(movies))
+            return movies[:count]
+        except Exception as e:
+            logger.warning("[TMDB-Discover] failed: %s", e)
             return []
 
     # ── TMDB'den referans film + benzerlerini getiren helper (kalite filtreli) ──
@@ -2977,9 +3454,19 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
 
     movies = []
     query_understanding = ""
+    # Sadece mood_recommendation dalında atanan ama dal sonrası (era filtresi,
+    # sipsak sıralaması, ustad_line) okunan değişkenler — burada init edilir ki
+    # tüm intent'lerde tanımlı olsunlar (locals().get() anti-pattern'i yerine).
+    era_c = None
+    mood_ids = []
 
     if intent.type == "similar_to_movie" and intent.reference_title:
-        repo_hits = await cache.search_repository_by_title(intent.reference_title, limit=5)
+        # Türkçe başlık alias'ını çöz (örn. "dövüş kulübü" → "Fight Club")
+        from backend.services.chat_engine import TURKISH_TITLE_ALIASES
+        ref_title_lower = intent.reference_title.lower().strip()
+        resolved_title = TURKISH_TITLE_ALIASES.get(ref_title_lower, intent.reference_title)
+
+        repo_hits = await cache.search_repository_by_title(resolved_title, limit=5)
         query_understanding = f"'{intent.reference_title}' filmine benzer yapımlar arıyorsun."
 
         # Referans filmi bul (repo veya TMDB'den)
@@ -2988,16 +3475,31 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         src_genres = set()
 
         if repo_hits:
-            # Belgesel olmayan + en popüler sonucu seç
+            # Başlık benzerliğine göre en iyi eşleşmeyi seç (fuzzy LIKE yanlış film döndürebilir)
+            from difflib import SequenceMatcher
+            ref_norm = resolved_title.lower()
+            def _title_score(m):
+                t = (m.get("title") or "").lower()
+                sim = SequenceMatcher(None, ref_norm, t).ratio()
+                vc = m.get("vote_count") or 0
+                return (sim > 0.6, sim, vc)  # Önce benzerlik eşiği, sonra oran, sonra popülerlik
             best_repo = max(
                 (m for m in repo_hits if 99 not in (m.get("genre_ids") or [])),
-                key=lambda m: (m.get("vote_count") or 0),
+                key=_title_score,
                 default=repo_hits[0]
             )
-            src_id = best_repo.get("id")
-            src_title = best_repo.get("title", src_title)
-            src_genres = set(best_repo.get("genre_ids", []) or [])
-        else:
+            # Benzerlik çok düşükse repo sonucunu güvenme, TMDB'ye düş
+            best_sim = SequenceMatcher(None, ref_norm, (best_repo.get("title") or "").lower()).ratio()
+            if best_sim >= 0.55:
+                src_id = best_repo.get("id") or best_repo.get("tmdb_id")
+                src_title = best_repo.get("title", src_title)
+                src_genres = set(best_repo.get("genre_ids", []) or [])
+                logger.info("[SIMILAR] Repo match: %s (id=%s, sim=%.2f)", src_title, src_id, best_sim)
+            else:
+                logger.info("[SIMILAR] Repo match too weak (sim=%.2f for '%s'), falling to TMDB", best_sim, best_repo.get("title"))
+                repo_hits = []  # TMDB'ye düş
+
+        if not repo_hits:
             # TMDB'de ara — belgesel olmayan + en popüler sonucu seç
             try:
                 tmdb_hits = await tmdb_service.search_movies(intent.reference_title, page=1)
@@ -3136,7 +3638,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
 
     elif intent.type == "actor_recommendation" and intent.person_name:
         query_understanding = f"'{intent.person_name}' filmlerini arıyorsun."
-        movies = await _search_person_movies(intent.person_name, "actor", limit)
+        movies = await _search_person_movies_top(intent.person_name, "actor", limit, min_vote, exclude_set)
         if not movies:
             query_understanding = f"'{intent.person_name}' ile ilgili filmler."
             search_result = await search_engine.search(
@@ -3148,7 +3650,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
 
     elif intent.type == "director_recommendation" and intent.person_name:
         query_understanding = f"'{intent.person_name}' yönetmenliğindeki filmler."
-        movies = await _search_person_movies(intent.person_name, "director", limit)
+        movies = await _search_person_movies_top(intent.person_name, "director", limit, min_vote, exclude_set)
         if not movies:
             query_understanding = f"'{intent.person_name}' ile ilgili filmler."
             search_result = await search_engine.search(
@@ -3163,19 +3665,32 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         mood_hits = mood_analysis.get("mood_mix", [])
         mood_ids = [m["mood_id"] for m in mood_hits] if mood_hits else ["battaniye", "zihin", "gece", "kahkaha"]
 
-        # Uzun metin sinyallerini mood sıralamasına yansıt
+        # ── parse_chat_hints() ile mood_ids zenginleştir ──────────────────
+        if hints.mood_bonuses:
+            for mid in sorted(hints.mood_bonuses, key=hints.mood_bonuses.get, reverse=True):
+                if mid not in mood_ids:
+                    mood_ids.insert(0, mid)
+            mood_ids.sort(key=lambda m: hints.mood_bonuses.get(m, 0.0), reverse=True)
+
+        # ── genre_hints: hem _rule_based_confused_analysis hem parse_chat_hints
+        genre_hints = list(set(mood_analysis.get("genre_hints", []) + hints.genre_ids))
+
+        # ── time/era constraint (dict uyumlu) ─────────────────────────────
         time_c = mood_analysis.get("time_constraint")
         era_c = mood_analysis.get("era_preference")
-        genre_hints = mood_analysis.get("genre_hints", [])
 
-        if time_c == "short" and "sipsak" not in mood_ids:
+        is_short = (isinstance(time_c, dict) and time_c.get("mode") == "short") or time_c == "short"
+        if is_short and "sipsak" not in mood_ids:
             mood_ids.insert(0, "sipsak")
-        if era_c == "old":
+
+        is_old = isinstance(era_c, dict) and era_c.get("max_year") is not None and (era_c.get("max_year", 9999) <= 2005)
+        is_recent = isinstance(era_c, dict) and era_c.get("min_year") is not None and (era_c.get("min_year", 0) >= 2015)
+        if is_old:
             mood_ids = [m for m in mood_ids if m in ("zamanyolcusu", "battaniye", "sessiz", "kalp")] or mood_ids
-        if era_c == "recent":
+        if is_recent:
             mood_ids = [m for m in mood_ids if m not in ("zamanyolcusu",)] or mood_ids
 
-        # Genre ipuçlarını mood boost'a çevir
+        # ── Genre ipuçlarını mood boost'a çevir ──────────────────────────
         genre_mood_map = {35: "kahkaha", 27: "deep-chills", 28: "adrenalin",
                           10749: "askbahcesi", 18: "gozyasi", 878: "yolculuk",
                           14: "karmakar", 53: "gece", 80: "gece"}
@@ -3187,13 +3702,149 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
             elif mapped:
                 mood_ids.insert(0, mapped)
 
-        movies = await _search_mood_movies(mood_ids, limit * 2)
+        # ── query_understanding zenginleştirme ────────────────────────────
+        _genre_name_map = {
+            878: "bilim kurgu", 53: "gerilim", 80: "suç", 10749: "romantik",
+            27: "korku", 28: "aksiyon", 35: "komedi", 18: "dram", 12: "macera",
+            16: "animasyon", 99: "belgesel", 10752: "savaş", 9648: "gizem",
+            14: "fantezi", 10751: "aile",
+        }
+        if hints.hidden_gem_mode:
+            query_understanding = "Gizli kalmış, değeri bilinmeyen yapıtları arıyorsun."
+        elif hints.sipsak_mode:
+            rt = hints.runtime_max or 100
+            query_understanding = f"Kısa ve öz, {rt} dakikayı geçmeyen filmler arıyorsun."
+        elif genre_hints:
+            # Spesifik türleri önce göster, yaygın türleri (Drama=18) sona at
+            _ordered_genres = sorted(genre_hints, key=lambda g: (g == 18, g))
+            gnames = [_genre_name_map[g] for g in _ordered_genres[:2] if g in _genre_name_map and g != 18]
+            if not gnames:
+                gnames = [_genre_name_map[g] for g in _ordered_genres[:2] if g in _genre_name_map]
+            if gnames:
+                query_understanding = f"Ruh haline göre {', '.join(gnames)} ağırlıklı filmler."
+
+        logger.info("[PATH3-MOOD] moods=%s genres=%s qu=%r", mood_ids[:5], genre_hints, query_understanding)
+
+        # ── Genre filtre hazırla — yaygın türleri (18=Drama) sadece spesifik tür varsa çıkar
+        _NOISE_GENRES = {18}  # Drama neredeyse tüm filmlerde var
+        if genre_hints:
+            specific_genres = set(genre_hints) - _NOISE_GENRES
+            # Spesifik tür varsa noise'u çıkar, yoksa (sadece 18 varsa) olduğu gibi bırak
+            genre_filter_set = specific_genres if specific_genres else set(genre_hints)
+        else:
+            genre_filter_set = None
+        # ── Film getir — 3 adımlı fallback zinciri ──────────────────────────
+        # Adım 1: Genre filtreli bucket
+        movies = await _search_mood_movies(mood_ids, limit * 2, genre_filter=genre_filter_set)
+
+        # ── Era PRE-FİLTRE: Adım 2'nin doğru trigger alması için era filtresini
+        # Adım 1'den hemen sonra uygula. Bucket 8 sci-fi döndürse de sadece 1 tanesi
+        # 80'lerden olabilir; bu pre-filter sayesinde Adım 2 TMDB Discover'ı tetikler.
+        if era_c and isinstance(era_c, dict):
+            _pf_min = era_c.get("min_year")
+            _pf_max = era_c.get("max_year")
+            if _pf_min or _pf_max:
+                def _pf_era_ok(m):
+                    y = _extract_year(m.get("release_date"))
+                    if not y:
+                        return False
+                    if _pf_min and y < _pf_min:
+                        return False
+                    if _pf_max and y > _pf_max:
+                        return False
+                    return True
+                # Empty sonuç bile olsa uygula — Adım 2 (TMDB Discover) era parametreli
+                # arama yaparak boşluğu dolduracak.
+                movies = [m for m in movies if _pf_era_ok(m)]
+                logger.info("[PATH3-ERA-PRE] era=%s → %d film kaldı", era_c, len(movies))
+
+        # Adım 2: Yeterli değilse → TMDB Discover (genre + era + runtime filtreli)
+        # Sipsak için her zaman çalıştır: bucket şişirilmiş oylama içerebilir (az vote, yüksek avg).
+        # TMDB Discover min_vote_count=150 ile gerçek kaliteli kısa filmleri döndürür.
+        _has_discover_signal = (
+            genre_filter_set or genre_hints or
+            hints.sipsak_mode or hints.hidden_gem_mode or
+            (era_c and isinstance(era_c, dict))
+        )
+        _should_discover = _has_discover_signal and (len(movies) < limit or hints.sipsak_mode)
+        if _should_discover:
+            # Sipsak için genre yok ise geniş bir set kullan (komedi, animasyon, aile)
+            if genre_filter_set:
+                discover_genres = list(genre_filter_set)
+            elif genre_hints:
+                discover_genres = list(set(genre_hints))
+            elif hints.sipsak_mode:
+                discover_genres = [35, 16, 10751, 12]  # Komedi, animasyon, aile, macera
+            else:
+                discover_genres = []
+            discover_runtime = hints.runtime_max if hints.sipsak_mode else None
+            tmdb_kws = getattr(hints, "tmdb_keywords", []) or []
+            tmdb_movies = await _tmdb_discover_for_hints(
+                discover_genres,
+                era_c,
+                discover_runtime,
+                hints.hidden_gem_mode,
+                limit * 2,
+                tmdb_kws or None,
+            )
+            seen = {m.get("id") or m.get("tmdb_id") for m in movies}
+            for m in tmdb_movies:
+                mid = m.get("id") or m.get("tmdb_id")
+                if mid and mid not in seen:
+                    m["reason"] = REASON_MAP.get(mood_ids[0] if mood_ids else "zihin",
+                                                 "Sana özel keşfedildi.")
+                    movies.append(m)
+                    seen.add(mid)
+
+        # Adım 3: Hala yeterli değilse → genre filtresiz bucket
+        if len(movies) < limit:
+            extra = await _search_mood_movies(mood_ids, limit * 2)
+            seen = {m.get("id") or m.get("tmdb_id") for m in movies}
+            for m in extra:
+                mid = m.get("id") or m.get("tmdb_id")
+                if mid not in seen:
+                    movies.append(m)
+                    seen.add(mid)
+                    if len(movies) >= limit * 2:
+                        break
 
     else:
         query_understanding = "Sana en iyi filmleri öneriyorum."
         movies = await _search_mood_movies(["battaniye", "kahkaha", "zihin", "gece", "yolculuk", "kalp"], limit * 2)
 
-    movies.sort(key=lambda x: (-x.get("mood_score", 0), -x.get("vote_average", 0)))
+    # ── Era (dönem) filtresi — mood_recommendation dalında tanımlı era_c varsa uygula
+    era_c_final = era_c
+    if intent.type == "mood_recommendation" and era_c_final and isinstance(era_c_final, dict):
+        era_min = era_c_final.get("min_year")
+        era_max = era_c_final.get("max_year")
+        if era_min or era_max:
+            def _era_ok(m):
+                y = _extract_year(m.get("release_date"))
+                if not y:
+                    return False  # Tarihi bilinmeyenleri era sorgusunda hariç tut
+                if era_min and y < era_min:
+                    return False
+                if era_max and y > era_max:
+                    return False
+                return True
+            era_filtered = [m for m in movies if _era_ok(m)]
+            if era_filtered:  # Yeterli sonuç varsa era filtresi uygula
+                movies = era_filtered
+
+    # Sipsak sorgularda bucket filmleri şişirilmiş oy ortalamasına sahip olabilir (az oy, yüksek avg).
+    # IMDb tarzı Bayesian ağırlıklı puan ile sırala: az oylu filmler global ortalamaya
+    # çekilir, böylece gerçekten çok izlenmiş kaliteli kısa filmler tepeye çıkar.
+    if getattr(hints, "sipsak_mode", False):
+        movies.sort(key=lambda x: (
+            -_weighted_rating(x),
+            -int(x.get("vote_count") or 0),
+        ))
+    else:
+        movies.sort(key=lambda x: (
+            -x.get("genre_match_bonus", 0),  # Genre eşleşen filmler önce
+            -x.get("mood_score", 0),
+            -x.get("vote_average", 0),
+        ))
     movies = movies[:limit]
 
     # Son çare: hiçbir yol film döndüremediyse, en yüksek puanlı filmleri getir
@@ -3214,6 +3865,32 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         except Exception:
             pass
 
+    # ── Kişiselleştirilmiş ustad_line ────────────────────────────────────────
+    _mood_ids_local = mood_ids
+    _era_c_local    = era_c
+    if intent.type == "mood_recommendation":
+        if hints.sipsak_mode:
+            _ustad = "Kısa ama etkili — zamanı heba etme, işte en iyi çerezlikler."
+        elif hints.hidden_gem_mode:
+            _ustad = "Herkesin göz ardı ettiği yapıtlar... Şimdi sır olmaktan çıksınlar."
+        elif _era_c_local and isinstance(_era_c_local, dict):
+            _decade = (_era_c_local.get("min_year") or 1980) // 10 * 10
+            _ustad = f"{_decade}'lerin ruhunu taşıyan filmler — nostalji yüklü bir yolculuk."
+        elif "askbahcesi" in _mood_ids_local and 878 in (hints.genre_ids or []):
+            _ustad = "İnsan-makine aşkı, zihni zorlayan evren... Derin bir yolculuk seni bekliyor."
+        elif "askbahcesi" in (_mood_ids_local[:2] if _mood_ids_local else []):
+            _ustad = "Kalbini eritecek, heyecan verecek — sevgiliye özel seçimler."
+        elif "zihin" in (_mood_ids_local[:2] if _mood_ids_local else []):
+            _ustad = "Düşünceler, sorular, cevaplar... Zihnini zorlayacak yapıtlar geldi."
+        elif "deep-chills" in (_mood_ids_local[:2] if _mood_ids_local else []):
+            _ustad = "Karanlık, ürpertici ama bırakamayacağın türden..."
+        elif "adrenalin" in (_mood_ids_local[:2] if _mood_ids_local else []):
+            _ustad = "Kalp atışlarını hızlandıracak, nefes kesecek yapıtlar..."
+        else:
+            _ustad = _confused_ustad_line(intent.type, mood_analysis)
+    else:
+        _ustad = _confused_ustad_line(intent.type, mood_analysis)
+
     return {
         "ok": bool(movies),
         "mode": "rule_fallback",
@@ -3221,7 +3898,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         "ustad_notu": "Üstad şu anda derin düşüncelere dalmış durumda, ancak yine de sana en uygun filmleri bulmaya çalıştı.",
         "intent": intent.to_dict(),
         "query_understanding": query_understanding,
-        "ustad_line": _confused_ustad_line(intent.type, mood_analysis),
+        "ustad_line": _ustad,
         "message": mood_analysis.get("message", ""),
         "mood_mix": [],
         "movies": _sort_east_asian_to_end(movies),
@@ -3271,18 +3948,6 @@ async def _fast_mood_bypass(mood_id: str, limit: int, min_vote: float, exclude_i
     }
 
 
-# ── LLM Intent Parser yardımcıları ──────────────────────────────────────────
-_LLM_MOOD_SIGNAL_MAP = {
-    "gerilimli": "gece", "psikolojik": "zihin", "karanlık": "gece",
-    "huzurlu": "battaniye", "rahatlatıcı": "battaniye", "neşeli": "kahkaha",
-    "romantik": "askbahcesi", "duygusal": "gozyasi", "hüzünlü": "gozyasi",
-    "aksiyonlu": "adrenalin", "heyecanlı": "adrenalin", "nostaljik": "zamanyolcusu",
-    "ürpertici": "deep-chills", "felsefi": "zihin", "düşündürücü": "zihin",
-    "macera": "yolculuk", "epik": "yolculuk", "samimi": "kalp",
-    "melankolik": "gozyasi", "absürt": "karmakar", "minimalist": "sessiz",
-    "görsel": "kadraj-estetigi",
-}
-
 
 def _extract_year(release_date) -> int:
     """release_date (YYYY-MM-DD veya YYYY) → int yıl. Parse hatası → 0."""
@@ -3294,11 +3959,45 @@ def _extract_year(release_date) -> int:
         return 0
 
 
+# Sipsak sıralaması için minimum güvenilir oy sayısı (TMDB Discover ile uyumlu).
+SIPSAK_MIN_VOTE_COUNT = 150
+
+
+def _weighted_rating(movie: dict, min_votes: int = SIPSAK_MIN_VOTE_COUNT,
+                     mean_vote: float = 6.5) -> float:
+    """
+    IMDb tarzı Bayesian ağırlıklı puan (WR):
+
+        WR = (v / (v + m)) * R + (m / (v + m)) * C
+
+      v = filmin oy sayısı (vote_count)
+      m = güvenilir kabul edilen minimum oy eşiği
+      R = filmin oy ortalaması (vote_average)
+      C = global prior ortalama
+
+    Az oy almış "şişirilmiş" filmleri (örn. 60 oyla 8.5) global ortalamaya doğru
+    çeker; çok oy almış filmlerin kendi ortalamasına yaklaşmasına izin verir.
+    Böylece sipsak listesinde gerçek kaliteli kısa filmler tepeye çıkar.
+    """
+    try:
+        v = int(movie.get("vote_count") or 0)
+        r = float(movie.get("vote_average") or 0.0)
+    except (ValueError, TypeError):
+        return 0.0
+    if v <= 0:
+        return 0.0
+    return (v / (v + min_votes)) * r + (min_votes / (v + min_votes)) * mean_vote
+
+
 def _dynamic_reason_from_hints(hints) -> str:
     """
     Chat'ten yakalanan amaca göre tek cümlelik dinamik 'Üstad'ın Gerekçesi' üretir.
     Hiçbir güçlü sinyal yoksa boş döner (movie'nin mevcut mood reason'ı korunur).
     """
+    if getattr(hints, "hidden_gem_mode", False):
+        return ("Bunu seçtim; çünkü kalabalığın radarından kaçmış, "
+                "değeri bilinmeyi hak eden nadir yapıtlardan biri.")
+
     if hints.sipsak_mode:
         return ("Bunu seçtim; çünkü cümlendeki o kısıtlı zaman arayışını "
                 "en rafine şekilde bu kompakt sahneler karşılıyor.")
@@ -3325,12 +4024,21 @@ def _dynamic_reason_from_hints(hints) -> str:
     if hints.mood_bonuses:
         top_mood = max(hints.mood_bonuses, key=hints.mood_bonuses.get)
         phrases = {
-            "yolculuk":  "keşif ve yolculuk hissini ufkunu açacak şekilde barındırıyor.",
-            "zihin":     "bittiğinde bile saatlerce kafanda yaşayacak zihinsel bir derinlik taşıyor.",
-            "gece":      "aradığın o karanlık ve gizemli atmosferi damarından veriyor.",
-            "adrenalin": "tempoyu hiç düşürmeden seni koltuğa çivileyecek bir gerilim sunuyor.",
-            "askbahcesi":"kalbinde kelebekler uçuşturacak o sıcak romantizmi taşıyor.",
-            "deep-chills":"yavaş yanan ürpertisiyle tam istediğin tedirginliği veriyor.",
+            "yolculuk":           "keşif ve yolculuk hissini ufkunu açacak şekilde barındırıyor.",
+            "zihin":              "bittiğinde bile saatlerce kafanda yaşayacak zihinsel bir derinlik taşıyor.",
+            "gece":               "aradığın o karanlık ve gizemli atmosferi damarından veriyor.",
+            "adrenalin":          "tempoyu hiç düşürmeden seni koltuğa çivileyecek bir gerilim sunuyor.",
+            "askbahcesi":         "kalbinde kelebekler uçuşturacak o sıcak romantizmi taşıyor.",
+            "deep-chills":        "yavaş yanan ürpertisiyle tam istediğin tedirginliği veriyor.",
+            "sessiz":             "sakin ve düşündürücü atmosferiyle tam aradığın huzuru veriyor.",
+            "kalp":               "samimi ve içten anlatımıyla kalbine dokunacak bir yapım.",
+            "karmakar":           "sıradışı yapısıyla alışılmışın dışında bir sinema deneyimi sunuyor.",
+            "kadraj-estetigi":    "görsel şölenin zirvesinde, her karesi bir tablo gibi.",
+            "gozyasi":            "duygusal derinliğiyle içini titreteceğine emin olduğum bir yapım.",
+            "geceyarisi-itirafi": "samimi diyaloglarıyla gece yarısı izlenesi bir itiraf gibi.",
+            "battaniye":          "sıcak ve sarıp sarmalayan havasıyla tam bir battaniye altı filmi.",
+            "kahkaha":            "neşeli enerjisiyle modunu anında yukarı çekecek bir yapım.",
+            "zamanyolcusu":       "nostaljik atmosferiyle seni geçmişin sıcaklığına götürüyor.",
         }
         if top_mood in phrases:
             return f"Bunu seçtim; çünkü {phrases[top_mood]}"
@@ -3344,12 +4052,11 @@ def _hybrid_rerank(movies: list, hints, limit: int) -> list:
 
       final = 0.40 × VEKTÖR + 0.40 × METADATA/ETİKET + 0.20 × KALİTE/POPÜLERLİK
 
-    Ham vektör skoruna tek başına güvenmek "ezbere aynı popüler film" sorununu
-    doğuruyordu. Üç bileşen 0-1 aralığında normalize edilip harmanlanır:
-
       1) %40 Vektör: semantic engine'in cosine skoru (mood_score, entity boost dahil).
       2) %40 Metadata: ParsedHints mood bonusları + tür boolean maskesi + sipsak.
-      3) %20 Kalite: vote_average (+ varsa logaritmik popularity katkısı).
+      3) %20 Kalite: vote_average + popularity (hidden_gem_mode'da ters popülerlik).
+
+    Runtime hard-filter: hints.runtime_max varsa, uzun filmleri düşürür.
     """
     import math
 
@@ -3358,12 +4065,20 @@ def _hybrid_rerank(movies: list, hints, limit: int) -> list:
 
     _MAX_BONUS = 0.50  # chat_engine._MAX_BONUS ile aynı
     genre_boost_set = set(hints.genre_ids)
+    runtime_max = getattr(hints, "runtime_max", None)
+    hidden_gem = getattr(hints, "hidden_gem_mode", False)
 
     # Vektör normalizasyonu için tepe skor (mood_score 0-100 ölçeğinde gelir)
     max_vec = max((m.get("mood_score", 0.0) or 0.0 for m in movies), default=0.0) or 1.0
 
     scored = []
     for rank, movie in enumerate(movies):
+        # ── Runtime hard-filter ───────────────────────────────────────────────
+        if runtime_max:
+            runtime = movie.get("runtime")
+            if runtime and runtime > runtime_max:
+                continue
+
         # ── 1) Vektör skoru (%40) — gerçek anlamsal benzerlik, normalize ──────
         vec_raw = movie.get("mood_score")
         if vec_raw is None:
@@ -3386,14 +4101,18 @@ def _hybrid_rerank(movies: list, hints, limit: int) -> list:
 
         # ── 3) Kalite/popülerlik skoru (%20) — vote_average + popularity ──────
         vote = movie.get("vote_average", 0.0) or 0.0
-        quality_score = min(1.0, vote / 10.0)
-        pop = movie.get("popularity")
-        if pop:
-            # Aşırı popülerler logaritmik tavanlanır (ezbere blockbuster engeli)
+        pop = movie.get("popularity") or 0.0
+
+        if hidden_gem:
+            anti_pop = max(0.0, 1.0 - min(1.0, math.log10(pop + 1) / 3.0))
+            quality_score = min(1.0, 0.5 * (vote / 10.0) + 0.5 * anti_pop)
+        elif pop:
             quality_score = min(
                 1.0,
                 0.6 * (vote / 10.0) + 0.4 * min(1.0, math.log10(pop + 1) / 3.0),
             )
+        else:
+            quality_score = min(1.0, vote / 10.0)
 
         final = 0.40 * vector_score + 0.40 * meta_score + 0.20 * quality_score
         scored.append((final, movie))
@@ -3403,30 +4122,134 @@ def _hybrid_rerank(movies: list, hints, limit: int) -> list:
 
 
 # ── East Asian language sorting ──────────────────────────────────────────
-_EAST_ASIAN_LANGS = {"ja", "ko", "zh"}  # Japonca, Korece, Çince
+from backend.mood_scoring import is_low_quality_asian
+_EAST_ASIAN_LANGS = {"ja", "ko", "zh", "cn"}  # Japonca, Korece, Çince
 
 def _sort_east_asian_to_end(movies: list[dict]) -> list[dict]:
-    """Push JA/KO/ZH original_language movies to the end of the list."""
+    """Niş/obskür Doğu Asya filmlerini tamamen ele; geriye kalan kaliteli
+    Asya filmlerini de listenin sonuna it (Türk izleyici önceliği)."""
+    # 1) Kalitesiz Asya filmlerini at
+    movies = [m for m in movies if not is_low_quality_asian(m)]
+    # 2) Kalan Asya filmlerini sona it
     non_east = [m for m in movies if (m.get("original_language") or "").lower() not in _EAST_ASIAN_LANGS]
     east = [m for m in movies if (m.get("original_language") or "").lower() in _EAST_ASIAN_LANGS]
     return non_east + east
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# TEMA + REFINE yardımcıları (Kafan mı Karışık premium tematik öneri)
+# ═══════════════════════════════════════════════════════════════════════════
+async def _resolve_keyword_ids(terms: list) -> list:
+    """İngilizce tema terimlerini TMDB keyword ID'lerine çevirir (12h cache)."""
+    ids = []
+    for term in terms or []:
+        try:
+            res = await _cached_tmdb("keyword", term.lower(),
+                                     lambda t=term: tmdb_service.search_keyword(t))
+            if res:
+                ids.append(res[0]["id"])
+        except Exception:
+            continue
+    return ids
+
+
+async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_ids,
+                           sort_by="vote_average.desc", min_vote_count=200,
+                           max_vote_count=None, date_gte=None, page=1, reason="") -> list:
+    """TMDB Discover ile tema/refine sonucu çek (poster + exclude filtreli)."""
+    kwargs = {"sort_by": sort_by, "min_vote_average": min_vote,
+              "min_vote_count": min_vote_count, "page": page}
+    if keyword_ids:
+        kwargs["with_keywords"] = "|".join(str(k) for k in keyword_ids)
+    if max_vote_count:
+        kwargs["max_vote_count"] = max_vote_count
+    if date_gte:
+        kwargs["primary_release_date_gte"] = date_gte
+    try:
+        res = await tmdb_service.discover_movies(list(genre_ids or []), **kwargs)
+    except Exception as e:
+        logger.warning("[ThemeDiscover] failed: %s", e)
+        return []
+    exset = set(exclude_ids or [])
+    out = []
+    for m in res.get("movies", []):
+        mid = m.get("id")
+        if not mid or mid in exset or not m.get("poster_url"):
+            continue
+        if reason:
+            m["reason"] = reason
+        m["matched_mood"] = "theme"
+        out.append(m)
+    return out[:limit]
+
+
+_REFINE_USTAD = {
+    "more_popular": "Daha bilinenlerini istedin — işte herkesin konuştukları.",
+    "newer":        "Taze yapımlar getirdim — sinemanın son sözü.",
+    "different":    "Tamamen başka bir kapı araladım, bambaşka bir seçki.",
+    "less_known":   "Gözden kaçmış cevherler — Üstad'ın gizli rafından.",
+}
+
+
+async def _refine_recommendation(refine: str, text: str, limit: int,
+                                  min_vote: float, exclude_ids: list) -> dict:
+    """4 buton için deterministik öneri: önceki sorgunun tema/türünü koruyup
+    sıralama/filtre modifier'ı uygular (TMDB Discover)."""
+    import random as _rnd
+    from datetime import datetime as _dt
+    from backend.services.theme_router import match_theme
+    from backend.services.chat_engine import parse_chat_hints
+
+    theme = match_theme(text)
+    hints = parse_chat_hints(text)
+    keyword_ids = await _resolve_keyword_ids(theme["terms"]) if theme else []
+    genre_ids = (theme["genres"] if theme else []) or hints.genre_ids
+
+    sort_by, min_vc, max_vc, date_gte, page = "vote_average.desc", 200, None, None, 1
+    mv = min_vote
+    if refine == "more_popular":
+        sort_by, min_vc = "popularity.desc", 1000
+    elif refine == "newer":
+        sort_by, min_vc = "primary_release_date.desc", 150
+        date_gte = f"{_dt.utcnow().year - 4}-01-01"
+    elif refine == "different":
+        sort_by, page = "vote_average.desc", _rnd.randint(1, 3)
+    elif refine == "less_known":
+        sort_by, min_vc, max_vc = "vote_average.desc", 80, 2500
+        mv = max(min_vote, 6.5)
+
+    reason = theme["label"] if theme else "Senin için yeniden seçtim."
+    movies = await _discover_themed(
+        keyword_ids=keyword_ids, genre_ids=genre_ids, limit=limit, min_vote=mv,
+        exclude_ids=exclude_ids, sort_by=sort_by, min_vote_count=min_vc,
+        max_vote_count=max_vc, date_gte=date_gte, page=page, reason=reason,
+    )
+    if not movies:
+        return None
+    return {
+        "ok": True, "mode": f"refine_{refine}", "intent": "refine",
+        "query_understanding": reason,
+        "ustad_line": _REFINE_USTAD.get(refine, "İşte yeni bir seçki."),
+        "message": reason,
+        "movies": movies,
+    }
+
+
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
-    Kafan mı Karışık? — Üç katmanlı akıllı arama mimarisi:
+    Kafan mı Karışık? — Dört katmanlı yerel arama mimarisi (sıfır API maliyeti):
 
-    PATH 0 — Exact Recipe Router (embedding YOK, ~2ms):
+    PATH 0 — Exact Recipe Router (~2ms):
       Buton label'ı BUTTON_RECIPES'te tam eşleşirse SQL + NumPy pipeline çalışır.
-      Her butonun kendine özel: min_vote, sort_by, year_filter, popularity_pct filtresi var.
 
-    PATH 1 — Slug Override / Fast Mood Bypass (embedding YOK, <5ms):
+    PATH 1 — Slug Override / Fast Mood Bypass (<5ms):
       forced_mood_override slug'ı MOOD_NAMES'te varsa mood_score SQL'i çalışır.
 
-    PATH 2 — Hibrit Semantic Search (embedding + hybrid rerank, <8s):
-      parse_chat_hints() ile anahtar kelime sinyalleri yakalanır.
-      Semantic search + %50-%50 cosine/keyword reranking uygulanır.
+    PATH 2 — Yerel Intent Detection + Semantic Search (<8s):
+      ChatEngine.detect_intent() ile yönetmen/oyuncu/film tespiti.
+      parse_chat_hints() ile mood/genre sinyalleri.
+      sentence-transformers ile yerel semantic search + hibrit reranking.
 
     PATH 3 — Kural Tabanlı Fallback (her durumda çalışır):
       Semantic timeout veya hata durumunda regex + SQL fallback.
@@ -3436,6 +4259,16 @@ async def post_confused_recommendation(req: ConfusedRequest):
     exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
     text       = req.text.strip()
     override   = (req.forced_mood_override or "").strip().lower()
+    refine     = (req.refine or "").strip().lower()
+
+    # ── REFINE: 4 buton (Daha Popüler/Yeni/Farklı/Az Bilinen) — deterministik ──
+    if refine in _REFINE_USTAD:
+        try:
+            refined = await _refine_recommendation(refine, text, limit, min_vote, exclude_ids)
+            if refined and refined.get("movies"):
+                return refined
+        except Exception as e:
+            logger.warning("[Confused] Refine '%s' failed (%s), normal akışa düşülüyor", refine, e)
 
     # ── PATH 0: Exact text → recipe router (sıfır embedding) ────────────────
     try:
@@ -3466,95 +4299,105 @@ async def post_confused_recommendation(req: ConfusedRequest):
         except Exception as e:
             logger.error("[Confused] Fast mood bypass failed (%s), falling through", e, exc_info=True)
 
-    # ── PATH 2: Serbest chat → LLM intent + parse hints → semantic + hibrit rerank
-    from backend.services.chat_engine import ChatEngine, parse_chat_hints
-    from backend.services.intent_parser import intent_parser
+    # ── PATH 2: Serbest chat → yerel intent detection + semantic + hibrit rerank
+    from backend.services.chat_engine import (
+        ChatEngine, parse_chat_hints, _extract_era_constraint,
+        NEGATIVE_WORDS, GENRE_KEYWORDS,
+    )
 
     hints  = parse_chat_hints(text)
     result = None
 
-    # ── LLM intent parsing (Claude Haiku, ~100-300ms) ──────────────────────
-    # Başarılı olursa: search_query, genre_ids, mood sinyalleri hints'e eklenir.
-    # Başarısız olursa: mevcut regex-only akış aynen devam eder.
-    llm_intent = None
-    search_text = text  # default: kullanıcının ham metni
-    try:
-        llm_intent = await intent_parser.parse(text, timeout=2.0)
-    except Exception as e:
-        logger.warning("[Confused] LLM intent parse failed: %s — text='%s'", str(e)[:100], text[:80])
+    # ── Yerel intent tespiti (ChatEngine, <1ms) ───────────────────────────
+    _engine_for_intent = ChatEngine(db=cache)
+    local_intent = _engine_for_intent.detect_intent(text)
 
-    if llm_intent and llm_intent.confidence > 0.4:
-        # search_query her zaman kullan (0.4+ yeterli — LLM'in optimize ettiği sorgu ham Türkçe'den iyi)
-        if llm_intent.search_query:
-            search_text = llm_intent.search_query
+    # ── PATH 1.5: Tematik/somut konu sorgusu → TMDB keyword discover ──────────
+    # "yaz temalı", "deniz", "yılbaşı filmi", "uzayda geçen", "futbol", "gerçek hikaye"…
+    # Küratörlü tema eşleşmesi güçlü bir sinyal: "X gibi" (benzerlik), "X yönetmeni"
+    # ya da bilinen kişi adı DIŞINDA, tema yakalanırsa gerçekten o temaya ait kaliteli
+    # filmleri TMDB'den çek. (Zayıf exact/actor heuristic'lerinin tema sorgusunu
+    # yanlış sınıflamasına izin verme — "deniz"/"yılbaşı filmi" film adı sanılıyordu.)
+    from backend.services.chat_engine import KNOWN_PERSONS as _KNOWN_PERSONS, _normalize as _norm
+    _skip_theme = (
+        local_intent.type in ("similar_to_movie", "director_recommendation", "feedback")
+        or (local_intent.person_name and _norm(local_intent.person_name) in _KNOWN_PERSONS)
+    )
+    if not _skip_theme:
+        try:
+            from backend.services.theme_router import match_theme
+            theme = match_theme(text)
+            if theme:
+                kw_ids = await _resolve_keyword_ids(theme["terms"])
+                if kw_ids or theme["genres"]:
+                    themed = await _discover_themed(
+                        keyword_ids=kw_ids, genre_ids=theme["genres"], limit=limit,
+                        min_vote=min_vote, exclude_ids=exclude_ids,
+                        sort_by="vote_average.desc", min_vote_count=200,
+                        reason=theme["label"],
+                    )
+                    if len(themed) >= 3:
+                        logger.info("[Confused] Theme '%s' → %d film (TMDB discover)", theme["key"], len(themed))
+                        return {
+                            "ok": True, "mode": "theme_discover", "intent": "theme",
+                            "query_understanding": theme["label"],
+                            "ustad_line": theme["ustad"],
+                            "message": theme["label"],
+                            "movies": themed,
+                        }
+        except Exception as e:
+            logger.warning("[Confused] Theme router failed (%s), semantic'e düşülüyor", e)
+    search_text = text
+    exclude_set = set(exclude_ids)
 
-        # Genre ve mood sinyalleri sadece yüksek güvende (0.6+)
-        if llm_intent.confidence > 0.6:
-            # LLM'in çıkardığı tür ID'lerini hints'e ekle
-            if llm_intent.genre_ids:
-                hints.genre_ids = list(set(hints.genre_ids + llm_intent.genre_ids))
+    logger.info("[Confused] Local intent: type=%s, person=%s, ref=%s",
+                local_intent.type, local_intent.person_name, local_intent.reference_title)
 
-            # Mood sinyallerini → mood_bonuses'a çevir
-            for signal in llm_intent.mood_signals:
-                mood_id = _LLM_MOOD_SIGNAL_MAP.get(signal)
-                if mood_id:
-                    hints.mood_bonuses[mood_id] = min(0.50, hints.mood_bonuses.get(mood_id, 0) + 0.35)
+    # ── PATH 2a: Yerel yönetmen/oyuncu tespiti → TMDB filmografisi ────────
+    if local_intent.type == "director_recommendation" and local_intent.person_name:
+        try:
+            person_movies = await _search_person_movies_top(
+                local_intent.person_name, "director", limit, min_vote, exclude_set)
+            if person_movies:
+                return {
+                    "movies": person_movies[:limit],
+                    "query_understanding": f"'{local_intent.person_name}' yönetmenliğindeki filmler.",
+                    "ustad_line": f"Üstad {local_intent.person_name}'ın sinema evreninden bir seçki hazırladım.",
+                    "intent": "director_filmography",
+                    "mode": "local_director_search",
+                    "is_fallback": False,
+                }
+        except Exception as e:
+            logger.warning("[Confused] Director search failed: %s", e)
 
-        # Puan kısıtlaması (0.4+ güvende de uygula)
-        llm_min_rating = llm_intent.constraints.get("min_rating")
-        if llm_min_rating and isinstance(llm_min_rating, (int, float)):
-            min_vote = max(min_vote, float(llm_min_rating))
+    elif local_intent.type == "actor_recommendation" and local_intent.person_name:
+        try:
+            person_movies = await _search_person_movies_top(
+                local_intent.person_name, "actor", limit, min_vote, exclude_set)
+            if person_movies:
+                return {
+                    "movies": person_movies[:limit],
+                    "query_understanding": f"'{local_intent.person_name}' filmlerini arıyorsun.",
+                    "ustad_line": f"'{local_intent.person_name}' performanslarından bir seçki hazırladım.",
+                    "intent": "actor_filmography",
+                    "mode": "local_actor_search",
+                    "is_fallback": False,
+                }
+        except Exception as e:
+            logger.warning("[Confused] Actor search failed: %s", e)
 
-        logger.info("[Confused] LLM intent: type=%s, conf=%.2f, search='%s', genres=%s",
-                    llm_intent.intent_type, llm_intent.confidence, search_text[:50], llm_intent.genre_ids)
+    # similar_to_movie → tam orijinal metni koru (modifier'lar korunsun)
+    # Entity boost semantic_search.py'de extract_entities_locally() ile zaten çalışır
+    if local_intent.type == "similar_to_movie" and local_intent.reference_title:
+        search_text = text
 
-    # ── PATH 2a: LLM yönetmen/oyuncu tespiti → direkt TMDB filmografisi ────
-    # LLM yüksek güvenle director/actor tespit ettiyse, semantic search'ü atla
-    # ve direkt TMDB person API'dan filmografiyi çek.
-    if llm_intent and llm_intent.confidence > 0.6:
-        _llm_directors = (llm_intent.entities or {}).get("directors", [])
-        _llm_actors = (llm_intent.entities or {}).get("actors", [])
-
-        if llm_intent.intent_type == "director_filmography" and _llm_directors:
-            director_name = _llm_directors[0]
-            logger.info("[Confused] LLM detected director: '%s' — routing to TMDB filmography", director_name)
-            try:
-                person_movies = await _search_person_movies(director_name, "director", limit)
-                if person_movies:
-                    return {
-                        "movies": person_movies[:limit],
-                        "query_understanding": f"'{director_name}' yönetmenliğindeki filmler.",
-                        "ustad_line": f"Üstad {director_name}'ın sinema evreninden bir seçki hazırladım.",
-                        "intent": "director_filmography",
-                        "mode": "llm_director_search",
-                        "is_fallback": False,
-                    }
-            except Exception as e:
-                logger.warning("[Confused] LLM director search failed: %s", e)
-
-        elif llm_intent.intent_type == "actor_filmography" and _llm_actors:
-            actor_name = _llm_actors[0]
-            logger.info("[Confused] LLM detected actor: '%s' — routing to TMDB filmography", actor_name)
-            try:
-                person_movies = await _search_person_movies(actor_name, "actor", limit)
-                if person_movies:
-                    return {
-                        "movies": person_movies[:limit],
-                        "query_understanding": f"'{actor_name}' filmlerini arıyorsun.",
-                        "ustad_line": f"'{actor_name}' performanslarından bir seçki hazırladım.",
-                        "intent": "actor_filmography",
-                        "mode": "llm_actor_search",
-                        "is_fallback": False,
-                    }
-            except Exception as e:
-                logger.warning("[Confused] LLM actor search failed: %s", e)
-
+    # ── Semantic search (yerel sentence-transformers, <35ms) ──────────────
     try:
         engine = ChatEngine(db=cache)
         result = await asyncio.wait_for(
             engine.process(
                 text=search_text,
-                limit=limit * 2,    # Reranking için 2× çek
+                limit=limit * 2,
                 min_vote=min_vote,
                 exclude_ids=exclude_ids,
             ),
@@ -3571,27 +4414,40 @@ async def post_confused_recommendation(req: ConfusedRequest):
     if result and result.get("movies"):
         movies = result["movies"]
 
-        # LLM'in dışladığı türleri filtrele
-        if llm_intent and llm_intent.excluded_genre_ids:
-            excluded_genres = set(llm_intent.excluded_genre_ids)
+        # Yerel genre exclusion: "korku olmasın" gibi olumsuzluk ifadelerini yakala
+        text_lower = text.lower()
+        excluded_genres = set()
+        for genre_name, genre_ids_list in GENRE_KEYWORDS.items():
+            if genre_name in text_lower:
+                pos = text_lower.index(genre_name)
+                before = text_lower[max(0, pos - 20):pos]
+                if any(nw in before for nw in NEGATIVE_WORDS):
+                    excluded_genres.update(genre_ids_list)
+        if excluded_genres:
             movies = [m for m in movies
                       if not (set(m.get("genre_ids", [])) & excluded_genres)]
 
-        # LLM'in yıl kısıtlamalarını uygula
-        if llm_intent and llm_intent.confidence > 0.6:
-            c = llm_intent.constraints
-            if c.get("min_year"):
-                movies = [m for m in movies
-                          if _extract_year(m.get("release_date")) >= c["min_year"]]
-            if c.get("max_year"):
-                movies = [m for m in movies
-                          if _extract_year(m.get("release_date")) <= c["max_year"]]
+        # Yerel dönem kısıtlaması (min_year/max_year dict)
+        era = _extract_era_constraint(text)
+        if era:
+            era_min = era.get("min_year")
+            era_max = era.get("max_year")
+            if era_min or era_max:
+                def _year_ok(m):
+                    y = _extract_year(m.get("release_date"))
+                    if not y:
+                        return True
+                    if era_min and y < era_min:
+                        return False
+                    if era_max and y > era_max:
+                        return False
+                    return True
+                movies = [m for m in movies if _year_ok(m)]
 
-        # Her zaman hibrit harmanlama uygula: %40 vektör + %40 metadata + %20 kalite.
+        # Hibrit harmanlama: %40 vektör + %40 metadata + %20 kalite
         ranked = _hybrid_rerank(movies, hints, limit)
 
         # Üstad'ın Gerekçesi'ni yakalanan amaca göre dinamikleştir
-        # Sadece reason'ı olmayan filmlere yaz (film bazlı nedenler korunsun)
         dyn_reason = _dynamic_reason_from_hints(hints)
         if dyn_reason:
             for m in ranked:
@@ -3600,8 +4456,8 @@ async def post_confused_recommendation(req: ConfusedRequest):
         result["movies"] = _sort_east_asian_to_end(ranked)
         result["mode"]   = "semantic_hybrid"
         result["is_fallback"] = False
-        if llm_intent and llm_intent.confidence > 0.6:
-            result["intent"] = llm_intent.intent_type
+        if local_intent.type not in ("mood_recommendation",):
+            result["intent"] = local_intent.type
         return result
 
     # ── PATH 3: Kural tabanlı fallback ───────────────────────────────────────
@@ -3728,6 +4584,17 @@ async def post_mood_quiz_recommendation(req: MoodQuizRequest):
         "ustad_line": f"Anket sonuçlarına göre en uygun filmleri buldum evlat.",
     }
 
+
+
+@app.post("/api/repository/purge-asian", dependencies=[Depends(verify_admin)])
+async def purge_low_quality_asian_films(
+    min_vote_average: float = Query(7.2, description="Asya filmi için min IMDb/TMDB puanı"),
+    min_vote_count: int = Query(600, description="Asya filmi için min oy sayısı"),
+):
+    """Mevcut havuzdaki niş/obskür Doğu Asya filmlerini tek seferde temizler.
+    Yalnız tanınmış + yüksek puanlı Asya filmleri (Parasite, Oldboy vb.) kalır."""
+    result = await cache.purge_low_quality_asian(min_vote_average, min_vote_count)
+    return {"success": True, **result}
 
 
 # --- Movie Pool Expander ---
@@ -4335,8 +5202,17 @@ async def get_list_detail(slug: str):
                     score += 100
                 elif want and (want in rt or want in ro or rt in want or ro in want):
                     score += 50
-                if year and ry and abs(int(ry) - int(year)) <= 1:
-                    score += 40
+                # Yıl güçlü bir ayırt edici: aynı isimli eski filmlerin doğru
+                # yılı ezmesini engelle (örn. "Parasite 2019" vs "Parasite 1982").
+                if year and ry:
+                    try:
+                        dy = abs(int(ry) - int(year))
+                        if dy <= 1:
+                            score += 60
+                        elif dy >= 3:
+                            score -= 70
+                    except ValueError:
+                        pass
                 score += min((r.get("vote_count", 0) or 0) / 500.0, 10)
                 if score > best_score:
                     best_score, best = score, r
@@ -4361,12 +5237,16 @@ async def get_list_detail(slug: str):
                 seen_ids.add(item["id"])
                 if not item.get("director") and fb_meta.get("director"):
                     item["director"] = fb_meta["director"]
+                if fb_meta.get("award"):
+                    item["award"] = fb_meta["award"]   # ödül etiketi (örn. "En İyi Film · 2024")
                 movies.append(item)
             elif fb_meta.get("tmdb_id") and fb_meta["tmdb_id"] not in seen_ids:
                 # Arama da başarısız → ID ile dene, o da olmazsa meta ile bas
                 got = await _fetch_one(fb_meta["tmdb_id"])
                 if isinstance(got, dict) and got.get("id"):
                     seen_ids.add(got["id"])
+                    if fb_meta.get("award"):
+                        got["award"] = fb_meta["award"]
                     movies.append(got)
                 else:
                     seen_ids.add(fb_meta["tmdb_id"])
@@ -4378,6 +5258,7 @@ async def get_list_detail(slug: str):
                         "release_date": str(fb_meta.get("year", "")),
                         "vote_average": None,
                         "director": fb_meta.get("director"),
+                        "award": fb_meta.get("award"),
                         "mood": None, "ai_analysis": None, "overview": "",
                     })
         # Statik liste otoriter olduğu için diğer katmanları atla
@@ -4498,16 +5379,111 @@ async def get_list_detail(slug: str):
 
 
 # ─────────────────────────────────────────────────────────────
+# ÖDÜL TAKVİMİ — bugün/yakında verilen ödüller (banner + push)
+# ─────────────────────────────────────────────────────────────
+def _awards_matching(simulate: str = None, window_days: int = 3) -> list:
+    """award_date'i bugüne (±window) denk gelen listeleri döndürür.
+    simulate: 'MM-DD' verilirse o tarihi bugünmüş gibi kabul eder (test)."""
+    from datetime import datetime as _dt, date as _date
+    if simulate:
+        try:
+            mm, dd = simulate.split("-")
+            today = _date(_dt.utcnow().year, int(mm), int(dd))
+        except Exception:
+            today = _dt.utcnow().date()
+    else:
+        today = _dt.utcnow().date()
+
+    out = []
+    for lst in _load_lists():
+        ad = lst.get("award_date")
+        if not ad:
+            continue
+        try:
+            mm, dd = ad.split("-")
+            adate = _date(today.year, int(mm), int(dd))
+        except Exception:
+            continue
+        delta = (adate - today).days
+        # Yıl dönümü kenarı (Ara/Oca) için ±window içinde mi bak
+        if abs(delta) > 180:
+            delta = delta - 365 if delta > 0 else delta + 365
+        if delta == 0:
+            status = "today"
+        elif 0 < delta <= window_days:
+            status = "soon"
+        else:
+            continue
+        out.append({
+            "slug": lst["slug"],
+            "title": lst.get("title", ""),
+            "badge": lst.get("badge", ""),
+            "ceremony": lst.get("ceremony", lst.get("title", "")),
+            "status": status,
+            "days_until": delta,
+        })
+    # "today" önce
+    out.sort(key=lambda x: (x["status"] != "today", x["days_until"]))
+    return out
+
+
+@app.get("/api/awards/today", dependencies=[Depends(rate_limit_general)])
+async def get_awards_today(simulate: str = Query(None, description="Test için MM-DD")):
+    """Bugün veya yakında (±3 gün) töreni olan ödül listeleri (uygulama içi banner)."""
+    return {"awards": _awards_matching(simulate=simulate)}
+
+
+# ─────────────────────────────────────────────────────────────
 # FİLM PAYLAŞIM SAYFASI — OG meta tag'lı HTML
 # ─────────────────────────────────────────────────────────────
+
+_DEFAULT_OG_IMAGE = f"{FRONTEND_BASE_URL}/sinemod-mark.png"
+
+
+def _render_og_page(title: str, description: str, image: str, redirect_url: str) -> str:
+    """OG/Twitter meta'lı, crawler-dostu + insanı SPA'ya yönlendiren ince HTML."""
+    safe_title = html.escape(title)
+    safe_desc = html.escape(description)
+    safe_image = html.escape(image)
+    safe_redirect = html.escape(redirect_url)
+    return f"""<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{safe_title}</title>
+  <meta name="description" content="{safe_desc}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{safe_title}">
+  <meta property="og:description" content="{safe_desc}">
+  <meta property="og:image" content="{safe_image}">
+  <meta property="og:url" content="{safe_redirect}">
+  <meta property="og:site_name" content="Sinemood">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{safe_title}">
+  <meta name="twitter:description" content="{safe_desc}">
+  <meta name="twitter:image" content="{safe_image}">
+  <meta http-equiv="refresh" content="0;url={safe_redirect}">
+  <link rel="canonical" href="{safe_redirect}">
+  <style>
+    body {{ background: #120d0b; color: #f5f0e8; font-family: serif; display: flex;
+            align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+    p {{ opacity: 0.5; font-style: italic; }}
+  </style>
+</head>
+<body>
+  <p>Yönlendiriliyorsunuz...</p>
+  <script>window.location.replace("{safe_redirect}")</script>
+</body>
+</html>"""
+
 
 @app.get("/share/{movie_id}", response_class=HTMLResponse)
 async def share_movie_page(movie_id: int):
     """Film paylaşım sayfası — OG meta tag'larıyla önizleme."""
     title = "Film Eleştirmeni"
     description = "Ruh haline göre yapay zeka destekli film keşif platformu."
-    poster = "https://film-elestirmeni.vercel.app/sinemod-mark.png"
-    app_url = "https://film-elestirmeni.vercel.app"
+    poster = _DEFAULT_OG_IMAGE
 
     try:
         cached = await cache.get_movie(movie_id)
@@ -4520,40 +5496,58 @@ async def share_movie_page(movie_id: int):
     except Exception:
         pass
 
-    redirect_url = f"{app_url}/?film={movie_id}"
+    redirect_url = f"{FRONTEND_BASE_URL}/?film={movie_id}"
+    return HTMLResponse(content=_render_og_page(title, description, poster, redirect_url))
 
-    safe_title = html.escape(title)
-    safe_desc = html.escape(description)
-    safe_poster = html.escape(poster)
-    safe_redirect = html.escape(redirect_url)
 
-    page_html = f"""<!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{safe_title}</title>
-  <meta name="description" content="{safe_desc}">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="{safe_title}">
-  <meta property="og:description" content="{safe_desc}">
-  <meta property="og:image" content="{safe_poster}">
-  <meta property="og:url" content="{safe_redirect}">
-  <meta property="og:site_name" content="Sinemood">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{safe_title}">
-  <meta name="twitter:description" content="{safe_desc}">
-  <meta name="twitter:image" content="{safe_poster}">
-  <meta http-equiv="refresh" content="0;url={safe_redirect}">
-  <style>
-    body {{ background: #120d0b; color: #f5f0e8; font-family: serif; display: flex;
-            align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
-    p {{ opacity: 0.5; font-style: italic; }}
-  </style>
-</head>
-<body>
-  <p>Yönlendiriliyorsunuz...</p>
-  <script>window.location.replace("{safe_redirect}")</script>
-</body>
-</html>"""
-    return HTMLResponse(content=page_html)
+@app.get("/share/u/{username}", response_class=HTMLResponse)
+async def share_profile_page(username: str, request: Request):
+    """Herkese açık profil paylaşım sayfası — kişiye özel OG önizlemesi.
+
+    Crawler (WhatsApp/X/Telegram) buraya gelir → kişiselleştirilmiş kart görür.
+    İnsan → gerçek SPA profiline (`/u/{username}`) yönlendirilir.
+    """
+    title = "Sinemood Profili"
+    description = "Sinema zevkini keşfet — Sinemood'da ruh haline göre film bul."
+    image = _DEFAULT_OG_IMAGE
+
+    try:
+        info = await cache.get_user_by_username(username)
+        if info:
+            uid = info["id"]
+            display = info.get("name") or info.get("username") or username
+            title = f"{display} — Sinema Zevki | Sinemood"
+
+            try:
+                watchlist = await cache.get_watchlist(uid)
+            except Exception:
+                watchlist = []
+            watched_n = sum(1 for m in watchlist if m.get("watched"))
+            saved_n = len(watchlist)
+
+            taste_desc = ""
+            try:
+                prof = await cache.get_taste_profile(uid)
+                tm = (prof or {}).get("profile_data") or {}
+                top = tm.get("top_genres") or tm.get("genres") or []
+                names = [g.get("name") if isinstance(g, dict) else g for g in top[:3]]
+                names = [n for n in names if n]
+                if names:
+                    taste_desc = " · ".join(names)
+            except Exception:
+                pass
+
+            bits = []
+            if taste_desc:
+                bits.append(taste_desc)
+            bits.append(f"{watched_n} izlenen, {saved_n} listede")
+            description = f"{display}'in sinema zevki: " + " — ".join(bits) + ". Sen de keşfet."
+
+            if info.get("picture"):
+                base = str(request.base_url).rstrip("/")
+                image = f"{base}/api/users/{uid}/avatar"
+    except Exception:
+        pass
+
+    redirect_url = f"{FRONTEND_BASE_URL}/u/{username}"
+    return HTMLResponse(content=_render_og_page(title, description, image, redirect_url))

@@ -15,7 +15,7 @@ No artificial 3-page limit. Max pages per query is configurable up to 500.
 """
 import asyncio, logging, random, httpx, time, json
 from datetime import datetime
-from backend.mood_scoring import calculate_mood_scores
+from backend.mood_scoring import calculate_mood_scores, is_low_quality_asian
 from backend.database import cache
 from backend.services.tmdb_service import tmdb_service
 
@@ -84,6 +84,10 @@ async def _process_and_save(movie_data: dict, mood_id: str) -> int:
 
     gids = movie_data.get("genre_ids", [])
     if not gids:
+        return 0
+
+    # Niş/obskür Doğu Asya filmlerini havuza ALMA (sadece kaliteli olanlar girer)
+    if is_low_quality_asian(movie_data):
         return 0
 
     # Cache key for mood scores

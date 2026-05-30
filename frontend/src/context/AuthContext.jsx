@@ -1,8 +1,22 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '../utils/apiConfig';
+import { track, EVENTS } from '../utils/analytics';
 
 const AUTH_KEY = 'fc_user_token';
 const USER_KEY = 'fc_user_info';
+const REF_KEY = 'fc_ref';
+
+// Davet linkinden gelen ?ref=<username> değerini yakala ve sakla.
+// OAuth yönlendirmesi/yenilemeler arasında kaybolmaması için localStorage'a yazılır.
+// İlk gelişte (kayıt öncesi) çağrılır; başarılı YENİ kayıttan sonra temizlenir.
+export function captureReferral() {
+  try {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref && /^[a-zA-Z0-9_]{2,32}$/.test(ref) && !localStorage.getItem(AUTH_KEY)) {
+      localStorage.setItem(REF_KEY, ref.toLowerCase());
+    }
+  } catch { /* sessiz */ }
+}
 
 // Cihaz-yerel watchlist/not önbelleği hesaplar arası sızmasın diye
 // giriş/çıkışta temizlenir; backend kullanıcının kendi verisini geri yükler.
@@ -28,10 +42,11 @@ export function AuthProvider({ children }) {
     // Render free-tier soğuk başlatma uzun sürebilir → 35sn timeout
     const timer = setTimeout(() => ctrl.abort(), 35000);
     try {
+      const ref = (() => { try { return localStorage.getItem(REF_KEY) || ''; } catch { return ''; } })();
       const res = await fetch(getApiUrl('/api/auth/google'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: googleCredential }),
+        body: JSON.stringify({ credential: googleCredential, ref }),
         signal: ctrl.signal,
       });
       let data = null;
@@ -49,6 +64,14 @@ export function AuthProvider({ children }) {
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
+      track(EVENTS.SIGNUP, { is_new: !!data.is_new });
+      // Davet atıfı backend'de işlendi → ref'i temizle (tekrar atıf olmasın)
+      if (data.is_new) {
+        try {
+          if (localStorage.getItem(REF_KEY)) track(EVENTS.INVITED_SIGNUP);
+          localStorage.removeItem(REF_KEY);
+        } catch {}
+      }
       return { ok: true };
     } catch (e) {
       const msg = e?.name === 'AbortError'
@@ -58,6 +81,28 @@ export function AuthProvider({ children }) {
       return { ok: false, error: msg };
     } finally {
       clearTimeout(timer);
+    }
+  }, []);
+
+  // SADECE YEREL geliştirme — Google olmadan sahte kullanıcıyla giriş.
+  // Backend üretimde 403 döndürür; buton zaten yalnız DEV build'inde gösterilir.
+  const devLogin = useCallback(async () => {
+    try {
+      const res = await fetch(getApiUrl('/api/auth/dev-login'), { method: 'POST' });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      if (!res.ok || !data?.token) {
+        return { ok: false, error: (data && data.detail) || 'Dev giriş başarısız' };
+      }
+      clearLocalUserData();
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem(AUTH_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      window.__fc_user_token = data.token;
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: 'Bağlantı hatası (backend çalışıyor mu?)' };
     }
   }, []);
 
@@ -84,7 +129,7 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, login, devLogin, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

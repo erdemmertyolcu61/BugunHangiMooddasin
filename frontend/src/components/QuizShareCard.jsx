@@ -4,6 +4,7 @@ import { Download, Share2 } from 'lucide-react';
 import { MOOD_NAMES } from '../utils/moodQuiz';
 import { captureAndShare, captureElementAsBlob, downloadBlob } from '../utils/shareUtils';
 import ShareButtons from './ShareButtons';
+import { track, EVENTS } from '../utils/analytics';
 
 /**
  * "Hangi Film Ruh Hali Seninki?" — shareable quiz result card.
@@ -56,8 +57,9 @@ export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
   const handleShareImage = async () => {
     if (!cardRef.current || sharing) return;
     setSharing(true);
+    track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'quiz' });
     try {
-      await captureAndShare(cardRef.current, `sinemood-${primary.moodId}.png`, shareText);
+      await captureAndShare(cardRef.current, `sinemood-${primary.moodId}.png`, `${shareText} ${shareUrl}`.trim(), { backgroundColor: '#0c0a12' });
     } finally {
       setSharing(false);
     }
@@ -67,7 +69,7 @@ export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
     if (!cardRef.current || sharing) return;
     setSharing(true);
     try {
-      const blob = await captureElementAsBlob(cardRef.current);
+      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0c0a12' });
       downloadBlob(blob, `sinemood-${primary.moodId}.png`);
     } finally {
       setSharing(false);
@@ -124,7 +126,7 @@ export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
             <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center text-[8px] font-bold text-white">S</div>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Sinemood</span>
           </div>
-          <span className="text-[9px] text-white/25">sinemood.com</span>
+          <span className="text-[9px] text-white/25">sinemood.onrender.com</span>
         </div>
       </div>
 

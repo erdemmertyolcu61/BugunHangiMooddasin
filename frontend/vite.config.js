@@ -13,6 +13,7 @@ export default defineConfig({
       manifest: false, // public/manifest.json'u kullan
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,avif,webp}'],
+        importScripts: ['/push-sw.js'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,

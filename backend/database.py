@@ -615,6 +615,31 @@ class MovieCache:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # referrals — davet (referral) atıf kaydı. Her kullanıcı en fazla 1 kez davet edilebilir.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS referrals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    referrer_id INTEGER NOT NULL REFERENCES users(id),
+                    referred_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)"
+            )
+            # push_subscriptions — Web Push abonelikleri (endpoint başına tekil)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS push_subscriptions (
+                    endpoint TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    p256dh TEXT NOT NULL,
+                    auth TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id)"
+            )
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -684,6 +709,19 @@ class MovieCache:
                 profile_data TEXT NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
+            """CREATE TABLE IF NOT EXISTS referrals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id INTEGER NOT NULL REFERENCES users(id),
+                referred_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            """CREATE TABLE IF NOT EXISTS push_subscriptions (
+                endpoint TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
         ]
         for stmt in stmts:
             await _turso_client.execute(stmt)
@@ -693,6 +731,8 @@ class MovieCache:
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)",
             "CREATE INDEX IF NOT EXISTS idx_friendships_lookup ON friendships(friend_id, status)",
             "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)",
+            "CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)",
+            "CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id)",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -784,6 +824,78 @@ class MovieCache:
                 return None
             return {"id": row[0], "username": row[1], "name": row[2],
                     "picture": row[3], "email": row[4]}
+
+    # ── Referral (davet) sistemi ──────────────────────────────────────────
+    async def record_referral(self, referrer_id: int, referred_id: int) -> bool:
+        """Yeni kayıt için davet atıfı kaydeder. Kendine atıf / tekrar atıf engellenir.
+        True → atıf kaydedildi (ilk kez), False → kaydedilmedi."""
+        if not referrer_id or not referred_id or referrer_id == referred_id:
+            return False
+        async with _get_connection(self.db_path, user_data=True) as db:
+            # Davet eden gerçekten var mı?
+            cur = await db.execute("SELECT 1 FROM users WHERE id = ?", (referrer_id,))
+            if not await cur.fetchone():
+                return False
+            try:
+                await db.execute(
+                    "INSERT INTO referrals (referrer_id, referred_id) VALUES (?, ?)",
+                    (referrer_id, referred_id),
+                )
+                await db.commit()
+                return True
+            except Exception:
+                # UNIQUE(referred_id) ihlali → kullanıcı zaten daha önce davet edilmiş
+                return False
+
+    async def get_referral_count(self, referrer_id: int) -> int:
+        """Bir kullanıcının başarıyla davet ettiği kişi sayısı."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (referrer_id,)
+            )
+            row = await cur.fetchone()
+            return int(row[0]) if row else 0
+
+    # ── Web Push abonelikleri ─────────────────────────────────────────────
+    async def save_push_subscription(self, user_id: int, endpoint: str, p256dh: str, auth: str) -> bool:
+        """Push aboneliğini kaydeder/günceller (endpoint tekil)."""
+        if not user_id or not endpoint or not p256dh or not auth:
+            return False
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                """INSERT OR REPLACE INTO push_subscriptions
+                   (endpoint, user_id, p256dh, auth) VALUES (?, ?, ?, ?)""",
+                (endpoint, user_id, p256dh, auth),
+            )
+            await db.commit()
+            return True
+
+    async def delete_push_subscription(self, endpoint: str) -> bool:
+        if not endpoint:
+            return False
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+            await db.commit()
+            return True
+
+    async def get_push_subscriptions(self, user_id: int) -> list:
+        """Bir kullanıcının tüm push aboneliklerini döndürür."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?",
+                (user_id,),
+            )
+            rows = await cur.fetchall()
+            return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2]} for r in rows]
+
+    async def get_all_push_subscriptions(self) -> list:
+        """Tüm aboneliği döndürür (toplu günlük bildirim için)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT endpoint, p256dh, auth, user_id FROM push_subscriptions"
+            )
+            rows = await cur.fetchall()
+            return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2], "user_id": r[3]} for r in rows]
 
     async def create_friend_request(self, user_id: int, friend_id: int) -> dict:
         """PENDING istek oluştur. Karşı taraf zaten istek attıysa karşılıklı ACCEPTED yapar."""
@@ -1556,6 +1668,32 @@ class MovieCache:
                 [mood_id] + movie_ids
             )
             await db.commit()
+
+    async def purge_low_quality_asian(self, min_vote_average: float = 7.2,
+                                      min_vote_count: int = 600) -> dict:
+        """Niş/obskür Doğu Asya (ja/ko/zh/cn) filmlerini repository'den temizle.
+        Yalnız puanı/oy sayısı eşiği geçen tanınmış Asya filmleri kalır."""
+        langs = ("ja", "ko", "zh", "cn")
+        placeholders = ",".join("?" * len(langs))
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(
+                f"SELECT COUNT(*) FROM movie_repository WHERE LOWER(original_language) IN ({placeholders})",
+                list(langs))
+            before = (await cursor.fetchone())[0]
+            await db.execute(
+                f"""DELETE FROM movie_repository
+                    WHERE LOWER(original_language) IN ({placeholders})
+                      AND NOT (vote_average >= ? AND vote_count >= ?)""",
+                list(langs) + [min_vote_average, min_vote_count])
+            await db.commit()
+            cursor = await db.execute(
+                f"SELECT COUNT(*) FROM movie_repository WHERE LOWER(original_language) IN ({placeholders})",
+                list(langs))
+            after = (await cursor.fetchone())[0]
+        removed = before - after
+        logger.info("[Cleanup] %d kalitesiz Asya filmi temizlendi (%d -> %d kaldı).",
+                    removed, before, after)
+        return {"asianBefore": before, "asianAfter": after, "removed": removed}
 
     async def remove_posterless_movies(self) -> int:
         """Remove all movies from repository where poster_url is NULL or empty. Returns count removed."""

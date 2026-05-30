@@ -14,7 +14,6 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
-  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -25,7 +24,6 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
       setSearchResult(null);
       setSearching(false);
       setSearchError(null);
-      setLeaving(false);
     } else {
       setStep(0);
       setAnswers([]);
@@ -34,7 +32,6 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
       setSearchResult(null);
       setSearching(false);
       setSearchError(null);
-      setLeaving(false);
     }
   }, [isOpen]);
 
@@ -44,11 +41,8 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
     setAnswers(newAnswers);
 
     if (step < QUESTIONS.length) {
-      setLeaving(true);
-      setTimeout(() => {
-        setStep(step + 1);
-        setLeaving(false);
-      }, 200);
+      // AnimatePresence mode="wait" (key=step) geçişi tek başına yönetir.
+      setStep(step + 1);
     } else {
       // All 6 steps answered → calculate + search
       const calc = calculateQuizResult(newAnswers);
@@ -71,27 +65,17 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
   }, [step, answers]);
 
   const goBack = useCallback(() => {
-    if (step > 1) {
-      setLeaving(true);
-      setTimeout(() => {
-        setStep(step - 1);
-        setLeaving(false);
-      }, 200);
-    }
+    if (step > 1) setStep(step - 1);
   }, [step]);
 
   const resetQuiz = useCallback(() => {
-    setLeaving(true);
-    setTimeout(() => {
-      setStep(1);
-      setAnswers([]);
-      setResult(null);
-      setQuizResult(null);
-      setSearchResult(null);
-      setSearching(false);
-      setSearchError(null);
-      setLeaving(false);
-    }, 200);
+    setStep(1);
+    setAnswers([]);
+    setResult(null);
+    setQuizResult(null);
+    setSearchResult(null);
+    setSearching(false);
+    setSearchError(null);
   }, []);
 
   const currentQuestion = step >= 1 && step <= QUESTIONS.length ? QUESTIONS[step - 1] : null;
@@ -107,16 +91,16 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8"
         >
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={onClose} />
 
           <motion.div
             initial={{ scale: 0.92, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.92, y: 20, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto bg-[#111111] border border-zinc-800 rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 md:p-10 shadow-2xl"
+            className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto bg-surface border border-white/[0.06] rounded-[1.75rem] sm:rounded-[2.25rem] p-4 sm:p-8 md:p-10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)]"
           >
-            <button onClick={onClose} className="absolute top-5 right-5 text-zinc-500 hover:text-amber transition-colors z-10">
+            <button onClick={onClose} className="absolute top-5 right-5 text-fg-subtle hover:text-amber transition-colors z-10">
               <X size={20} />
             </button>
 
@@ -131,7 +115,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                   <div className="flex gap-1.5">
                     {QUESTIONS.map((_, i) => (
                       <div key={i} className={`w-4 sm:w-6 h-1 rounded-full transition-colors ${
-                        i < step ? 'bg-amber/60' : 'bg-zinc-700'
+                        i < step ? 'bg-amber/60' : 'bg-fg-subtle/30'
                       }`} />
                     ))}
                   </div>
@@ -141,7 +125,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={step}
-                    initial={{ opacity: 0, y: leaving ? -20 : 12 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -12 }}
                     transition={{ duration: 0.2 }}
@@ -159,9 +143,9 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.25, delay: i * 0.06 }}
-                          className="w-full text-left p-4 min-h-[70px] rounded-xl bg-[#111111] hover:bg-[#1a1a1a] border border-zinc-800 hover:border-[#d4af37] active:border-[#d4af37] transition-all duration-300 flex items-center justify-between group"
+                          className="w-full text-left p-4 min-h-[70px] rounded-2xl bg-fg/[0.04] hover:bg-amber/10 ring-1 ring-transparent hover:ring-amber/30 transition-all duration-300 flex items-center justify-between group"
                         >
-                          <span className="text-sm md:text-base text-zinc-300 group-hover:text-white font-medium pr-2 leading-relaxed break-words">
+                          <span className="text-sm md:text-base text-fg-muted group-hover:text-fg font-medium pr-2 leading-relaxed break-words">
                             {ans.text}
                           </span>
                           <span className="text-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity pl-2 hidden sm:inline shrink-0">
@@ -176,7 +160,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                 {/* Back button */}
                 {step > 1 && (
                   <button onClick={goBack}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-amber transition-colors mx-auto">
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle hover:text-amber transition-colors mx-auto">
                     <ChevronLeft size={14} /> Geri
                   </button>
                 )}
@@ -243,7 +227,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                         {quizResult.topMoods.map((r, i) => (
                           <div key={r.moodId} className="flex items-center gap-4">
                             <span className="text-sm font-serif text-ivory/70 w-28 sm:w-32 text-right shrink-0">{MOOD_NAMES[r.moodId] || r.moodId}</span>
-                            <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
+                            <div className="flex-1 h-2 bg-fg-subtle/30 rounded-full overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${r.percentage}%` }}
@@ -283,7 +267,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                     <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-2 px-2">
                       {movies.slice(0, 4).map((movie) => (
                         <div key={movie.id} className="shrink-0 w-[130px] sm:w-[150px]">
-                          <div className="aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800 mb-2">
+                          <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-2 mb-2">
                             <OptimizedImage
                               src={movie.poster_url}
                               alt={movie.title}
@@ -336,11 +320,11 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                     {result ? `${MOOD_NAMES[result[0]?.moodId] || ''}'a Git` : 'Film Öner'}
                   </button>
                   <button onClick={resetQuiz}
-                    className="px-6 sm:px-8 py-3 sm:py-4 border border-zinc-700 text-zinc-400 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] hover:border-amber/40 hover:text-amber transition-all">
+                    className="px-6 sm:px-8 py-3 sm:py-4 border border-default text-fg-subtle rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] hover:border-amber/40 hover:text-amber transition-all">
                     Tekrar Çöz
                   </button>
                   <button onClick={onClose}
-                    className="px-6 sm:px-8 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500 hover:text-ivory/70 transition-all">
+                    className="px-6 sm:px-8 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-fg-subtle hover:text-fg transition-all">
                     Kapat
                   </button>
                 </motion.div>

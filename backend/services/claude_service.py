@@ -10,6 +10,10 @@ from backend.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_FAST_MODEL
 
 logger = logging.getLogger("claude_service")
 
+# Üstad'ın Notu sürümü — prompt güncellendikçe artar. Cache'li notların hangi
+# sürümle üretildiğini damgalar; toplu yenileme scripti eski sürümleri tespit eder.
+ANALYSIS_VERSION = "v3-kisa"
+
 # En fazla 3 eşzamanlı Claude API çağrısı (429 hatası ve maliyet patlamasını önler)
 CLAUDE_SEMAPHORE = asyncio.Semaphore(3)
 
@@ -37,15 +41,19 @@ class ClaudeService:
         self.client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         self.model = CLAUDE_MODEL
 
-    def _generate_fallback(self, title: str, genres: list = None, year: str = None, vote_average: float = None) -> str:
+    def _generate_fallback(self, title: str, genres: list = None, year: str = None,
+                           vote_average: float = None, overview: str = None) -> str:
         template = random.choice(FALLBACK_TEMPLATES)
         genre = genres[0] if genres else "sinema"
         y = year if year and year != "None" else "günümüzün"
-        return template.format(title=title, genre=genre, year=y, rating=vote_average or "")
+        note = template.format(title=title, genre=genre, year=y, rating=vote_average or "")
+        return note
 
     async def analyze_movie(self, title: str, overview: str, ratings: dict,
-                            genres: list = None, year: str = None, vote_average: float = None) -> dict:
-        """Send movie data to Claude and get mood + connoisseur analysis."""
+                            genres: list = None, year: str = None, vote_average: float = None,
+                            model: str = None) -> dict:
+        """Send movie data to Claude and get mood + connoisseur analysis.
+        model: opsiyonel model override (toplu yenileme ucuz Haiku ile koşabilsin)."""
 
         ratings_lines = []
         if ratings.get("imdb_rating"):
@@ -116,11 +124,11 @@ class ClaudeService:
             "- Tarih/dönem/kostüm varsa Zaman Yolcusu; kısa/kompakt/vurucu yapımlar varsa Şipşak.\n"
             "- Çizgi film/animasyon asla Kahkaha Molası olmaz; Battaniye Modu'na gider.\n"
             "- Blockbuster, süper kahraman, çok yüksek bütçeli filmler Kalbimin Sesi olamaz.\n\n"
-             "2. Üstadın Notu: 'Üstadın Notu:' ile başlayan, Türkçe 4-5 cümlelik entelektüel derinliği olan bir yorum yaz.\n\n"
-            "HIDDEN GEM 3-KATMANLI YAPI (her not bu üç katmanı doğal akışla içermeli):\n"
-            "KATMAN 1 — MOOD ŞIFASI: Bu film neden tam da bu ruh haline biçilmiş kaftan? Mood'un duygusal ihtiyacını filmin atmosferi, ritmi ve tonu nasıl karşılıyor?\n"
-            "KATMAN 2 — MAINSTREAM'İN KAÇIRDIĞI: Bu film neden herkesin radarında değil? Hangi ülkenin/geleneğin/yönetmenin eseri ve ana akım neden bunu görmezden geldi? Festivallerden neden sessizce geçti, hangi kültürel bariyeri aşamadı? (İspanyol, Kore, İskandinav, Rumen, İran, Türk, Latin Amerika, bağımsız Amerikan sineması gibi coğrafya/gelenek vurgusu)\n"
-            "KATMAN 3 — PLOT-DRIVEN SİNEMASAL SEBEP: Filmin anlatısındaki tematik çatışmayı, karakterin iç yolculuğunu veya yönetmenin biçimsel dilini somut bir gözlemle çöz. Hikayeyi özetleme — 'bu hikaye aslında X hakkında' entelektüel okuma.\n\n"
+             "2. Üstadın Notu: 'Üstadın Notu:' ile başlayan, Türkçe EN FAZLA 2-3 cümlelik, kısa ama entelektüel derinliği olan bir yorum yaz. Kısa tut — dolgu cümle YOK.\n\n"
+            "Not şu üç katmanı KISACA, tek bir doğal akışta harmanlamalı (her birine ayrı cümle ayırma — sıkıştır):\n"
+            "KATMAN 1 — MOOD ŞIFASI: Bu film neden tam da bu ruh haline biçilmiş kaftan? Filmin atmosferi/ritmi/tonu mood'un duygusal ihtiyacını nasıl karşılıyor?\n"
+            "KATMAN 2 — MAINSTREAM'İN KAÇIRDIĞI: Hangi ülke/gelenek/yönetmenin eseri ve ana akım neden görmezden geldi? (İspanyol, Kore, İskandinav, Rumen, İran, Türk, Latin Amerika, bağımsız Amerikan sineması gibi coğrafya vurgusu)\n"
+            "KATMAN 3 — SİNEMASAL SEBEP: Filmin tematik çatışmasını veya yönetmenin biçimsel dilini somut bir gözlemle çöz. Hikayeyi özetleme.\n\n"
             "KRİTİK KURALLAR:\n"
             "- Sen 65.000'den fazla film izlemiş, sinema kuramına hâkim bir entelektüelsin. Bazin, Sontag, Bordwell okumuş; auteur kuramını, mizansen analizini, sinema akımlarını (Fransız Yeni Dalgası, İtalyan Yeni Gerçekçiliği, Alman Dışavurumculuğu, Kore Yeni Dalgası, Rumen Yeni Dalgası, İran Sineması vb.) içselleştirmiş biri gibi konuş.\n"
             "- Film özetini ASLA tekrarlama. Konuyu anlatma. Hikayeyi özetleme.\n"
@@ -146,8 +154,8 @@ class ClaudeService:
             try:
                 async with CLAUDE_SEMAPHORE:
                     message = await self.client.messages.create(
-                    model=self.model,
-                    max_tokens=450,
+                    model=model or self.model,
+                    max_tokens=280,
                     messages=[{"role": "user", "content": prompt}],
                 )
 
@@ -161,7 +169,7 @@ class ClaudeService:
                 result = json.loads(response_text)
                 analysis = result.get("analysis")
                 if not analysis:
-                    analysis = self._generate_fallback(title, genres, year, vote_average)
+                    analysis = self._generate_fallback(title, genres, year, vote_average, overview)
                 return {
                     "mood": result.get("mood", "Bilinmiyor"),
                     "analysis": analysis,
@@ -171,7 +179,7 @@ class ClaudeService:
                 if attempt == max_retries - 1:
                     return {
                         "mood": "Bilinmiyor",
-                        "analysis": self._generate_fallback(title, genres, year, vote_average),
+                        "analysis": self._generate_fallback(title, genres, year, vote_average, overview),
                     }
                 import asyncio
                 await asyncio.sleep(1)

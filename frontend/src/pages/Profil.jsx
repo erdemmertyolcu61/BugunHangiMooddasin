@@ -20,7 +20,8 @@ import {
   respondFriendRequest, removeFriend, sendFriendRequest,
   getShares, markSharesRead, getMe,
 } from '../services/api';
-import { resolveAvatarUrl } from '../utils/apiConfig';
+import { resolveAvatarUrl, getApiUrl } from '../utils/apiConfig';
+import useDocumentMeta from '../utils/useDocumentMeta';
 import { copyToClipboard } from '../utils/shareUtils';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import NotificationsBell from '../components/NotificationsBell';
@@ -33,6 +34,7 @@ import ProfileTasteMap from '../components/profile/ProfileTasteMap';
 import ProfileTimeline from '../components/profile/ProfileTimeline';
 import ProfileSocial from '../components/profile/ProfileSocial';
 import ProfileSettings from '../components/profile/ProfileSettings';
+import ReferralCard from '../components/profile/ReferralCard';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -44,8 +46,12 @@ const sanitize = (str) =>
    ═══════════════════════════════════════════════════════════════════ */
 export default function Profil() {
   const navigate = useNavigate();
-  const { user, logout, login, updateUser } = useAuth();
+  const { user, logout, login, devLogin, updateUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  useDocumentMeta({
+    title: 'Profilim — Zevk Haritam | Sinemood',
+    description: 'Sinema zevk haritan, izleme listen ve davet ettiklerin. Profilini keşfet ve paylaş.',
+  });
 
   /* ─── Auth ─────────────────────────────────────────────────────── */
   const [authBusy, setAuthBusy] = useState(false);
@@ -59,6 +65,15 @@ export default function Profil() {
     setAuthBusy(false);
     if (!r?.ok) setAuthError(r?.error || 'Giriş başarısız oldu.');
   }, [login]);
+
+  // SADECE YEREL geliştirme — Google olmadan test girişi
+  const handleDevLogin = useCallback(async () => {
+    setAuthBusy(true);
+    setAuthError('');
+    const r = await devLogin();
+    setAuthBusy(false);
+    if (!r?.ok) setAuthError(r?.error || 'Dev giriş başarısız.');
+  }, [devLogin]);
 
   /* ─── Stats + Taste ────────────────────────────────────────────── */
   const [savedMovies, setSavedMovies] = useState([]);
@@ -186,13 +201,14 @@ export default function Profil() {
   }, []);
 
   /* ─── Fetch stats + taste map ──────────────────────────────────── */
+  // Anonim kullanıcıda da çalışır: watchlist localStorage'dan gelir,
+  // taste map backend ister (anonimde null döner — sorun değil).
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
     (async () => {
       try {
         const [wl, tm] = await Promise.all([
           getWatchlist().catch(() => ({ movies: [] })),
-          getTasteMap().catch(() => null),
+          user ? getTasteMap().catch(() => null) : Promise.resolve(null),
         ]);
         const movies = wl.movies || [];
         setSavedMovies(movies);
@@ -212,7 +228,7 @@ export default function Profil() {
   }, [user]);
 
   /* ─── Derived ──────────────────────────────────────────────────── */
-  const displayName = user ? (sanitize(user.name) || sanitize(user.email) || 'Sinemasever') : '';
+  const displayName = user ? (sanitize(user.name) || sanitize(user.email) || 'Sinemasever') : 'Sinemasever';
   const rawAvatar = user?.picture || '';
   const avatar = resolveAvatarUrl(rawAvatar);
   const initials = displayName.slice(0, 1).toUpperCase();
@@ -224,7 +240,8 @@ export default function Profil() {
   const topMoods = tasteMap?.top_moods?.slice(0, 5) || [];
 
   /* ─── Public profile link ──────────────────────────────────────── */
-  const profileUrl = user?.username ? `${window.location.origin}/u/${user.username}` : '';
+  // Backend OG paylaşım ucu: crawler kişiye özel önizleme görür, insan SPA'ya yönlenir.
+  const profileUrl = user?.username ? getApiUrl(`/share/u/${user.username}`) : '';
 
   const handleCopyProfileLink = async () => {
     if (!profileUrl) return;
@@ -233,57 +250,61 @@ export default function Profil() {
     setTimeout(() => setProfileLinkCopied(false), 2000);
   };
 
-  /* ═══ NOT LOGGED IN ════════════════════════════════════════════════ */
-  if (!user) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        className="min-h-screen bg-[#120d0b] text-ivory font-sans relative flex flex-col">
-        <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-            <button onClick={() => navigate(-1)}
-              className="w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all">
-              <ChevronLeft size={20} />
-            </button>
-            <span className="font-sans text-[13px] font-bold uppercase tracking-[0.35em] text-amber/70"
-              style={{ textShadow: '0 0 20px rgba(255,191,0,0.15)' }}>Profil</span>
-          </div>
-        </header>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-nav">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-sm text-center space-y-8">
-            <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center mx-auto">
-              <User size={30} className="text-amber/50" />
-            </div>
-            <div className="space-y-3">
-              <h2 className="font-serif text-3xl font-bold text-ivory tracking-tight">Kimsin sen, evlat?</h2>
-              <p className="font-sans text-sm text-ivory/45 leading-relaxed">
-                Giriş yaparsan izleme geçmişin, notların ve kayıtların her cihazda seni bekler.
-              </p>
-            </div>
-            {GOOGLE_CLIENT_ID ? (
-              <div className="space-y-3">
-                <div className={`flex justify-center transition-opacity ${authBusy ? 'opacity-40 pointer-events-none' : ''}`}>
-                  <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} onCredential={handleCredential} width={280} />
-                </div>
-                {authBusy && (
-                  <p className="font-sans text-xs text-amber/70 flex items-center justify-center gap-2">
-                    <span className="w-3 h-3 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
-                    Giriş yapılıyor...
-                  </p>
-                )}
-                {authError && <p className="font-sans text-xs text-rose-400 max-w-xs mx-auto">{authError}</p>}
-              </div>
-            ) : (
-              <p className="font-sans text-xs text-ivory/40">Google girişi henüz yapılandırılmamış.</p>
-            )}
-          </motion.div>
+  /* ═══ Sign-in CTA (anonim kullanıcıya gösterilir) ═══════════════════ */
+  const SignInCTA = ({ compact = false }) => (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      className={`w-full max-w-sm mx-auto text-center ${compact ? 'space-y-5 py-6' : 'space-y-8'}`}>
+      {!compact && (
+        <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center mx-auto">
+          <User size={30} className="text-amber/50" />
         </div>
-      </motion.div>
-    );
-  }
+      )}
+      <div className="space-y-3">
+        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ivory tracking-tight">
+          {compact ? 'Arkadaşlarınla bağlan' : 'Giriş yap, her cihazda seni bekleyelim'}
+        </h2>
+        <p className="font-sans text-sm text-ivory/45 leading-relaxed">
+          {compact
+            ? 'Sosyal özellikler için giriş yapman gerek — arkadaş ekle, film paylaş, zevkini karşılaştır.'
+            : 'Şu an kayıtların bu cihazda tutuluyor. Giriş yaparsan izleme geçmişin, notların ve listelerin her yerde seninle.'}
+        </p>
+      </div>
+      {GOOGLE_CLIENT_ID ? (
+        <div className="space-y-3">
+          <div className={`flex justify-center transition-opacity ${authBusy ? 'opacity-40 pointer-events-none' : ''}`}>
+            <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} onCredential={handleCredential} width={280} />
+          </div>
+          {authBusy && (
+            <p className="font-sans text-xs text-amber/70 flex items-center justify-center gap-2">
+              <span className="w-3 h-3 rounded-full border-2 border-amber/30 border-t-amber animate-spin" />
+              Giriş yapılıyor...
+            </p>
+          )}
+          {authError && <p className="font-sans text-xs text-rose-400 max-w-xs mx-auto">{authError}</p>}
+          {import.meta.env.DEV && (
+            <button onClick={handleDevLogin} disabled={authBusy}
+              className="mx-auto block text-[10px] font-bold uppercase tracking-[0.2em] text-amber/60 hover:text-amber border border-amber/20 hover:border-amber/40 rounded-full px-4 py-2 transition-colors disabled:opacity-40">
+              Geliştirici Girişi (yerel)
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="font-sans text-xs text-ivory/40">Google girişi henüz yapılandırılmamış.</p>
+          {import.meta.env.DEV && (
+            <button onClick={handleDevLogin} disabled={authBusy}
+              className="mx-auto block text-[10px] font-bold uppercase tracking-[0.2em] text-amber/70 hover:text-amber border border-amber/25 hover:border-amber/50 rounded-full px-5 py-2.5 transition-colors disabled:opacity-40">
+              {authBusy ? 'Giriş yapılıyor...' : 'Geliştirici Girişi (yerel)'}
+            </button>
+          )}
+          {authError && <p className="font-sans text-xs text-rose-400 max-w-xs mx-auto">{authError}</p>}
+        </div>
+      )}
+    </motion.div>
+  );
 
-  /* ═══ LOGGED IN ════════════════════════════════════════════════════ */
+  /* ═══ PROFIL (anonim + giriş yapmış birleşik) ═══════════════════════ */
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
@@ -304,12 +325,16 @@ export default function Profil() {
               style={{ textShadow: '0 0 20px rgba(255,191,0,0.15)' }}>Profil</span>
           </div>
           <div className="flex items-center gap-1">
-            <NotificationsBell open={notifOpen} onOpenChange={setNotifOpen} />
-            <button onClick={() => { logout(); navigate('/'); }}
-              title="Çıkış Yap"
-              className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-ivory/45 hover:text-red-400 transition-all">
-              <LogOut size={17} />
-            </button>
+            {user && (
+              <>
+                <NotificationsBell open={notifOpen} onOpenChange={setNotifOpen} />
+                <button onClick={() => { logout(); navigate('/'); }}
+                  title="Çıkış Yap"
+                  className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-ivory/45 hover:text-red-400 transition-all">
+                  <LogOut size={17} />
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -322,8 +347,16 @@ export default function Profil() {
           avatar={avatar}
           displayName={displayName}
           initials={initials}
-          onEditProfile={() => setEditProfileOpen(true)}
+          onEditProfile={user ? () => setEditProfileOpen(true) : null}
+          isPublic={!user}
         />
+
+        {/* ─── Anonim: giriş çağrısı ─── */}
+        {!user && (
+          <div className="rounded-2xl bg-amber/[0.06] border border-amber/15 px-5 py-6">
+            <SignInCTA />
+          </div>
+        )}
 
         {/* ─── Public profile link ─── */}
         {profileUrl && (
@@ -385,23 +418,31 @@ export default function Profil() {
               tasteMap={tasteMap}
               loading={loading}
               username={displayName}
+              profileUrl={profileUrl}
             />
             {!loading && <ProfileTimeline recentWatched={recentWatched} topMoods={topMoods} />}
           </>
         )}
 
         {profileTab === 'social' && (
-          <ProfileSocial
-            friends={friends}
-            requests={requests}
-            shares={shares}
-            socialLoading={socialLoading || sharesLoading}
-            socialError={socialError}
-            onRespondRequest={handleRespondRequest}
-            onRemoveFriend={handleRemoveFriend}
-            onAddFriend={handleAddFriend}
-            onDetailMovie={setDetailMovie}
-          />
+          user ? (
+            <div className="space-y-6">
+              <ReferralCard />
+              <ProfileSocial
+                friends={friends}
+                requests={requests}
+                shares={shares}
+                socialLoading={socialLoading || sharesLoading}
+                socialError={socialError}
+                onRespondRequest={handleRespondRequest}
+                onRemoveFriend={handleRemoveFriend}
+                onAddFriend={handleAddFriend}
+                onDetailMovie={setDetailMovie}
+              />
+            </div>
+          ) : (
+            <SignInCTA compact />
+          )
         )}
 
         {profileTab === 'settings' && (

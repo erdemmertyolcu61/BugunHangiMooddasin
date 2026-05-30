@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Book, ChevronRight, Brain, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../utils/apiConfig';
+import { track, EVENTS } from '../utils/analytics';
+import useDocumentMeta from '../utils/useDocumentMeta';
 
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
@@ -15,6 +17,11 @@ export default function MoodSelector() {
   const navigate = useNavigate();
   const { selectMood, prefetchMood } = useMood();
   const { user } = useAuth();
+
+  useDocumentMeta({
+    title: 'Sinemood — Ruh Haline Göre Film Öner',
+    description: 'Bugün hangi mooddasın? Ruh haline göre film keşfet, Üstad’ın seçkilerini ve sürpriz filmleri dene. Yapay zeka destekli sinematik öneri.',
+  });
 
   const [hoveredMood, setHoveredMood] = useState(null);
 
@@ -37,6 +44,7 @@ export default function MoodSelector() {
   }, []);
 
   const handleMoodClick = useCallback(async (mood) => {
+    track(EVENTS.MOOD_SELECT, { mood: mood.id });
     try { playMoodAudio(mood.id); } catch(e) {}
     selectMood(mood.id);
     import('../pages/Discover').catch(() => {});
@@ -241,12 +249,19 @@ export default function MoodSelector() {
               <Brain size={14} className="text-bg/80 sm:w-4 sm:h-4" />
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em]">Ruh Halim</span>
             </button>
+            {/* Defterim — her iki temada da espresso pill (Latte'de override sheet'e
+                takılmaması için renkler inline). */}
             <button onClick={() => navigate('/defterim')}
-              className="hidden md:flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] text-rose/40 hover:text-amber/70 transition-colors duration-500">
+              style={{ backgroundColor: '#241b16', borderColor: 'rgba(255,191,0,0.22)', color: '#d6a84f' }}
+              className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full border text-[10px] font-bold uppercase tracking-[0.3em] hover:scale-105 transition-transform duration-300">
               <Book size={14} /> Defterim
             </button>
           </div>
           <p className="text-[8px] uppercase tracking-[0.5em] text-rose/30 font-medium">sinema bir atmosferdir</p>
+          <button onClick={() => navigate('/gizlilik')}
+            className="text-[9px] uppercase tracking-[0.3em] text-rose/30 hover:text-amber/70 transition-colors duration-500">
+            Gizlilik & KVKK
+          </button>
         </motion.footer>
       </div>
 

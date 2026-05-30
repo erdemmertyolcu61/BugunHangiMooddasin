@@ -4,6 +4,19 @@ import App from './App.jsx'
 import './index.css'
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './context/ToastContext';
+import { initAnalytics, track, EVENTS } from './utils/analytics';
+import { captureReferral } from './context/AuthContext';
+
+// Gizlilik-dostu analytics (yapılandırılmadıysa no-op)
+initAnalytics();
+track(EVENTS.LANDING);
+
+// Davet linki ?ref=<username> yakala (kayıt öncesi sakla)
+captureReferral();
+if (new URLSearchParams(window.location.search).get('ref')) {
+  track(EVENTS.INVITE_LANDING);
+}
 
 // ─── Backend Cold-Start Warm-Up ───
 // Render free tier 15dk boştan sonra uyur; ilk istek ~30sn sürer.
@@ -42,7 +55,9 @@ window.addEventListener('load', () => {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>,
 )

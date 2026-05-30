@@ -17,6 +17,9 @@ import UstadLoader from './UstadLoader';
 import UstadinNotu from './UstadinNotu';
 import RecommendToFriendSheet from './RecommendToFriendSheet';
 import { useAuth } from '../context/AuthContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useToast } from '../context/ToastContext';
+import { track, EVENTS } from '../utils/analytics';
 
 const IMG_LG = 'https://image.tmdb.org/t/p/original';
 
@@ -48,6 +51,10 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   // Escape tuşuyla kapat
   const handleEsc = useCallback((e) => { if (e.key === 'Escape') onClose(); }, [onClose]);
   useEffect(() => { document.addEventListener('keydown', handleEsc); return () => document.removeEventListener('keydown', handleEsc); }, [handleEsc]);
+
+  // Focus trap + odak geri yükleme (a11y)
+  const trapRef = useFocusTrap(true);
+  const toast = useToast();
 
   // initialMovie verilmişse modal ANINDA dolu açılır; /analyze arka planda
   // sadece eksikleri (ai_analysis, watch_providers vb.) tamamlar.
@@ -101,10 +108,21 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     if (!movie) return;
     if (saved) {
       setSaved(false); setWatched(false);
-      try { await removeFromWatchlist(movie.id); } catch {}
+      try {
+        await removeFromWatchlist(movie.id);
+      } catch {
+        setSaved(true); // optimistik değişikliği geri al
+        toast.error('Listeden çıkarılamadı. Tekrar dene.');
+      }
     } else {
       setSaved(true);
-      try { await addToWatchlist(movie); } catch {}
+      try {
+        await addToWatchlist(movie);
+        track(EVENTS.SAVE_MOVIE, { id: movie.id });
+      } catch {
+        setSaved(false);
+        toast.error('Listeye eklenemedi. Tekrar dene.');
+      }
     }
   };
 
@@ -112,8 +130,16 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     if (!movie) return;
     const now = !watched;
     setWatched(now);
-    if (now && !saved) { setSaved(true); try { await addToWatchlist(movie); } catch {} }
-    try { await toggleWatched(movie.id); } catch {}
+    if (now && !saved) {
+      setSaved(true);
+      try { await addToWatchlist(movie); } catch { setSaved(false); }
+    }
+    try {
+      await toggleWatched(movie.id);
+    } catch {
+      setWatched(!now); // geri al
+      toast.error('İzlendi durumu güncellenemedi.');
+    }
   };
 
   const poster = movie && proxyImageUrl(
@@ -138,13 +164,14 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
         {/* fixed: kaydırınca blur kaybolmasın — tüm ekranı sabit kaplar */}
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
         <motion.div
+          ref={trapRef}
           initial={{ scale: 0.94, y: 24, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
           exit={{ scale: 0.94, y: 24, opacity: 0 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="relative w-full max-w-4xl my-auto bg-[#1a1a1a]/95 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[2.5rem] overflow-hidden pt-safe pb-24 sm:pb-12 shadow-2xl"
         >
-          <button onClick={onClose}
+          <button onClick={onClose} aria-label="Kapat"
             className="absolute top-4 right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-ivory/80 hover:text-amber hover:bg-black/80 transition-colors">
             <X size={24} />
           </button>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Link2 } from 'lucide-react';
 import { shareToWhatsApp, shareToTelegram, shareToTwitter, copyToClipboard } from '../utils/shareUtils';
+import { track, EVENTS } from '../utils/analytics';
 
 /**
  * WhatsApp / Telegram / X / Copy link share buttons.
@@ -18,6 +19,7 @@ export default function ShareButtons({ url = '', text = '', className = '', comp
   const handleCopy = async () => {
     const content = url ? `${text} ${url}`.trim() : text;
     await copyToClipboard(content || url);
+    track(EVENTS.SHARE_CLICK, { network: 'copy' });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -32,7 +34,7 @@ export default function ShareButtons({ url = '', text = '', className = '', comp
     <div className={`flex items-center gap-2.5 ${className}`}>
       {/* WhatsApp */}
       <button
-        onClick={() => shareToWhatsApp(text, url)}
+        onClick={() => { track(EVENTS.SHARE_CLICK, { network: 'whatsapp' }); shareToWhatsApp(text, url); }}
         className={`${btnBase} bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/20 hover:border-[#25D366]/40 text-[#25D366] hover:scale-110`}
         title="WhatsApp"
       >
@@ -43,7 +45,7 @@ export default function ShareButtons({ url = '', text = '', className = '', comp
 
       {/* Telegram */}
       <button
-        onClick={() => shareToTelegram(text, url)}
+        onClick={() => { track(EVENTS.SHARE_CLICK, { network: 'telegram' }); shareToTelegram(text, url); }}
         className={`${btnBase} bg-[#0088cc]/15 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 hover:border-[#0088cc]/40 text-[#0088cc] hover:scale-110`}
         title="Telegram"
       >
@@ -54,7 +56,7 @@ export default function ShareButtons({ url = '', text = '', className = '', comp
 
       {/* X / Twitter */}
       <button
-        onClick={() => shareToTwitter(text, url)}
+        onClick={() => { track(EVENTS.SHARE_CLICK, { network: 'twitter' }); shareToTwitter(text, url); }}
         className={`${btnBase} bg-white/10 hover:bg-white/15 border border-white/15 hover:border-white/30 text-white/80 hover:text-white hover:scale-110`}
         title="X (Twitter)"
       >

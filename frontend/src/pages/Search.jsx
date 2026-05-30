@@ -9,11 +9,16 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, Search as SearchIcon, X } from 'lucide-react';
 import { searchMovies, proxyImageUrl } from '../services/api';
 import LottieAnimation from '../components/LottieAnimation';
+import useDocumentMeta from '../utils/useDocumentMeta';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
 
 export default function SearchPage() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: 'Film Ara | Sinemood',
+    description: 'Binlerce film arasında ara, Üstad’ın notlarıyla keşfet.',
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQ = searchParams.get('q') || '';
 

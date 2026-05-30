@@ -260,6 +260,63 @@ export async function getTasteMap() {
   return res.json();
 }
 
+export async function getReferrals() {
+  const res = await fetch(`${BASE}/user/referrals`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(`Davet bilgisi alınamadı (${res.status})`);
+  return res.json();
+}
+
+// ─── Günün Filmi ───
+export async function getDailyFilm() {
+  const res = await fetch(`${BASE}/daily/film`);
+  if (!res.ok) throw new Error(`Günün filmi alınamadı (${res.status})`);
+  return res.json(); // { date, movie, ustad_line, title }
+}
+
+// ─── Ödül takvimi (Listeler banner'ı) ───
+export async function getAwardsToday() {
+  try {
+    const res = await fetch(`${BASE}/awards/today`);
+    if (!res.ok) return { awards: [] };
+    return res.json(); // { awards: [{slug,title,badge,ceremony,status,days_until}] }
+  } catch {
+    return { awards: [] };
+  }
+}
+
+// ─── Mini Oyun: Mood Kâhini ───
+export async function getMoodOracleRounds(rounds = 5) {
+  const res = await fetch(`${BASE}/game/mood-oracle?rounds=${rounds}`);
+  if (!res.ok) throw new Error(`Oyun yüklenemedi (${res.status})`);
+  return res.json(); // { rounds: [...], count }
+}
+
+// ─── Web Push ───
+export async function getPushPublicKey() {
+  const res = await fetch(`${BASE}/push/public-key`);
+  if (!res.ok) throw new Error(`Push anahtarı alınamadı (${res.status})`);
+  return res.json(); // { enabled, public_key }
+}
+
+export async function subscribePush(subscription) {
+  const res = await fetch(`${BASE}/push/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(subscription),
+  });
+  if (!res.ok) throw new Error(`Push aboneliği kaydedilemedi (${res.status})`);
+  return res.json();
+}
+
+export async function unsubscribePush(endpoint) {
+  const res = await fetch(`${BASE}/push/unsubscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ endpoint }),
+  });
+  return res.ok ? res.json() : { ok: false };
+}
+
 /**
  * Quick mood mix — rule-based, no Claude API.
  * @param {Array} moodMix - [{mood_id, percentage}, ...]
@@ -275,11 +332,11 @@ export async function quickMoodMix(moodMix, { limit = 6, minVote = 5.0, excludeI
   return res.json();
 }
 
-export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0, excludeIds = [], forcedMoodOverride = '') {
+export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0, excludeIds = [], forcedMoodOverride = '', refine = '') {
   const res = await fetch(`${BASE}/recommend/confused`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0, exclude_ids: excludeIds, forced_mood_override: forcedMoodOverride })
+    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0, exclude_ids: excludeIds, forced_mood_override: forcedMoodOverride, refine })
   });
   if (!res.ok) throw new Error(`Öneri alınamadı (${res.status})`);
   return res.json();

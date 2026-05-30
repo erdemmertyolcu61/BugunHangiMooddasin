@@ -173,6 +173,21 @@ MOOD_KEYWORDS = {
     "ailemle", "arkadaşlarla", "yalnız", "sevgilimle",
     "öner", "önersene", "önerir misin", "ne izlesem", "ne izleyeyim",
     "tavsiye", "bir şey", "film seç", "film bul",
+    # Süre / zaman kısıtı
+    "dakika", "dakikalık", "şipşak", "kısa", "vaktim", "saat",
+    # Tema / tarz sinyalleri — film adı sanılmasını önler
+    "kült", "gizli", "distopik", "distopya", "taşra", "kasvet",
+    "psikolojik", "delilik", "çöküş", "paranoya", "travma",
+    "noir", "indie", "antihero", "obsesyon", "intikam",
+    "ters", "twist", "ödüllü", "festival", "bağımsız",
+    "ürperten", "ürpertici", "kasvetli", "loş", "hırs",
+    "yapıtlar", "yapıt", "hikayesi", "hikayeleri", "tarzı",
+    # Bağlaç / tanımlayıcı — film adında genellikle bulunmaz, tanımlama cümlelerinde bulunur
+    "ile", "anlatan", "barındıran", "hakkında", "dair", "içeren",
+    # Aşk/duygu çekimleri — "aşk" köklü ama çekimli (filmin değil isteğin parçası)
+    "aşkı", "aşkın", "aşkla", "aşkını", "sevgisi", "sevgiyle", "sevgiyi",
+    # Konuya işaret eden sıfatlar
+    "felsefi", "derin", "varoluşsal", "sorgulayan",
 }
 
 # Tümce düzeyinde ruh hali/distraction ifadeleri — kelime bazlı mood kontrolünden ÖNCE kontrol edilir.
@@ -211,6 +226,12 @@ MOOD_PHRASES = {
     "derin bir film", "düşündüren", "felsefi bir şey", "dokunaklı",
     "korku istiyorum", "gerilim istiyorum", "aksiyon istiyorum",
     "komedi istiyorum", "dram istiyorum", "bilim kurgu istiyorum",
+    # ── Tema / tarz ifadeleri ──
+    "kült yapıtlar", "gizli kalmış", "az bilinen", "değeri bilinmeyen",
+    "psikolojik çöküş", "ters köşe", "sürpriz son",
+    "taşra kasveti", "distopik bilimkurgu", "sanat filmi",
+    "tempo düşmeyen", "temposu hiç düşmeyen",
+    "dakikalık", "şipşak",
 }
 
 # Tek kelimelik ünlü yönetmen/oyuncu adları — _looks_like_person_name tek kelime için de çalışsın.
@@ -255,19 +276,87 @@ def _fuzzy_match(s1: str, s2: str) -> float:
     return SequenceMatcher(None, _normalize(s1), _normalize(s2)).ratio()
 
 
+_TR_FOLD = str.maketrans("çğıöşü", "cgiosu")
+
+
+def _fold(text: str) -> str:
+    """Türkçe aksanları katlayıp normalize eder (hem aksanlı hem ASCII girişi yakalar)."""
+    return _normalize(text).translate(_TR_FOLD)
+
+
+# Türkçe sondan eklemeli yapı için hafif, kural-tabanlı suffix-stripper.
+# En uzun ekten kısaya doğru tek tur soyar; gövde >= 3 harf kalmalı (aşırı soymayı önler).
+# Aksan-katlanmış (folded) girdi bekler.
+_TR_SUFFIXES = (
+    "lerini", "larini", "lerinde", "larinda", "leriyle", "lariyla",
+    "lerin", "larin", "leri", "lari", "ler", "lar",
+    "iyorum", "iyoruz", "iyor", "ecek", "acak", "mis", "mus",
+    "tir", "dir", "tur", "dur",
+    "siz", "suz", "lik", "luk", "li", "lu",
+    "nin", "nun", "den", "dan", "ten", "tan", "nde", "nda",
+    "ti", "tu", "di", "du",
+    "de", "da", "te", "ta", "yi", "yu", "ye", "ya",
+    "in", "un", "im", "um", "i", "u", "e", "a",
+)
+
+
+def _tr_stem(word: str) -> str:
+    """Tek tur, muhafazakâr Türkçe gövde çıkarımı (folded girdi)."""
+    for suf in _TR_SUFFIXES:
+        if word.endswith(suf) and len(word) - len(suf) >= 3:
+            return word[: -len(suf)]
+    return word
+
+
+# MOOD_KEYWORDS'ün tek-kelimelik girdilerinin gövde kümesi (önceden hesaplanır).
+_MOOD_KEYWORD_STEMS = {
+    _tr_stem(_fold(kw)) for kw in MOOD_KEYWORDS if " " not in kw
+}
+
+
 def _has_mood_words(text: str) -> bool:
-    """Kelime bazlı mood kontrolü — substring DEĞİL, tam kelime eşleşmesi yapar."""
+    """Kelime bazlı mood kontrolü — Türkçe ekleri köke indirip eşleştirir."""
     t = _normalize(text)
     words = set(t.split())
+    # 1) Hızlı tam-kelime yolu (mevcut davranış korunur)
     for kw in MOOD_KEYWORDS:
         if kw in words:
+            return True
+    # 2) Morfolojik yol: sorgu kelimelerinin gövdesi keyword gövdesiyle eşleşiyor mu
+    for w in words:
+        if _tr_stem(_fold(w)) in _MOOD_KEYWORD_STEMS:
+            return True
+    return False
+
+
+# Kavramsal/betimleyici ifade işaretçileri — bunlar varsa metin film BAŞLIĞI değil,
+# bir tema/konu tarifidir; exact_movie_search yerine semantic/mood'a yönlendirilmeli.
+# Not: "ve"/"ile" bilinçli olarak DIŞARIDA — gerçek başlıkları bozar ("Babam ve Oğlum").
+_CONCEPT_MARKERS = {"arasinda", "hakkinda", "dair", "uzerine", "karsi", "ozelinde"}
+_CONCEPT_BIGRAMS = ("yapay zeka", "zaman yolculugu", "paralel evren")
+
+
+def _looks_conceptual(text: str) -> bool:
+    """Betimleyici tema sorgusu mu? (film başlığı yerine konu tarifi)"""
+    t = _fold(text)
+    words = set(t.split())
+    if words & _CONCEPT_MARKERS:
+        return True
+    for bg in _CONCEPT_BIGRAMS:
+        if bg in t:
             return True
     return False
 
 
 def _is_short_title_like(text: str) -> bool:
     words = text.strip().split()
-    return 1 <= len(words) <= 5 and not _has_mood_words(text)
+    if not (1 <= len(words) <= 5):
+        return False
+    if _has_mood_words(text):
+        return False
+    if _looks_conceptual(text):
+        return False
+    return True
 
 
 def _looks_like_person_name(text: str) -> bool:
@@ -339,21 +428,23 @@ _MOOD_WEIGHTS = {
 }
 
 _RULE_MOOD_MAP = {
-    ("yorgun", "sakin", "rahatlamak", "battaniye", "sarılmak"):        "battaniye",
-    ("macera", "yol", "keşif", "seyahat"):                              "yolculuk",
-    ("karanlık", "gece", "gizem", "korku", "gerilim"):                  "gece",
-    ("gülmek", "komik", "eğlence", "kahkaha", "neşe"):                 "kahkaha",
-    ("ağlamak", "üzgün", "hüzün", "gözyaşı", "duygusal"):              "gozyasi",
-    ("heyecan", "adrenalin", "patlama", "savaş", "aksiyon"):            "adrenalin",
-    ("romantik", "aşk", "kalp", "sevgi"):                                "askbahcesi",
-    ("nostalji", "eski", "çocukluk", "geçmiş"):                          "zamanyolcusu",
-    ("düşünmek", "felsefe", "zihin", "entelektüel", "soru"):            "zihin",
-    ("küçük", "kalp", "samimi", "içten", "basit"):                      "kalp",
-    ("deneysel", "sıradışı", "karmaşık", "garip"):                      "karmakar",
-    ("kisa", "kısa", "kompakt", "sipsak", "çekim"):                     "sipsak",
-    ("atmosfer", "gerilim", "yavaş", "ürperti"):                        "deep-chills",
-    ("estetik", "görsel", "sinematografi", "kompozisyon"):              "kadraj-estetigi",
-    ("itiraf", "konuşma", "diyalog", "sohbet", "samimi"):               "geceyarisi-itirafi",
+    ("yorgun", "sakin", "rahatlamak", "battaniye", "sarılmak", "huzur", "dinlen"):  "battaniye",
+    ("macera", "yol", "keşif", "seyahat", "kaçış"):                                  "yolculuk",
+    ("karanlık", "gece", "gizem", "korku", "gerilim", "kasvet", "loş"):              "gece",
+    ("gülmek", "komik", "eğlence", "kahkaha", "neşe", "güldür"):                    "kahkaha",
+    ("ağlamak", "üzgün", "hüzün", "gözyaşı", "duygusal", "dokunaklı", "yürek"):    "gozyasi",
+    ("heyecan", "adrenalin", "patlama", "savaş", "aksiyon", "tempo"):               "adrenalin",
+    ("romantik", "aşk", "kalp", "sevgi", "tutku", "kelebek",
+     "sevgilimle", "şehvetli", "erotik", "tutkulu"):                                  "askbahcesi",
+    ("nostalji", "eski", "çocukluk", "geçmiş", "retro", "vintage"):                  "zamanyolcusu",
+    ("düşünmek", "felsefe", "zihin", "entelektüel", "soru", "derin", "beyin",
+     "yapay zeka", "felsefi"):                                                        "zihin",
+    ("küçük", "kalp", "samimi", "içten", "basit", "sıcak"):                          "kalp",
+    ("deneysel", "sıradışı", "karmaşık", "garip", "absürt", "kült"):                "karmakar",
+    ("kisa", "kısa", "kompakt", "sipsak", "çekim"):                                  "sipsak",
+    ("atmosfer", "gerilim", "yavaş", "ürperti", "tedirgin", "kasvet"):               "deep-chills",
+    ("estetik", "görsel", "sinematografi", "kompozisyon", "kadraj"):                  "kadraj-estetigi",
+    ("itiraf", "konuşma", "diyalog", "sohbet", "samimi", "gece yarısı"):             "geceyarisi-itirafi",
 }
 
 
@@ -405,32 +496,60 @@ def _rule_based_confused_analysis(text: str) -> dict:
     }
 
 
-def _extract_time_constraint(text: str) -> str | None:
-    """Uzun metinlerden süre kısıtlaması çıkarır: 'short', 'long' veya None."""
+def _extract_time_constraint(text: str) -> dict | None:
+    """Süre kısıtı: {"mode": "short"|"long", "max_minutes": int|None} veya None."""
     t = text.lower()
+
+    # Spesifik dakika: "45 dakikalık", "90 dakika"
+    min_match = re.search(r"(\d{2,3})\s*(?:dakika|dk)", t)
+    if min_match:
+        return {"mode": "short", "max_minutes": int(min_match.group(1))}
+
+    # Saat bazlı: "2 saatten az", "1.5 saat"
+    hour_match = re.search(r"(\d+(?:[.,]\d)?)\s*saat(?:ten|ten)?\s*(?:az|kısa|altı|altında)?", t)
+    if hour_match:
+        h = float(hour_match.group(1).replace(",", "."))
+        return {"mode": "short" if h <= 2 else "long", "max_minutes": int(h * 60)}
+
     if any(p in t for p in ("kısa", "kisa", "çabuk", "hemen bitsin", "vaktim az",
                              "vaktim yok", "zamanım az", "zamanım yok",
                              "kısa film", "kısacık", "hızlıca", "az vaktim",
                              "çabucak", "uzun olmasın", "çok uzun olmasın")):
-        return "short"
+        return {"mode": "short", "max_minutes": 100}
     if any(p in t for p in ("uzun film", "epik", "vaktim bol", "zamanım bol",
-                             "uzun soluklu", "akşamı kurtaracak",
-                             "2 saat", "3 saat")):
-        return "long"
+                             "uzun soluklu", "akşamı kurtaracak")):
+        return {"mode": "long", "max_minutes": None}
     return None
 
 
-def _extract_era_constraint(text: str) -> str | None:
-    """Uzun metinlerden dönem tercihi çıkarır: 'old', 'recent' veya None."""
+def _extract_era_constraint(text: str) -> dict | None:
+    """Dönem kısıtı: {"min_year": int|None, "max_year": int|None} veya None."""
     t = text.lower()
-    if any(p in t for p in ("eski", "klasik", "90lar", "90'lar", "1980",
-                             "1990", "2000 öncesi", "geçmiş", "vintage",
-                             "retro", "kült film", "zamansız")):
-        return "old"
-    if any(p in t for p in ("yeni", "son çıkan", "güncel", "son yıllar",
-                             "202", "modern", "bu yıl", "son zamanlar",
-                             "trend", "popüler")):
-        return "recent"
+
+    # Onluk dilimler: "80'ler", "80'lerden", "90lar", "2000'ler"
+    decade_match = re.search(r"(\d{2,4})[''’]?\s*(?:ler|lar|lerden|lardan)", t)
+    if decade_match:
+        d = int(decade_match.group(1))
+        if d < 100:
+            d = 1900 + d if d >= 20 else 2000 + d
+        return {"min_year": d, "max_year": d + 9}
+
+    # Tam yıl: "2000 öncesi", "1990 sonrası"
+    year_match = re.search(r"(1\d{3}|20[0-2]\d)\s*(öncesi|sonrası|öncesinden|sonrasından)?", t)
+    if year_match:
+        y = int(year_match.group(1))
+        suffix = year_match.group(2) or ""
+        if "önce" in suffix:
+            return {"min_year": None, "max_year": y - 1}
+        if "sonra" in suffix:
+            return {"min_year": y, "max_year": None}
+        return {"min_year": y, "max_year": y + 9}
+
+    if any(p in t for p in ("eski", "klasik", "vintage", "retro", "zamansız", "kült film")):
+        return {"min_year": None, "max_year": 2000}
+    if any(p in t for p in ("yeni", "son çıkan", "güncel", "modern", "trend",
+                             "bu yıl", "son zamanlar", "son yıllar")):
+        return {"min_year": 2020, "max_year": None}
     return None
 
 
@@ -466,6 +585,19 @@ class ChatEngine:
             min_vote=min_vote,
         )
 
+        # Üretim OOM fallback: lokal sentence-transformers modeli kullanılamıyorsa
+        # (Render free tier'da 512MB RAM sınırı → _get_model() RuntimeError fırlatır,
+        # search() "semantic_error"/"semantic_not_ready" döner) Gemini embedding +
+        # fast_search matrisi ile vektör araması yap. 500MB model GEREKTİRMEZ.
+        if not result.get("movies"):
+            gemini_result = await self._gemini_vector_search(
+                text, limit, min_vote, list(exclude_ids),
+            )
+            if gemini_result and gemini_result.get("movies"):
+                logger.info("[ChatEngine] Lokal model yok → Gemini vektör araması kullanıldı (%d film)",
+                            len(gemini_result["movies"]))
+                result = gemini_result
+
         # Augment response with intent info + rule-based mood mix
         mood_analysis = _rule_based_confused_analysis(text)
         result["intent"] = intent.type
@@ -487,8 +619,91 @@ class ChatEngine:
         if not result.get("ustad_line") or result.get("mode") == "semantic_no_match":
             result["ustad_line"] = mood_analysis.get("ustad_line", result.get("ustad_line", ""))
         result["message"] = mood_analysis.get("message", "")
-        result["mode"] = "semantic_local"
+        # Gemini vektör yolu kullanıldıysa mode'u koru; aksi halde lokal.
+        if result.get("mode") != "semantic_gemini":
+            result["mode"] = "semantic_local"
         return result
+
+    # ─────────── GEMINI VECTOR SEARCH (üretim semantic yolu) ───────────
+    async def _gemini_vector_search(
+        self, text: str, limit: int, min_vote: float, exclude_ids: list,
+    ) -> Optional[dict]:
+        """
+        Üretim-güvenli semantic arama: Gemini text-embedding-004 ile sorguyu
+        vektörleştirir, önceden hesaplanmış fast_search matrisinde (768-dim,
+        bellekte) cosine benzerlik araması yapar.
+
+        Lokal sentence-transformers'tan farkı: 500MB model BELLEKTE TUTULMAZ —
+        sorgu embedding'i tek bir Gemini API çağrısıyla alınır (~100ms). Bu
+        sayede Render free tier'ın 512MB RAM sınırı altında PATH 2 çalışır.
+
+        Gereksinimler: GEMINI_API_KEY (embedding_service.is_available) ve
+        fast_search tablosunda embed edilmiş filmler (fast_search_engine.is_ready).
+        İkisinden biri yoksa None döner ve çağıran taraf PATH 3'e düşer.
+        """
+        try:
+            from backend.services.embedding_service import embedding_service
+            from backend.services.fast_search import fast_search_engine
+        except Exception:
+            return None
+
+        if not getattr(embedding_service, "is_available", False):
+            return None
+        if not getattr(fast_search_engine, "is_ready", False):
+            return None
+
+        # Mood/entity sinyalleri için sorgu genişletme (lokal motorla parite).
+        search_text = text
+        try:
+            from backend.services.semantic_search import (
+                extract_entities_locally, _MOOD_QUERY_EXPANSIONS,
+            )
+            parsed = extract_entities_locally(text)
+            query_lower = parsed.get("query_lower", text.lower())
+            search_text = parsed.get("raw_clean_query") or text
+            expansions = [
+                kw for trig, kw in _MOOD_QUERY_EXPANSIONS.items() if trig in query_lower
+            ]
+            if expansions:
+                search_text = f"{search_text} {' '.join(expansions)}"
+            if not search_text.strip():
+                search_text = text
+        except Exception:
+            search_text = text
+
+        try:
+            query_vec = await embedding_service.get_embedding(search_text)
+        except Exception as e:
+            logger.warning("[ChatEngine] Gemini embedding başarısız: %s", e)
+            return None
+        if not query_vec:
+            return None
+
+        try:
+            movies = fast_search_engine.search(
+                query_vec=query_vec,
+                limit=limit,
+                exclude_ids=set(exclude_ids or []),
+                min_vote=min_vote,
+            )
+        except Exception as e:
+            logger.warning("[ChatEngine] fast_search araması başarısız: %s", e)
+            return None
+
+        if not movies:
+            return None
+
+        top_title = movies[0].get("title", "")
+        top_score = movies[0].get("mood_score", 0)
+        return {
+            "movies": movies,
+            "ustad_line": (
+                f"'{top_title}' tam senin anlattığın dünyadan. "
+                f"Vektör arşivinden %{top_score} benzerlikle seçtim evlat."
+            ),
+            "mode": "semantic_gemini",
+            "query_understanding": search_text,
+        }
 
     # ─────────── INTENT DETECTION ───────────
     def detect_intent(self, text: str) -> Intent:
@@ -523,6 +738,11 @@ class ChatEngine:
                 idx = text_lower.index(kw)
                 person_name = text[:idx].strip().strip('"\'')
                 if person_name and len(person_name) >= 2:
+                    pn_lower = person_name.lower()
+                    if _has_mood_words(person_name) or len(person_name) > 40:
+                        continue
+                    if any(nw in pn_lower for nw in NEGATIVE_WORDS):
+                        continue
                     return Intent("actor_recommendation", person_name=person_name,
                                   person_type="actor", original_text=text)
 
@@ -646,6 +866,9 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     "animasyon":   {"mood_boost": {"battaniye": 0.30, "kahkaha": 0.20}, "genre_ids": [16]},
     "aksiyon":     {"mood_boost": {"adrenalin": 0.40},                  "genre_ids": [28]},
     "felsefe":     {"mood_boost": {"zihin": 0.40, "sessiz": 0.20},      "genre_ids": [18]},
+    "felsefi":     {"mood_boost": {"zihin": 0.45, "sessiz": 0.20},      "genre_ids": []},
+    "dram":        {"mood_boost": {"gozyasi": 0.30, "sessiz": 0.20},    "genre_ids": [18]},
+    "ağır":        {"mood_boost": {"sessiz": 0.35, "gozyasi": 0.25},    "genre_ids": [18]},
 
     # ── Bağlam/izleyici bazlı sinyaller ──────────────────────────────────────
     # Sevgili / romantik gece
@@ -697,6 +920,63 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     "estetik":     {"mood_boost": {"kadraj-estetigi": 0.45},            "genre_ids": []},
     "retro":       {"mood_boost": {"zamanyolcusu": 0.40},               "genre_ids": []},
     "klasik":      {"mood_boost": {"zamanyolcusu": 0.40},               "genre_ids": []},
+
+    # ── Psikolojik temalar ───────────────────────────────────────────────────
+    "delilik":     {"mood_boost": {"zihin": 0.45, "deep-chills": 0.30}, "genre_ids": [18, 53]},
+    "çöküş":       {"mood_boost": {"zihin": 0.40, "deep-chills": 0.30}, "genre_ids": [18]},
+    "paranoya":    {"mood_boost": {"deep-chills": 0.45, "zihin": 0.30}, "genre_ids": [53]},
+    "travma":      {"mood_boost": {"gozyasi": 0.35, "zihin": 0.30},     "genre_ids": [18]},
+    "psikopat":    {"mood_boost": {"deep-chills": 0.50, "gece": 0.30},  "genre_ids": [53, 80]},
+    "şizofreni":   {"mood_boost": {"zihin": 0.50, "deep-chills": 0.25}, "genre_ids": [18, 53]},
+    "obsesyon":    {"mood_boost": {"zihin": 0.40, "deep-chills": 0.30}, "genre_ids": [18, 53]},
+    "psikolojik":  {"mood_boost": {"zihin": 0.45, "deep-chills": 0.25}, "genre_ids": [53, 18], "tmdb_keywords": ["9727", "157733"]},
+
+    # ── Plot yapısı / anlatım ────────────────────────────────────────────────
+    "ters köşe":   {"mood_boost": {"zihin": 0.50, "adrenalin": 0.20},   "genre_ids": [53, 9648], "tmdb_keywords": ["9991"]},  # plot twist
+    "twist":       {"mood_boost": {"zihin": 0.50, "adrenalin": 0.20},   "genre_ids": [53, 9648], "tmdb_keywords": ["9991"]},
+    "sürpriz son": {"mood_boost": {"zihin": 0.45, "adrenalin": 0.20},   "genre_ids": [53, 9648]},
+    "açık uçlu":   {"mood_boost": {"zihin": 0.40, "geceyarisi-itirafi": 0.25}, "genre_ids": [18]},
+    "zaman atlama":{"mood_boost": {"zihin": 0.40, "karmakar": 0.30},    "genre_ids": [878, 18]},
+
+    # ── İlişki / karakter dinamikleri ────────────────────────────────────────
+    "toksik ilişki":{"mood_boost": {"deep-chills": 0.35, "gozyasi": 0.25}, "genre_ids": [18]},
+    "yasak aşk":   {"mood_boost": {"askbahcesi": 0.40, "gozyasi": 0.30}, "genre_ids": [10749, 18]},
+    "intikam":     {"mood_boost": {"adrenalin": 0.45, "gece": 0.25},     "genre_ids": [53, 80]},
+    "antihero":    {"mood_boost": {"gece": 0.40, "zihin": 0.25},         "genre_ids": [80, 18]},
+    "anti kahraman":{"mood_boost": {"gece": 0.40, "zihin": 0.25},        "genre_ids": [80, 18]},
+
+    # ── Mekan / atmosfer ─────────────────────────────────────────────────────
+    "taşra":       {"mood_boost": {"sessiz": 0.40, "kalp": 0.30},        "genre_ids": [18]},
+    "kasaba":      {"mood_boost": {"sessiz": 0.35, "kalp": 0.25},        "genre_ids": [18]},
+    "anadolu":     {"mood_boost": {"sessiz": 0.40, "kalp": 0.30},        "genre_ids": [18]},
+    "metropol":    {"mood_boost": {"gece": 0.35, "karmakar": 0.25},      "genre_ids": [18, 80]},
+    "kasvet":      {"mood_boost": {"deep-chills": 0.40, "sessiz": 0.25}, "genre_ids": [18]},
+    "loş":         {"mood_boost": {"gece": 0.40, "deep-chills": 0.25},   "genre_ids": [18]},
+
+    # ── Tempo / izleme tarzı ─────────────────────────────────────────────────
+    "yavaş":       {"mood_boost": {"sessiz": 0.40, "kadraj-estetigi": 0.25}, "genre_ids": [18]},
+    "tempo düşmeyen":{"mood_boost": {"adrenalin": 0.45},                  "genre_ids": [28, 53]},
+    "hızlı tempolu":{"mood_boost": {"adrenalin": 0.40},                   "genre_ids": [28, 53]},
+    "sıkmayacak":  {"mood_boost": {"adrenalin": 0.30, "kahkaha": 0.25},   "genre_ids": [28, 35]},
+    "temposu hiç düşmeyen":{"mood_boost": {"adrenalin": 0.50},            "genre_ids": [28, 53]},
+
+    # ── Gurme / kült / festival sinyalleri ───────────────────────────────────
+    "kült":        {"mood_boost": {"karmakar": 0.40, "zihin": 0.25},      "genre_ids": [],    "tmdb_keywords": ["9951"]},
+    "az bilinen":  {"mood_boost": {"karmakar": 0.35, "kalp": 0.25},       "genre_ids": [],    "tmdb_keywords": ["9951"]},
+    "değeri bilinmeyen":{"mood_boost": {"karmakar": 0.40, "kalp": 0.25},  "genre_ids": [],    "tmdb_keywords": ["9951"]},
+    "ödüllü":      {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.25},"genre_ids": [18]},
+
+    # ── Girişimcilik / iş dünyası ────────────────────────────────────────────
+    "girişimcilik":{"mood_boost": {"zihin": 0.35, "adrenalin": 0.25},     "genre_ids": [18]},
+    "wall street": {"mood_boost": {"adrenalin": 0.35, "gece": 0.25},      "genre_ids": [80, 18]},
+    "hırs":        {"mood_boost": {"adrenalin": 0.35, "gece": 0.25},      "genre_ids": [18, 80]},
+
+    # ── Sinema akımları ──────────────────────────────────────────────────────
+    "noir":        {"mood_boost": {"gece": 0.50, "deep-chills": 0.25},    "genre_ids": [80, 53], "tmdb_keywords": ["10250", "179430"]},  # film noir + neo-noir
+    "indie":       {"mood_boost": {"kalp": 0.40, "sessiz": 0.25},         "genre_ids": [18]},
+    "distopik":    {"mood_boost": {"zihin": 0.40, "deep-chills": 0.30},   "genre_ids": [878], "tmdb_keywords": ["4565"]},   # dystopia
+    "distopya":    {"mood_boost": {"zihin": 0.40, "deep-chills": 0.30},   "genre_ids": [878], "tmdb_keywords": ["4565"]},
+    "sanat filmi": {"mood_boost": {"kadraj-estetigi": 0.45, "sessiz": 0.25}, "genre_ids": [18]},
 }
 
 
@@ -705,16 +985,27 @@ class ParsedHints:
     Embedding öncesi chat metninden çıkarılan hafif sinyaller.
     Hybrid re-ranking'de cosine skoru ile harmanlanır.
     """
-    __slots__ = ("sipsak_mode", "runtime_max", "mood_bonuses", "genre_ids")
+    __slots__ = ("sipsak_mode", "runtime_max", "mood_bonuses", "genre_ids",
+                 "hidden_gem_mode", "tmdb_keywords")
 
     def __init__(self) -> None:
-        self.sipsak_mode:   bool              = False
-        self.runtime_max:   Optional[int]     = None
-        self.mood_bonuses:  dict[str, float]  = {}   # mood_id → bonus (0.0-0.40)
-        self.genre_ids:     list[int]         = []   # TMDB tür ID'leri
+        self.sipsak_mode:     bool              = False
+        self.runtime_max:     Optional[int]     = None
+        self.mood_bonuses:    dict[str, float]  = {}   # mood_id → bonus (0.0-0.40)
+        self.genre_ids:       list[int]         = []   # TMDB tür ID'leri
+        self.hidden_gem_mode: bool              = False
+        self.tmdb_keywords:   list[str]         = []   # TMDB keyword ID'leri (pipe ile birleştirilir)
 
     def has_signals(self) -> bool:
-        return self.sipsak_mode or bool(self.mood_bonuses) or bool(self.genre_ids)
+        return self.sipsak_mode or bool(self.mood_bonuses) or bool(self.genre_ids) or self.hidden_gem_mode
+
+
+_HIDDEN_GEM_KWS = [
+    "kült", "gizli", "az bilinen", "değeri bilinmeyen", "saklı",
+    "keşfedilmemiş", "underrated", "bilinmeyen", "kimsenin bilmediği",
+    "popüler olmayan", "mainstream dışı", "herkesin kaçırdığı",
+    "gizli kalmış",
+]
 
 
 def parse_chat_hints(text: str) -> ParsedHints:
@@ -726,13 +1017,20 @@ def parse_chat_hints(text: str) -> ParsedHints:
     hints = ParsedHints()
     tl = text.lower()
 
-    # ── Süre kısıtı → sipsak modu (runtime <= 60 enjekte) ────────────────────
-    for kw in _TIME_CONSTRAINT_KWS:
-        if kw in tl:
+    # ── Süre kısıtı — dakika bazlı ayrıştırma ───────────────────────────────
+    time_c = _extract_time_constraint(text)
+    if time_c:
+        if time_c["mode"] == "short":
             hints.sipsak_mode = True
-            hints.runtime_max = 60
-            hints.mood_bonuses["sipsak"] = _MAX_BONUS  # Güçlü zaman kısıtı sinyali
-            break
+            hints.runtime_max = time_c.get("max_minutes") or 100
+            hints.mood_bonuses["sipsak"] = _MAX_BONUS
+    else:
+        for kw in _TIME_CONSTRAINT_KWS:
+            if kw in tl:
+                hints.sipsak_mode = True
+                hints.runtime_max = 100
+                hints.mood_bonuses["sipsak"] = _MAX_BONUS
+                break
 
     # ── Kategori/tema anahtar kelimeleri → mood/tür bonus ────────────────────
     for kw, data in _CATEGORY_HINT_MAP.items():
@@ -741,6 +1039,14 @@ def parse_chat_hints(text: str) -> ParsedHints:
                 current = hints.mood_bonuses.get(mood_id, 0.0)
                 hints.mood_bonuses[mood_id] = min(_MAX_BONUS, current + bonus)
             hints.genre_ids.extend(data["genre_ids"])
+            hints.tmdb_keywords.extend(data.get("tmdb_keywords", []))
 
-    hints.genre_ids = list(set(hints.genre_ids))
+    # ── Hidden gem / kült modu ───────────────────────────────────────────────
+    for kw in _HIDDEN_GEM_KWS:
+        if kw in tl:
+            hints.hidden_gem_mode = True
+            break
+
+    hints.genre_ids    = list(set(hints.genre_ids))
+    hints.tmdb_keywords = list(set(hints.tmdb_keywords))
     return hints

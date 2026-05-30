@@ -6,14 +6,17 @@
  * Tamamen kendi içinde çalışır (mock veri) — backend gerektirmez.
  * 4 adım: Oda Kurulumu → Tercih Sentezi → Çarpışma Animasyonu → Sonuçlar
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MOODS } from '../context/MoodContext';
 import {
   Users, Plus, LogIn, Copy, Check, Swords, Sparkles, Star,
-  Ban, RefreshCw, ChevronLeft, Clapperboard, Heart, Quote,
+  Ban, RefreshCw, ChevronLeft, Clapperboard, Heart, Quote, Share2, Download,
 } from 'lucide-react';
+import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { track, EVENTS } from '../utils/analytics';
+import useDocumentMeta from '../utils/useDocumentMeta';
 
 /* ─── 8 Çekirdek Mood (gerçek MOODS'tan türetilir) ─── */
 const CORE_MOOD_IDS = [
@@ -106,6 +109,17 @@ function collide(u1MoodId, u2MoodId, vetoSet) {
   return pool.map((m) => ({ ...m, verdict: buildVerdict(u1MoodId, u2MoodId, m) }));
 }
 
+/* ─── Sinema Uyum Yüzdesi (iki ruh hâli arasındaki kesişim) ─── */
+function matchPercent(u1MoodId, u2MoodId, vetoSet) {
+  if (!u1MoodId || !u2MoodId) return 0;
+  if (u1MoodId === u2MoodId) return 97;
+  const pool = MOCK_MOVIES.filter((m) => !m.genres.some((g) => vetoSet.has(g)));
+  const both = pool.filter((m) => m.moods.includes(u1MoodId) && m.moods.includes(u2MoodId)).length;
+  const either = pool.filter((m) => m.moods.includes(u1MoodId) || m.moods.includes(u2MoodId)).length || 1;
+  const base = 52 + Math.round((both / either) * 44);
+  return Math.max(48, Math.min(96, base));
+}
+
 /* ─── Gradient Poster (mock — dış kaynak yok) ─── */
 function PosterArt({ movie }) {
   const [c1, c2] = movie.accent;
@@ -177,6 +191,10 @@ const genCode = () => {
 
 export default function TasteMapCollision() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: 'Zevk Çarpıştır — İki Kişiye Tek Film | Sinemood',
+    description: 'Sevgilinle ya da dostunla film konusunda anlaşamıyor musun? Zevklerinizi çarpıştırın, Üstad ortak başyapıtı bulsun.',
+  });
   const [step, setStep] = useState('setup');       // setup | prefs | colliding | results
   const [mode, setMode] = useState('create');      // create | join
   const [roomCode, setRoomCode] = useState('');
@@ -187,8 +205,28 @@ export default function TasteMapCollision() {
   const [u2Mood, setU2Mood] = useState(null);
   const [veto, setVeto] = useState(new Set());
   const [results, setResults] = useState([]);
+  const [match, setMatch] = useState(0);
+  const [sharing, setSharing] = useState(false);
+  const cardRef = useRef(null);
 
   const merged = step === 'colliding' || step === 'results';
+
+  // ?oda=KOD ile gelindiyse otomatik "katıl" moduna geç ve kodu doldur
+  useEffect(() => {
+    try {
+      const oda = new URLSearchParams(window.location.search).get('oda');
+      if (oda && /^[A-Z0-9-]{4,16}$/i.test(oda)) {
+        setMode('join');
+        setJoinInput(oda.toUpperCase());
+      }
+    } catch { /* sessiz */ }
+  }, []);
+
+  // Davet linki — oluşturulan ya da girilen oda kodu üzerinden
+  const activeCode = (mode === 'create' ? roomCode : joinInput).trim().toUpperCase();
+  const inviteUrl = activeCode
+    ? `${window.location.origin}/carpistir?oda=${encodeURIComponent(activeCode)}`
+    : `${window.location.origin}/carpistir`;
 
   /* Oda oluştur */
   const createRoom = () => {
@@ -224,14 +262,40 @@ export default function TasteMapCollision() {
     if (step !== 'colliding') return;
     const t = setTimeout(() => {
       setResults(collide(u1Mood, u2Mood, veto));
+      setMatch(matchPercent(u1Mood, u2Mood, veto));
       setStep('results');
+      track(EVENTS.SURPRISE_VIEW, { kind: 'collision' });
     }, 3000);
     return () => clearTimeout(t);
   }, [step, u1Mood, u2Mood, veto]);
 
   const reset = () => {
     setStep('setup'); setRoomCode(''); setJoinInput('');
-    setU1Mood(null); setU2Mood(null); setVeto(new Set()); setResults([]);
+    setU1Mood(null); setU2Mood(null); setVeto(new Set()); setResults([]); setMatch(0);
+  };
+
+  const shareText = `Sinema uyumumuz %${match}! "${moodTitle(u1Mood)}" ✕ "${moodTitle(u2Mood)}" çarpıştı. Sen de zevkini çarpıştır 👉`;
+
+  const handleShareImage = async () => {
+    if (!cardRef.current || sharing) return;
+    setSharing(true);
+    track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'collision' });
+    try {
+      await captureAndShare(cardRef.current, 'sinemood-carpisma.png', `${shareText} ${inviteUrl}`.trim(), { backgroundColor: '#0a0807' });
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!cardRef.current || sharing) return;
+    setSharing(true);
+    try {
+      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0a0807' });
+      downloadBlob(blob, 'sinemood-carpisma.png');
+    } finally {
+      setSharing(false);
+    }
   };
 
   const collidingPhrases = useMemo(() => [
@@ -547,6 +611,73 @@ export default function TasteMapCollision() {
                 <p className="text-ivory/50 font-serif italic text-lg max-w-xl mx-auto">
                   "{moodTitle(u1Mood)}" ve "{moodTitle(u2Mood)}" ruhlarının buluştuğu yer.
                 </p>
+              </div>
+
+              {/* ── Paylaşılabilir Uyum Kartı ── */}
+              <div className="max-w-md mx-auto mb-10 space-y-4">
+                <div
+                  ref={cardRef}
+                  className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1a3e] via-[#1a1228] to-[#0a0807] border border-amber/20 p-7 text-center"
+                >
+                  <div className="absolute top-0 left-0 w-40 h-40 rounded-full bg-[#7c3aed]/25 blur-3xl -translate-x-1/3 -translate-y-1/3" />
+                  <div className="absolute bottom-0 right-0 w-40 h-40 rounded-full bg-[#e11d48]/25 blur-3xl translate-x-1/3 translate-y-1/3" />
+
+                  <div className="relative z-10">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.45em] text-amber/50">Sinema Uyumumuz</p>
+                    <div className="mt-3 flex items-center justify-center gap-2 text-[12px] font-semibold text-ivory/55">
+                      <span>{moodTitle(u1Mood)}</span>
+                      <Swords size={13} className="text-amber" />
+                      <span>{moodTitle(u2Mood)}</span>
+                    </div>
+                    <div className="my-4 font-serif font-bold leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber via-[#ffbf00] to-rose-400 text-7xl">
+                      %{match}
+                    </div>
+                    {results[0] && (
+                      <p className="text-[12px] text-ivory/60">
+                        Ortak başyapıt:{' '}
+                        <span className="font-serif italic text-ivory/90">{results[0].title}</span>
+                      </p>
+                    )}
+                    <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded bg-amber/20 flex items-center justify-center text-[8px] font-bold text-amber">S</div>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/40">Sinemood</span>
+                      </div>
+                      <span className="text-[9px] text-ivory/25">sinemood.onrender.com/carpistir</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={handleShareImage}
+                    disabled={sharing}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/15 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/70 hover:text-ivory transition-all disabled:opacity-50"
+                  >
+                    <Share2 size={13} />
+                    {sharing ? 'Hazırlanıyor...' : 'Görseli Paylaş'}
+                  </button>
+                  <button
+                    onClick={() => { track(EVENTS.SHARE_CLICK, { network: 'whatsapp', kind: 'collision' }); shareToWhatsApp(shareText, inviteUrl); }}
+                    className="px-4 py-2.5 bg-[#25D366]/15 border border-[#25D366]/25 text-[#25D366] rounded-full text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-[#25D366]/25 transition-all"
+                  >
+                    WhatsApp
+                  </button>
+                  <button
+                    onClick={() => { track(EVENTS.SHARE_CLICK, { network: 'telegram', kind: 'collision' }); shareToTelegram(shareText, inviteUrl); }}
+                    className="px-4 py-2.5 bg-[#0088cc]/15 border border-[#0088cc]/25 text-[#0088cc] rounded-full text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-[#0088cc]/25 transition-all"
+                  >
+                    Telegram
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    disabled={sharing}
+                    className="flex items-center justify-center w-10 h-10 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-ivory/50 hover:text-ivory transition-all disabled:opacity-50"
+                    title="İndir"
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-6">

@@ -7,11 +7,14 @@ import { getMe, setUsername } from '../services/api';
 const VALID_RE = /^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,20}$/;
 const FORBIDDEN_CHARS_RE = /[^a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]/;
 
+const SKIP_KEY = 'fc_username_prompt_skipped';
+
 /**
- * Zorunlu username onboarding modalı.
+ * Username onboarding modalı (atlanabilir).
  * Google ile giriş yapan ancak henüz özel kullanıcı adı seçmemiş
  * kullanıcılara sinematik bir kimlik seçtirme akışı sunar.
- * Kapatılamaz — username seçmeden uygulamayı kullanamaz.
+ * "Şimdilik geç" ile kapatılabilir — backend otomatik bir kullanıcı adı atar,
+ * kullanıcı sonradan profil ayarlarından değiştirebilir. (A3: kayıt sürtünmesi ↓)
  */
 export default function UsernameOnboardingModal() {
   const { token, user, updateUser } = useAuth();
@@ -23,8 +26,10 @@ export default function UsernameOnboardingModal() {
   const [success, setSuccess] = useState(false);
 
   // Mount'da /auth/me çağır — has_custom_username false ise modalı aç
+  // (kullanıcı daha önce "şimdilik geç" dediyse rahatsız etme)
   useEffect(() => {
     if (!token || checked) return;
+    if (localStorage.getItem(SKIP_KEY)) { setChecked(true); return; }
     let alive = true;
     (async () => {
       try {
@@ -37,6 +42,11 @@ export default function UsernameOnboardingModal() {
     })();
     return () => { alive = false; };
   }, [token, checked]);
+
+  const handleSkip = useCallback(() => {
+    try { localStorage.setItem(SKIP_KEY, '1'); } catch {}
+    setShow(false);
+  }, []);
 
   const handleChange = useCallback((e) => {
     const cleaned = e.target.value.replace(/\s/g, '').replace(FORBIDDEN_CHARS_RE, '');
@@ -166,6 +176,16 @@ export default function UsernameOnboardingModal() {
                 ) : (
                   'Kimliğimi Onayla'
                 )}
+              </button>
+
+              {/* Atla — sürtünmeyi azalt; backend otomatik ad atar, sonra değiştirilebilir */}
+              <button
+                onClick={handleSkip}
+                disabled={saving}
+                className="w-full -mt-2 py-2 text-xs text-white/45 hover:text-white/70 transition-colors
+                           disabled:opacity-40"
+              >
+                Şimdilik geç — sonra profilden değiştirebilirsin
               </button>
             </div>
           )}

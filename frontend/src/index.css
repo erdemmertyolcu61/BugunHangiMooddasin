@@ -11,7 +11,25 @@
   --color-amber: #ffbf00;
   --color-rose: #e8d3d3;
   --color-bordo: #4a0404;
-  
+
+  /* ── SEMANTİK DESIGN TOKEN KATMANI ──────────────────────────────
+     Yeni/refactor edilen bileşenler hardcoded hex (text-white,
+     bg-[#1c1512]) yerine bu token'ları kullanmalı:
+       text-fg / text-fg-muted / text-fg-subtle
+       bg-surface-2 / border-default / text-accent / bg-accent-soft
+     Tema değişince SADECE token DEĞERLERİ değişir (aşağıdaki
+     [data-theme="light"] bloğu); bileşen sınıfları sabit kalır.
+     Böylece kırılgan [class*="text-white/"] + !important zinciri
+     kademeli olarak emekliye ayrılabilir. */
+  --color-fg: #f5f2eb;          /* ana metin */
+  --color-fg-muted: #c9bfb2;    /* ikincil metin */
+  --color-fg-subtle: #8a8178;   /* üçüncül / ipucu metin */
+  --color-surface-2: #241b16;   /* yükseltilmiş yüzey (popover/menü) */
+  --color-border-default: rgba(255, 255, 255, 0.12);
+  --color-accent: #ffbf00;      /* altın vurgu */
+  --color-accent-strong: #d4af37;
+  --color-accent-soft: rgba(255, 191, 0, 0.12);
+
   --font-serif: 'Cormorant Garamond', serif;
   --font-sans: 'Montserrat', sans-serif;
   --font-playfair: 'Playfair Display', serif;
@@ -26,6 +44,17 @@
   --color-surface: #f3ecdb;   /* açık bej kart yüzeyi */
   --color-ivory: #2a2017;     /* ana metin (koyu espresso) */
   --color-rose: #7a5c5c;
+
+  /* Semantik token'ların aydınlık karşılıkları — bileşenler değişmez,
+     yalnızca bu değerler flip eder. */
+  --color-fg: #2a2017;
+  --color-fg-muted: #5c4f42;
+  --color-fg-subtle: #8a7a68;
+  --color-surface-2: #ece2cd;
+  --color-border-default: rgba(42, 32, 23, 0.15);
+  --color-accent: #8a5e08;
+  --color-accent-strong: #8a6508;
+  --color-accent-soft: rgba(138, 94, 8, 0.10);
 }
 
 /* Sayfa zeminleri & bar'lar (tüm opaklık varyantlarıyla) → bej.
@@ -87,6 +116,43 @@
 [data-theme="light"] [class*="bg-black/"] { background-color: rgba(255, 255, 255, 0.6) !important; }
 /* Panel/koyu yüzey zeminleri → açık bej */
 [data-theme="light"] [class*="bg-[#161010]"] { background-color: #f3ecdb !important; color: #2a2017; }
+
+/* ── Latte kapsam genişletme — daha iyi okunabilirlik ──────────────────
+   Override sheet'in kaçırdığı koyu yüzeyler ve silik metinler. Böylece
+   token kullanmayan bileşenler de (örn. zinc/slate paletli) latte'de okunur. */
+/* Kapsanmayan koyu panel hexleri + util scale'leri → açık bej */
+[data-theme="light"] [class*="bg-[#111111]"],
+[data-theme="light"] [class*="bg-[#0f0f0f]"],
+[data-theme="light"] [class*="bg-[#161616]"],
+[data-theme="light"] [class*="bg-zinc-7"],
+[data-theme="light"] [class*="bg-zinc-8"],
+[data-theme="light"] [class*="bg-zinc-9"],
+[data-theme="light"] [class*="bg-slate-8"],
+[data-theme="light"] [class*="bg-slate-9"],
+[data-theme="light"] [class*="bg-neutral-8"],
+[data-theme="light"] [class*="bg-neutral-9"],
+[data-theme="light"] [class*="bg-stone-8"],
+[data-theme="light"] [class*="bg-stone-9"] {
+  background-color: #f3ecdb !important;
+  color: #2a2017;
+}
+/* Kapsanmayan silik metin scale'leri → okunur espresso-muted */
+[data-theme="light"] [class*="text-zinc-5"],
+[data-theme="light"] [class*="text-zinc-6"],
+[data-theme="light"] [class*="text-slate-3"],
+[data-theme="light"] [class*="text-slate-4"],
+[data-theme="light"] [class*="text-slate-5"],
+[data-theme="light"] [class*="text-slate-6"],
+[data-theme="light"] [class*="text-neutral-5"],
+[data-theme="light"] [class*="text-neutral-6"],
+[data-theme="light"] [class*="text-stone-5"],
+[data-theme="light"] [class*="text-stone-6"],
+[data-theme="light"] [class*="text-gray-3"],
+[data-theme="light"] [class*="text-gray-4"],
+[data-theme="light"] [class*="text-gray-5"],
+[data-theme="light"] [class*="text-gray-6"] {
+  color: #5c4f42 !important;
+}
 /* Altın (#d4af37) metinler → koyu altın */
 [data-theme="light"] [class*="text-[#d4af37]"] { color: #8a6508 !important; }
 [data-theme="light"] [class*="bg-[#d4af37]"] { background-color: #8a6508 !important; }
@@ -132,6 +198,34 @@ nav.sticky,
 
 /* Vinyet / aura çok parlamasın */
 [data-theme="light"] .vignette { opacity: 0.04 !important; }
+
+/* ─── SÜRPRİZ FİLM — her zaman koyu perde, tema renkleri geçersiz ─────────
+   .surprise-film-root içindeki seçiciler (0,3,0) özgüllükle genel
+   light-tema kurallarını (0,2,0) eziyor.  color: WHITE — dark tema gibi.  */
+[data-theme="light"] .surprise-film-root .text-white,
+[data-theme="light"] .surprise-film-root [class*="text-white/"] {
+  color: white !important;
+}
+[data-theme="light"] .surprise-film-root [class*="text-[#ffe9b8]"],
+[data-theme="light"] .surprise-film-root [class*="text-[#ffe9b0]"] {
+  color: #ffe9b8 !important;
+}
+[data-theme="light"] .surprise-film-root [class*="text-[#ffbf00]"],
+[data-theme="light"] .surprise-film-root [class*="text-[#ffbf00]/"] {
+  color: #ffbf00 !important;
+}
+[data-theme="light"] .surprise-film-root [class*="text-[#ff6b35]"] {
+  color: #ff6b35 !important;
+}
+[data-theme="light"] .surprise-film-root [class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="light"] .surprise-film-root [class*="bg-black/"] {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+[data-theme="light"] .surprise-film-root [class*="border-white/"] {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
 
 /* ─── MOBİL PERFORMANS ─────────────────────────────────────
    Tam ekran sabit film-grain katmanları mix-blend-mode ile

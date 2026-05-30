@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Shuffle, Eye, BookmarkPlus, Check, ThumbsDown, Sun, Moon, Laugh, Clock, TrendingUp, TrendingDown, AlertCircle, Users, Cloud } from 'lucide-react';
+import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Eye, BookmarkPlus, Check, Clock, TrendingUp, Gem } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { playMoodAudio } from '../utils/moodAudioManager';
 import LottieAnimation from '../components/LottieAnimation';
+import { track, EVENTS } from '../utils/analytics';
+import useDocumentMeta from '../utils/useDocumentMeta';
 
 const QUICK_MOODS = [
   {
@@ -60,20 +62,23 @@ const LOADING_PHRASES = [
   "Neredeyse hazır...",
 ];
 
+// 4 deterministik geri-bildirim — backend `refine` modlarını tetikler.
 const FEEDBACK_BUTTONS = [
-  { label: "Daha Farklı", text: "daha farklı", icon: RefreshCw },
-  { label: "Daha Hafif", text: "daha hafif", icon: Sun },
-  { label: "Daha Karanlık", text: "daha karanlık", icon: Moon },
-  { label: "Daha Komik", text: "daha komik", icon: Laugh },
-  { label: "Daha Yeni", text: "daha yeni", icon: Clock },
-  { label: "Daha Popüler", text: "daha popüler", icon: TrendingUp },
-  { label: "Az Bilinen", text: "daha az bilinen", icon: TrendingDown },
+  { label: "Daha Popüler", refine: "more_popular", icon: TrendingUp },
+  { label: "Daha Yeni", refine: "newer", icon: Clock },
+  { label: "Daha Farklı", refine: "different", icon: RefreshCw },
+  { label: "Az Bilinen", refine: "less_known", icon: Gem },
 ];
 
 export default function KafanMiKarisik() {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectMood } = useMood();
+
+  useDocumentMeta({
+    title: 'Kafan Mı Karışık? — İçini Dök, Film Bul | Sinemood',
+    description: 'Ne hissettiğini yaz, Üstad ruh haline göre tam sana göre filmi bulsun. Kararsız kaldığın geceler için.',
+  });
 
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -107,8 +112,9 @@ export default function KafanMiKarisik() {
     return () => clearInterval(phraseTimer.current);
   }, [loading]);
 
-  const analyze = async (inputText, feedbackMode = false) => {
-    const txt = (inputText || text).trim().replace(/\s+/g, ' ');
+  const analyze = async (inputText, feedbackMode = false, refine = '') => {
+    // refine modunda metin = son sorgu bağlamı; aksi halde girilen metin
+    const txt = (refine ? lastQuery : (inputText || text)).trim().replace(/\s+/g, ' ');
     if (!txt || txt.length < 3) {
       setError('En az 3 karakter yazmalısın evlat.');
       return;
@@ -118,9 +124,10 @@ export default function KafanMiKarisik() {
     setError(null);
     setResult(null);
     if (!feedbackMode) setLastQuery(txt);
+    if (!feedbackMode) track(EVENTS.CONFUSED_SUBMIT, { len: txt.length });
 
     try {
-      const data = await postConfusedRecommendation(txt, 6, 5.0, sessionExcludeIds);
+      const data = await postConfusedRecommendation(txt, 6, 5.0, sessionExcludeIds, '', refine);
 
       if (data?.movies?.length) {
         setResult(data);
@@ -177,13 +184,9 @@ export default function KafanMiKarisik() {
     }
   }, [location.state?.quickMoodId, navigate]);
 
-  const handleFeedback = (feedbackText) => {
-    // Orijinal sorgu bağlamını feedback'e ekle
-    // Örn: "Interstellar gibi film öner" + "daha karanlık" → "Interstellar gibi ama daha karanlık filmler öner"
-    const contextQuery = lastQuery
-      ? `${lastQuery} ama ${feedbackText} filmler öner`
-      : feedbackText;
-    analyze(contextQuery, true);
+  const handleFeedback = (refineKey) => {
+    // Deterministik refine — son sorgu bağlamını koruyup backend'de modifier uygular
+    analyze(null, true, refineKey);
   };
 
   const goToMood = (moodId) => {
@@ -280,10 +283,10 @@ export default function KafanMiKarisik() {
                   onClick={() => navigate('/surprise')}
                   className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-amber-500 hover:from-purple-500 hover:to-amber-400 text-white rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)]"
                 >
-                  <Shuffle size={14} /> Sürpriz Film
+                  Sürpriz Film
                 </button>
               </div>
-              <p className="text-[10px] font-serif italic text-[#f5f2eb]/40">Hiç düşünme, perde açılsın.</p>
+              <p className="text-[11px] font-serif italic text-[#f5f2eb]/70">Hiç düşünme, perde açılsın.</p>
             </div>
 
             {/* Quick mood pills — rule-based, premium layout */}
@@ -385,21 +388,6 @@ export default function KafanMiKarisik() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-10"
             >
-              {/* Query Understanding — "Seni şöyle anladım" */}
-              {result.query_understanding && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-start gap-4 p-5 sm:p-6 rounded-2xl bg-amber-500/[0.06] border border-amber/15"
-                >
-                  <Sparkles size={18} className="text-amber/60 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber/50 mb-1.5">Seni Şöyle Anladım</p>
-                    <p className="text-base font-serif text-amber-100/85 leading-relaxed">{result.query_understanding}</p>
-                  </div>
-                </motion.div>
-              )}
-
               {/* Ustad quote */}
               {quote && (
                 <motion.div
@@ -546,10 +534,10 @@ export default function KafanMiKarisik() {
               <div className="space-y-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-amber/55">Beğenmedin mi? Ayarla</p>
                 <div className="flex flex-wrap gap-2.5">
-                  {FEEDBACK_BUTTONS.map(({ label, text: fbText, icon: Icon }) => (
+                  {FEEDBACK_BUTTONS.map(({ label, refine: refineKey, icon: Icon }) => (
                     <button
                       key={label}
-                      onClick={() => handleFeedback(fbText)}
+                      onClick={() => handleFeedback(refineKey)}
                       className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-amber/30 transition-all text-[12px] font-semibold tracking-wide text-[#f5f2eb]/55 hover:text-amber-100"
                     >
                       <Icon size={14} />

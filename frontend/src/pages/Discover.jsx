@@ -10,6 +10,7 @@ import UpcomingSlider from '../components/UpcomingSlider';
 import QuizModal from '../components/QuizModal';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
+import useDocumentMeta from '../utils/useDocumentMeta';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
 import FilmDetailModal from '../components/FilmDetailModal';
 import MovieCard from '../components/MovieCard';
@@ -81,6 +82,11 @@ export default function Discover() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedMood, selectMood, fetchMoodMovies } = useMood();
+
+  useDocumentMeta({
+    title: 'Keşfet — Ruh Haline Göre Filmler | Sinemood',
+    description: 'Ruh haline ve zevkine göre film keşfet. Üstad’ın seçkileri, mood eşleşmeleri ve binlerce filmlik arşivle ne izleyeceğini bul.',
+  });
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMovie, setSelectedMovie] = useState(null);

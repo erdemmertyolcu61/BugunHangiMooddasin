@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, X, Play, Star, UserPlus, Check, UserX } from 'lucide-react';
+import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   getShares, getUnreadShareCount, markSharesRead,
@@ -10,6 +10,8 @@ import {
 import FilmDetailModal from './FilmDetailModal';
 import LottieAnimation from './LottieAnimation';
 import { resolveAvatarUrl } from '../utils/apiConfig';
+import { pushSupported, isPushSubscribed, isPushEnabledOnServer, enablePush, disablePush } from '../utils/push';
+import { track, EVENTS } from '../utils/analytics';
 
 const POLL_MS = 30000;
 
@@ -30,6 +32,9 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [detailMovie, setDetailMovie] = useState(null);
+  const [pushAvail, setPushAvail] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const [failedAvatars, setFailedAvatars] = useState(new Set());
   const onAvatarError = useCallback((id) => {
     setFailedAvatars((prev) => { const n = new Set(prev); n.add(id); return n; });
@@ -59,6 +64,36 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [token, refreshCount]);
+
+  // Push uygunluğu + mevcut abonelik durumu (token varsa, bir kez)
+  useEffect(() => {
+    if (!token || !pushSupported()) { setPushAvail(false); return; }
+    let alive = true;
+    (async () => {
+      const enabled = await isPushEnabledOnServer();
+      if (!alive) return;
+      setPushAvail(enabled);
+      if (enabled) setPushOn(await isPushSubscribed());
+    })();
+    return () => { alive = false; };
+  }, [token]);
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushOn) {
+        await disablePush();
+        setPushOn(false);
+        track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'disable' });
+      } else {
+        const r = await enablePush();
+        if (r.ok) { setPushOn(true); track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'enable' }); }
+      }
+    } catch { /* sessiz */ } finally {
+      setPushBusy(false);
+    }
+  };
 
   const openPanel = async () => {
     setOpen(true);
@@ -154,6 +189,33 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+                {/* ─── Push bildirim aç/kapa ─── */}
+                {pushAvail && (
+                  <div className="flex items-center gap-3 p-3.5 mb-4 rounded-2xl bg-amber/[0.06] border border-amber/15">
+                    <div className="w-9 h-9 rounded-full bg-amber/12 flex items-center justify-center shrink-0">
+                      <BellRing size={16} className="text-amber" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-[#f5f2eb]">Anlık bildirimler</p>
+                      <p className="text-[11px] text-white/45 leading-snug">
+                        Öneri, arkadaşlık isteği ve günün filmi telefonuna gelsin.
+                      </p>
+                    </div>
+                    <button
+                      onClick={togglePush}
+                      disabled={pushBusy}
+                      role="switch"
+                      aria-checked={pushOn}
+                      className={`relative w-11 h-6 rounded-full shrink-0 transition-colors disabled:opacity-50 ${
+                        pushOn ? 'bg-amber' : 'bg-white/15'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                        pushOn ? 'translate-x-[22px]' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                )}
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <div className="flex gap-2">

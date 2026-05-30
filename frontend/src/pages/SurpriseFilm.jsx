@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { proxyImageUrl } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
 import FilmDetailModal from '../components/FilmDetailModal';
+import { track, EVENTS } from '../utils/analytics';
+import useDocumentMeta from '../utils/useDocumentMeta';
 
 const LOADING_PHRASES = [
   "Kader zarları atılıyor...",
@@ -28,6 +30,10 @@ const SURPRISE_STYLE = `
 
 export default function SurpriseFilm() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: 'Sürpriz Film — Ne İzlesem? | Sinemood',
+    description: 'Kararsız mısın? Üstad senin için arşivin derinliklerinden sürpriz bir film seçsin. Tek tıkla ne izleyeceğini keşfet.',
+  });
   const [movie, setMovie] = useState(null);
   const [spinning, setSpinning] = useState(false);
   const [error, setError] = useState(null);
@@ -70,6 +76,7 @@ export default function SurpriseFilm() {
       } else {
         setTimeout(() => {
           setMovie(data.movie);
+          track(EVENTS.SURPRISE_VIEW, { id: data.movie?.id || data.movie?.tmdb_id });
           setUstadLine(data.ustad_line || '');
           setSeenIds(prev => [...prev, data.movie?.id || data.movie?.tmdb_id]);
           stopPhraseRotation();
@@ -108,12 +115,17 @@ export default function SurpriseFilm() {
       <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/stardust.png')" }} />
 
-      <header className="relative z-10 p-4 sm:p-6 pt-safe flex items-center">
+      <header className="relative z-10 p-4 sm:p-6 pt-safe flex items-center gap-3">
         <button onClick={() => navigate('/')}
-          className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-white/10 rounded-full border border-white/20 transition-all text-white/70 hover:text-white"
-          style={{ color: 'rgba(255,255,255,0.7) !important', borderColor: 'rgba(255,255,255,0.2) !important' }}>
+          className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 flex items-center justify-center hover:bg-white/10 rounded-full border border-white/20 transition-all text-white/70 hover:text-white">
           <ChevronLeft size={24} />
         </button>
+        {movie && (
+          <h1 className="text-sm sm:text-base font-sans font-semibold tracking-wide truncate max-w-[55vw] sm:max-w-[60vw]"
+            style={{ color: 'rgba(255,255,255,0.85)' }}>
+            {movie.title}
+          </h1>
+        )}
       </header>
 
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-5 sm:px-6 pb-nav md:pb-20">
@@ -159,8 +171,7 @@ export default function SurpriseFilm() {
             className="flex flex-col items-center gap-6 text-center">
             <p className="text-xl font-serif italic text-[#ff6b35] max-w-md">{error}</p>
             <button onClick={fetchSurprise}
-              className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center gap-3 transition-all text-sm font-bold uppercase tracking-widest"
-              style={{ color: 'white !important', backgroundColor: 'rgba(255,255,255,0.1) !important', borderColor: 'rgba(255,255,255,0.2) !important' }}>
+              className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center gap-3 transition-all text-sm font-bold uppercase tracking-widest text-white">
               <RefreshCw size={16} /> Tekrar Dene
             </button>
           </motion.div>
@@ -191,13 +202,13 @@ export default function SurpriseFilm() {
                   <img src={proxyImageUrl(movie.poster_url)} className="w-full h-full object-cover object-center" alt={movie.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl"
-                      style={{ color: 'white !important' }}>
+                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl">
                       {movie.title}
                     </h2>
                     {ustadLine && (
-                      <p className="mt-3 text-[15px] sm:text-xl text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
-                        style={{ color: '#ffe9b8 !important' }}>"{ustadLine}"</p>
+                      <p className="mt-3 text-[15px] sm:text-xl text-[#ffe9b8] font-serif italic line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                        "{ustadLine}"
+                      </p>
                     )}
                   </div>
                 </div>
@@ -208,8 +219,7 @@ export default function SurpriseFilm() {
                     <Shuffle size={14} /> Yeni Sürpriz
                   </button>
                   <button onClick={handleInspect}
-                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold uppercase tracking-widest text-xs transition-all border border-white/20"
-                    style={{ color: 'white !important', backgroundColor: 'rgba(255,255,255,0.1) !important', borderColor: 'rgba(255,255,255,0.2) !important' }}>
+                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full font-bold uppercase tracking-widest text-xs transition-all border border-white/20">
                     <BookOpen size={14} /> Filmi İncele
                   </button>
                 </div>

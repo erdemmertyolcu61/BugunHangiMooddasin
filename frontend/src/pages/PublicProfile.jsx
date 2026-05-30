@@ -34,7 +34,8 @@ export default function PublicProfile() {
       .finally(() => setLoading(false));
   }, [username]);
 
-  const profileUrl = `${window.location.origin}/u/${username}`;
+  // Backend OG paylaşım ucu: kişiye özel link önizlemesi için.
+  const profileUrl = getApiUrl(`/share/u/${username}`);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -111,6 +112,7 @@ export default function PublicProfile() {
               <ProfileTasteMap
                 tasteMap={profile.taste_map}
                 username={profile.name || username}
+                profileUrl={profileUrl}
               />
             )}
 

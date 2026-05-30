@@ -452,6 +452,16 @@ class TMDBService:
             })
         return movies
 
+    async def search_keyword(self, query: str) -> list:
+        """TMDB keyword araması — tema terimini (örn. 'summer') keyword ID'sine çevirir.
+        Döner: [{"id": int, "name": str}] (popülerliğe göre TMDB sırasıyla)."""
+        if not query:
+            return []
+        data = await self._get(f"{self.base_url}/search/keyword", {
+            "api_key": self.api_key, "query": query, "page": 1,
+        })
+        return [{"id": k["id"], "name": k.get("name", "")} for k in data.get("results", [])[:5]]
+
     # ──────────────── internal ────────────────
 
     def _format_watch_providers(self, region_data: dict, region: str) -> dict:

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, BookOpen, Star, Check, BookmarkPlus, Eye, Film } from 'lucide-react';
+import { ChevronLeft, BookOpen, Star, Check, BookmarkPlus, Eye, Film, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getApiUrl } from '../utils/apiConfig';
-import { proxyImageUrl, addToWatchlist, removeFromWatchlist, toggleWatched } from '../services/api';
+import { proxyImageUrl, addToWatchlist, removeFromWatchlist, toggleWatched, getAwardsToday } from '../services/api';
 import { MOODS, useMood } from '../context/MoodContext';
 import FilmDetailModal from '../components/FilmDetailModal';
+import useDocumentMeta from '../utils/useDocumentMeta';
 
 // Liste mood slug'ını sistemdeki gerçek mood adına çevir
 const moodName = (slug) => MOODS[slug]?.title || slug;
@@ -30,6 +31,7 @@ const MOOD_COLORS = {
   askbahcesi:    { bg: 'from-rose-950/70 to-black',    accent: '#f43f5e' },
   zamanyolcusu:  { bg: 'from-amber-950/70 to-black',   accent: '#f59e0b' },
   yolculuk:      { bg: 'from-emerald-950/70 to-black', accent: '#10b981' },
+  karmakar:      { bg: 'from-purple-950/70 to-black',  accent: '#a855f7' },
 };
 const DEFAULT_COLOR = { bg: 'from-zinc-900/70 to-black', accent: '#a1a1aa' };
 
@@ -37,6 +39,7 @@ const DEFAULT_COLOR = { bg: 'from-zinc-900/70 to-black', accent: '#a1a1aa' };
 function ListelerAnasayfa() {
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [award, setAward] = useState(null); // bugün/yakında verilen ödül
   const navigate = useNavigate();
   const { selectedMood } = useMood();
   const goBack = () => navigate(selectedMood ? '/discover' : '/');
@@ -46,6 +49,7 @@ function ListelerAnasayfa() {
       .then(r => r.json())
       .then(data => { setLists(data); setLoading(false); })
       .catch(() => setLoading(false));
+    getAwardsToday().then(d => setAward((d.awards || [])[0] || null)).catch(() => {});
   }, []);
 
   return (
@@ -71,9 +75,33 @@ function ListelerAnasayfa() {
           </h1>
         </div>
         <p className="text-ivory/60 font-serif italic text-base sm:text-lg leading-relaxed">
-          Küratöryel koleksiyonlar — her biri bir sinema yolculuğu.
+          Sinemanın en prestijli ödüllerinin güncel kazananları — her biri bir zafer.
         </p>
       </div>
+
+      {/* Ödül günü banner'ı */}
+      {award && (
+        <motion.button
+          initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          onClick={() => navigate(`/listeler/${award.slug}`)}
+          className="w-full flex items-center gap-3 mb-8 p-4 sm:p-5 rounded-2xl bg-amber/[0.08] border border-amber/30 hover:border-amber/50 hover:bg-amber/[0.12] transition-all text-left group"
+        >
+          <span className="w-10 h-10 rounded-full bg-amber/15 flex items-center justify-center shrink-0">
+            <Trophy size={18} className="text-amber" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-serif font-bold text-ivory leading-snug">
+              {award.status === 'today'
+                ? `🏆 Bugün ${award.title} açıklandı!`
+                : `🏆 ${award.title} yakında (${award.days_until} gün)`}
+            </p>
+            <p className="text-[12px] text-ivory/55 mt-0.5">
+              {award.status === 'today' ? 'Kazananlar uygulamada hazır — keşfet' : 'Kazananları şimdiden incele'}
+            </p>
+          </div>
+          <ChevronLeft size={16} className="rotate-180 text-amber/60 group-hover:text-amber transition-colors shrink-0" />
+        </motion.button>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -114,7 +142,7 @@ function ListelerAnasayfa() {
 
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.16em] px-3 py-1.5 rounded-full font-sans bg-amber/12 text-amber border border-amber/25">
-                    {moodName(lst.mood)}
+                    {lst.badge || moodName(lst.mood)}
                   </span>
                   <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-ivory/45 group-hover:text-amber transition-colors duration-300 font-sans">
                     Keşfet <ChevronLeft size={13} className="rotate-180" />
@@ -317,8 +345,15 @@ function ListeDetay() {
                   </div>
                 </div>
 
+                {/* Ödül etiketi */}
+                {movie.award && (
+                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full bg-amber/12 border border-amber/25 text-amber text-[9px] font-bold uppercase tracking-wide leading-none">
+                    <Trophy size={9} /> {movie.award}
+                  </span>
+                )}
+
                 {/* Film adı — yüksek kontrast */}
-                <p className="text-sm font-semibold font-sans line-clamp-2 group-hover:text-amber transition-colors duration-300 leading-snug text-ivory mt-1">
+                <p className="text-sm font-semibold font-sans line-clamp-2 group-hover:text-amber transition-colors duration-300 leading-snug text-ivory mt-1.5">
                   {movie.title}
                 </p>
 
@@ -365,5 +400,9 @@ function ListeDetay() {
 // ─── Router Wrapper ──────────────────────────────────────────
 export default function Listeler() {
   const { slug } = useParams();
+  useDocumentMeta({
+    title: slug ? 'Ödüllü Filmler | Sinemood' : 'Ödüllü Filmler — Festival Kazananları | Sinemood',
+    description: 'Oscar, Cannes, Altın Küre, BAFTA, Venedik, Berlin ve daha fazlasının en güncel kazananları. Hangi film hangi ödülü aldı, Sinemood’da keşfet.',
+  });
   return slug ? <ListeDetay /> : <ListelerAnasayfa />;
 }

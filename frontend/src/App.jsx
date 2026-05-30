@@ -12,6 +12,8 @@ import UsernameOnboardingModal from './components/UsernameOnboardingModal';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
+import ConsentBanner from './components/ConsentBanner';
+import GameBubble from './components/GameBubble';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -52,10 +54,11 @@ const SurpriseFilm = lazyRetry(() => import('./pages/SurpriseFilm'));
 const Listeler = lazyRetry(() => import('./pages/Listeler'));
 const Profil = lazyRetry(() => import('./pages/Profil'));
 const SearchPage = lazyRetry(() => import('./pages/Search'));
-const DesignPreview = lazyRetry(() => import('./pages/DesignPreview'));
-const Home = lazyRetry(() => import('./pages/Home'));
 const TasteMapCollision = lazyRetry(() => import('./pages/TasteMapCollision'));
 const PublicProfile = lazyRetry(() => import('./pages/PublicProfile'));
+const DailyFilm = lazyRetry(() => import('./pages/DailyFilm'));
+const Gizlilik = lazyRetry(() => import('./pages/Gizlilik'));
+const MoodOracle = lazyRetry(() => import('./pages/MoodOracle'));
 
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -133,6 +136,7 @@ function AppContent() {
       <ScrollChrome />
       <AuraBackground />
       <ThemeToggle />
+      <GameBubble />
       <AudioPlayer />
 
       <Suspense fallback={<DiscoverSkeleton />}>
@@ -150,10 +154,9 @@ function AppContent() {
           <Route path="/u/:username" element={<PublicProfile />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/carpistir" element={<TasteMapCollision />} />
-
-          {/* Design Preview & Legacy */}
-          <Route path="/preview" element={<DesignPreview />} />
-          <Route path="/home" element={<Home />} />
+          <Route path="/gunun-filmi" element={<DailyFilm />} />
+          <Route path="/gizlilik" element={<Gizlilik />} />
+          <Route path="/oyun" element={<MoodOracle />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -161,6 +164,7 @@ function AppContent() {
       </Suspense>
       <BottomNav />
       <UsernameOnboardingModal />
+      <ConsentBanner />
     </>
   );
 }

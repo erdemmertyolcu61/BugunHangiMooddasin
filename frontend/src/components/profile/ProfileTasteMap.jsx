@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Sparkles, Film, Clock, Clapperboard } from 'lucide-react';
+import { Brain, Sparkles, Clock, Clapperboard, Gauge, Palette, Timer } from 'lucide-react';
 import TasteMapCard from '../TasteMapCard';
 
 const MOOD_COLORS = {
@@ -12,31 +12,34 @@ const MOOD_COLORS = {
   'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
 };
 
+// Backend era_preferences anahtarları (taste_map.py) ile birebir eşleşir.
 const ERA_LABELS = {
-  '2010_plus': '2010+',
-  '2000s': "2000'ler",
-  '1990s': "1990'lar", '1980s': "1980'ler",
-  '1970s': "1970'ler", '1960s': "1960'lar", '1950s': "1950'ler",
+  pre_1990: '1990 öncesi',
+  '1991_2009': '1991 – 2009',
+  '2010_plus': '2010 sonrası',
+  recent_5_years: 'Son 5 yıl',
 };
-const YEAR_STAT_KEYS = new Set(['year_range_min', 'year_range_max', 'mean_year']);
+// Yalnız bu anahtarlar sayısal yüzde — diğerleri (year_range_*, mean_year,
+// dynamic_era_*) bar olarak işlenmemeli (aksi halde %NaN sızıyordu).
+const ERA_NUMERIC_KEYS = ['pre_1990', '1991_2009', '2010_plus', 'recent_5_years'];
 
-const PROFILE_SKIP = new Set(['label', 'description']);
+/** Eşlenemeyen anahtarlar için güvenli Türkçeleştirme (ham snake_case sızmasın). */
+const humanize = (k) =>
+  String(k).replace(/_pct$/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-const PROFILE_LABELS = {
-  slow_pct: 'Yavaş', medium_pct: 'Orta', fast_pct: 'Hızlı',
-  mainstream_pct: 'Ana Akım', indie_pct: 'Bağımsız',
-  avg_minutes: 'Ort. Süre',
-};
+function SectionLabel({ icon: Icon, children }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-fg-subtle flex items-center gap-2">
+      {Icon && <Icon size={11} className="text-amber/70" />} {children}
+    </p>
+  );
+}
 
 /**
- * Full taste map profile section — moods, genres, era, pacing, style, runtime.
- *
- * Props:
- *  - tasteMap: full backend response (top_moods, mood_pct, top_genres, era_preferences, pacing_profile, style_profile, runtime_profile, summary, confidence, signals)
- *  - loading: boolean
- *  - username: string (for share card)
+ * Zevk Haritası profil bölümü — moodlar, türler, dönem, tempo/stil/süre, Üstad analizi.
+ * İki temaya da uyumlu (semantik token'lar). Props: tasteMap, loading, username, profileUrl.
  */
-export default function ProfileTasteMap({ tasteMap, loading = false, username = '' }) {
+export default function ProfileTasteMap({ tasteMap, loading = false, username = '', profileUrl = '' }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -55,9 +58,9 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
     return (
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.15 }}
-        className="p-8 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-3">
-        <Brain size={28} className="text-amber/30 mx-auto" />
-        <p className="font-serif text-sm italic text-ivory/60 leading-relaxed max-w-md mx-auto">
+        className="p-8 rounded-2xl bg-surface border border-default text-center space-y-3">
+        <Brain size={28} className="text-amber/40 mx-auto" />
+        <p className="font-serif text-sm italic text-fg-muted leading-relaxed max-w-md mx-auto">
           Zevk haritan henüz oluşuyor. Birkaç filmi defterine ekledikçe, not yazdıkça seni daha iyi tanıyacağız.
         </p>
       </motion.div>
@@ -67,9 +70,18 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
   const moodPctEntries = tasteMap.mood_pct ? Object.entries(tasteMap.mood_pct).slice(0, 5) : [];
   const topGenres = tasteMap.top_genres || [];
   const eraPref = tasteMap.era_preferences || {};
-  const pacingProfile = tasteMap.pacing_profile || {};
-  const styleProfile = tasteMap.style_profile || {};
-  const runtimeProfile = tasteMap.runtime_profile || {};
+  const pacing = tasteMap.pacing_profile || {};
+  const style = tasteMap.style_profile || {};
+  const runtime = tasteMap.runtime_profile || {};
+
+  const eraBars = ERA_NUMERIC_KEYS
+    .filter((k) => typeof eraPref[k] === 'number' && eraPref[k] > 0)
+    .map((k) => [k, eraPref[k]])
+    .sort(([, a], [, b]) => b - a);
+
+  const indiePct = Number(style.indie_pct) || 0;
+  const mainPct = Number(style.mainstream_pct) || 0;
+  const hasStyleSplit = indiePct > 0 || mainPct > 0;
 
   return (
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
@@ -78,47 +90,45 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
 
       {/* Section title */}
       <div className="flex items-center gap-2.5 px-1">
-        <Brain size={15} className="text-amber/60" />
-        <p className="font-sans text-[13px] font-bold uppercase tracking-[0.25em] text-amber/60">
+        <Brain size={15} className="text-amber/70" />
+        <p className="font-sans text-[13px] font-bold uppercase tracking-[0.25em] text-amber/70">
           Zevk Haritam
         </p>
       </div>
 
-      <div className="rounded-[2rem] border border-white/[0.08] relative overflow-hidden">
-        {/* Background glow */}
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.04] via-transparent to-purple-600/[0.03]" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-500/[0.06] to-transparent blur-[120px] rounded-full pointer-events-none" />
+      <div className="rounded-[2rem] border border-default bg-surface/60 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.05] via-transparent to-purple-600/[0.03] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-500/[0.07] to-transparent blur-[120px] rounded-full pointer-events-none" />
 
-        <div className="relative z-10 p-6 sm:p-8 space-y-8">
+        <div className="relative z-10 p-5 sm:p-8 space-y-9">
 
-          {/* Dynamic title */}
+          {/* ─── Dynamic title ─── */}
           {tasteMap.dynamic_title && (
             <div>
               <p className="text-2xl sm:text-3xl font-serif font-bold text-amber tracking-tight leading-snug">
                 {tasteMap.dynamic_title}
               </p>
-              <div className="w-16 h-[2px] bg-gradient-to-r from-amber/60 to-transparent mt-3 rounded-full" />
+              <div className="w-16 h-[2px] bg-gradient-to-r from-amber/70 to-transparent mt-3 rounded-full" />
             </div>
           )}
 
-          {/* ─── Mood Chips ─── */}
+          {/* ─── Mood DNA chips ─── */}
           {tasteMap.top_moods?.length > 0 && (
-            <div className="space-y-3 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/30">Sinema DNA'n</p>
-              <div className="flex flex-wrap gap-2.5 justify-center">
+            <div className="space-y-3.5">
+              <SectionLabel icon={Sparkles}>Sinema DNA'n</SectionLabel>
+              <div className="flex flex-wrap gap-2.5">
                 {tasteMap.top_moods.slice(0, 5).map(m => {
                   const dotColor = MOOD_COLORS[m.mood_id] || '#d4af37';
                   const pct = tasteMap.mood_pct?.[m.mood_id];
                   return (
                     <span key={m.mood_id}
                       className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full
-                        bg-white/[0.06] border border-white/[0.08] backdrop-blur-sm
-                        text-[13px] font-semibold text-ivory/80 transition-all hover:border-white/15">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
-                        style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}40` }} />
+                        bg-surface-2 border border-default text-[13px] font-semibold text-fg transition-all hover:border-amber/40">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}55` }} />
                       {m.title}
                       {pct != null && (
-                        <span className="text-[11px] font-bold text-ivory/40 ml-0.5">%{Math.round(pct)}</span>
+                        <span className="text-[11px] font-bold text-fg-subtle ml-0.5">%{Math.round(pct)}</span>
                       )}
                     </span>
                   );
@@ -127,85 +137,138 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
             </div>
           )}
 
-          {/* ─── Mood Distribution Bars ─── */}
+          {/* ─── Mood distribution bars ─── */}
           {moodPctEntries.length > 0 && (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {moodPctEntries.map(([mid, pct]) => {
                 const moodObj = tasteMap.top_moods?.find(m => m.mood_id === mid);
-                const label = moodObj?.title || mid.replace('-', ' ');
+                const label = moodObj?.title || humanize(mid);
                 const barColor = MOOD_COLORS[mid] || '#d4af37';
                 return (
                   <div key={mid} className="flex items-center gap-3">
-                    <span className="text-[12px] font-semibold text-ivory/60 w-28 truncate capitalize">{label}</span>
-                    <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                    <span className="text-[12px] font-semibold text-fg-muted w-28 shrink-0">{label}</span>
+                    <div className="flex-1 h-2 rounded-full bg-fg-subtle/15 overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(pct, 100)}%` }}
                         transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="h-full rounded-full"
-                        style={{ backgroundColor: barColor, opacity: 0.75 }}
+                        style={{ backgroundColor: barColor }}
                       />
                     </div>
-                    <span className="text-[12px] font-bold text-ivory/50 w-10 text-right tabular-nums">%{Math.round(pct)}</span>
+                    <span className="text-[12px] font-bold text-fg-subtle w-10 text-right tabular-nums">%{Math.round(pct)}</span>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* ─── Divider ─── */}
-          <div className="h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+          <div className="h-px bg-gradient-to-r from-transparent via-border-default to-transparent" />
 
-          {/* ─── Top Genres ─── */}
+          {/* ─── Favori türler ─── */}
           {topGenres.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/30 flex items-center gap-2">
-                <Clapperboard size={11} /> Favori Türler
-              </p>
+            <div className="space-y-3.5">
+              <SectionLabel icon={Clapperboard}>Favori Türler</SectionLabel>
               <div className="flex flex-wrap gap-2">
-                {topGenres.slice(0, 6).map((g, i) => (
-                  <span key={g.genre_id || i}
-                    className="px-3.5 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[12px] font-semibold text-ivory/70">
-                    {g.name || g.genre_name || `Tür #${g.genre_id}`}
-                    {g.count != null && <span className="text-ivory/35 ml-1.5">({g.count})</span>}
-                  </span>
-                ))}
+                {topGenres.slice(0, 6).map((g, i) => {
+                  const name = g.name || g.genre_name;
+                  if (!name) return null;
+                  return (
+                    <span key={g.genre_id || i}
+                      className="px-3.5 py-1.5 rounded-full bg-surface-2 border border-default text-[12px] font-semibold text-fg-muted">
+                      {name}
+                      {g.count != null && <span className="text-fg-subtle ml-1.5">{g.count}</span>}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* ─── Era Preferences ─── */}
-          {Object.keys(eraPref).length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-ivory/30 flex items-center gap-2">
-                <Clock size={11} /> Dönem Tercihleri
-              </p>
-              <div className="space-y-2">
-                {Object.entries(eraPref)
-                  .filter(([k]) => !YEAR_STAT_KEYS.has(k))
-                  .sort(([, a], [, b]) => b - a)
-                  .slice(0, 4)
-                  .map(([era, pct]) => (
+          {/* ─── Dönem tercihleri ─── */}
+          {(eraBars.length > 0 || eraPref.dynamic_era_label) && (
+            <div className="space-y-3.5">
+              <SectionLabel icon={Clock}>Dönem Tercihleri</SectionLabel>
+              {eraPref.dynamic_era_label && (
+                <div className="rounded-2xl bg-surface-2 border border-default px-4 py-3">
+                  <p className="text-[14px] font-serif font-bold text-fg">{eraPref.dynamic_era_label}</p>
+                  {eraPref.dynamic_era_desc && (
+                    <p className="text-[12px] text-fg-muted leading-relaxed mt-0.5">{eraPref.dynamic_era_desc}</p>
+                  )}
+                </div>
+              )}
+              {eraBars.length > 0 && (
+                <div className="space-y-2">
+                  {eraBars.map(([era, pct]) => (
                     <div key={era} className="flex items-center gap-3">
-                      <span className="text-[12px] font-semibold text-ivory/60 w-20">{ERA_LABELS[era] || era.replace('_', ' ')}</span>
-                      <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                      <span className="text-[12px] font-semibold text-fg-muted w-24 shrink-0">{ERA_LABELS[era] || humanize(era)}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-fg-subtle/15 overflow-hidden">
                         <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(pct, 100)}%` }}
+                          initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
                           transition={{ duration: 0.8, delay: 0.5 }}
-                          className="h-full rounded-full bg-amber/50"
-                        />
+                          className="h-full rounded-full bg-amber/60" />
                       </div>
-                      <span className="text-[11px] font-bold text-ivory/40 w-10 text-right">%{Math.round(pct)}</span>
+                      <span className="text-[11px] font-bold text-fg-subtle w-10 text-right tabular-nums">%{Math.round(pct)}</span>
                     </div>
                   ))}
-                {eraPref.year_range_min != null && eraPref.year_range_max != null && (
-                  <div className="flex items-center gap-2 pt-1 text-[11px] text-ivory/50 font-mono">
-                    <span>{eraPref.year_range_min}</span>
-                    <span className="text-ivory/20">—</span>
-                    <span>{eraPref.year_range_max}</span>
-                    {eraPref.mean_year != null && (
-                      <span className="text-ivory/35 ml-auto">ort. {Math.round(eraPref.mean_year)}</span>
+                </div>
+              )}
+              {eraPref.year_range_min != null && eraPref.year_range_max != null && (
+                <div className="flex items-center gap-2 text-[11px] text-fg-subtle font-mono pt-0.5">
+                  <span>{eraPref.year_range_min}</span>
+                  <span className="opacity-50">—</span>
+                  <span>{eraPref.year_range_max}</span>
+                  {eraPref.mean_year != null && <span className="ml-auto">ortalama {Math.round(eraPref.mean_year)}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── İmza: Tempo · Stil · Süre ─── */}
+          {(pacing.label || style.label || runtime.label) && (
+            <div className="space-y-3.5">
+              <SectionLabel icon={Sparkles}>İmzan</SectionLabel>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Tempo */}
+                {pacing.label && (
+                  <div className="p-4 rounded-2xl bg-surface-2 border border-default space-y-2">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/60 flex items-center gap-1.5">
+                      <Gauge size={11} /> Tempo
+                    </p>
+                    <p className="text-[13px] font-bold text-fg leading-snug">{pacing.label}</p>
+                    {pacing.description && <p className="text-[11px] text-fg-muted leading-relaxed">{pacing.description}</p>}
+                  </div>
+                )}
+                {/* Stil */}
+                {(style.label || hasStyleSplit) && (
+                  <div className="p-4 rounded-2xl bg-surface-2 border border-default space-y-2.5">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/60 flex items-center gap-1.5">
+                      <Palette size={11} /> Stil
+                    </p>
+                    {style.label && <p className="text-[13px] font-bold text-fg leading-snug">{style.label}</p>}
+                    {hasStyleSplit && (
+                      <div className="space-y-1.5">
+                        <div className="h-2 rounded-full overflow-hidden flex bg-fg-subtle/15">
+                          <div className="h-full bg-amber/70" style={{ width: `${mainPct}%` }} />
+                          <div className="h-full bg-purple-400/60" style={{ width: `${indiePct}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] font-semibold text-fg-subtle">
+                          <span>Ana akım %{mainPct}</span>
+                          <span>Bağımsız %{indiePct}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Süre */}
+                {runtime.label && (
+                  <div className="p-4 rounded-2xl bg-surface-2 border border-default space-y-2">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/60 flex items-center gap-1.5">
+                      <Timer size={11} /> Süre
+                    </p>
+                    <p className="text-[13px] font-bold text-fg leading-snug">{runtime.label}</p>
+                    {runtime.avg_minutes != null && (
+                      <p className="text-[11px] text-fg-muted">Ortalama <span className="text-fg font-semibold">{Math.round(runtime.avg_minutes)} dk</span></p>
                     )}
                   </div>
                 )}
@@ -213,83 +276,17 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
             </div>
           )}
 
-          {/* ─── Pacing + Style + Runtime in a compact grid ─── */}
-          {(Object.keys(pacingProfile).length > 0 || Object.keys(styleProfile).length > 0 || Object.keys(runtimeProfile).length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Pacing */}
-              {Object.keys(pacingProfile).length > 0 && (
-                <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/40">Tempo</p>
-                  {Object.entries(pacingProfile)
-                    .filter(([k]) => !PROFILE_SKIP.has(k))
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 3)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between">
-                        <span className="text-[11px] text-ivory/60">{PROFILE_LABELS[k] || k.replace('_pct', '').replace('_', ' ')}</span>
-                        <span className="text-[11px] font-bold text-ivory/40">%{Math.round(v)}</span>
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              {/* Style */}
-              {Object.keys(styleProfile).length > 0 && (
-                <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/40">Stil</p>
-                  {Object.entries(styleProfile)
-                    .filter(([k]) => !PROFILE_SKIP.has(k))
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 3)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between">
-                        <span className="text-[11px] text-ivory/60">{PROFILE_LABELS[k] || k.replace('_pct', '').replace('_', ' ')}</span>
-                        <span className="text-[11px] font-bold text-ivory/40">%{Math.round(v)}</span>
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              {/* Runtime */}
-              {Object.keys(runtimeProfile).length > 0 && (
-                <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/40">Süre</p>
-                  {Object.entries(runtimeProfile)
-                    .filter(([k]) => !PROFILE_SKIP.has(k))
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 3)
-                    .map(([k, v]) => {
-                      const isMinutes = k === 'avg_minutes';
-                      return (
-                        <div key={k} className="flex items-center justify-between">
-                          <span className="text-[11px] text-ivory/60">{PROFILE_LABELS[k] || k.replace('_pct', '').replace('_', ' ')}</span>
-                          <span className="text-[11px] font-bold text-ivory/40">
-                            {isMinutes ? `${Math.round(v)} dk` : `%${Math.round(v)}`}
-                          </span>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* ─── Üstad'ın Analizi ─── */}
           {tasteMap.summary?.length > 0 && (
             <div className="space-y-4">
-              <div className="h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/40 flex items-center gap-2">
-                <Sparkles size={11} /> Üstad'ın Analizi
-              </p>
-              <div className="space-y-4 pl-4 border-l-2 border-amber/15">
+              <div className="h-px bg-gradient-to-r from-transparent via-border-default to-transparent" />
+              <SectionLabel icon={Sparkles}>Üstad'ın Analizi</SectionLabel>
+              <div className="space-y-4 pl-4 border-l-2 border-amber/25">
                 {tasteMap.summary.slice(0, 5).map((s, i) => (
-                  <motion.p
-                    key={i}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
+                  <motion.p key={i}
+                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 + i * 0.1 }}
-                    className="text-[15px] sm:text-[16px] font-serif italic text-ivory/80 leading-[1.75] tracking-wide"
-                  >
+                    className="text-[15px] sm:text-[16px] font-serif italic text-fg/90 leading-[1.75]">
                     &ldquo;{s}&rdquo;
                   </motion.p>
                 ))}
@@ -297,30 +294,24 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
             </div>
           )}
 
-          {/* ─── Confidence + Total ─── */}
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap pt-2">
+          {/* ─── Confidence + total ─── */}
+          <div className="flex items-center gap-3 flex-wrap pt-1">
             <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] ${
               tasteMap.confidence === 'high'
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                : tasteMap.confidence === 'medium'
-                ? 'bg-amber/10 text-amber border border-amber/20'
-                : 'bg-white/5 text-ivory/30 border border-white/[0.06]'
+                ? 'bg-emerald-500/12 text-emerald-400 border border-emerald-500/25'
+                : 'bg-amber/12 text-amber border border-amber/25'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                tasteMap.confidence === 'high' ? 'bg-emerald-400' :
-                tasteMap.confidence === 'medium' ? 'bg-amber' : 'bg-white/30'
-              }`} />
-              {tasteMap.confidence === 'high' ? 'Oluştu' :
-               tasteMap.confidence === 'medium' ? 'Oluşuyor' : 'Başlangıç'}
+              <span className={`w-1.5 h-1.5 rounded-full ${tasteMap.confidence === 'high' ? 'bg-emerald-400' : 'bg-amber'}`} />
+              {tasteMap.confidence === 'high' ? 'Olgunlaştı' : 'Oluşuyor'}
             </span>
-            <span className="text-[11px] font-bold text-ivory/25 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider">
               {tasteMap.signals?.total_movies || 0} film sinyali
             </span>
           </div>
 
-          {/* ─── Share Card ─── */}
-          <div className="pt-4">
-            <TasteMapCard tasteMap={tasteMap} username={username} />
+          {/* ─── Share card ─── */}
+          <div className="pt-2">
+            <TasteMapCard tasteMap={tasteMap} username={username} profileUrl={profileUrl} />
           </div>
         </div>
       </div>

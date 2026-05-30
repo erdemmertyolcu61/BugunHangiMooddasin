@@ -263,6 +263,59 @@ _MOOD_QUERY_EXPANSIONS = {
                        "human relationship verbal wordplay",
     "gece yarısı":     "late-night confession intimate dialogue deep conversation "
                        "philosophical debate human relationship soul searching",
+
+    # ── Psikolojik temalar ───────────────────────────────────────────────────
+    "delilik":         "psychological breakdown descent into madness unreliable narrator "
+                       "mental illness insanity schizophrenia",
+    "paranoya":        "paranoia psychological thriller conspiracy suspicion gaslighting",
+    "çöküş":           "psychological breakdown spiral descent mental collapse unraveling",
+    "travma":          "trauma ptsd recovery emotional damage psychological scar",
+    "psikolojik":      "psychological thriller mind games manipulation mental breakdown",
+    "obsesyon":        "obsession compulsion fixation dark desire psychological",
+
+    # ── Plot / anlatım yapısı ────────────────────────────────────────────────
+    "ters köşe":       "plot twist surprise ending unexpected revelation mind-bending",
+    "twist":           "plot twist surprise ending unexpected revelation mind-bending",
+    "sürpriz son":     "surprise ending twist ending unexpected finale shocking conclusion",
+    "açık uçlu":       "ambiguous ending open-ended interpretation philosophical",
+
+    # ── Mekan / atmosfer ─────────────────────────────────────────────────────
+    "taşra":           "rural provincial small town countryside Anatolian village "
+                       "melancholy isolation desolate landscape",
+    "kasvet":          "bleak desolate melancholy somber gloomy atmospheric despair",
+    "kasaba":          "small town rural community provincial life secrets isolation",
+    "loş":             "dim moody dark atmospheric noir shadow nocturnal",
+
+    # ── Kült / gizli hazine ──────────────────────────────────────────────────
+    "kült":            "cult classic hidden gem underrated overlooked underground cinephile",
+    "gizli":           "hidden gem underrated overlooked underseen cult classic",
+    "az bilinen":      "hidden gem underrated overlooked underseen obscure",
+
+    # ── Tempo / izleme tarzı ─────────────────────────────────────────────────
+    "yavaş":           "slow cinema contemplative meditative atmospheric slow-burn arthouse",
+    "tempo düşmeyen":  "fast-paced relentless non-stop action thriller edge-of-seat tension",
+
+    # ── Karakter / arketip ───────────────────────────────────────────────────
+    "antihero":        "antihero morally ambiguous complex protagonist dark character study",
+    "anti kahraman":   "antihero morally ambiguous complex protagonist dark character study",
+    "psikopat":        "psychopath sociopath villain dark character study manipulative",
+
+    # ── İş / hırs / para ────────────────────────────────────────────────────
+    "girişimcilik":    "entrepreneurship business ambition startup corporate greed",
+    "wall street":     "wall street finance corporate greed money power ambition stock market",
+    "hırs":            "ambition greed power struggle ruthless corporate dark",
+
+    # ── Sinema akımları ──────────────────────────────────────────────────────
+    "noir":            "film noir dark crime shadows detective mystery cynical urban night",
+    "distopik":        "dystopia dystopian future totalitarian society oppression rebellion",
+    "distopya":        "dystopia dystopian future totalitarian society oppression rebellion",
+    "sanat filmi":     "arthouse cinema auteur artistic independent contemplative",
+    "indie":           "independent film low-budget arthouse personal intimate character-driven",
+
+    # ── İlişki dinamikleri ───────────────────────────────────────────────────
+    "yasak aşk":       "forbidden love illicit affair secret romance taboo passion",
+    "toksik ilişki":   "toxic relationship abusive manipulative destructive codependent",
+    "intikam":         "revenge vengeance retribution payback justice dark",
 }
 
 # ─── Üstad note templates ─────────────────────────────────────────────────────
@@ -929,6 +982,8 @@ class SemanticSearchEngine:
             "release_date": meta.get("release_date", ""),
             "vote_average": meta.get("vote_average", 0.0),
             "genre_ids":    meta.get("genre_ids", []),
+            "runtime":      meta.get("runtime"),
+            "popularity":   meta.get("popularity"),
             "mood_score":   round(similarity * 100, 1),
             "matched_moods": [mood_id] if mood_id else [],
             "reason":       _MOOD_REASON_MAP.get(mood_id, "Bu ruh haline uygun seçildi."),

@@ -1,0 +1,9 @@
+# Sinemood — robots.txt
+User-agent: *
+Allow: /
+
+# Backend OG/paylaşım ve API yolları indekslenmesin (insan SPA'ya yönlenir)
+Disallow: /api/
+Disallow: /share/
+
+Sitemap: https://sinemood.onrender.com/sitemap.xml

@@ -106,6 +106,19 @@ async def send_friend_request(friend_username: str, user: dict = Depends(get_cur
     if target["id"] == me:
         raise HTTPException(status_code=400, detail="Kendini arkadaş ekleyemezsin")
     result = await cache.create_friend_request(me, target["id"])
+    # Push: hedefe yeni arkadaşlık isteği bildirimi (no-op if push disabled)
+    try:
+        from backend.services.push_service import send_push_to_user
+        sender = await cache.get_user_by_username_by_id(me)
+        sender_name = (sender or {}).get("username") or (sender or {}).get("name") or "Biri"
+        await send_push_to_user(
+            target["id"],
+            "Yeni arkadaşlık isteği 🤝",
+            f"{sender_name} seni Sinemood'da arkadaş eklemek istiyor.",
+            url="/profil?tab=social", tag="friend-request",
+        )
+    except Exception:
+        pass
     return {
         "ok": True,
         "target": {"id": target["id"], "username": target["username"],
@@ -161,6 +174,19 @@ async def recommend_movie(body: RecommendBody, user: dict = Depends(get_current_
     if not await cache.are_friends(me, body.receiver_id):
         raise HTTPException(status_code=403, detail="Sadece arkadaşlarına film önerebilirsin")
     await cache.create_direct_recommendation(me, body.receiver_id, body.movie_id, body.user_note or "")
+    # Push: alıcıya yeni film önerisi bildirimi (no-op if push disabled)
+    try:
+        from backend.services.push_service import send_push_to_user
+        sender = await cache.get_user_by_username_by_id(me)
+        sender_name = (sender or {}).get("username") or (sender or {}).get("name") or "Bir arkadaşın"
+        await send_push_to_user(
+            body.receiver_id,
+            "Sana bir film önerildi 🎬",
+            f"{sender_name} senin için bir film seçti — Üstadın Güverciniyle geldi.",
+            url="/profil?tab=social", tag="movie-rec",
+        )
+    except Exception:
+        pass
     return {"ok": True, "message": "Öneri Üstadın Güverciniyle gönderildi! ✨"}
 
 
