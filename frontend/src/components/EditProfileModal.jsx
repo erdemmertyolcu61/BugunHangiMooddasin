@@ -62,7 +62,7 @@ export default function EditProfileModal({ onClose, onSaved }) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
 
-        const base64 = canvas.toDataURL('image/webp', 0.85);
+        const base64 = canvas.toDataURL('image/jpeg', 0.85);
         setAvatarPreview(base64);
         setAvatarBase64(base64);
         setError('');

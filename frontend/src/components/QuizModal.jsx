@@ -14,6 +14,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,6 +33,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
       setSearchResult(null);
       setSearching(false);
       setSearchError(null);
+      setShowShare(false);
     }
   }, [isOpen]);
 
@@ -76,6 +78,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
     setSearchResult(null);
     setSearching(false);
     setSearchError(null);
+    setShowShare(false);
   }, []);
 
   const currentQuestion = step >= 1 && step <= QUESTIONS.length ? QUESTIONS[step - 1] : null;
@@ -167,7 +170,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
               </div>
             ) : (
               /* ── RESULT STEP ── */
-              <div className="space-y-6 sm:space-y-8 text-center" key="result">
+              <div className="space-y-5 sm:space-y-8 text-center" key="result">
                 {/* Searching state */}
                 {searching && (
                   <div className="flex flex-col items-center gap-6 py-8">
@@ -291,19 +294,28 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                   </motion.div>
                 )}
 
-                {/* Share Card — "Hangi Film Ruh Hali Seninki?" */}
+                {/* Share Card — varsayılan gizli (mobilde tekrar/uzun blok olmasın).
+                    "Sonucu Paylaş" ile açılır; kart kendi paylaş/indir butonlarını taşır. */}
                 {!searching && quizResult?.topMoods && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                    className="flex justify-center"
-                  >
-                    <QuizShareCard
-                      topMoods={quizResult.topMoods}
-                      resultMessage={getResultMessage(quizResult.topMoods)}
-                    />
-                  </motion.div>
+                  !showShare ? (
+                    <button
+                      onClick={() => setShowShare(true)}
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-amber/10 hover:bg-amber/15 border border-amber/20 text-amber/80 hover:text-amber text-[10px] font-bold uppercase tracking-[0.2em] transition-all mx-auto"
+                    >
+                      <Sparkles size={13} /> Sonucu Paylaş
+                    </button>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-center"
+                    >
+                      <QuizShareCard
+                        topMoods={quizResult.topMoods}
+                        resultMessage={getResultMessage(quizResult.topMoods)}
+                      />
+                    </motion.div>
+                  )
                 )}
 
                 {/* Actions */}

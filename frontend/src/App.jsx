@@ -13,7 +13,6 @@ import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import AuraBackground from './components/AuraBackground.jsx';
 import ConsentBanner from './components/ConsentBanner';
-import GameBubble from './components/GameBubble';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -136,7 +135,6 @@ function AppContent() {
       <ScrollChrome />
       <AuraBackground />
       <ThemeToggle />
-      <GameBubble />
       <AudioPlayer />
 
       <Suspense fallback={<DiscoverSkeleton />}>

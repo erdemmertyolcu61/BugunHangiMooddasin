@@ -115,11 +115,18 @@ export async function captureElementAsBlob(element, opts = {}) {
  * @returns {Promise<'shared'|'downloaded'|'error'>}
  */
 export async function captureAndShare(element, filename = 'sinemood.png', shareText = '', opts = {}) {
+  // 1) Görseli üret (bu başarısızsa yapacak bir şey yok)
+  let blob;
   try {
-    const blob = await captureElementAsBlob(element, opts);
-    const file = new File([blob], filename, { type: 'image/png' });
+    blob = await captureElementAsBlob(element, opts);
+  } catch (e) {
+    console.error('[shareUtils] capture error:', e);
+    return 'error';
+  }
 
-    // Try Web Share API with file support
+  // 2) Önce native paylaşım (mobilde resimli paylaşım sayfası açılır)
+  try {
+    const file = new File([blob], filename, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         text: shareText || 'Sinemood — Bugün Hangi Mooddasın?',
@@ -127,13 +134,18 @@ export async function captureAndShare(element, filename = 'sinemood.png', shareT
       });
       return 'shared';
     }
+  } catch (e) {
+    if (e.name === 'AbortError') return 'shared'; // kullanıcı paylaşımı iptal etti
+    // Paylaşım başarısız → indirmeye düş (sessiz hata YOK)
+    console.warn('[shareUtils] share failed, indirilecek:', e);
+  }
 
-    // Fallback: download
+  // 3) Her durumda kullanıcı görseli alabilsin → indir
+  try {
     downloadBlob(blob, filename);
     return 'downloaded';
   } catch (e) {
-    if (e.name === 'AbortError') return 'shared'; // user cancelled share sheet
-    console.error('[shareUtils] captureAndShare error:', e);
+    console.error('[shareUtils] download error:', e);
     return 'error';
   }
 }

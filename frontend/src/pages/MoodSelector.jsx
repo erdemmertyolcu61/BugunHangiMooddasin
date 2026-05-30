@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Book, ChevronRight, Brain, User } from 'lucide-react';
+import { Book, ChevronRight, Brain, User, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getApiUrl } from '../utils/apiConfig';
+import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
 
@@ -103,7 +103,7 @@ export default function MoodSelector() {
       >
         <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
           {user?.picture
-            ? <img src={user.picture.startsWith('/uploads') ? `${getApiUrl(user.picture)}?t=${Date.now()}` : user.picture} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             : <User size={14} className="text-amber/60" />}
         </span>
         <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">
@@ -257,6 +257,17 @@ export default function MoodSelector() {
               <Book size={14} /> Defterim
             </button>
           </div>
+          {/* Gizli keşif: küçük kâhini ikonu — "aa bu neymiş?" */}
+          <button
+            onClick={() => { track(EVENTS.SURPRISE_VIEW, { kind: 'game_discover' }); navigate('/oyun'); }}
+            title="?"
+            aria-label="Gizli mini oyun"
+            className="group relative w-8 h-8 flex items-center justify-center rounded-full
+                       text-rose/25 hover:text-amber/80 transition-all duration-500 hover:scale-110"
+          >
+            <span className="pointer-events-none absolute inset-0 rounded-full border border-amber/15 animate-ping opacity-20 group-hover:opacity-0" />
+            <Sparkles size={15} strokeWidth={1.5} />
+          </button>
           <p className="text-[8px] uppercase tracking-[0.5em] text-rose/30 font-medium">sinema bir atmosferdir</p>
           <button onClick={() => navigate('/gizlilik')}
             className="text-[9px] uppercase tracking-[0.3em] text-rose/30 hover:text-amber/70 transition-colors duration-500">
