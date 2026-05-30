@@ -146,18 +146,20 @@ export default function UpcomingSlider() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Pagination dots */}
-      <div className="absolute bottom-3 right-5 flex items-center gap-2 z-20">
+      {/* Pagination dots — mobilde minik + alta ortalı (elle kaydırılabiliyor),
+          masaüstünde daha belirgin pill. Yazıların üstüne binmez. */}
+      <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 sm:left-auto sm:right-5 flex items-center justify-center sm:justify-end gap-1 sm:gap-2 z-20">
         {upcoming.map((_, i) => (
           <button
             key={i}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
-            className={`relative flex items-center justify-center transition-all duration-400 rounded-full
+            aria-label={`${i + 1}. filme git`}
+            className={`rounded-full transition-all duration-400
               ${i === currentIndex
-                ? 'w-3 sm:w-7 h-1.5 sm:h-3 bg-amber shadow-[0_0_8px_rgba(255,191,0,0.6)]'
-                : 'w-1.5 sm:w-3 h-1.5 sm:h-3 bg-white/20 hover:bg-white/50'
+                ? 'w-2 h-1 sm:w-7 sm:h-3 bg-amber sm:shadow-[0_0_8px_rgba(255,191,0,0.6)]'
+                : 'w-1 h-1 sm:w-3 sm:h-3 bg-white/25 hover:bg-white/50'
               }`}
           />
         ))}

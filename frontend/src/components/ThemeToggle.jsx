@@ -1,4 +1,5 @@
 import { Sun, Moon } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 
 /**
@@ -9,23 +10,30 @@ import { useTheme } from '../context/ThemeContext';
  */
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
+  const { pathname } = useLocation();
   const isDark = theme === 'dark';
+
+  // Ana sayfada mobilde sol-ÜST (üst sol köşe boş). Diğer sayfalarda sol-alt
+  // (iç sayfaların sticky header'ındaki 'geri' butonuyla çakışmasın).
+  // Masaüstünde her zaman sol-alt.
+  const isHome = pathname === '/' || pathname === '/moodlar';
+  const posClass = isHome
+    ? 'top-4 md:top-auto md:bottom-6 mt-safe md:mt-0'
+    : 'bottom-[7.5rem] md:bottom-6 mb-safe md:mb-0';
 
   return (
     <button
       onClick={toggleTheme}
       title={isDark ? 'Latte (gündüz) temasına geç' : 'Espresso (gece) temasına geç'}
       aria-label="Tema değiştir"
-      className="
-        fixed left-4 z-[96]
-        bottom-[7.5rem] md:bottom-6
+      className={`
+        fixed left-4 z-[96] ${posClass}
         flex items-center justify-center
         w-12 h-12 md:w-auto md:gap-2 md:pl-3 md:pr-4
         rounded-full bg-black/55 backdrop-blur-md border border-amber/30 text-amber
         shadow-[0_8px_24px_rgba(0,0,0,0.45)]
         hover:scale-105 hover:border-amber/60 transition-all
-        mb-safe md:mb-0
-      "
+      `}
     >
       {isDark ? <Sun size={18} /> : <Moon size={18} />}
       {/* Etiket sadece masaüstünde; mobilde kompakt yuvarlak buton */}
