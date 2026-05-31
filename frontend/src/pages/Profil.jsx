@@ -199,18 +199,15 @@ export default function Profil() {
     }
   }, []);
 
-  const handleRetractSent = useCallback(async (recId) => {
+  const handleRetractSent = useCallback((recId) => {
+    // Anında kaldır (optimistik) — kullanıcı beklemez, hata mesajı görmez.
     setSentShares(prev => prev.filter(s => s.id !== recId));
-    try {
-      await retractRecommendation(recId);
-    } catch (err) {
-      const msg = err?.message || 'Öneri geri alınamadı.';
-      try {
-        const hist = await getRecommendationHistory();
-        setSentShares(hist.sent || []);
-      } catch {}
-      setSocialError(msg);
-    }
+    // Arka planda sil; cold-start'ta ilk istek tarayıcıda "failed to fetch"
+    // verse de sunucuyu uyandırır → sessizce bir kez daha dene. Yine olmazsa
+    // veri kaynağı sonraki profil yüklemesinde zaten doğruyu gösterir.
+    retractRecommendation(recId).catch(() => {
+      retractRecommendation(recId).catch(() => {});
+    });
   }, []);
 
   const handleAddFriend = useCallback(async (username) => {
