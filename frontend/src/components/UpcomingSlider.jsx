@@ -146,29 +146,7 @@ export default function UpcomingSlider() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Pagination dots — mobilde minik + alta ortalı (elle kaydırılabiliyor),
-          masaüstünde daha belirgin pill. Yazıların üstüne binmez. */}
-      <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 sm:left-auto sm:right-5 flex items-center justify-center sm:justify-end gap-1 sm:gap-1.5 z-20">
-        {upcoming.map((_, i) => {
-          const isActive = i === currentIndex;
-          return (
-            <button
-              key={i}
-              onMouseDown={(e) => e.stopPropagation()}
-              onMouseUp={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
-              aria-label={`${i + 1}. filme git`}
-              className="rounded-full transition-all duration-300 shrink-0"
-              style={{
-                width: isActive ? 10 : 3.5,
-                height: 3.5,
-                backgroundColor: isActive ? '#ffbf00' : 'rgba(255,255,255,0.3)',
-                boxShadow: isActive ? '0 0 6px rgba(255,191,0,0.55)' : 'none',
-              }}
-            />
-          );
-        })}
-      </div>
+
     </section>
   );
 }

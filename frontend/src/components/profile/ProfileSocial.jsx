@@ -25,7 +25,6 @@ export default function ProfileSocial({
   onRetractSent,
   onDetailMovie,
 }) {
-  const [retractingId, setRetractingId] = useState(null);
   const [activeTab, setActiveTab] = useState('friends');
   const [shareDir, setShareDir] = useState('received'); // received | sent
   const [addUsername, setAddUsername] = useState('');
@@ -294,13 +293,12 @@ export default function ProfileSocial({
                             <Play size={10} /> Filme Bak
                           </button>
                           <button
-                            disabled={retractingId === s.id}
-                            onClick={() => { setRetractingId(s.id); onRetractSent?.(s.id); }}
+                            onClick={() => onRetractSent?.(s.id)}
                             title="Bu öneriyi geri al"
                             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
                               bg-white/5 border border-rose-400/25 text-rose-300/80 text-[10px] font-bold uppercase tracking-wider
-                              hover:bg-rose-500/10 hover:text-rose-300 transition-all active:scale-95 disabled:opacity-50">
-                            <RotateCcw size={10} className={retractingId === s.id ? 'animate-spin' : ''} /> Geri Al
+                              hover:bg-rose-500/10 hover:text-rose-300 transition-all active:scale-95">
+                            <RotateCcw size={10} /> Geri Al
                           </button>
                         </div>
                       </div>

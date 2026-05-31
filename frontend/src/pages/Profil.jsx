@@ -200,12 +200,16 @@ export default function Profil() {
   }, []);
 
   const handleRetractSent = useCallback(async (recId) => {
+    setSentShares(prev => prev.filter(s => s.id !== recId));
     try {
-      setSocialError('');
       await retractRecommendation(recId);
-      setSentShares(prev => prev.filter(s => s.id !== recId));
     } catch (err) {
-      setSocialError(err?.message || 'Öneri geri alınamadı.');
+      const msg = err?.message || 'Öneri geri alınamadı.';
+      try {
+        const hist = await getRecommendationHistory();
+        setSentShares(hist.sent || []);
+      } catch {}
+      setSocialError(msg);
     }
   }, []);
 
