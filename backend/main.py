@@ -13,6 +13,8 @@ import os
 import html
 import json
 import re
+import hashlib
+import hmac
 from typing import Optional
 
 from backend.dns_resolver import setup_dns_bypass, refresh_dns
@@ -931,6 +933,100 @@ async def dev_login():
 
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)
     return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}
+
+
+# ─── E-posta + Şifre Girişi (Google'dan bağımsız) ───────────────────────────
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _hash_password(pw: str) -> str:
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), salt, 200_000)
+    return f"pbkdf2_sha256$200000${salt.hex()}${dk.hex()}"
+
+
+def _verify_password(pw: str, stored: str) -> bool:
+    try:
+        _algo, iters, salt_hex, hash_hex = stored.split("$")
+        dk = hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt_hex), int(iters))
+        return hmac.compare_digest(dk.hex(), hash_hex)
+    except Exception:
+        return False
+
+
+@app.post("/api/auth/register")
+async def email_register(request: Request):
+    """E-posta + şifre ile kayıt. Google hesaplarından bağımsız (gid='email:<e-posta>')."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz istek")
+
+    email = str(body.get("email") or "").strip().lower()
+    password = str(body.get("password") or "")
+    name = str(body.get("name") or "").strip()[:50]
+
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Geçerli bir e-posta gir")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Şifre en az 6 karakter olmalı")
+    if not name:
+        name = email.split("@", 1)[0]
+
+    gid = f"email:{email}"
+    pw_hash = _hash_password(password)
+
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (gid,))
+        if await cur.fetchone():
+            raise HTTPException(status_code=409, detail="Bu e-posta zaten kayıtlı")
+        await db.execute(
+            "INSERT INTO users (google_id, email, name, picture, password_hash) VALUES (?, ?, ?, ?, ?)",
+            (gid, email, name, "", pw_hash),
+        )
+        await db.commit()
+        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (gid,))
+        row = await cur.fetchone()
+        user_id = row[0] if row else 0
+        created_at = row[1] if row and len(row) > 1 else None
+
+    username = ""
+    try:
+        username = await cache.ensure_username(user_id, email)
+    except Exception as e:
+        logger.warning("[EmailAuth] ensure_username failed for user_id=%s: %s", user_id, e)
+
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=168)
+    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": "", "created_at": created_at}, "is_new": True}
+
+
+@app.post("/api/auth/login")
+async def email_login(request: Request):
+    """E-posta + şifre ile giriş."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz istek")
+
+    email = str(body.get("email") or "").strip().lower()
+    password = str(body.get("password") or "")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="E-posta ve şifre gerekli")
+
+    gid = f"email:{email}"
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT id, name, picture, password_hash, created_at, username FROM users WHERE google_id = ?",
+            (gid,),
+        )
+        row = await cur.fetchone()
+
+    if not row or not row[3] or not _verify_password(password, row[3]):
+        raise HTTPException(status_code=401, detail="E-posta veya şifre hatalı")
+
+    user_id, name, picture, _pw, created_at, username = row[0], row[1], row[2], row[3], row[4], row[5]
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=168)
+    return {"token": token, "user": {"id": user_id, "username": username or "", "email": email, "name": name, "picture": picture or "", "created_at": created_at}, "is_new": False}
 
 
 @app.get("/api/admin/users", dependencies=[Depends(verify_admin)])

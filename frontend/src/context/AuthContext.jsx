@@ -106,6 +106,37 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // E-posta + şifre ile giriş/kayıt (Google'dan bağımsız).
+  // mode: 'login' | 'register'. { ok } veya { ok:false, error } döndürür.
+  const emailAuth = useCallback(async (mode, { email, password, name = '' }) => {
+    try {
+      const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+      const res = await fetch(getApiUrl(path), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mode === 'register' ? { email, password, name } : { email, password }),
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      if (!res.ok || !data?.token) {
+        return { ok: false, error: (data && data.detail) || `Sunucu hatası (${res.status})` };
+      }
+      clearLocalUserData();
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem(AUTH_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      window.__fc_user_token = data.token;
+      track(EVENTS.SIGNUP, { is_new: !!data.is_new, method: 'email' });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: 'Bağlantı hatası. İnternetini kontrol edip tekrar dene.' };
+    }
+  }, []);
+
+  const emailLogin = useCallback((email, password) => emailAuth('login', { email, password }), [emailAuth]);
+  const emailRegister = useCallback((email, password, name) => emailAuth('register', { email, password, name }), [emailAuth]);
+
   const logout = useCallback(() => {
     clearLocalUserData();
     setToken(null);
@@ -129,7 +160,7 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, devLogin, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, login, devLogin, emailLogin, emailRegister, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

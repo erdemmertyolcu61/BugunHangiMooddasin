@@ -12,6 +12,29 @@ function authHeaders() {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
+// ─── E-posta + Şifre Auth ───────────────────────────────────────────────
+export async function registerEmail(email, password, name = '') {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Kayıt başarısız');
+  return data;
+}
+
+export async function loginEmail(email, password) {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Giriş başarısız');
+  return data;
+}
+
 // Simple in-memory cache for Turkish movies
 let TURKISH_CACHE = {};
 

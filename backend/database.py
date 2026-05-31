@@ -542,6 +542,12 @@ class MovieCache:
             except Exception:
                 pass  # kolon zaten var
 
+            # password_hash kolonu — e-posta+şifre girişi (Google kullanıcılarında NULL)
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+            except Exception:
+                pass  # kolon zaten var
+
             # Eski /uploads yollarını temizle (ephemeral filesystem'de dosya yok)
             try:
                 await db.execute("""
@@ -729,6 +735,7 @@ class MovieCache:
         for mig in (
             "ALTER TABLE users ADD COLUMN username TEXT",
             "ALTER TABLE users ADD COLUMN avatar_data BLOB",
+            "ALTER TABLE users ADD COLUMN password_hash TEXT",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)",
             "CREATE INDEX IF NOT EXISTS idx_friendships_lookup ON friendships(friend_id, status)",
             "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)",
