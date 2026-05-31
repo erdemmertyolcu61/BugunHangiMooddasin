@@ -101,7 +101,17 @@ const PLATFORM_MAPPING = {
    11:   { name: 'MUBI',          color: '#001E3C', web: (t) => `https://mubi.com/search/films?query=${encodeURIComponent(t)}`, app: null, home: 'https://mubi.com' },
    531:  { name: 'Paramount+',     color: '#0064FF', web: (t) => `https://www.paramountplus.com/search/?query=${encodeURIComponent(t)}`, app: null, home: 'https://www.paramountplus.com' },
   1796: { name: 'puhuTV',         color: '#FF6A00', web: (t) => `https://puhutv.com/arama?q=${encodeURIComponent(t)}`, app: null, home: 'https://puhutv.com' },
+   342: { name: 'puhuTV',         color: '#FF6A00', web: (t) => `https://puhutv.com/arama?q=${encodeURIComponent(t)}`, app: null, home: 'https://puhutv.com' },
   1898: { name: 'Gain',           color: '#FF2D55', web: (t) => `https://www.gain.tv/arama?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.gain.tv' },
+  1826: { name: 'TOD',            color: '#14E0A4', web: null, app: null, home: 'https://www.tod.tv' },
+  1899: { name: 'Max',            color: '#0046FF', web: (t) => `https://play.max.com/search?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.max.com' },
+  2235: { name: 'tabii',          color: '#16B5A6', web: (t) => `https://www.tabii.com/tr/search?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.tabii.com' },
+  1904: { name: 'TV+',            color: '#FFC900', web: null, app: null, home: 'https://www.tvplus.com.tr' },
+  1833: { name: 'Tivibu',         color: '#00AEEF', web: null, app: null, home: 'https://www.tivibu.com.tr' },
+  1905: { name: 'D-Smart GO',     color: '#E2001A', web: null, app: null, home: 'https://www.dsmart.com.tr' },
+   283: { name: 'Crunchyroll',    color: '#F47521', web: (t) => `https://www.crunchyroll.com/search?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.crunchyroll.com' },
+  1715: { name: 'Shahid VIP',     color: '#00C389', web: null, app: null, home: 'https://shahid.mbc.net' },
+  1968: { name: 'Exxen',          color: '#00E5A0', web: null, app: null, home: 'https://www.exxen.com' },
 };
 
 export function getPlatformInfo(providerId) {
@@ -119,6 +129,6 @@ export function buildWatchUrl(providerId, movieTitle, fallbackLink = null) {
   const title = (movieTitle || '').trim();
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
   if (isMobile && info.app && title) return info.app(title);
-  if (title) return info.web(title);
+  if (title && info.web) return info.web(title);
   return info.home;
 }
