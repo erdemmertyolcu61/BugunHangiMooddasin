@@ -183,7 +183,7 @@ function OptimizedImage({
           alt={alt}
           loading={priority ? 'eager' : 'lazy'}
           decoding={priority ? 'sync' : 'async'}
-          fetchpriority={priority ? 'high' : undefined}
+          fetchPriority={priority ? 'high' : undefined}
           onLoad={handleLoad}
           onError={handleError}
           draggable={false}

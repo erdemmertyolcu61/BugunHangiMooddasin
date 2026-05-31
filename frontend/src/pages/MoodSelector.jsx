@@ -10,6 +10,7 @@ import useDocumentMeta from '../utils/useDocumentMeta';
 
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
+import NotificationsBell from '../components/NotificationsBell';
 
 const moodList = Object.values(MOODS);
 
@@ -95,21 +96,24 @@ export default function MoodSelector() {
         />
       )}
 
-      {/* Profil butonu — sağ üst */}
-      <button
-        onClick={() => navigate('/profil')}
-        title={user ? 'Profilim' : 'Giriş Yap'}
-        className="fixed top-4 right-4 z-50 flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
-      >
-        <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
-          {user?.picture
-            ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            : <User size={14} className="text-amber/60" />}
-        </span>
-        <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">
-          {user?.username || user?.name || 'Giriş Yap'}
-        </span>
-      </button>
+      {/* Bildirim zili + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz, mobilde rahat tıklanır. */}
+      <div className="fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
+        {user && <NotificationsBell />}
+        <button
+          onClick={() => navigate('/profil')}
+          title={user ? 'Profilim' : 'Giriş Yap'}
+          className="flex items-center gap-2 pl-2 pr-3 py-1.5 min-h-[40px] rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
+        >
+          <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
+            {user?.picture
+              ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              : <User size={14} className="text-amber/60" />}
+          </span>
+          <span className="font-sans text-[10px] font-semibold text-ivory/50 hidden sm:inline">
+            {user?.username || user?.name || 'Giriş Yap'}
+          </span>
+        </button>
+      </div>
 
       {/* ═══ İçerik ═══ */}
       <div className="relative z-20 container mx-auto px-4 sm:px-6 py-8 sm:py-10 flex flex-col items-center min-h-screen pb-nav">

@@ -45,8 +45,9 @@ function removeSplashStyles() {
 function prewarmEndpoints() {
   const base = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE_URL || '');
   return Promise.allSettled([
-    fetch(`${base}/api/moods/config`).catch(() => {}),
-    fetch(`${base}/api/search/status`).catch(() => {}),
+    // Render cold-start'ı uyandır + DB katmanını ısıt. Var olan endpoint'ler (200).
+    fetch(`${base}/api/health`).catch(() => {}),
+    fetch(`${base}/api/repository/stats`).catch(() => {}),
   ]);
 }
 
