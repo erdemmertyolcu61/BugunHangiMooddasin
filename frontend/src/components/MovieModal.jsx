@@ -2,7 +2,7 @@
  * MovieModal — paper-tone detail card with vinyl catalog feel.
  */
 import { useState, useEffect } from 'react';
-import { analyzeMovie } from '../services/api';
+import { analyzeMovie, proxyImageUrl } from '../services/api';
 import MoodBadge from './MoodBadge';
 
 export default function MovieModal({ movie, onClose }) {
@@ -35,7 +35,7 @@ export default function MovieModal({ movie, onClose }) {
         <div className="grid gap-8 p-8 md:grid-cols-[260px_1fr]">
           <div className="sleeve aspect-[2/3] w-[260px] overflow-hidden rounded">
             {data.poster_url ? (
-              <img src={data.poster_url} alt={data.title} className="h-full w-full object-cover" />
+              <img src={proxyImageUrl(data.poster_url)} alt={data.title} className="h-full w-full object-cover" />
             ) : (
               <div className="grid h-full w-full place-items-center bg-ink-soft text-4xl text-paper-cream">🎬</div>
             )}

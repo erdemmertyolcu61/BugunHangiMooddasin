@@ -4,6 +4,7 @@ import {
   Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon, Send, RotateCcw,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
+import { proxyImageUrl } from '../../services/api';
 import LottieAnimation from '../LottieAnimation';
 
 const sanitize = (str) =>
@@ -261,7 +262,7 @@ export default function ProfileSocial({
                       className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden">
                       <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
                         {s.poster_url
-                          ? <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
+                          ? <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col gap-1">
@@ -316,7 +317,7 @@ export default function ProfileSocial({
                     className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
                     <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
                       {s.poster_url
-                        ? <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
+                        ? <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>}
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col gap-1">

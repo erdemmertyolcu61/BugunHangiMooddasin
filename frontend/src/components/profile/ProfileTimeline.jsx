@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { proxyImageUrl } from '../../services/api';
 
 const MOOD_DOT_COLORS = {
   battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
@@ -56,7 +57,7 @@ export default function ProfileTimeline({ recentWatched = [], topMoods = [] }) {
 
                 {movie.poster_url && (
                   <div className="w-8 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
-                    <img src={movie.poster_url} alt="" className="w-full h-full object-cover" />
+                    <img src={proxyImageUrl(movie.poster_url)} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
 

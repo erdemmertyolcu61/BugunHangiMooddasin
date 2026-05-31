@@ -1,6 +1,7 @@
 /**
  * Hero — weekly editor's pick spotlight.
  */
+import { proxyImageUrl } from '../services/api';
 import MoodBadge from './MoodBadge';
 
 export default function Hero({ movie, onOpen }) {
@@ -16,7 +17,7 @@ export default function Hero({ movie, onOpen }) {
           style={{ transform: 'rotate(-1.5deg)' }}
         >
           {movie.poster_url ? (
-            <img src={movie.poster_url} alt={movie.title} className="h-full w-full object-cover" />
+            <img src={proxyImageUrl(movie.poster_url)} alt={movie.title} className="h-full w-full object-cover" />
           ) : (
             <div className="grid h-full w-full place-items-center bg-ink-soft text-4xl text-paper-cream">🎬</div>
           )}

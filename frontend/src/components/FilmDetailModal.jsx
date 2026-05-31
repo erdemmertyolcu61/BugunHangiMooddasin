@@ -310,7 +310,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                                 boxShadow: `0 2px 10px ${brand}26`,
                               }}
                             >
-                              {p.logo_url && <img src={p.logo_url} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
+                              {p.logo_url && <img src={proxyImageUrl(p.logo_url)} alt={p.provider_name} className="w-6 h-6 rounded object-contain" />}
                               <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: brand }}>{p.provider_name}</span>
                               <span className="text-[8px] uppercase tracking-widest text-ivory/45">{p.tag}</span>
                               <ExternalLink size={11} style={{ color: brand }} />

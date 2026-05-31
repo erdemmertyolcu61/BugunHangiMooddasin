@@ -5,7 +5,7 @@ import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-re
 import { useAuth } from '../context/AuthContext';
 import {
   getShares, getUnreadShareCount, markSharesRead,
-  getFriendRequests, respondFriendRequest,
+  getFriendRequests, respondFriendRequest, proxyImageUrl,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
 import LottieAnimation from './LottieAnimation';
@@ -304,7 +304,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                           >
                             <div className="w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/10">
                               {s.poster_url ? (
-                                <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
+                                <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>
                               )}
