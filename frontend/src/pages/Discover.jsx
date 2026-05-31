@@ -804,8 +804,8 @@ export default function Discover() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          <div ref={filmSectionRef} className="flex items-end justify-between flex-wrap gap-3 sm:gap-4">
-            <div>
+          <div ref={filmSectionRef} className="flex items-start sm:items-end justify-start flex-wrap gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1">
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tighter">
                 {searchResults !== null
                   ? (searchLoading ? 'Üstad arşivde bakınıyor...' : `"${searchQuery}" Seçkisi`)
@@ -819,18 +819,18 @@ export default function Discover() {
             </div>
             {/* Sort controls - custom dropdown */}
             {searchResults === null && (
-              <div className="relative" ref={sortRef}>
+              <div className="relative ml-auto" ref={sortRef}>
                 <button
                   onClick={() => setSortOpen(!sortOpen)}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-amber-400/45 bg-black/45 backdrop-blur-sm text-amber-100/80 hover:text-amber-50 hover:border-amber-300/60 hover:bg-amber-950/20 transition-all text-[10px] font-bold uppercase tracking-[0.14em] focus:outline-none focus:ring-2 focus:ring-amber-400/30 shadow-[0_0_20px_rgba(245,158,11,0.08)]"
                 >
-                  <ArrowUpDown size={13} className="text-amber-400/60" />
-                  {SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Önerilen'}
-                  <ChevronRight size={12} className={`text-amber-400/50 transition-transform duration-200 ${sortOpen ? 'rotate-90' : ''}`} />
+                  <ArrowUpDown size={13} className="text-amber-400/60 shrink-0" />
+                  <span className="truncate max-w-[100px] sm:max-w-none">{SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Önerilen'}</span>
+                  <ChevronRight size={12} className={`text-amber-400/50 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-90' : ''}`} />
                 </button>
 
                 {sortOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-60 sm:w-64 max-w-[90vw] overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-md shadow-2xl shadow-black/50">
+                  <div className="absolute right-0 z-50 mt-2 w-60 sm:w-64 overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-md shadow-2xl shadow-black/50">
                     {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
