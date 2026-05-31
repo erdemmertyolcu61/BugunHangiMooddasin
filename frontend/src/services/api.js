@@ -530,6 +530,18 @@ export async function getShares() {
   return res.json();
 }
 
+export async function retractRecommendation(recId) {
+  const res = await fetch(`${BASE}/movies/recommend/${recId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Geri alınamadı');
+  }
+  return res.json();
+}
+
 export async function getRecommendationHistory() {
   try {
     const res = await fetch(`${BASE}/notifications/recommendations`, { headers: { ...authHeaders() } });

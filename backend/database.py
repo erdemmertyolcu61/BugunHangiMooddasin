@@ -1020,6 +1020,16 @@ class MovieCache:
             row = await cur.fetchone()
             return row[0] if row else 0
 
+    async def delete_sent_recommendation(self, rec_id: int, sender_id: int) -> bool:
+        """Gönderdiğim bir öneriyi geri al (yalnız gönderen silebilir)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "DELETE FROM direct_recommendations WHERE id = ? AND sender_id = ?",
+                (rec_id, sender_id),
+            )
+            await db.commit()
+            return cur.rowcount > 0
+
     async def get_received_recommendations(self, user_id: int, limit: int = 60) -> list:
         """Bana gelen TÜM öneriler (okunmuş dahil) — profilde kalıcı liste için."""
         async with _get_connection(self.db_path, user_data=True) as db:

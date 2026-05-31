@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon, Send,
+  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon, Send, RotateCcw,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import LottieAnimation from '../LottieAnimation';
@@ -22,8 +22,10 @@ export default function ProfileSocial({
   onRespondRequest,
   onRemoveFriend,
   onAddFriend,
+  onRetractSent,
   onDetailMovie,
 }) {
+  const [retractingId, setRetractingId] = useState(null);
   const [activeTab, setActiveTab] = useState('friends');
   const [shareDir, setShareDir] = useState('received'); // received | sent
   const [addUsername, setAddUsername] = useState('');
@@ -247,13 +249,17 @@ export default function ProfileSocial({
               {/* ── GÖNDERDİĞİM ── */}
               {shareDir === 'sent' ? (
                 sent.length === 0 ? (
-                  <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
+                  <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-2">
+                    <LottieAnimation path="/lottie/film-reel.json" className="w-14 h-14 mx-auto opacity-50" speed={0.7} />
                     <p className="font-serif text-sm italic text-ivory/65">Henüz arkadaşına film önermedin.</p>
                   </div>
                 ) : (
-                  sent.map(s => (
-                    <motion.div key={`sent-${s.id}`} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
+                  <AnimatePresence initial={false}>
+                  {sent.map(s => (
+                    <motion.div key={`sent-${s.id}`} layout
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -40, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
+                      className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden">
                       <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
                         {s.poster_url
                           ? <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
@@ -276,19 +282,31 @@ export default function ProfileSocial({
                             &ldquo;{sanitize(s.user_note)}&rdquo;
                           </p>
                         )}
-                        <button
-                          onClick={() => onDetailMovie({
-                            id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
-                            vote_average: s.vote_average, release_date: s.release_date,
-                          })}
-                          className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
-                            bg-white/5 border border-amber/20 text-amber text-[10px] font-bold uppercase tracking-wider
-                            hover:bg-amber/10 transition-all active:scale-95">
-                          <Play size={10} /> Filme Bak
-                        </button>
+                        <div className="mt-auto flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => onDetailMovie({
+                              id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
+                              vote_average: s.vote_average, release_date: s.release_date,
+                            })}
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
+                              bg-white/5 border border-amber/20 text-amber text-[10px] font-bold uppercase tracking-wider
+                              hover:bg-amber/10 transition-all active:scale-95">
+                            <Play size={10} /> Filme Bak
+                          </button>
+                          <button
+                            disabled={retractingId === s.id}
+                            onClick={() => { setRetractingId(s.id); onRetractSent?.(s.id); }}
+                            title="Bu öneriyi geri al"
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
+                              bg-white/5 border border-rose-400/25 text-rose-300/80 text-[10px] font-bold uppercase tracking-wider
+                              hover:bg-rose-500/10 hover:text-rose-300 transition-all active:scale-95 disabled:opacity-50">
+                            <RotateCcw size={10} className={retractingId === s.id ? 'animate-spin' : ''} /> Geri Al
+                          </button>
+                        </div>
                       </div>
                     </motion.div>
-                  ))
+                  ))}
+                  </AnimatePresence>
                 )
               ) : shares.length === 0 ? (
                 <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">

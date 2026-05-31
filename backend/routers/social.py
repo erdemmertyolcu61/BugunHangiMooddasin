@@ -206,6 +206,15 @@ async def get_shares(user: dict = Depends(get_current_user)):
     return {"shares": shares, "unread_count": len(shares)}
 
 
+@router.delete("/movies/recommend/{rec_id}")
+async def retract_recommendation(rec_id: int, user: dict = Depends(get_current_user)):
+    """Gönderdiğim film önerisini geri al."""
+    ok = await cache.delete_sent_recommendation(rec_id, user["user_id"])
+    if not ok:
+        raise HTTPException(status_code=404, detail="Öneri bulunamadı veya sana ait değil.")
+    return {"ok": True}
+
+
 @router.get("/notifications/recommendations")
 async def get_recommendation_history(user: dict = Depends(get_current_user)):
     """Profil için kalıcı öneri geçmişi: gelen (okunsa da kaybolmaz) + gönderilen."""

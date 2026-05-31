@@ -18,7 +18,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
-  markSharesRead, getRecommendationHistory, getMe,
+  markSharesRead, getRecommendationHistory, retractRecommendation, getMe,
 } from '../services/api';
 import { resolveAvatarUrl, getApiUrl } from '../utils/apiConfig';
 import useDocumentMeta from '../utils/useDocumentMeta';
@@ -30,7 +30,6 @@ import EditProfileModal from '../components/EditProfileModal';
 import ShareButtons from '../components/ShareButtons';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
-import ProfileTasteMap from '../components/profile/ProfileTasteMap';
 import ProfileTimeline from '../components/profile/ProfileTimeline';
 import ProfileSocial from '../components/profile/ProfileSocial';
 import ProfileSettings from '../components/profile/ProfileSettings';
@@ -96,7 +95,7 @@ export default function Profil() {
   const [detailMovie, setDetailMovie] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
-  const [profileTab, setProfileTab] = useState('taste');
+  const [profileTab, setProfileTab] = useState('profile');
   const pollRef = useRef(null);
 
   /* ─── Fetch social on mount ────────────────────────────────────── */
@@ -178,6 +177,16 @@ export default function Profil() {
       setFriends(prev => prev.filter(f => f.id !== friendId));
     } catch (err) {
       setSocialError(err?.message || 'Arkadaş silinemedi.');
+    }
+  }, []);
+
+  const handleRetractSent = useCallback(async (recId) => {
+    try {
+      setSocialError('');
+      await retractRecommendation(recId);
+      setSentShares(prev => prev.filter(s => s.id !== recId));
+    } catch (err) {
+      setSocialError(err?.message || 'Öneri geri alınamadı.');
     }
   }, []);
 
@@ -395,8 +404,8 @@ export default function Profil() {
           transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}>
           <div className="flex gap-1 p-1 rounded-full bg-[#1c1512]/90 border border-white/[0.06]">
             {[
-              { id: 'taste', label: 'Zevk Haritam', short: 'Zevk', icon: Brain },
-              { id: 'social', label: 'Sosyal', short: 'Sosyal', icon: Users },
+              { id: 'profile', label: 'Profil', short: 'Profil', icon: User },
+              { id: 'social', label: 'Arkadaşlar', short: 'Arkadaşlar', icon: Users },
               { id: 'settings', label: 'Ayarlar', short: 'Ayarlar', icon: Settings },
             ].map(tab => (
               <button key={tab.id}
@@ -415,14 +424,8 @@ export default function Profil() {
         </motion.div>
 
         {/* ─── Tab Content ─── */}
-        {profileTab === 'taste' && (
+        {profileTab === 'profile' && (
           <>
-            <ProfileTasteMap
-              tasteMap={tasteMap}
-              loading={loading}
-              username={displayName}
-              profileUrl={profileUrl}
-            />
             {!loading && <ProfileTimeline recentWatched={recentWatched} topMoods={topMoods} />}
           </>
         )}
@@ -441,6 +444,7 @@ export default function Profil() {
                 onRespondRequest={handleRespondRequest}
                 onRemoveFriend={handleRemoveFriend}
                 onAddFriend={handleAddFriend}
+                onRetractSent={handleRetractSent}
                 onDetailMovie={setDetailMovie}
               />
             </div>
