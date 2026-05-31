@@ -172,6 +172,9 @@ export default function EditProfileModal({ onClose, onSaved }) {
             >
               Fotograf Degistir
             </button>
+            <p className="text-[11px] text-ivory/40 theme-light:text-black/40">
+              JPG, PNG veya WebP · en fazla 5MB
+            </p>
             <input
               ref={fileInputRef}
               type="file"

@@ -12,6 +12,7 @@ import base64
 import logging
 import os
 import re
+import time
 import uuid
 from typing import Optional
 
@@ -311,8 +312,9 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
     # BLOB olarak DB'ye kaydet (filesystem kullanma)
     await cache.update_user_avatar_data(uid, raw)
 
-    # URL: /api/users/{id}/avatar endpoint'i üzerinden servis edilecek
-    picture_url = f"/api/users/{uid}/avatar"
+    # URL: /api/users/{id}/avatar endpoint'i üzerinden servis edilir.
+    # Sürüm parametresi (?v=ts) immutable cache'i kırar → yeni foto anında görünür.
+    picture_url = f"/api/users/{uid}/avatar?v={int(time.time())}"
     await cache.update_user_picture(uid, picture_url)
 
     return {"ok": True, "picture": picture_url}
@@ -364,8 +366,8 @@ async def get_public_profile(username: str):
     except Exception:
         pass
 
-    # Avatar URL
-    avatar_url = f"/api/users/{uid}/avatar" if user_info.get("picture") else ""
+    # Avatar URL — saklı picture'ı (sürümlü /api/.../avatar?v= veya Google URL) doğrudan kullan
+    avatar_url = user_info.get("picture") or ""
 
     return {
         "id": uid,
