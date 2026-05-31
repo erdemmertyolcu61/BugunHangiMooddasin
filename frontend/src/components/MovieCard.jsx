@@ -55,8 +55,8 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
           </div>
         )}
 
-        {/* Hızlı Eylem Butonları — enine yayvan, tappable */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-1.5 sm:gap-3 p-2 sm:p-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-1 sm:group-hover:translate-y-0">
+        {/* Hızlı Eylem Butonları — web'de hover overlay, mobilde afiş altında */}
+        <div className="hidden sm:flex absolute bottom-0 left-0 right-0 z-10 items-center gap-1.5 sm:gap-3 p-2 sm:p-3 opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 sm:translate-y-1 sm:group-hover:translate-y-0">
           <button
             onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
             aria-label={isSaved ? `${movie.title} defterden çıkar` : `${movie.title} deftere ekle`}
@@ -89,7 +89,38 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
           </button>
         </div>
       </div>
-      <div className="mt-3 sm:mt-5 px-1 sm:px-4">
+
+      {/* Mobil: butonlar afişin altında */}
+      <div className="sm:hidden flex items-center gap-1.5 mt-2 px-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider border transition-colors duration-200 active:scale-95 min-w-0
+            ${isSaved
+              ? 'bg-amber/90 border-amber/60 text-black'
+              : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
+            }`}
+        >
+          {isSaved
+            ? <><Check size={11} className="shrink-0" /> Eklendi</>
+            : <><BookmarkPlus size={11} className="shrink-0" /> Deftere</>
+          }
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider border transition-colors duration-200 active:scale-95 min-w-0
+            ${isWatched
+              ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+              : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
+            }`}
+        >
+          {isWatched
+            ? <><Check size={11} className="shrink-0" /> İzledim</>
+            : <><Eye size={11} className="shrink-0" /> İzledim</>
+          }
+        </button>
+      </div>
+
+      <div className="mt-2 sm:mt-5 px-1 sm:px-4">
         <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
           {movie.title}
         </h3>
