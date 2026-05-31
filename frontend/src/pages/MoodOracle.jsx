@@ -38,7 +38,10 @@ function hasPlayedToday() {
   try { return localStorage.getItem(DAILY_KEY) === todayStr(); } catch { return false; }
 }
 function markPlayedToday() {
-  try { localStorage.setItem(DAILY_KEY, todayStr()); } catch {}
+  try {
+    localStorage.setItem(DAILY_KEY, todayStr());
+    window.dispatchEvent(new Event('oracle-updated'));
+  } catch {}
 }
 
 export default function MoodOracle() {
