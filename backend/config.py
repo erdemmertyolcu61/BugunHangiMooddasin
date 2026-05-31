@@ -33,7 +33,7 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", "movie_cache.db")
 
 # ─── Frontend (kanonik SPA adresi) ───
 # Paylaşım/OG sayfaları crawler'a meta verir, insanı buraya yönlendirir.
-FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "https://sinemood.onrender.com").rstrip("/")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "https://bug-n-hangi-mooddas-n.vercel.app").rstrip("/")
 
 # ─── CORS ───
 _default_origins = "http://localhost:3005,http://localhost:5173,http://127.0.0.1:3005,http://127.0.0.1:5173,https://bug-n-hangi-mooddas-n.vercel.app"
