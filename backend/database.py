@@ -1020,6 +1020,40 @@ class MovieCache:
             row = await cur.fetchone()
             return row[0] if row else 0
 
+    async def get_received_recommendations(self, user_id: int, limit: int = 60) -> list:
+        """Bana gelen TÜM öneriler (okunmuş dahil) — profilde kalıcı liste için."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT d.id, d.movie_id, d.user_note, d.created_at, d.is_read,
+                          u.id, u.username, u.name, u.picture
+                   FROM direct_recommendations d JOIN users u ON u.id = d.sender_id
+                   WHERE d.receiver_id = ?
+                   ORDER BY d.created_at DESC LIMIT ?""",
+                (user_id, limit),
+            )
+            rows = await cur.fetchall()
+            return [{"id": r[0], "movie_id": r[1], "user_note": r[2], "created_at": r[3],
+                     "is_read": bool(r[4]),
+                     "sender": {"id": r[5], "username": r[6], "name": r[7], "avatar": r[8]}}
+                    for r in rows]
+
+    async def get_sent_recommendations(self, user_id: int, limit: int = 60) -> list:
+        """Benim arkadaşlarıma gönderdiğim TÜM öneriler — profilde kalıcı liste için."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT d.id, d.movie_id, d.user_note, d.created_at, d.is_read,
+                          u.id, u.username, u.name, u.picture
+                   FROM direct_recommendations d JOIN users u ON u.id = d.receiver_id
+                   WHERE d.sender_id = ?
+                   ORDER BY d.created_at DESC LIMIT ?""",
+                (user_id, limit),
+            )
+            rows = await cur.fetchall()
+            return [{"id": r[0], "movie_id": r[1], "user_note": r[2], "created_at": r[3],
+                     "is_read": bool(r[4]),
+                     "receiver": {"id": r[5], "username": r[6], "name": r[7], "avatar": r[8]}}
+                    for r in rows]
+
     async def count_pending_requests(self, user_id: int) -> int:
         """Bana gelen bekleyen arkadaşlık isteklerinin sayısı."""
         async with _get_connection(self.db_path, user_data=True) as db:

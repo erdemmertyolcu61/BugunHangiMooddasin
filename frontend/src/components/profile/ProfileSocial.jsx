@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon,
+  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon, Send,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import LottieAnimation from '../LottieAnimation';
@@ -16,6 +16,7 @@ export default function ProfileSocial({
   friends = [],
   requests = [],
   shares = [],
+  sent = [],
   socialLoading = false,
   socialError = '',
   onRespondRequest,
@@ -24,6 +25,7 @@ export default function ProfileSocial({
   onDetailMovie,
 }) {
   const [activeTab, setActiveTab] = useState('friends');
+  const [shareDir, setShareDir] = useState('received'); // received | sent
   const [addUsername, setAddUsername] = useState('');
   const [addMsg, setAddMsg] = useState(null);
   const [addBusy, setAddBusy] = useState(false);
@@ -61,7 +63,7 @@ export default function ProfileSocial({
   const tabs = [
     { id: 'friends', label: 'Arkadaşlar', icon: Users, count: friends.length },
     { id: 'requests', label: 'İstekler', icon: UserPlus, count: requests.length },
-    { id: 'shares', label: 'Öneriler', icon: Bell, count: shares.length },
+    { id: 'shares', label: 'Öneriler', icon: Bell, count: shares.length + sent.length },
   ];
 
   return (
@@ -226,7 +228,69 @@ export default function ProfileSocial({
           {/* ─── SHARES TAB ─── */}
           {activeTab === 'shares' && (
             <div className="space-y-2.5">
-              {shares.length === 0 ? (
+              {/* Gelen / Gönderdiğim alt-toggle */}
+              <div className="flex gap-1 p-1 rounded-full bg-[#221913]/80 border border-white/[0.05] w-full max-w-[280px] mx-auto">
+                {[
+                  { id: 'received', label: 'Gelen', n: shares.length },
+                  { id: 'sent', label: 'Gönderdiğim', n: sent.length },
+                ].map(d => (
+                  <button key={d.id} onClick={() => setShareDir(d.id)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] transition-all ${
+                      shareDir === d.id ? 'bg-amber/15 text-amber border border-amber/20' : 'text-ivory/40 hover:text-ivory/60'
+                    }`}>
+                    {d.label}
+                    {d.n > 0 && <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${shareDir === d.id ? 'bg-amber/25 text-amber' : 'bg-white/10 text-ivory/40'}`}>{d.n}</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── GÖNDERDİĞİM ── */}
+              {shareDir === 'sent' ? (
+                sent.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
+                    <p className="font-serif text-sm italic text-ivory/65">Henüz arkadaşına film önermedin.</p>
+                  </div>
+                ) : (
+                  sent.map(s => (
+                    <motion.div key={`sent-${s.id}`} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
+                      <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
+                        {s.poster_url
+                          ? <img src={s.poster_url} alt={s.movie_title} className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 text-[12px]">
+                          <Send size={11} className="text-amber/70 shrink-0" />
+                          <span className="text-ivory/45">Önerdiğin:</span>
+                          {s.receiver?.avatar && (
+                            <img src={resolveAvatarUrl(s.receiver.avatar)} alt="" className="w-4 h-4 rounded-full object-cover" referrerPolicy="no-referrer" />
+                          )}
+                          <span className="text-amber/75 font-semibold truncate">@{s.receiver?.username || s.receiver?.name || 'arkadaş'}</span>
+                        </div>
+                        <h4 className="text-[15px] font-serif font-bold text-ivory line-clamp-1">
+                          {s.movie_title || `Film #${s.movie_id}`}
+                        </h4>
+                        {s.user_note && (
+                          <p className="text-[13px] font-serif italic text-white/65 line-clamp-3 leading-relaxed">
+                            &ldquo;{sanitize(s.user_note)}&rdquo;
+                          </p>
+                        )}
+                        <button
+                          onClick={() => onDetailMovie({
+                            id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
+                            vote_average: s.vote_average, release_date: s.release_date,
+                          })}
+                          className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
+                            bg-white/5 border border-amber/20 text-amber text-[10px] font-bold uppercase tracking-wider
+                            hover:bg-amber/10 transition-all active:scale-95">
+                          <Play size={10} /> Filme Bak
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))
+                )
+              ) : shares.length === 0 ? (
                 <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
                   <p className="font-serif text-sm italic text-ivory/65">Henüz gelen öneri yok.</p>
                 </div>

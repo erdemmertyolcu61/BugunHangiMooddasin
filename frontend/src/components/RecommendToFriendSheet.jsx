@@ -4,6 +4,7 @@ import { Search, Send, Check, X, Users, UserPlus, Sparkles } from 'lucide-react'
 import { getFriends, recommendMovieToFriend, sendFriendRequest } from '../services/api';
 import { resolveAvatarUrl } from '../utils/apiConfig';
 import OptimizedImage from './OptimizedImage';
+import LottieAnimation from './LottieAnimation';
 
 /**
  * Arkadaşına Öner — aşağıdan yukarı süzülen Bottom Sheet.
@@ -138,20 +139,32 @@ export default function RecommendToFriendSheet({ movie, onClose }) {
         {/* Gönderildi durumu */}
         {sent ? (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center gap-4 py-16 px-6 text-center"
+            className="relative flex flex-col items-center justify-center gap-3 py-14 px-6 text-center overflow-hidden"
           >
-            <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-              className="text-5xl"
+            {/* Yumuşak altın hâle */}
+            <div className="pointer-events-none absolute inset-0 opacity-60"
+              style={{ background: 'radial-gradient(circle at 50% 38%, rgba(255,191,0,0.16), transparent 60%)' }} />
+            <LottieAnimation
+              path="/lottie/success-check.json"
+              loop={false}
+              className="w-28 h-28"
+            />
+            <motion.p
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+              className="text-[19px] font-serif font-bold text-[#f5f2eb]"
             >
-              🕊️
-            </motion.div>
-            <p className="text-xl font-serif italic text-[#d4af37]">
-              Öneri Üstadın Güverciniyle Gönderildi! ✨
-            </p>
+              Öneri yola çıktı
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+              className="text-[13px] text-ivory/55 max-w-[260px] leading-relaxed"
+            >
+              <span className="text-amber/90 font-semibold">{movie?.title}</span>{' '}
+              {selected.size > 1 ? `${selected.size} arkadaşına` : 'arkadaşına'} iletildi.
+              Profilinden takip edebilirsin.
+            </motion.p>
           </motion.div>
         ) : (
           <>

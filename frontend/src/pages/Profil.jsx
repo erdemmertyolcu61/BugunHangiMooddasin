@@ -18,7 +18,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
-  getShares, markSharesRead, getMe,
+  markSharesRead, getRecommendationHistory, getMe,
 } from '../services/api';
 import { resolveAvatarUrl, getApiUrl } from '../utils/apiConfig';
 import useDocumentMeta from '../utils/useDocumentMeta';
@@ -91,6 +91,7 @@ export default function Profil() {
 
   /* ─── Shares ───────────────────────────────────────────────────── */
   const [shares, setShares] = useState([]);
+  const [sentShares, setSentShares] = useState([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [detailMovie, setDetailMovie] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -105,16 +106,18 @@ export default function Profil() {
     (async () => {
       try {
         setSocialError('');
-        const [fr, rq, sh] = await Promise.all([
+        const [fr, rq, hist] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
-          getShares().catch(() => ({ shares: [] })),
+          getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
         ]);
         if (alive) {
           setFriends(fr.friends || []);
           setRequests(rq.requests || []);
-          setShares(sh.shares || []);
-          if ((sh.shares || []).length > 0) markSharesRead().catch(() => {});
+          setShares(hist.received || []);
+          setSentShares(hist.sent || []);
+          // Rozeti sıfırla ama listeden silme (kalıcı görünür kalsın)
+          if ((hist.received || []).some(s => !s.is_read)) markSharesRead().catch(() => {});
         }
       } finally {
         if (alive) { setSocialLoading(false); setSharesLoading(false); }
@@ -130,17 +133,16 @@ export default function Profil() {
       if (document.visibilityState !== 'visible') return;
       try {
         setSocialError('');
-        const [fr, rq, sh] = await Promise.all([
+        const [fr, rq, hist] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
-          getShares().catch(() => ({ shares: [] })),
+          getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
         ]);
         setFriends(fr.friends || []);
         setRequests(rq.requests || []);
-        if ((sh.shares || []).length > 0) {
-          setShares(sh.shares || []);
-          markSharesRead().catch(() => {});
-        }
+        setShares(hist.received || []);
+        setSentShares(hist.sent || []);
+        if ((hist.received || []).some(s => !s.is_read)) markSharesRead().catch(() => {});
       } catch {}
     };
     const onVisibilityChange = () => {
@@ -433,6 +435,7 @@ export default function Profil() {
                 friends={friends}
                 requests={requests}
                 shares={shares}
+                sent={sentShares}
                 socialLoading={socialLoading || sharesLoading}
                 socialError={socialError}
                 onRespondRequest={handleRespondRequest}

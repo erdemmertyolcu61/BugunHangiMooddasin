@@ -530,6 +530,16 @@ export async function getShares() {
   return res.json();
 }
 
+export async function getRecommendationHistory() {
+  try {
+    const res = await fetch(`${BASE}/notifications/recommendations`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { received: [], sent: [] };
+    return res.json();
+  } catch {
+    return { received: [], sent: [] };
+  }
+}
+
 export async function getUnreadShareCount() {
   try {
     const res = await fetch(`${BASE}/notifications/count`, { headers: { ...authHeaders() } });

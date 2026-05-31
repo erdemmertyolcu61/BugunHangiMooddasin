@@ -205,6 +205,23 @@ async def get_shares(user: dict = Depends(get_current_user)):
     return {"shares": shares, "unread_count": len(shares)}
 
 
+@router.get("/notifications/recommendations")
+async def get_recommendation_history(user: dict = Depends(get_current_user)):
+    """Profil için kalıcı öneri geçmişi: gelen (okunsa da kaybolmaz) + gönderilen."""
+    uid = user["user_id"]
+    received = await cache.get_received_recommendations(uid)
+    sent = await cache.get_sent_recommendations(uid)
+    movie_ids = list({s["movie_id"] for s in (received + sent)})
+    meta = await cache.get_movies_meta_by_ids(movie_ids) if movie_ids else {}
+    for s in (received + sent):
+        m = meta.get(s["movie_id"], {})
+        s["movie_title"] = m.get("title")
+        s["poster_url"] = m.get("poster_url")
+        s["vote_average"] = m.get("vote_average")
+        s["release_date"] = m.get("release_date")
+    return {"received": received, "sent": sent}
+
+
 @router.get("/notifications/count")
 async def unread_count(user: dict = Depends(get_current_user)):
     """Zil rozetini beslemek için toplam bildirim sayısı (film önerileri + arkadaşlık istekleri)."""
