@@ -91,7 +91,7 @@ export default function UpcomingSlider() {
 
   return (
     <section
-      className="relative w-full h-[180px] rounded-[2rem] overflow-hidden gurme-border bg-black/40 group cursor-grab active:cursor-grabbing select-none"
+      className="relative w-full h-[128px] sm:h-[180px] rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden gurme-border bg-black/40 group cursor-grab active:cursor-grabbing select-none"
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}
       onTouchStart={onTouchStart}
@@ -118,16 +118,16 @@ export default function UpcomingSlider() {
             }}
           />
 
-          <div className="relative z-10 w-[120px] sm:w-1/3 h-full px-3 sm:p-4 flex items-center justify-center shrink-0">
+          <div className="relative z-10 w-[92px] sm:w-1/3 h-full px-2.5 sm:p-4 flex items-center justify-center shrink-0">
             <img
               src={proxyImageUrl(film.poster_url)}
               alt={film.title}
-              className="h-[120px] sm:h-[140px] rounded-xl shadow-xl transform group-hover:scale-105 transition-transform duration-1000"
+              className="h-[88px] sm:h-[140px] rounded-lg sm:rounded-xl shadow-xl transform group-hover:scale-105 transition-transform duration-1000"
               draggable={false}
             />
           </div>
 
-          <div className="relative z-10 flex-1 min-w-0 pr-4 sm:p-6 space-y-2 sm:space-y-3">
+          <div className="relative z-10 flex-1 min-w-0 pr-4 sm:p-6 space-y-1 sm:space-y-3">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="px-2 py-0.5 bg-amber/20 border border-amber/40 text-amber text-[9px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
                 <Sparkles size={8} /> Yakında
@@ -136,10 +136,10 @@ export default function UpcomingSlider() {
                 <Calendar size={8} /> {formatDate(film.release_date)}
               </span>
             </div>
-            <h2 className="text-lg sm:text-2xl font-serif font-bold tracking-tight leading-tight line-clamp-2 pr-2">
+            <h2 className="text-base sm:text-2xl font-serif font-bold tracking-tight leading-tight line-clamp-2 pr-2">
               {film.title}
             </h2>
-            <p className="text-[13px] sm:text-sm font-serif italic text-amber/60 max-w-xl">
+            <p className="text-[12px] sm:text-sm font-serif italic text-amber/60 max-w-xl">
               Yakında bizlerle.
             </p>
           </div>
@@ -148,21 +148,26 @@ export default function UpcomingSlider() {
 
       {/* Pagination dots — mobilde minik + alta ortalı (elle kaydırılabiliyor),
           masaüstünde daha belirgin pill. Yazıların üstüne binmez. */}
-      <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 sm:left-auto sm:right-5 flex items-center justify-center sm:justify-end gap-1 sm:gap-2 z-20">
-        {upcoming.map((_, i) => (
-          <button
-            key={i}
-            onMouseDown={(e) => e.stopPropagation()}
-            onMouseUp={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
-            aria-label={`${i + 1}. filme git`}
-            className={`rounded-full transition-all duration-400
-              ${i === currentIndex
-                ? 'w-2 h-1 sm:w-7 sm:h-3 bg-amber sm:shadow-[0_0_8px_rgba(255,191,0,0.6)]'
-                : 'w-1 h-1 sm:w-3 sm:h-3 bg-white/25 hover:bg-white/50'
-              }`}
-          />
-        ))}
+      <div className="absolute bottom-2 sm:bottom-3 left-0 right-0 sm:left-auto sm:right-5 flex items-center justify-center sm:justify-end gap-1.5 z-20">
+        {upcoming.map((_, i) => {
+          const isActive = i === currentIndex;
+          return (
+            <button
+              key={i}
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); goTo(i, i > currentIndex ? 1 : -1); resetTimer(); }}
+              aria-label={`${i + 1}. filme git`}
+              className="rounded-full transition-all duration-300 shrink-0"
+              style={{
+                width: isActive ? 16 : 6,
+                height: 6,
+                backgroundColor: isActive ? '#ffbf00' : 'rgba(255,255,255,0.28)',
+                boxShadow: isActive ? '0 0 8px rgba(255,191,0,0.6)' : 'none',
+              }}
+            />
+          );
+        })}
       </div>
     </section>
   );

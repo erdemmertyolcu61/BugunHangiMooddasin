@@ -38,7 +38,7 @@ export default function BottomNav() {
       className="app-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-[90] bg-[#120d0b]/98 border-t border-white/10 pb-safe"
       aria-label="Ana menü"
     >
-      <div className="flex items-stretch justify-around px-2 pt-2 pb-1">
+      <div className="flex items-stretch px-1 pt-2 pb-1">
         {NAV_ITEMS.map((item) => {
           const active = item.match(path);
           const Icon = item.icon;
@@ -47,12 +47,12 @@ export default function BottomNav() {
               key={item.label}
               onClick={() => handlePress(item)}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 min-h-[52px] rounded-2xl transition-colors duration-300 ${
+              className={`flex flex-col items-center justify-center gap-1 flex-1 basis-0 min-w-0 min-h-[52px] px-0.5 rounded-2xl transition-colors duration-300 ${
                 active ? 'text-amber' : 'text-ivory/45 active:text-ivory/80'
               }`}
             >
-              <Icon size={21} strokeWidth={active ? 2.4 : 1.8} />
-              <span className="text-[9.5px] font-bold uppercase tracking-[0.02em] leading-none whitespace-nowrap">
+              <Icon size={20} strokeWidth={active ? 2.4 : 1.8} className="shrink-0" />
+              <span className="w-full text-center text-[8px] font-bold uppercase tracking-[0.01em] leading-[1.1] line-clamp-2 break-words">
                 {item.label}
               </span>
             </button>

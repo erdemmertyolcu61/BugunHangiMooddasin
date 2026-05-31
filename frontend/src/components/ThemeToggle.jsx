@@ -13,13 +13,11 @@ export default function ThemeToggle() {
   const { pathname } = useLocation();
   const isDark = theme === 'dark';
 
-  // Ana sayfada mobilde sol-ÜST (üst sol köşe boş). Diğer sayfalarda sol-alt
-  // (iç sayfaların sticky header'ındaki 'geri' butonuyla çakışmasın).
-  // Masaüstünde her zaman sol-alt.
+  // Yalnızca ana sayfada görünür (sol üst). İç sayfalarda gizli — tema oradan
+  // değil, Profil → Ayarlar'dan değiştirilir.
   const isHome = pathname === '/' || pathname === '/moodlar';
-  const posClass = isHome
-    ? 'top-4 md:top-auto md:bottom-6 mt-safe md:mt-0'
-    : 'bottom-[7.5rem] md:bottom-6 mb-safe md:mb-0';
+  if (!isHome) return null;
+  const posClass = 'top-4 md:top-auto md:bottom-6 mt-safe md:mt-0';
 
   return (
     <button
