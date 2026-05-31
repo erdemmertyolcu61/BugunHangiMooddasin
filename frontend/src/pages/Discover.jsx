@@ -830,7 +830,7 @@ export default function Discover() {
                 </button>
 
                 {sortOpen && (
-                  <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-md shadow-2xl shadow-black/50">
+                  <div className="absolute right-0 z-50 mt-2 w-60 sm:w-64 max-w-[90vw] overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-md shadow-2xl shadow-black/50">
                     {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}

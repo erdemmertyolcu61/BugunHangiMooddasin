@@ -90,33 +90,29 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         </div>
       </div>
 
-      {/* Mobil: butonlar afişin altında */}
-      <div className="sm:hidden flex items-center gap-1.5 mt-2 px-1">
+      {/* Mobil: ikon ibareler — sadece ikon, yazı yok */}
+      <div className="sm:hidden flex items-center gap-2 mt-2 px-1">
         <button
           onClick={(e) => { e.stopPropagation(); onQuickSave(movie); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider border transition-colors duration-200 active:scale-95 min-w-0
+          className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90
             ${isSaved
               ? 'bg-amber/90 border-amber/60 text-black'
-              : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
+              : 'bg-black/70 border-white/20 text-white/70 hover:bg-amber/80 hover:text-black hover:border-amber/50'
             }`}
+          title={isSaved ? 'Eklendi' : 'Deftere Ekle'}
         >
-          {isSaved
-            ? <><Check size={11} className="shrink-0" /> Eklendi</>
-            : <><BookmarkPlus size={11} className="shrink-0" /> Deftere</>
-          }
+          {isSaved ? <Check size={14} /> : <BookmarkPlus size={14} />}
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onQuickWatched(movie); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider border transition-colors duration-200 active:scale-95 min-w-0
+          className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90
             ${isWatched
               ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-              : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
+              : 'bg-black/70 border-white/20 text-white/70 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
             }`}
+          title={isWatched ? 'İzledim' : 'İzlemedim'}
         >
-          {isWatched
-            ? <><Check size={11} className="shrink-0" /> İzledim</>
-            : <><Eye size={11} className="shrink-0" /> İzledim</>
-          }
+          {isWatched ? <Check size={14} /> : <Eye size={14} />}
         </button>
       </div>
 
