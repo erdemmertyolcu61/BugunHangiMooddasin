@@ -10,7 +10,6 @@ import useDocumentMeta from '../utils/useDocumentMeta';
 
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
-import NotificationsBell from '../components/NotificationsBell';
 
 const moodList = Object.values(MOODS);
 
@@ -98,7 +97,6 @@ export default function MoodSelector() {
 
       {/* Bildirim zili + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz, mobilde rahat tıklanır. */}
       <div className="fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
-        {user && <NotificationsBell />}
         <button
           onClick={() => navigate('/profil')}
           title={user ? 'Profilim' : 'Giriş Yap'}
@@ -116,7 +114,7 @@ export default function MoodSelector() {
       </div>
 
       {/* ═══ İçerik ═══ */}
-      <div className="relative z-20 container mx-auto px-4 sm:px-6 py-8 sm:py-10 flex flex-col items-center min-h-screen pb-nav">
+      <div className="relative z-20 container mx-auto px-4 sm:px-6 pt-[calc(3.25rem+env(safe-area-inset-top))] pb-8 sm:pt-10 sm:pb-10 flex flex-col items-center min-h-screen pb-nav">
 
         {/* Header */}
         <motion.header
@@ -170,7 +168,7 @@ export default function MoodSelector() {
                     <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full blur-3xl transition-opacity duration-700 pointer-events-none hidden sm:block"
                       style={{ background: mood.accentHex, opacity: isHovered ? 0.18 : 0.04 }} />
 
-                    <div className="relative p-4 sm:p-7 flex flex-col min-h-[240px] sm:min-h-[310px] md:min-h-[340px]">
+                    <div className="relative p-4 sm:p-7 flex flex-col min-h-[215px] sm:min-h-[290px] md:min-h-[320px]">
 
                       {/* Icon box */}
                       <div className="mb-3 sm:mb-6">
