@@ -387,8 +387,13 @@ async def get_user_avatar(user_id: int):
     Kullanıcı avatar'ını DB'den okuyup image olarak döndür.
     Kimlik doğrulama gerekmez — herkese açık (sadece binary veri, kişisel veri yok).
     """
-    data = await cache.get_user_avatar_data(user_id)
+    try:
+        data = await cache.get_user_avatar_data(user_id)
+    except Exception:
+        logging.getLogger("social").exception("avatar read failed user_id=%s", user_id)
+        data = None
     if not data:
+        # 500 yerine 404: frontend <img> onError ile baş harfe düşer
         raise HTTPException(404, "Avatar bulunamadı.")
 
     # Magic bytes'a göre content-type belirle

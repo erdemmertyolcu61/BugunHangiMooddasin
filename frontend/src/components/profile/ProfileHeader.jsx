@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AtSign, CalendarDays } from 'lucide-react';
 
@@ -15,6 +15,10 @@ const formatDate = (iso) => {
  * Profile identity hero — avatar, name, username, join date, edit button.
  */
 export default function ProfileHeader({ user, avatar, displayName, initials, onEditProfile, isPublic = false }) {
+  const [imgError, setImgError] = useState(false);
+  // Avatar URL değişince hata durumunu sıfırla (yeni foto yüklenince tekrar dene)
+  useEffect(() => { setImgError(false); }, [avatar]);
+  const showImg = avatar && !imgError;
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -27,8 +31,9 @@ export default function ProfileHeader({ user, avatar, displayName, initials, onE
         <div className="w-28 h-28 rounded-full p-[3px]"
           style={{ background: 'conic-gradient(from 0deg, #ffbf00, #f59e0b, #d97706, #f59e0b, #ffbf00)' }}>
           <div className="w-full h-full rounded-full overflow-hidden bg-[#120d0b] flex items-center justify-center">
-            {avatar
-              ? <img src={avatar} alt={displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            {showImg
+              ? <img src={avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer"
+                  onError={() => setImgError(true)} />
               : <span className="font-serif text-4xl font-bold text-amber">{initials}</span>}
           </div>
         </div>

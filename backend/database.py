@@ -1130,15 +1130,31 @@ class MovieCache:
             await db.commit()
 
     async def get_user_avatar_data(self, user_id: int):
-        """Avatar binary verisini DB'den oku. Yoksa None döner."""
+        """Avatar binary verisini DB'den oku. Yoksa None döner.
+
+        Turso/SQLite blob'u bytes/memoryview döner; bazı kayıtlar (eski/karışık
+        yazımlar) TEXT (base64 veya data-URL) olabilir — hepsini bytes'a çevir.
+        """
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
                 "SELECT avatar_data FROM users WHERE id = ?", (user_id,)
             )
             row = await cur.fetchone()
-            if row and row[0]:
-                return bytes(row[0])
+        if not row or row[0] is None:
             return None
+        val = row[0]
+        if isinstance(val, (bytes, bytearray, memoryview)):
+            b = bytes(val)
+            return b or None
+        if isinstance(val, str):
+            if not val:
+                return None
+            s = val.split(",", 1)[1] if val.startswith("data:") and "," in val else val
+            try:
+                return base64.b64decode(s)
+            except Exception:
+                return s.encode("latin-1", "ignore") or None
+        return None
 
     async def remove_friend(self, user_id: int, friend_id: int) -> bool:
         """ACCEPTED arkadaşlık kaydını sil (iki yönlü kontrol)."""
