@@ -31,41 +31,56 @@ export default function EditProfileModal({ onClose, onSaved }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Dosya boyutu 5MB\'dan kucuk olmali.');
+    // Tip kontrolü gevşek: bazı cihazlarda (iPhone HEIC vb.) file.type boş gelebilir.
+    if (file.type && !file.type.startsWith('image/')) {
+      setError('Sadece resim dosyaları yükleyebilirsin.');
       return;
     }
 
-    if (!file.type.startsWith('image/')) {
-      setError('Sadece resim dosyalari yuklenebilir.');
+    // Orijinal boyut sınırı YOK: zaten 400x400'e küçültüp tekrar sıkıştırıyoruz.
+    // Sadece çok aşırı dosyalarda (telefon belleğini zorlamamak için) üst sınır.
+    if (file.size > 40 * 1024 * 1024) {
+      setError('Görsel çok büyük (40MB+). Daha küçük bir fotoğraf seç.');
       return;
     }
+
+    setError('');
 
     const reader = new FileReader();
+    reader.onerror = () => setError('Görsel okunamadı. Başka bir fotoğraf deneyin.');
     reader.onload = (ev) => {
       const img = new Image();
+      img.onerror = () => setError('Bu görsel biçimi açılamadı. JPEG veya PNG deneyin.');
       img.onload = () => {
-        // Canvas ile resize (max 400x400)
-        const canvas = document.createElement('canvas');
-        const maxSize = 400;
-        let w = img.width;
-        let h = img.height;
+        try {
+          // Canvas ile resize (max 400x400)
+          const canvas = document.createElement('canvas');
+          const maxSize = 400;
+          let w = img.width || maxSize;
+          let h = img.height || maxSize;
 
-        if (w > h) {
-          if (w > maxSize) { h = (h * maxSize) / w; w = maxSize; }
-        } else {
-          if (h > maxSize) { w = (w * maxSize) / h; h = maxSize; }
+          if (w > h) {
+            if (w > maxSize) { h = (h * maxSize) / w; w = maxSize; }
+          } else {
+            if (h > maxSize) { w = (w * maxSize) / h; h = maxSize; }
+          }
+
+          canvas.width = Math.round(w);
+          canvas.height = Math.round(h);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const base64 = canvas.toDataURL('image/jpeg', 0.85);
+          if (!base64 || base64.length < 100) {
+            setError('Görsel işlenemedi. Başka bir fotoğraf deneyin.');
+            return;
+          }
+          setAvatarPreview(base64);
+          setAvatarBase64(base64);
+          setError('');
+        } catch (_) {
+          setError('Görsel işlenemedi. Başka bir fotoğraf deneyin.');
         }
-
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-
-        const base64 = canvas.toDataURL('image/jpeg', 0.85);
-        setAvatarPreview(base64);
-        setAvatarBase64(base64);
-        setError('');
       };
       img.src = ev.target.result;
     };
@@ -173,12 +188,12 @@ export default function EditProfileModal({ onClose, onSaved }) {
               Fotograf Degistir
             </button>
             <p className="text-[11px] text-ivory/40 theme-light:text-black/40">
-              JPG, PNG veya WebP · en fazla 5MB
+              JPG, PNG, HEIC veya WebP · boyut farketmez, otomatik küçültülür
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*,.heic,.heif"
               className="hidden"
               onChange={handleFileSelect}
             />
