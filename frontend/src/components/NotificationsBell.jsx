@@ -232,12 +232,14 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                           disabled={pushBusy}
                           role="switch"
                           aria-checked={pushOn}
-                          className={`relative w-11 h-6 rounded-full shrink-0 transition-colors disabled:opacity-50 ${
-                            pushOn ? 'bg-amber' : 'bg-white/15'
+                          className={`relative w-12 h-7 rounded-full shrink-0 border transition-all duration-300 disabled:opacity-50 ${
+                            pushOn
+                              ? 'bg-amber border-amber/70 shadow-[0_0_12px_rgba(212,175,55,0.45)]'
+                              : 'bg-stone-500/55 border-stone-400/40'
                           }`}
                         >
-                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                            pushOn ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          <span className={`absolute top-[3px] w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out ${
+                            pushOn ? 'translate-x-[23px]' : 'translate-x-[3px]'
                           }`} />
                         </button>
                       ) : (
