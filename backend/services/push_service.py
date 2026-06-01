@@ -17,15 +17,20 @@ logger = logging.getLogger(__name__)
 PUSH_ENABLED = bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY)
 
 
-def _send_web_push(sub: dict, payload: dict) -> bool:
-    """Tek bir aboneliğe push gönderir. Başarılı → True; ölü/geçersiz abonelik → False."""
+def _send_web_push(sub: dict, payload: dict) -> str:
+    """Tek bir aboneliğe push gönderir.
+    Döner:
+      "ok"   → gönderildi
+      "gone" → abonelik kalıcı geçersiz (404/410) → çağıran SİLMELİ
+      "fail" → geçici/diğer hata (timeout, 429, 5xx, ağ) → abonelik KORUNMALI
+    """
     if not PUSH_ENABLED:
-        return False
+        return "fail"
     try:
         from pywebpush import webpush, WebPushException
     except Exception:
         logger.warning("[Push] pywebpush kurulu değil — bildirim atlanıyor")
-        return False
+        return "fail"
     try:
         webpush(
             subscription_info={
@@ -37,16 +42,17 @@ def _send_web_push(sub: dict, payload: dict) -> bool:
             vapid_claims={"sub": VAPID_SUBJECT},
             ttl=86400,
         )
-        return True
+        return "ok"
     except WebPushException as e:
         status = getattr(getattr(e, "response", None), "status_code", None)
         if status in (404, 410):
-            return False  # abonelik geçersiz → çağıran temizler
-        logger.warning("[Push] gönderim hatası: %s", e)
-        return False
+            return "gone"  # abonelik gerçekten geçersiz → çağıran temizler
+        # Diğer durumlar (401/403/429/5xx vb.) geçici olabilir → aboneliği SİLME
+        logger.warning("[Push] gönderim hatası (abonelik korunuyor): status=%s %s", status, e)
+        return "fail"
     except Exception as e:
-        logger.warning("[Push] beklenmeyen hata: %s", e)
-        return False
+        logger.warning("[Push] beklenmeyen hata (abonelik korunuyor): %s", e)
+        return "fail"
 
 
 async def send_push_to_user(user_id: int, title: str, body: str,
@@ -62,14 +68,15 @@ async def send_push_to_user(user_id: int, title: str, body: str,
     payload = {"title": title, "body": body, "url": url, "tag": tag}
     sent = 0
     for sub in subs:
-        ok = await asyncio.to_thread(_send_web_push, sub, payload)
-        if ok:
+        result = await asyncio.to_thread(_send_web_push, sub, payload)
+        if result == "ok":
             sent += 1
-        else:
+        elif result == "gone":
             try:
                 await cache.delete_push_subscription(sub["endpoint"])
             except Exception:
                 pass
+        # "fail": geçici hata → aboneliği KORU (silme)
     return sent
 
 
@@ -85,12 +92,13 @@ async def send_push_broadcast(title: str, body: str, url: str = "/", tag: str = 
     payload = {"title": title, "body": body, "url": url, "tag": tag}
     sent = 0
     for sub in subs:
-        ok = await asyncio.to_thread(_send_web_push, sub, payload)
-        if ok:
+        result = await asyncio.to_thread(_send_web_push, sub, payload)
+        if result == "ok":
             sent += 1
-        else:
+        elif result == "gone":
             try:
                 await cache.delete_push_subscription(sub["endpoint"])
             except Exception:
                 pass
+        # "fail": geçici hata → aboneliği KORU (silme)
     return sent

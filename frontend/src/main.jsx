@@ -29,6 +29,21 @@ if (new URLSearchParams(window.location.search).get('ref')) {
   } catch { /* sessizce geç */ }
 })();
 
+// ─── Kalıcı depolama isteği ───
+// Bazı tarayıcılarda (özellikle iOS Safari ITP) localStorage 7 gün
+// etkileşimsizlikte tahliye edilebilir → kullanıcı tekrar giriş yapmak zorunda kalır.
+// persist() best-effort; kurulu PWA'da genelde otomatik verilir. Tam çözüm native
+// secure storage (Capacitor) — bu yalnız hafifletme.
+(() => {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persisted().then((already) => {
+        if (!already) navigator.storage.persist().catch(() => {});
+      }).catch(() => {});
+    }
+  } catch { /* sessizce geç */ }
+})();
+
 // Eski deploy chunk'ı 404 verince (sekme uzun süre açık kalıp yeni deploy gelince)
 // sayfayı bir kez yenile — "Failed to fetch dynamically imported module" hatasını çözer.
 const RELOAD_FLAG = 'fc_chunk_reloaded';

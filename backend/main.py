@@ -709,6 +709,7 @@ def rate_limit_ai(request: Request):
 
 
 # ─── Beta Auth ───
+USER_TOKEN_HOURS = 24 * 90  # kullanıcı oturumu ~90 gün (kapat-aç sonrası re-login şikayetleri için)
 def _create_token(payload: dict, expires_hours: int = 24) -> str:
     payload["exp"] = datetime.utcnow() + timedelta(hours=expires_hours)
     return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
@@ -922,7 +923,7 @@ async def google_login(request: Request):
         except Exception as e:
             logger.warning("[Auth] referral kaydı başarısız (ref=%s): %s", ref_username, e)
 
-    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)  # 7 gün
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=USER_TOKEN_HOURS)
     return _auth_response({"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}, token)
 
 
@@ -959,7 +960,7 @@ async def dev_login():
     except Exception as e:
         logger.warning("[DevAuth] ensure_username failed: %s", e)
 
-    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=USER_TOKEN_HOURS)
     return _auth_response({"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}, token)
 
 
@@ -1024,7 +1025,7 @@ async def email_register(request: Request):
     except Exception as e:
         logger.warning("[EmailAuth] ensure_username failed for user_id=%s: %s", user_id, e)
 
-    token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=168)
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=USER_TOKEN_HOURS)
     return _auth_response({"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": "", "created_at": created_at}, "is_new": True}, token)
 
 
@@ -1053,7 +1054,7 @@ async def email_login(request: Request):
         raise HTTPException(status_code=401, detail="E-posta veya şifre hatalı")
 
     user_id, name, picture, _pw, created_at, username = row[0], row[1], row[2], row[3], row[4], row[5]
-    token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=168)
+    token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=USER_TOKEN_HOURS)
     return _auth_response({"token": token, "user": {"id": user_id, "username": username or "", "email": email, "name": name, "picture": picture or "", "created_at": created_at}, "is_new": False}, token)
 
 

@@ -14,6 +14,7 @@ import ThemeToggle from './components/ThemeToggle';
 import GamePeekTab from './components/GamePeekTab';
 import AuraBackground from './components/AuraBackground.jsx';
 import ConsentBanner from './components/ConsentBanner';
+import PushPrompt from './components/PushPrompt';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -138,6 +139,7 @@ function AppContent() {
       <ThemeToggle />
       <GamePeekTab />
       <AudioPlayer />
+      <PushPrompt />
 
       <Suspense fallback={<DiscoverSkeleton />}>
         <Routes>
