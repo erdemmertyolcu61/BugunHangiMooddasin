@@ -370,6 +370,7 @@ export default function Discover() {
   useEffect(() => {
     if (!selectedMovie?.id) { setRecommenders([]); return; }
     let active = true;
+    setRecommenders([]); // film değişince önceki filmin "Önerdin" durumu anında sıfırlansın
     getCommunityRecommendations(selectedMovie.id).then((d) => {
       if (active) setRecommenders(d.recommenders || []);
     });
@@ -592,6 +593,7 @@ export default function Discover() {
         <FilmDetailModal
           movieId={selectedMovie.id || selectedMovie.tmdb_id}
           initialMovie={selectedMovie}
+          onActiveChange={(m) => setSelectedMovie(m)}
           onClose={() => { setSelectedMovie(null); navigate(-1); }}
         />
       </div>
@@ -929,6 +931,7 @@ export default function Discover() {
         <FilmDetailModal
           movieId={selectedMovie.id || selectedMovie.tmdb_id}
           initialMovie={selectedMovie}
+          onActiveChange={(m) => setSelectedMovie(m)}
           onClose={() => setSelectedMovie(null)}
           headerBadge={recommenders.length > 0 ? (
             <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-amber/20 w-fit">

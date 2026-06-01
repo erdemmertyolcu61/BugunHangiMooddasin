@@ -47,7 +47,7 @@ const reliableRating = (m) => {
   return avg <= 9.0 ? avg.toFixed(1) : null;
 };
 
-export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null }) {
+export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null, onActiveChange = null }) {
   // Escape tuşuyla kapat
   const handleEsc = useCallback((e) => { if (e.key === 'Escape') onClose(); }, [onClose]);
   useEffect(() => { document.addEventListener('keydown', handleEsc); return () => document.removeEventListener('keydown', handleEsc); }, [handleEsc]);
@@ -327,7 +327,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                 })()}
 
                 {/* Benzer Filmler */}
-                <SimilarFilmsStrip movies={similar} onSelect={(m) => setActiveId(m.id)} />
+                <SimilarFilmsStrip movies={similar} onSelect={(m) => { setActiveId(m.id); onActiveChange?.(m); }} />
 
                 {/* Tek tip pill aksiyon satırı — eşit yükseklik, sarmalanmaz */}
                 <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3 pt-4">
