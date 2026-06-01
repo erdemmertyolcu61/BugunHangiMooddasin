@@ -6,6 +6,14 @@ const AUTH_KEY = 'fc_user_token';
 const USER_KEY = 'fc_user_info';
 const REF_KEY = 'fc_ref';
 
+// iOS PWA localStorage kaybına karşı cookie fallback
+function readCookie(key) {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch { return null; }
+}
+
 // Davet linkinden gelen ?ref=<username> değerini yakala ve sakla.
 // OAuth yönlendirmesi/yenilemeler arasında kaybolmaması için localStorage'a yazılır.
 // İlk gelişte (kayıt öncesi) çağrılır; başarılı YENİ kayıttan sonra temizlenir.
@@ -31,10 +39,24 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); }
-    catch { return null; }
+    let u = null;
+    try { u = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch {}
+    if (!u) {
+      const cookie = readCookie(USER_KEY);
+      if (cookie) {
+        try { u = JSON.parse(cookie); localStorage.setItem(USER_KEY, cookie); } catch {}
+      }
+    }
+    return u;
   });
-  const [token, setToken] = useState(() => localStorage.getItem(AUTH_KEY) || null);
+  const [token, setToken] = useState(() => {
+    let t = localStorage.getItem(AUTH_KEY);
+    if (!t) {
+      t = readCookie(AUTH_KEY);
+      if (t) localStorage.setItem(AUTH_KEY, t);
+    }
+    return t || null;
+  });
 
   // { ok: true } veya { ok: false, error: '...' } döndürür ki UI geri bildirim verebilsin.
   const login = useCallback(async (googleCredential) => {
@@ -137,12 +159,34 @@ export function AuthProvider({ children }) {
   const emailLogin = useCallback((email, password) => emailAuth('login', { email, password }), [emailAuth]);
   const emailRegister = useCallback((email, password, name) => emailAuth('register', { email, password, name }), [emailAuth]);
 
+  // Startup'ta token süresi dolmuşsa temizle
+  useEffect(() => {
+    if (!token) return;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) {
+        localStorage.removeItem(AUTH_KEY);
+        localStorage.removeItem(USER_KEY);
+        setToken(null);
+        setUser(null);
+      }
+    } catch {
+      // Geçersiz token → temizle
+      localStorage.removeItem(AUTH_KEY);
+      localStorage.removeItem(USER_KEY);
+      setToken(null);
+      setUser(null);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const logout = useCallback(() => {
     clearLocalUserData();
     setToken(null);
     setUser(null);
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(USER_KEY);
+    document.cookie = 'fc_user_token=; Max-Age=0; path=/; SameSite=Lax';
+    document.cookie = 'fc_user_info=; Max-Age=0; path=/; SameSite=Lax';
     window.__fc_user_token = null;
   }, []);
 
@@ -150,6 +194,9 @@ export function AuthProvider({ children }) {
     setUser((prev) => {
       const next = { ...prev, ...patch };
       localStorage.setItem(USER_KEY, JSON.stringify(next));
+      try {
+        document.cookie = `fc_user_info=${encodeURIComponent(JSON.stringify(next))}; Max-Age=604800; path=/; SameSite=Lax`;
+      } catch {}
       return next;
     });
   }, []);

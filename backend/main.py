@@ -32,7 +32,7 @@ from backend.services.search import SearchEngine
 from backend.services.taste_map import TasteMapEngine
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
 from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
@@ -721,6 +721,32 @@ def _verify_token(token: str) -> dict:
     except pyjwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+def _auth_response(data: dict, token: str):
+    """JSON yanıtı + kalıcı cookie'ler ile döndürür. iOS PWA localStorage kaybına karşı."""
+    import json as _json
+    resp = JSONResponse(data)
+    resp.set_cookie(
+        key="fc_user_token",
+        value=token,
+        max_age=604800,
+        path="/",
+        secure=IS_PRODUCTION,
+        httponly=False,
+        samesite="lax",
+    )
+    user_data = data.get("user")
+    if user_data:
+        resp.set_cookie(
+            key="fc_user_info",
+            value=_json.dumps(user_data),
+            max_age=604800,
+            path="/",
+            secure=IS_PRODUCTION,
+            httponly=False,
+            samesite="lax",
+        )
+    return resp
+
 def verify_beta(request: Request):
     """Verify beta access. In development mode, skip auth."""
     if not IS_PRODUCTION or not BETA_PASSWORD:
@@ -763,7 +789,8 @@ async def beta_login(request: Request):
     if not BETA_PASSWORD:
         raise HTTPException(status_code=403, detail="Beta erişim yapılandırılmamış")
     if password == BETA_PASSWORD:
-        return {"token": _create_token({"type": "beta"}, expires_hours=168), "expires_in": 604800}  # 7 gün
+        token = _create_token({"type": "beta"}, expires_hours=168)
+        return _auth_response({"token": token, "expires_in": 604800}, token)
     raise HTTPException(status_code=401, detail="Invalid beta password")
 
 @app.post("/api/auth/admin")
@@ -777,7 +804,8 @@ async def admin_login(request: Request):
     if not ADMIN_PASSWORD:
         raise HTTPException(status_code=403, detail="Admin access not configured")
     if password == ADMIN_PASSWORD:
-        return {"token": _create_token({"type": "admin"}, expires_hours=4), "expires_in": 14400}
+        token = _create_token({"type": "admin"}, expires_hours=4)
+        return _auth_response({"token": token, "expires_in": 14400}, token)
     raise HTTPException(status_code=401, detail="Invalid admin password")
 
 @app.post("/api/auth/google")
@@ -895,7 +923,7 @@ async def google_login(request: Request):
             logger.warning("[Auth] referral kaydı başarısız (ref=%s): %s", ref_username, e)
 
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)  # 7 gün
-    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}
+    return _auth_response({"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}, token)
 
 
 @app.post("/api/auth/dev-login")
@@ -932,7 +960,7 @@ async def dev_login():
         logger.warning("[DevAuth] ensure_username failed: %s", e)
 
     token = _create_token({"type": "user", "user_id": user_id, "google_id": google_id, "email": email}, expires_hours=168)
-    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}
+    return _auth_response({"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": picture, "created_at": created_at}, "is_new": is_new}, token)
 
 
 # ─── E-posta + Şifre Girişi (Google'dan bağımsız) ───────────────────────────
@@ -997,7 +1025,7 @@ async def email_register(request: Request):
         logger.warning("[EmailAuth] ensure_username failed for user_id=%s: %s", user_id, e)
 
     token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=168)
-    return {"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": "", "created_at": created_at}, "is_new": True}
+    return _auth_response({"token": token, "user": {"id": user_id, "username": username, "email": email, "name": name, "picture": "", "created_at": created_at}, "is_new": True}, token)
 
 
 @app.post("/api/auth/login")
@@ -1026,7 +1054,7 @@ async def email_login(request: Request):
 
     user_id, name, picture, _pw, created_at, username = row[0], row[1], row[2], row[3], row[4], row[5]
     token = _create_token({"type": "user", "user_id": user_id, "google_id": gid, "email": email}, expires_hours=168)
-    return {"token": token, "user": {"id": user_id, "username": username or "", "email": email, "name": name, "picture": picture or "", "created_at": created_at}, "is_new": False}
+    return _auth_response({"token": token, "user": {"id": user_id, "username": username or "", "email": email, "name": name, "picture": picture or "", "created_at": created_at}, "is_new": False}, token)
 
 
 @app.get("/api/admin/users", dependencies=[Depends(verify_admin)])
@@ -1065,21 +1093,28 @@ async def admin_warm_ustad(limit: int = Query(10, ge=1, le=50)):
 
 @app.get("/api/auth/verify")
 async def verify_token_endpoint(request: Request):
-    """Verify if a token is still valid."""
+    """Verify if a token is still valid (header or cookie)."""
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="No token provided")
-    token = auth.replace("Bearer ", "")
+    if auth.startswith("Bearer "):
+        token = auth.replace("Bearer ", "")
+    else:
+        token = request.cookies.get("fc_user_token", "")
+        if not token:
+            raise HTTPException(status_code=401, detail="No token provided")
     payload = _verify_token(token)
     return {"valid": True, "type": payload.get("type"), "exp": payload.get("exp")}
 
 
 def verify_user(request: Request) -> dict:
-    """Bearer token'dan giriş yapmış kullanıcıyı çözer (type='user')."""
+    """Bearer token veya cookie'den giriş yapmış kullanıcıyı çözer (type='user')."""
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Giriş gerekli")
-    payload = _verify_token(auth.replace("Bearer ", ""))
+    if auth.startswith("Bearer "):
+        payload = _verify_token(auth.replace("Bearer ", ""))
+    else:
+        token = request.cookies.get("fc_user_token", "")
+        if not token:
+            raise HTTPException(status_code=401, detail="Giriş gerekli")
+        payload = _verify_token(token)
     if payload.get("type") != "user":
         raise HTTPException(status_code=403, detail="Bu işlem için hesabınla giriş yapmalısın")
     return payload
@@ -1152,16 +1187,22 @@ async def push_unsubscribe(body: PushUnsubscribeBody, user=Depends(verify_user))
 
 def optional_user_id(request: Request) -> int:
     """Geçerli bir 'user' token'ı varsa kullanıcı id'sini döndürür, yoksa 0.
+    Authorization header veya fc_user_token cookie'den okur.
 
     Hesapla giriş yapan kullanıcı kendi verisini (user_id) görür; sadece beta
     şifresiyle giren anonim kullanıcı paylaşımlı havuzu (user_id=0) kullanır.
     Asla hata fırlatmaz — anonim kullanım bozulmaz.
     """
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    token = ""
+    if auth.startswith("Bearer "):
+        token = auth.replace("Bearer ", "")
+    else:
+        token = request.cookies.get("fc_user_token", "")
+    if not token:
         return 0
     try:
-        payload = _verify_token(auth.replace("Bearer ", ""))
+        payload = _verify_token(token)
         if payload.get("type") == "user":
             return int(payload.get("user_id") or 0)
     except Exception:
