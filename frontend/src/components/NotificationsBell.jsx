@@ -212,8 +212,10 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                   const supported = pushSupported();
                   return (
                     <div className="flex items-center gap-3 p-3.5 mb-4 rounded-2xl bg-amber/[0.06] border border-amber/15">
-                      <div className="w-9 h-9 rounded-full bg-amber/12 flex items-center justify-center shrink-0">
-                        <BellRing size={16} className="text-amber" />
+                      <div className="w-10 h-10 rounded-full bg-amber/12 flex items-center justify-center shrink-0 overflow-hidden">
+                        {pushOn
+                          ? <LottieAnimation path="/lottie/success-check.json" loop={false} className="w-9 h-9" />
+                          : <BellRing size={17} className="text-amber" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-semibold text-[#f5f2eb]">Anlık bildirimler</p>
@@ -230,17 +232,15 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                         <button
                           onClick={togglePush}
                           disabled={pushBusy}
-                          role="switch"
-                          aria-checked={pushOn}
-                          className={`relative w-12 h-7 rounded-full shrink-0 border transition-all duration-300 disabled:opacity-50 ${
+                          aria-pressed={pushOn}
+                          aria-label={pushOn ? 'Bildirimleri kapat' : 'Bildirimleri aç'}
+                          className={`shrink-0 inline-flex items-center justify-center gap-1.5 h-9 min-w-[64px] px-4 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] transition-all active:scale-95 disabled:opacity-60 ${
                             pushOn
-                              ? 'bg-amber border-amber/70 shadow-[0_0_12px_rgba(212,175,55,0.45)]'
-                              : 'bg-stone-500/55 border-stone-400/40'
+                              ? 'bg-amber/15 text-amber border border-amber/45'
+                              : 'bg-amber text-bg shadow-[0_10px_26px_-10px_rgba(255,191,0,0.6)] hover:brightness-105'
                           }`}
                         >
-                          <span className={`absolute top-[3px] w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out ${
-                            pushOn ? 'translate-x-[23px]' : 'translate-x-[3px]'
-                          }`} />
+                          {pushBusy ? '…' : pushOn ? (<><Check size={13} /> Açık</>) : 'Aç'}
                         </button>
                       ) : (
                         <span className="shrink-0 max-w-[80px] text-right text-[9px] font-bold uppercase tracking-wider text-amber/70 leading-tight">

@@ -89,6 +89,10 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     if (!activeId) return;
     let active = true;
     setSimilar([]);
+    // Yeni filme geçince (Bunları da Sevebilirsin) önceki filmin durumu sızmasın:
+    // saved/watched sıfırlanır, /analyze in_watchlist ile saved'i tekrar set eder.
+    setSaved(false);
+    setWatched(false);
     (async () => {
       try {
         const res = await fetch(getApiUrl(`/api/movies/${activeId}/analyze`));

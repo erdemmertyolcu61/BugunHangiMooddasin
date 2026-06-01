@@ -114,8 +114,8 @@ async def send_friend_request(friend_username: str, user: dict = Depends(get_cur
         sender_name = (sender or {}).get("username") or (sender or {}).get("name") or "Biri"
         await send_push_to_user(
             target["id"],
-            "Yeni arkadaşlık isteği 🤝",
-            f"{sender_name} seni Sinemood'da arkadaş eklemek istiyor.",
+            "Sinemood",
+            f"{sender_name} seni arkadaş eklemek istiyor 🤝",
             url="/profil?tab=social", tag="friend-request",
         )
     except Exception:
@@ -182,8 +182,8 @@ async def recommend_movie(body: RecommendBody, user: dict = Depends(get_current_
         sender_name = (sender or {}).get("username") or (sender or {}).get("name") or "Bir arkadaşın"
         await send_push_to_user(
             body.receiver_id,
-            "Sana bir film önerildi 🎬",
-            f"{sender_name} senin için bir film seçti — Üstadın Güverciniyle geldi.",
+            "Sinemood",
+            f"{sender_name} sana bir film gönderdi 🎬 Üstad seni bekliyor.",
             url="/profil?tab=social", tag="movie-rec",
         )
     except Exception:

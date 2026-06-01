@@ -2994,8 +2994,8 @@ async def trigger_daily_push(simulate: str = Query(None, description="Ödül tes
         m = payload["movie"]
         movie_id = m.get("id") or m.get("tmdb_id")
         film_sent = await send_push_broadcast(
-            "🎬 Üstad'ın Bugünkü Filmi",
-            f"{m.get('title') or 'Bugünün Filmi'} — bugün bunu izlemeni öneriyor.",
+            "Sinemood",
+            f"Üstad'ın bugünkü filmi hazır: {m.get('title') or 'Bugünün Filmi'} 🎬",
             url="/gunun-filmi", tag="daily-film",
         )
 
@@ -3004,8 +3004,8 @@ async def trigger_daily_push(simulate: str = Query(None, description="Ödül tes
     awarded = []
     for aw in _awards_matching(simulate=simulate, window_days=0):  # yalnız "today"
         award_sent += await send_push_broadcast(
-            f"🏆 {aw['ceremony']} sahiplerini buldu",
-            "Bu yılın ödüllü filmleri Sinemood'da hazır — keşfet.",
+            "Sinemood",
+            f"{aw['ceremony']} ödüllü filmleri seni bekliyor 🏆",
             url=f"/listeler/{aw['slug']}", tag=f"award-{aw['slug']}",
         )
         awarded.append(aw["slug"])
@@ -3022,8 +3022,8 @@ async def trigger_game_push():
     if not PUSH_ENABLED:
         return {"ok": False, "enabled": False, "sent": 0}
     sent = await send_push_broadcast(
-        "🔮 Mood Kâhini yenilendi",
-        "Bugünün filmleri hazır — filmin ruhunu oku, Üstad'ın güvenini kazan.",
+        "Sinemood",
+        "Mood Kâhini yenilendi 🔮 Bugünün filmlerini keşfet.",
         url="/oyun", tag="mood-oracle-daily",
     )
     return {"ok": True, "enabled": True, "sent": sent}
