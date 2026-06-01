@@ -538,6 +538,13 @@ export default function Discover() {
     ? (searchResults || [])   // During typing/loading: empty array (skeletons shown via searchLoading)
     : movies;                 // Only show mood movies when search input is truly empty
 
+  // Mobil 2-sütun grid: page 1'de 20 normal + 5 "Üstad'ın Seçkisi" = 25 (tek sayı) →
+  // son satırda yalnız bir kart + boş hücre kalıyordu. Tek ise son kartı düşürüp
+  // grid'i tam doldur (2 ve 4 sütunda da tam dolar).
+  const gridMovies = (searchQuery.trim() === '' && currentPage === 1 && displayMovies.length % 2 === 1)
+    ? displayMovies.slice(0, -1)
+    : displayMovies;
+
   // 1. Loading State (Initial)
   if (loading && movies.length === 0 && !error && selectedMood) {
     return (
@@ -875,7 +882,7 @@ export default function Discover() {
                         <p className="text-ivory/20 font-serif italic text-2xl sm:text-3xl px-6">Üstad bu arama için uygun bir başyapıt bulamadı...</p>
                       )}
                     </div>
-                  : displayMovies.map((movie) => (
+                  : gridMovies.map((movie) => (
                       <MovieCard
                         key={movie.id}
                         movie={movie}
