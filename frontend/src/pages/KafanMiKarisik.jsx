@@ -486,31 +486,63 @@ export default function KafanMiKarisik() {
                             </div>
                           </div>
 
-                          {/* Quick action buttons */}
-                          <div className="absolute top-3 left-3 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                          {/* Desktop: hover overlay butonları — MovieCard ile aynı */}
+                          <div className="hidden sm:flex absolute bottom-0 left-0 right-0 z-10 items-center gap-1.5 p-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <button
                               onClick={(e) => handleQuickSave(e, movie)}
                               title="Deftere Ekle"
-                              className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${
+                              className={`flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
                                 quickSavedIds.has(movie.id)
                                   ? 'bg-amber/90 border-amber/60 text-black'
-                                  : 'bg-black/60 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black'
+                                  : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
                               }`}
                             >
-                              {quickSavedIds.has(movie.id) ? <Check size={12} /> : <BookmarkPlus size={12} />}
+                              {quickSavedIds.has(movie.id)
+                                ? <><Check size={9} /> Eklendi</>
+                                : <><BookmarkPlus size={9} /> Deftere</>
+                              }
                             </button>
                             <button
                               onClick={(e) => handleQuickWatched(e, movie)}
                               title="İzledim"
-                              className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${
+                              className={`flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
                                 quickWatchedIds.has(movie.id)
                                   ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-                                  : 'bg-black/60 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white'
+                                  : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
                               }`}
                             >
-                              {quickWatchedIds.has(movie.id) ? <Check size={12} /> : <Eye size={12} />}
+                              {quickWatchedIds.has(movie.id)
+                                ? <><Check size={9} /> İzledim</>
+                                : <><Eye size={9} /> İzledim</>
+                              }
                             </button>
                           </div>
+                        </div>
+
+                        {/* Mobil: ikon ibareler — yazı yok */}
+                        <div className="sm:hidden flex items-center gap-2 px-4 pb-3">
+                          <button
+                            onClick={(e) => handleQuickSave(e, movie)}
+                            className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90 ${
+                              quickSavedIds.has(movie.id)
+                                ? 'bg-amber/90 border-amber/60 text-black'
+                                : 'bg-black/70 border-white/20 text-white/70 hover:bg-amber/80 hover:text-black hover:border-amber/50'
+                            }`}
+                            title={quickSavedIds.has(movie.id) ? 'Eklendi' : 'Deftere Ekle'}
+                          >
+                            {quickSavedIds.has(movie.id) ? <Check size={14} /> : <BookmarkPlus size={14} />}
+                          </button>
+                          <button
+                            onClick={(e) => handleQuickWatched(e, movie)}
+                            className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90 ${
+                              quickWatchedIds.has(movie.id)
+                                ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
+                                : 'bg-black/70 border-white/20 text-white/70 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
+                            }`}
+                            title={quickWatchedIds.has(movie.id) ? 'İzledim' : 'İzlemedim'}
+                          >
+                            {quickWatchedIds.has(movie.id) ? <Check size={14} /> : <Eye size={14} />}
+                          </button>
                         </div>
 
                         {/* Üstad'ın Gerekçesi */}
