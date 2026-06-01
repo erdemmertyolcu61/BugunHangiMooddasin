@@ -36,6 +36,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   const [pushAvail, setPushAvail] = useState(false);
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState('');
   const [failedAvatars, setFailedAvatars] = useState(new Set());
   const onAvatarError = useCallback((id) => {
     setFailedAvatars((prev) => { const n = new Set(prev); n.add(id); return n; });
@@ -82,6 +83,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   const togglePush = async () => {
     if (pushBusy) return;
     setPushBusy(true);
+    setPushMsg('');
     try {
       if (pushOn) {
         await disablePush();
@@ -89,9 +91,23 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
         track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'disable' });
       } else {
         const r = await enablePush();
-        if (r.ok) { setPushOn(true); track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'enable' }); }
+        if (r.ok) {
+          setPushOn(true);
+          track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'enable' });
+        } else {
+          // Başarısızsa sebebi kullanıcıya açıkça göster (özellikle iOS).
+          const reasons = {
+            unsupported: 'Bu cihaz/tarayıcı anlık bildirimi desteklemiyor. iPhone\'da uygulamayı "Ana Ekrana Ekle" ile kurup ikondan aç (iOS 16.4+).',
+            disabled: 'Bildirim servisi şu an kapalı. Birazdan tekrar dene.',
+            denied: 'Bildirim izni reddedilmiş. iPhone Ayarlar → Bildirimler → Sinemood\'dan izin verebilirsin.',
+            'no-sw': 'Servis çalışanı hazır değil; uygulamayı kapatıp tekrar aç.',
+          };
+          setPushMsg(reasons[r.reason] || 'Bildirim açılamadı, tekrar dene.');
+        }
       }
-    } catch { /* sessiz */ } finally {
+    } catch {
+      setPushMsg('Beklenmeyen bir hata oluştu.');
+    } finally {
       setPushBusy(false);
     }
   };
@@ -191,33 +207,47 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
-                {/* ─── Push bildirim aç/kapa ─── */}
-                {pushAvail && (
-                  <div className="flex items-center gap-3 p-3.5 mb-4 rounded-2xl bg-amber/[0.06] border border-amber/15">
-                    <div className="w-9 h-9 rounded-full bg-amber/12 flex items-center justify-center shrink-0">
-                      <BellRing size={16} className="text-amber" />
+                {/* ─── Push bildirim aç/kapa — her zaman görünür; desteklenmiyorsa rehber ─── */}
+                {(() => {
+                  const supported = pushSupported();
+                  return (
+                    <div className="flex items-center gap-3 p-3.5 mb-4 rounded-2xl bg-amber/[0.06] border border-amber/15">
+                      <div className="w-9 h-9 rounded-full bg-amber/12 flex items-center justify-center shrink-0">
+                        <BellRing size={16} className="text-amber" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-[#f5f2eb]">Anlık bildirimler</p>
+                        <p className="text-[11px] text-white/45 leading-snug">
+                          {supported
+                            ? 'Öneri, arkadaşlık isteği ve günün filmi telefonuna gelsin.'
+                            : 'iPhone’da: Paylaş → “Ana Ekrana Ekle”, sonra uygulamayı ikondan aç (iOS 16.4+).'}
+                        </p>
+                        {pushMsg && (
+                          <p className="text-[11px] text-rose-300/90 leading-snug mt-1">{pushMsg}</p>
+                        )}
+                      </div>
+                      {supported ? (
+                        <button
+                          onClick={togglePush}
+                          disabled={pushBusy}
+                          role="switch"
+                          aria-checked={pushOn}
+                          className={`relative w-11 h-6 rounded-full shrink-0 transition-colors disabled:opacity-50 ${
+                            pushOn ? 'bg-amber' : 'bg-white/15'
+                          }`}
+                        >
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                            pushOn ? 'translate-x-[22px]' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      ) : (
+                        <span className="shrink-0 max-w-[80px] text-right text-[9px] font-bold uppercase tracking-wider text-amber/70 leading-tight">
+                          Kurulum gerekli
+                        </span>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-[#f5f2eb]">Anlık bildirimler</p>
-                      <p className="text-[11px] text-white/45 leading-snug">
-                        Öneri, arkadaşlık isteği ve günün filmi telefonuna gelsin.
-                      </p>
-                    </div>
-                    <button
-                      onClick={togglePush}
-                      disabled={pushBusy}
-                      role="switch"
-                      aria-checked={pushOn}
-                      className={`relative w-11 h-6 rounded-full shrink-0 transition-colors disabled:opacity-50 ${
-                        pushOn ? 'bg-amber' : 'bg-white/15'
-                      }`}
-                    >
-                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                        pushOn ? 'translate-x-[22px]' : 'translate-x-0.5'
-                      }`} />
-                    </button>
-                  </div>
-                )}
+                  );
+                })()}
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <div className="flex gap-2">
