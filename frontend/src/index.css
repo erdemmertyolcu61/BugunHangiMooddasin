@@ -160,7 +160,7 @@
 [data-theme="light"] [class*="stroke-[#d4af37]"] { stroke: #8a6508 !important; }
 /* Zümrüt yeşili metinler → koyu yeşil */
 [data-theme="light"] [class*="text-emerald"] { color: #1e6b4a !important; }
-[data-theme="light"] [class*="bg-emerald"] { background-color: #1e6b4a !important; }
+[data-theme="light"] [class*="bg-emerald"] { background-color: rgba(30, 107, 74, 0.15) !important; }
 [data-theme="light"] [class*="border-emerald"] { border-color: rgba(30, 107, 74, 0.25) !important; }
 /* Kırmızı metinler → koyu bordo */
 [data-theme="light"] [class*="text-red-400"] { color: #a53030 !important; }
