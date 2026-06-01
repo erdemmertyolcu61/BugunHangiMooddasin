@@ -103,8 +103,8 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto bg-surface border border-white/[0.06] rounded-[1.75rem] sm:rounded-[2.25rem] p-4 sm:p-8 md:p-10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)]"
           >
-            <button onClick={onClose} className="absolute top-5 right-5 text-fg-subtle hover:text-amber transition-colors z-10">
-              <X size={20} />
+            <button onClick={onClose} className="absolute top-0 right-0 m-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm border border-white/15 flex items-center justify-center text-fg-subtle hover:text-amber hover:bg-black/50 transition-all active:scale-90">
+              <X size={16} />
             </button>
 
             {step === 0 ? null : step <= QUESTIONS.length ? (

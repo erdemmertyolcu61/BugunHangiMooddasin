@@ -431,7 +431,7 @@ export default function KafanMiKarisik() {
                       : result.intent === 'actor_recommendation' || result.intent === 'director_recommendation' ? 'Filmografi'
                       : 'Bunları Öneriyorum'}
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {result.movies.map((movie) => (
                       <motion.div
                         key={movie.id}
@@ -515,11 +515,11 @@ export default function KafanMiKarisik() {
 
                         {/* Üstad'ın Gerekçesi */}
                         {movie.reason && (
-                          <div className="p-5 space-y-2">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/55">
+                          <div className="p-4 sm:p-5 space-y-1.5 sm:space-y-2 max-sm:hidden">
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-amber/55">
                               {movie.is_primary_match ? 'Eşleşme' : "Üstad'ın Gerekçesi"}
                             </p>
-                            <p className="text-sm font-serif text-amber-100/80 leading-relaxed">
+                            <p className="text-xs sm:text-sm font-serif text-amber-100/80 leading-relaxed line-clamp-3">
                               &ldquo;{movie.reason}&rdquo;
                             </p>
                           </div>
