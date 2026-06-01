@@ -37,6 +37,7 @@ from contextlib import asynccontextmanager
 import jwt as pyjwt
 from collections import defaultdict
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import asyncio
 import aiosqlite
@@ -541,6 +542,34 @@ async def lifespan(app: FastAPI):
             logger.debug(f"[SemanticSearch] Model pre-warm atlandı: {e}")
 
     asyncio.create_task(_init_engines())
+
+    # ── Günlük push zamanlayıcı (18:00 İstanbul) ─────────────────────────────
+    async def _daily_push_scheduler():
+        """Her 60 sn'de bir saati kontrol eder, 18:00 İstanbul'da
+        sadece PWA kullanıcılarına günün filmi push'unu gönderir."""
+        from backend.services.push_service import send_push_broadcast, PUSH_ENABLED as _push_ok
+        tz = ZoneInfo("Europe/Istanbul")
+        last_push = None
+        while True:
+            try:
+                now_tr = datetime.now(tz)
+                if now_tr.hour == 18 and now_tr.minute == 0 and last_push != now_tr.date():
+                    last_push = now_tr.date()
+                    if _push_ok:
+                        payload = await _get_daily_film()
+                        if payload and payload.get("movie"):
+                            m = payload["movie"]
+                            await send_push_broadcast(
+                                "Üstad'ın Bugünkü Filmi",
+                                f"{m.get('title') or 'Bugünün Filmi'} — {m.get('vote_average', 0):.1f} ⭐",
+                                url="/gunun-filmi", tag="daily-film", pwa_only=True,
+                            )
+                            logger.info("[DailyPush] 18:00 push gonderildi: %s", m.get("title"))
+            except Exception as e:
+                logger.warning("[DailyPush] Scheduler hatasi: %s", e)
+            await asyncio.sleep(60)
+
+    asyncio.create_task(_daily_push_scheduler())
 
     yield
 
@@ -1162,6 +1191,7 @@ async def push_public_key():
 class PushSubscribeBody(BaseModel):
     endpoint: str
     keys: dict
+    is_pwa: bool = False
 
 
 @app.post("/api/push/subscribe")
@@ -1171,7 +1201,7 @@ async def push_subscribe(body: PushSubscribeBody, user=Depends(verify_user)):
         return {"ok": False, "enabled": False}
     keys = body.keys or {}
     ok = await cache.save_push_subscription(
-        user["user_id"], body.endpoint, keys.get("p256dh", ""), keys.get("auth", "")
+        user["user_id"], body.endpoint, keys.get("p256dh", ""), keys.get("auth", ""), is_pwa=int(body.is_pwa),
     )
     return {"ok": ok, "enabled": True}
 
@@ -2986,7 +3016,7 @@ async def _compute_daily_film(date_key: str) -> Optional[dict]:
         if is_low_quality_asian(candidate):
             continue
         vote = candidate.get("vote_average", 0) or 0
-        if vote >= 6.8:
+        if vote >= 7.0:
             best = candidate
             break
         if best is None:

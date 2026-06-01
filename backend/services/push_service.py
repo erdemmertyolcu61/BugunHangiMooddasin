@@ -80,8 +80,9 @@ async def send_push_to_user(user_id: int, title: str, body: str,
     return sent
 
 
-async def send_push_broadcast(title: str, body: str, url: str = "/", tag: str = "sinemood") -> int:
+async def send_push_broadcast(title: str, body: str, url: str = "/", tag: str = "sinemood", pwa_only: bool = False) -> int:
     """Tüm abonelere push gönderir (günlük içerik). Ölü abonelikleri temizler.
+    pwa_only=True: sadece Ana Ekrana Eklenmiş (PWA) kullanıcılara gönderir.
     Döner: başarıyla gönderilen cihaz sayısı."""
     if not PUSH_ENABLED:
         return 0
@@ -92,6 +93,8 @@ async def send_push_broadcast(title: str, body: str, url: str = "/", tag: str = 
     payload = {"title": title, "body": body, "url": url, "tag": tag}
     sent = 0
     for sub in subs:
+        if pwa_only and not sub.get("is_pwa"):
+            continue
         result = await asyncio.to_thread(_send_web_push, sub, payload)
         if result == "ok":
             sent += 1

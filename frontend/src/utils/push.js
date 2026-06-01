@@ -48,6 +48,13 @@ export async function isPushEnabledOnServer() {
   }
 }
 
+/** PWA (Ana Ekrana Eklenmiş) modunda mı? */
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone  // iOS Safari
+    || false;
+}
+
 /** İzin iste + abone ol + backend'e kaydet. Başarılıysa true. */
 export async function enablePush() {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
@@ -67,7 +74,7 @@ export async function enablePush() {
       applicationServerKey: urlBase64ToUint8Array(public_key),
     });
   }
-  await subscribePush(sub.toJSON());
+  await subscribePush({ ...sub.toJSON(), is_pwa: isStandalone() });
   return { ok: true };
 }
 

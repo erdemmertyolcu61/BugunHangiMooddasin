@@ -640,12 +640,18 @@ class MovieCache:
                     user_id INTEGER NOT NULL REFERENCES users(id),
                     p256dh TEXT NOT NULL,
                     auth TEXT NOT NULL,
+                    is_pwa INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id)"
             )
+            # is_pwa migration (güvenli ALTER TABLE)
+            try:
+                await db.execute("ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0")
+            except Exception:
+                pass
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -726,6 +732,7 @@ class MovieCache:
                 user_id INTEGER NOT NULL REFERENCES users(id),
                 p256dh TEXT NOT NULL,
                 auth TEXT NOT NULL,
+                is_pwa INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
         ]
@@ -865,15 +872,15 @@ class MovieCache:
             return int(row[0]) if row else 0
 
     # ── Web Push abonelikleri ─────────────────────────────────────────────
-    async def save_push_subscription(self, user_id: int, endpoint: str, p256dh: str, auth: str) -> bool:
+    async def save_push_subscription(self, user_id: int, endpoint: str, p256dh: str, auth: str, is_pwa: int = 0) -> bool:
         """Push aboneliğini kaydeder/günceller (endpoint tekil)."""
         if not user_id or not endpoint or not p256dh or not auth:
             return False
         async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO push_subscriptions
-                   (endpoint, user_id, p256dh, auth) VALUES (?, ?, ?, ?)""",
-                (endpoint, user_id, p256dh, auth),
+                   (endpoint, user_id, p256dh, auth, is_pwa) VALUES (?, ?, ?, ?, ?)""",
+                (endpoint, user_id, p256dh, auth, is_pwa),
             )
             await db.commit()
             return True
@@ -900,10 +907,10 @@ class MovieCache:
         """Tüm aboneliği döndürür (toplu günlük bildirim için)."""
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
-                "SELECT endpoint, p256dh, auth, user_id FROM push_subscriptions"
+                "SELECT endpoint, p256dh, auth, user_id, is_pwa FROM push_subscriptions"
             )
             rows = await cur.fetchall()
-            return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2], "user_id": r[3]} for r in rows]
+            return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2], "user_id": r[3], "is_pwa": r[4] or 0} for r in rows]
 
     async def create_friend_request(self, user_id: int, friend_id: int) -> dict:
         """PENDING istek oluştur. Karşı taraf zaten istek attıysa karşılıklı ACCEPTED yapar."""
