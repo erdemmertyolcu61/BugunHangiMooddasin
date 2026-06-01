@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-react';
@@ -164,8 +165,9 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
         )}
       </button>
 
-      {/* Panel */}
-      {open && (
+      {/* Panel — body'ye portal: Profil header'indaki backdrop-filter, fixed paneli
+          68px header'a hapsediyordu (panel açılınca "kayboluyor" görünüyordu). */}
+      {open && createPortal(
         <>
           <motion.div
             className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm"
@@ -349,15 +351,17 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                 )}
               </div>
             </motion.div>
-        </>
+        </>,
+        document.body
       )}
 
-      {detailMovie && (
+      {detailMovie && createPortal(
         <FilmDetailModal
           movieId={detailMovie.id}
           initialMovie={detailMovie}
           onClose={() => setDetailMovie(null)}
-        />
+        />,
+        document.body
       )}
     </>
   );
