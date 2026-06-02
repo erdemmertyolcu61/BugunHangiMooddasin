@@ -51,9 +51,17 @@ if not _jwt_secret:
         with open(_secret_file, "r") as f:
             _jwt_secret = f.read().strip()
     else:
-        _jwt_secret = secrets.token_hex(32)
-        with open(_secret_file, "w") as f:
-            f.write(_jwt_secret)
+        # Deterministic fallback (Railway cold start'ta key kaybolmaz)
+        import hashlib
+        _base_url = os.getenv("FRONTEND_BASE_URL", "https://bug-n-hangi-mooddas-n.vercel.app")
+        _app_path = os.path.dirname(os.path.abspath(__file__))
+        _stable_input = f"sinemood-jwt-v1|{_base_url}|{_app_path}".encode()
+        _jwt_secret = hashlib.sha256(_stable_input).hexdigest()
+        import logging as _log
+        _log.getLogger(__name__).warning(
+            "[Config] JWT_SECRET env var not set! Using deterministic fallback "
+            "(ok for dev, set JWT_SECRET on Railway for production)"
+        )
 JWT_SECRET = _jwt_secret
 # .strip(): Render/panel'e yapıştırırken araya kaçan boşluk/yeni satır
 # audience eşleşmesini bozuyordu — temizle.

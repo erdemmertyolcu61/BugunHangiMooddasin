@@ -8,7 +8,7 @@ const BASE = getApiUrl('/api');
 
 // Auth header helper — picks up Google user token if available
 function authHeaders() {
-  const token = window.__fc_user_token || localStorage.getItem('fc_user_token') || localStorage.getItem('beta_token') || '';
+  const token = window.__fc_user_token || localStorage.getItem('fc_user_token') || '';
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 

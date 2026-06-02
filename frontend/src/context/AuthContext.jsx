@@ -56,6 +56,7 @@ export function AuthProvider({ children }) {
       t = readCookie(AUTH_KEY);
       if (t) localStorage.setItem(AUTH_KEY, t);
     }
+    window.__fc_user_token = t || null;
     return t || null;
   });
 
@@ -87,8 +88,8 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      setAuthItem(AUTH_KEY, data.token);
-      setAuthItem(USER_KEY, JSON.stringify(data.user));
+      await setAuthItem(AUTH_KEY, data.token);
+      await setAuthItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
       track(EVENTS.SIGNUP, { is_new: !!data.is_new });
       // Davet atıfı backend'de işlendi → ref'i temizle (tekrar atıf olmasın)
@@ -129,8 +130,8 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      setAuthItem(AUTH_KEY, data.token);
-      setAuthItem(USER_KEY, JSON.stringify(data.user));
+      await setAuthItem(AUTH_KEY, data.token);
+      await setAuthItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
       return { ok: true };
     } catch (e) {
@@ -159,8 +160,8 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      setAuthItem(AUTH_KEY, data.token);
-      setAuthItem(USER_KEY, JSON.stringify(data.user));
+      await setAuthItem(AUTH_KEY, data.token);
+      await setAuthItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
       track(EVENTS.SIGNUP, { is_new: !!data.is_new, method: 'email' });
       return { ok: true };

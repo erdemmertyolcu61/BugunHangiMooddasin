@@ -327,7 +327,10 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
     uid = user["user_id"]
 
     # BLOB olarak DB'ye kaydet (filesystem kullanma)
-    await cache.update_user_avatar_data(uid, raw)
+    ok = await cache.update_user_avatar_data(uid, raw)
+    if not ok:
+        logger.error(f"[Avatar] avatar_data UPDATE failed for uid={uid} — kolon Turso'da eksik")
+        raise HTTPException(500, "Avatar verisi yazılamadı (sistem yapılandırma hatası, yöneticiye başvurun)")
 
     # URL: /api/users/{id}/avatar endpoint'i üzerinden servis edilir.
     # Sürüm parametresi (?v=ts) immutable cache'i kırar → yeni foto anında görünür.
@@ -337,8 +340,8 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
     # Readback: avatar_data'nın yazıldığını doğrula
     verify = await cache.get_user_avatar_data(uid)
     if not verify:
-        logger.error(f"[Avatar] avatar_data write failed for uid={uid}")
-        raise HTTPException(500, "Avatar verisi yazılamadı")
+        logger.error(f"[Avatar] avatar_data readback failed for uid={uid}")
+        raise HTTPException(500, "Avatar verisi doğrulanamadı")
 
     return {"ok": True, "picture": picture_url}
 
