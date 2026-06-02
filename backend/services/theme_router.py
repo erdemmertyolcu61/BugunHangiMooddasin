@@ -120,6 +120,16 @@ THEMES = [
     {"key": "siyah_beyaz", "triggers": ["siyah beyaz", "siyahbeyaz", "monokrom"], "terms": ["black and white", "monochrome", "b w"], "genres": [], "label": "Siyah beyaz filmler", "ustad": "Renksiz dünyanın çarpıcı güzelliği — her kare bir fotoğraf karesi."},
     {"key": "tek_plan_cekim", "triggers": ["tek plan", "tek plan cekim", "tek seferde cekilmis", "tek planda"], "terms": ["one shot", "single take", "long take"], "genres": [], "label": "Tek plan çekim filmler", "ustad": "Hiç kesmeden akan bir hikâye — her saniyesi kusursuz bir zamanlama."},
     {"key": "el_kamerasi", "triggers": ["el kamerasi", "titreksiz mekansiz", "dogallik goruntusunu"], "terms": ["handheld camera", "found footage"], "genres": [], "label": "El kamerası/buluntu görüntü filmleri", "ustad": "Titreşen kadraj, terleyen objektif — gerçeğin en sarsıcı hâli."},
+    # ── Platform / Yapım şirketi ──
+    {"key": "marvel", "triggers": ["marvel", "marvel filmi", "marvel evreni", "mcu"], "terms": ["marvel cinematic universe"], "genres": [], "companies": [420], "label": "Marvel filmleri", "ustad": "Çizgi roman sayfalarından beyazperdeye — süper kahramanların destansı evreni."},
+    {"key": "a24", "triggers": ["a24", "a 24"], "terms": ["a24"], "genres": [], "companies": [410], "label": "A24 filmleri", "ustad": "Bağımsız sinemanın en cesur sesi — sıradışı, sanatsal ve çarpıcı."},
+    {"key": "netflix", "triggers": ["netflix filmi", "netflix yapimi", "netflix orijinal"], "terms": ["netflix"], "genres": [], "companies": [19196], "label": "Netflix yapımı filmler", "ustad": "Dijital çağın dev stüdyosu — her zevke hitap eden dev bir arşiv."},
+    {"key": "disney", "triggers": ["disney filmi", "walt disney", "disney yapimi"], "terms": ["disney"], "genres": [10751, 16, 12], "companies": [2], "label": "Disney filmleri", "ustad": "Masalların ve büyünün adresi — aile sıcaklığında bir sinema deneyimi."},
+    {"key": "blumhouse", "triggers": ["blumhouse", "blum house"], "terms": ["blumhouse"], "genres": [27, 53], "companies": [439], "label": "Blumhouse yapımı filmler", "ustad": "Korkunun en verimli fabrikası — düşük bütçe, yüksek gerilim."},
+    {"key": "pixar", "triggers": ["pixar", "pixar filmi"], "terms": ["pixar"], "genres": [16, 10751], "companies": [3], "label": "Pixar filmleri", "ustad": "Animasyonun zirvesi — her karesi sanat, her hikayesi kalp kıran."},
+    {"key": "ghibli", "triggers": ["ghibli", "studio ghibli", "miyazaki"], "terms": ["studio ghibli", "miyazaki"], "genres": [16, 14], "companies": [10342], "label": "Studio Ghibli filmleri", "ustad": "Miyazaki ve ekibinin büyülü dünyası — her film bir rüya."},
+    {"key": "paramount", "triggers": ["paramount", "paramount filmi"], "terms": ["paramount"], "genres": [], "companies": [4], "label": "Paramount yapımı filmler", "ustad": "Hollywood'un köklü stüdyosu — kalitenin garantisi."},
+    {"key": "warner_bros", "triggers": ["warner bros", "warner kardeşler"], "terms": ["warner bros"], "genres": [], "companies": [6194], "label": "Warner Bros. filmleri", "ustad": "Sinema tarihinin en büyük stüdyolarından — klasik ve modernin buluşması."},
 ]
 
 # En uzun/özgül trigger önce denensin (örn. "zaman yolculugu" > "yol filmi").

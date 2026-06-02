@@ -4547,7 +4547,8 @@ async def _resolve_keyword_ids(terms: list) -> list:
 
 async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_ids,
                            sort_by="vote_average.desc", min_vote_count=200,
-                           max_vote_count=None, date_gte=None, page=1, reason="") -> list:
+                           max_vote_count=None, date_gte=None, page=1, reason="",
+                           company_ids=None) -> list:
     """TMDB Discover ile tema/refine sonucu çek (poster + exclude filtreli)."""
     kwargs = {"sort_by": sort_by, "min_vote_average": min_vote,
               "min_vote_count": min_vote_count, "page": page}
@@ -4557,6 +4558,8 @@ async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_i
         kwargs["max_vote_count"] = max_vote_count
     if date_gte:
         kwargs["primary_release_date_gte"] = date_gte
+    if company_ids:
+        kwargs["with_companies"] = "|".join(str(c) for c in company_ids)
     try:
         res = await tmdb_service.discover_movies(list(genre_ids or []), **kwargs)
     except Exception as e:
@@ -4615,6 +4618,7 @@ async def _refine_recommendation(refine: str, text: str, limit: int,
         keyword_ids=keyword_ids, genre_ids=genre_ids, limit=limit, min_vote=mv,
         exclude_ids=exclude_ids, sort_by=sort_by, min_vote_count=min_vc,
         max_vote_count=max_vc, date_gte=date_gte, page=page, reason=reason,
+        company_ids=theme.get("companies", []) if theme else None,
     )
     if not movies:
         return None
@@ -4704,6 +4708,24 @@ async def post_confused_recommendation(req: ConfusedRequest):
     _engine_for_intent = ChatEngine(db=cache)
     local_intent = _engine_for_intent.detect_intent(text)
 
+    # ── Dizi tespiti: platform yalnızca film önerir ─────────────────────────
+    _SERIES_KEYWORDS = [
+        "dizi", "dizi öner", "dizi tavsiye", "dizi ara", "güzel dizi",
+        "dizi izle", "dizi bakıyorum", "dizi söyle", "dizi ver",
+        "tv dizisi", "dizisi", "diziler", "netflix dizisi",
+        "dizi film", "dizi ariyorum", "bi dizi", "bir dizi",
+    ]
+    _tl = text.lower().strip()
+    if any(kw in _tl for kw in _SERIES_KEYWORDS):
+        logger.info("[Confused] Dizi tespiti: '%s' → film uyarısı", text)
+        return {
+            "ok": True, "mode": "series_detected", "intent": "series",
+            "query_understanding": "Dizi değil, film mi arıyorsun?",
+            "ustad_line": "Ben filmler konusunda uzmanım — diziler için başka bir kılavuz lazım.",
+            "message": "Sadece film öneriyorum, dizileri bilmem. Aklında bir film var mı?",
+            "movies": [],
+        }
+
     # ── PATH 1.5: Tematik/somut konu sorgusu → TMDB keyword discover ──────────
     # "yaz temalı", "deniz", "yılbaşı filmi", "uzayda geçen", "futbol", "gerçek hikaye"…
     # Küratörlü tema eşleşmesi güçlü bir sinyal: "X gibi" (benzerlik), "X yönetmeni"
@@ -4727,6 +4749,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
                         min_vote=min_vote, exclude_ids=exclude_ids,
                         sort_by="vote_average.desc", min_vote_count=200,
                         reason=theme["label"],
+                        company_ids=theme.get("companies", []),
                     )
                     if len(themed) >= 3:
                         logger.info("[Confused] Theme '%s' → %d film (TMDB discover)", theme["key"], len(themed))
