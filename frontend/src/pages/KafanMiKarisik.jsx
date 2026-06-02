@@ -464,7 +464,7 @@ export default function KafanMiKarisik() {
                             size="md"
                             className="w-full h-full"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent max-sm:hidden" />
 
                           {/* Primary match badge */}
                           {movie.is_primary_match && (
@@ -507,7 +507,7 @@ export default function KafanMiKarisik() {
                         </div>
 
                         {/* Mobil: ikon ibareler — yazı yok */}
-                        <div className="sm:hidden flex items-center gap-2 px-4 pb-3">
+                        <div className="sm:hidden flex items-center gap-2 mt-2 px-1">
                           <button
                             onClick={(e) => handleQuickSave(e, movie)}
                             className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90 ${
