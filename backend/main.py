@@ -952,19 +952,27 @@ async def google_login(request: Request):
         ref_username = ""
 
     # Upsert user — custom fotoğrafı olan kullanıcıda picture korunur
+    avatar_data = None
     async with _db_conn(cache.db_path, user_data=True) as db:
-        cur = await db.execute("SELECT id, avatar_data FROM users WHERE google_id = ?", (google_id,))
-        existing = await cur.fetchone()
+        # avatar_data kolonu Turso'da yoksa patlama — eski SELECT'e düş
+        try:
+            cur = await db.execute("SELECT id, avatar_data FROM users WHERE google_id = ?", (google_id,))
+            existing = await cur.fetchone()
+            if existing:
+                uid, avatar_data = existing
+        except Exception:
+            cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,))
+            existing = await cur.fetchone()
+
         is_new = existing is None
 
         if existing:
-            uid, avatar_data = existing
+            uid = existing[0]
             if avatar_data:
                 await db.execute("UPDATE users SET email=?, name=? WHERE id=?", (email, name, uid))
             else:
                 await db.execute("UPDATE users SET email=?, name=?, picture=? WHERE id=?", (email, name, picture, uid))
         else:
-            avatar_data = None
             await db.execute(
                 "INSERT INTO users (google_id, email, name, picture) VALUES (?, ?, ?, ?)",
                 (google_id, email, name, picture),
@@ -1011,19 +1019,26 @@ async def dev_login():
     name = "Dev Kullanıcı"
     picture = ""
 
+    avatar_data = None
     async with _db_conn(cache.db_path, user_data=True) as db:
-        cur = await db.execute("SELECT id, avatar_data FROM users WHERE google_id = ?", (google_id,))
-        existing = await cur.fetchone()
+        try:
+            cur = await db.execute("SELECT id, avatar_data FROM users WHERE google_id = ?", (google_id,))
+            existing = await cur.fetchone()
+            if existing:
+                uid, avatar_data = existing
+        except Exception:
+            cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,))
+            existing = await cur.fetchone()
+
         is_new = existing is None
 
         if existing:
-            uid, avatar_data = existing
+            uid = existing[0]
             if avatar_data:
                 await db.execute("UPDATE users SET email=?, name=? WHERE id=?", (email, name, uid))
             else:
                 await db.execute("UPDATE users SET email=?, name=?, picture=? WHERE id=?", (email, name, picture, uid))
         else:
-            avatar_data = None
             await db.execute(
                 "INSERT INTO users (google_id, email, name, picture) VALUES (?, ?, ?, ?)",
                 (google_id, email, name, picture),
@@ -1159,6 +1174,22 @@ async def admin_list_users():
         for r in rows
     ]
     return {"total": len(users), "users": users}
+
+
+@app.post("/api/admin/fix-avatar-column", dependencies=[Depends(verify_admin)])
+async def admin_fix_avatar_column():
+    """Turso'da eksik kalan avatar_data kolonunu oluşturmayı dener."""
+    from backend.database import _turso_client as _tc
+    if _tc is None:
+        raise HTTPException(503, "Turso client aktif değil — belki local SQLite kullanılıyor")
+    try:
+        await _tc.execute("ALTER TABLE users ADD COLUMN avatar_data BLOB")
+        return {"ok": True, "message": "avatar_data kolonu eklendi"}
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        if "duplicate" in str(e).lower():
+            return {"ok": True, "message": "avatar_data kolonu zaten var"}
+        raise HTTPException(500, f"Migration başarısız: {err}")
 
 
 @app.post("/api/admin/warm-ustad", dependencies=[Depends(verify_admin)])

@@ -1208,12 +1208,16 @@ class MovieCache:
 
         Turso/SQLite blob'u bytes/memoryview döner; bazı kayıtlar (eski/karışık
         yazımlar) TEXT (base64 veya data-URL) olabilir — hepsini bytes'a çevir.
+        Kolon Turso'da yoksa (migration eksik) None döner, patlamaz.
         """
-        async with _get_connection(self.db_path, user_data=True) as db:
-            cur = await db.execute(
-                "SELECT avatar_data FROM users WHERE id = ?", (user_id,)
-            )
-            row = await cur.fetchone()
+        try:
+            async with _get_connection(self.db_path, user_data=True) as db:
+                cur = await db.execute(
+                    "SELECT avatar_data FROM users WHERE id = ?", (user_id,)
+                )
+                row = await cur.fetchone()
+        except Exception:
+            return None
         if not row or row[0] is None:
             return None
         val = row[0]
