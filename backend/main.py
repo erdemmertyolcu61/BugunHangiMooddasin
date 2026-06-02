@@ -3504,6 +3504,28 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     mood_analysis = _rule_based_confused_analysis(text)
     hints = parse_chat_hints(text)
 
+    # ── Intent Enhancer: 4 katmanlı semantic enhancement ────────────────
+    try:
+        from backend.services.intent_enhancer import (
+            ContextExtractor, MoodWeightEnhancer,
+            SimilarMovieEnhancer, NonsenseHandler,
+        )
+        ctx = ContextExtractor.extract_all(text)
+        if ctx.get("era") and not mood_analysis.get("era_preference"):
+            mood_analysis["era_preference"] = ctx["era"]
+        if ctx.get("runtime") and not mood_analysis.get("time_constraint"):
+            mood_analysis["time_constraint"] = ctx["runtime"]
+        extra = MoodWeightEnhancer.score(text)
+        if extra:
+            hints.mood_bonuses = {**getattr(hints, 'mood_bonuses', {}), **extra}
+        ref = SimilarMovieEnhancer.extract_reference(text)
+        if ref and not intent.reference_title:
+            intent.reference_title = ref
+            if intent.type in ("mood_recommendation", "general"):
+                intent.type = "similar_to_movie"
+    except Exception as exc:
+        logger.debug("[IntentEnhancer] skipped: %s", exc)
+
     logger.info("[PATH3] text=%r intent=%s hints.mood=%s hints.genre=%s",
                 text, intent.type, hints.mood_bonuses, hints.genre_ids)
 
@@ -4044,6 +4066,25 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
             -x.get("vote_average", 0),
         ))
     movies = movies[:limit]
+
+    # ── Layer 3: Gourmet boost (underrated/az bilinen) ────────────────────
+    try:
+        from backend.services.intent_enhancer import SimilarMovieEnhancer
+        if SimilarMovieEnhancer.detect_gourmet_preference(text):
+            for m in movies:
+                boost = SimilarMovieEnhancer.compute_gourmet_boost(
+                    m.get("vote_count"), m.get("vote_average")
+                )
+                if boost:
+                    m["gourmet_boost"] = boost
+            movies.sort(key=lambda x: (
+                x.get("gourmet_boost", 0),
+                x.get("genre_match_bonus", 0),
+                x.get("mood_score", 0),
+                x.get("vote_average", 0),
+            ), reverse=True)
+    except Exception as exc:
+        logger.debug("[GourmetBoost] skipped: %s", exc)
 
     # Son çare: hiçbir yol film döndüremediyse, en yüksek puanlı filmleri getir
     if not movies:
@@ -4657,6 +4698,25 @@ async def post_confused_recommendation(req: ConfusedRequest):
         if local_intent.type not in ("mood_recommendation",):
             result["intent"] = local_intent.type
         return result
+
+    # ── PATH 2.5: Saçma arama tespiti → Üstad reaksiyonu ──────────────────
+    try:
+        from backend.services.intent_enhancer import NonsenseHandler, MoodWeightEnhancer
+        ns_mood_scores = MoodWeightEnhancer.score(text) if 'MoodWeightEnhancer' in dir() else {}
+        if NonsenseHandler.is_nonsense(
+            text, mood_scores=ns_mood_scores,
+            genre_matches=getattr(hints, 'genre_ids', []),
+            person_match=bool(local_intent.person_name),
+            film_match=bool(local_intent.reference_title),
+        ):
+            ns = NonsenseHandler.generate_response(text)
+            bypass = await _fast_mood_bypass(ns["mood_id"], limit, min_vote, exclude_ids, text)
+            bypass["ustad_line"] = ns["ustad_line"]
+            bypass["mode"] = ns["mode"]
+            bypass["is_fallback"] = ns["is_fallback"]
+            return bypass
+    except Exception as exc:
+        logger.debug("[NonsenseHandler] skipped: %s", exc)
 
     # ── PATH 3: Kural tabanlı fallback ───────────────────────────────────────
     fallback_result = await _confused_fallback(text, limit, min_vote, exclude_ids)
