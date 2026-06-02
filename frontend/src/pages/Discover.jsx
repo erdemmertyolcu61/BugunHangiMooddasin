@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -104,6 +104,15 @@ export default function Discover() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [quizOpen, setQuizOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const mobileSearchRef = useRef(null);
+
+  useEffect(() => {
+    if (mobileSearchOpen && mobileSearchRef.current) {
+      mobileSearchRef.current.focus();
+    }
+  }, [mobileSearchOpen]);
+
   const searchTimeout = useRef(null);
   const lastRequestId = useRef(0);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -708,26 +717,54 @@ export default function Discover() {
             <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
               <ChevronLeft size={24} />
             </button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-[#e8d3d3]/30 mb-0.5 sm:mb-1">ŞU ANKİ MODUN</p>
               <h1 className="font-serif text-lg sm:text-xl font-bold flex items-center gap-2 sm:gap-3 truncate">
                 <span className="text-amber-500 shrink-0">{selectedMood.icon && <selectedMood.icon size={24} strokeWidth={1.5} />}</span>
                 <span className="truncate">{selectedMood.title}</span>
               </h1>
             </div>
+            {/* Mobile: search toggle + profile */}
+            <div className="flex md:hidden items-center gap-1 ml-auto">
+              <button
+                onClick={() => {
+                  if (mobileSearchOpen) handleSearch('');
+                  setMobileSearchOpen(prev => !prev);
+                }}
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all shrink-0"
+                aria-label={mobileSearchOpen ? 'Aramayı kapat' : 'Ara'}
+              >
+                {mobileSearchOpen ? <X size={18} className="text-[#e8d3d3]/60" /> : <Search size={18} className="text-[#e8d3d3]/60" />}
+              </button>
+              <button
+                onClick={() => navigate('/profil')}
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center overflow-hidden transition-all shrink-0"
+                aria-label="Profil"
+              >
+                {user?.picture
+                  ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  : <Users size={18} className="text-[#e8d3d3]/60" />}
+              </button>
+            </div>
           </div>
 
-          {/* Mobilde: arama + "Bugünkü Ruh Halim" yan yana.
-              Web'de: md:contents ile 3-bölge düzeni korunur. */}
-          <div className="flex items-center gap-3 w-full md:contents">
-          <div className="relative flex-1 min-w-0 md:flex-1">
+          <div className={`flex items-center gap-3 w-full md:contents ${mobileSearchOpen ? '' : 'hidden'} md:flex`}>
+          <div className="relative flex-1 min-w-0 md:flex-1 flex items-center gap-2">
             <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Arşivde ara..."
-                className="w-full px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/60 transition-all"
+                ref={mobileSearchRef}
+                className="w-full px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm max-sm:text-[16px] text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/60 transition-all"
             />
+            <button
+              onClick={() => { handleSearch(''); setMobileSearchOpen(false); }}
+              className="md:hidden w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all shrink-0"
+              aria-label="Kapat"
+            >
+              <X size={18} className="text-[#e8d3d3]/60" />
+            </button>
           </div>
 
           <div className="flex items-center gap-3 md:gap-4 md:shrink-0">
