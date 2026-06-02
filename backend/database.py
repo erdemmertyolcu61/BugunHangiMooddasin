@@ -520,6 +520,11 @@ class MovieCache:
                 CREATE INDEX IF NOT EXISTS idx_fast_search_vote
                 ON movie_fast_search(vote_average DESC)
             """)
+            # original_language kolonu — ülke/dil filtrelemesi için
+            try:
+                await db.execute("ALTER TABLE movie_fast_search ADD COLUMN original_language TEXT DEFAULT ''")
+            except Exception:
+                pass
             # TMDB API response cache — reduces latency for repeated queries
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS tmdb_response_cache (
@@ -1197,14 +1202,14 @@ class MovieCache:
     async def update_user_avatar_data(self, user_id: int, data: bytes):
         """Avatar binary verisini DB'ye kaydet (filesystem'siz kalıcı depolama).
         Kolon Turso'da yoksa (migration eksik) False döner, patlamaz."""
-    try:
-        async with _get_connection(self.db_path, user_data=True) as db:
-            await db.execute(
-                "UPDATE users SET avatar_data = ? WHERE id = ?",
-                (base64.b64encode(data).decode(), user_id)
-            )
-            await db.commit()
-        return True
+        try:
+            async with _get_connection(self.db_path, user_data=True) as db:
+                await db.execute(
+                    "UPDATE users SET avatar_data = ? WHERE id = ?",
+                    (base64.b64encode(data).decode(), user_id)
+                )
+                await db.commit()
+            return True
         except Exception:
             return False
 
@@ -2580,7 +2585,7 @@ class MovieCache:
             cursor = await db.execute(
                 """SELECT tmdb_id, embedding_data, ustad_notu, title,
                           poster_url, backdrop_url, overview, release_date,
-                          vote_average, genre_ids, primary_mood_id
+                          vote_average, genre_ids, primary_mood_id, original_language
                    FROM movie_fast_search
                    WHERE embedding_data IS NOT NULL
                    ORDER BY vote_average DESC"""
@@ -2595,17 +2600,18 @@ class MovieCache:
             except Exception:
                 pass
             result.append({
-                "tmdb_id":        r[0],
-                "embedding_data": r[1],
-                "ustad_notu":     r[2] or "",
-                "title":          r[3] or "",
-                "poster_url":     r[4],
-                "backdrop_url":   r[5],
-                "overview":       r[6] or "",
-                "release_date":   r[7] or "",
-                "vote_average":   r[8] or 0.0,
-                "genre_ids":      genre_ids,
+                "tmdb_id":         r[0],
+                "embedding_data":  r[1],
+                "ustad_notu":      r[2] or "",
+                "title":           r[3] or "",
+                "poster_url":      r[4],
+                "backdrop_url":    r[5],
+                "overview":        r[6] or "",
+                "release_date":    r[7] or "",
+                "vote_average":    r[8] or 0.0,
+                "genre_ids":       genre_ids,
                 "primary_mood_id": r[10] or "",
+                "original_language": r[11] if len(r) > 11 else "",
             })
         return result
 

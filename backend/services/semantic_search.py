@@ -680,20 +680,21 @@ class SemanticSearchEngine:
                 director_lower = str(raw_director).strip().lower()
 
             meta[tmdb_id] = {
-                "id":             tmdb_id,
-                "title":          m.get("title", ""),
-                "poster_url":     m.get("poster_url"),
-                "overview":       _truncate(full_overview),   # [OPT-3]
-                "release_date":   m.get("release_date", ""),
-                "vote_average":   vote_avg,
-                "genre_ids":      genre_ids,
-                "mood_id":        m.get("primary_mood_id") or m.get("mood_id"),
-                "ustad_notu":     m.get("ustad_notu") or _build_ustad_notu(
+                "id":                tmdb_id,
+                "title":             m.get("title", ""),
+                "poster_url":        m.get("poster_url"),
+                "overview":          _truncate(full_overview),   # [OPT-3]
+                "release_date":      m.get("release_date", ""),
+                "vote_average":      vote_avg,
+                "genre_ids":         genre_ids,
+                "mood_id":           m.get("primary_mood_id") or m.get("mood_id"),
+                "original_language": m.get("original_language", ""),
+                "ustad_notu":        m.get("ustad_notu") or _build_ustad_notu(
                     m.get("title", ""), genre_ids, m.get("release_date", ""),
                 ),
-                "cast_slugs":     cast_slugs,
-                "director_lower": director_lower,
-                "title_lower":    (m.get("title", "") or "").lower(),
+                "cast_slugs":        cast_slugs,
+                "director_lower":    director_lower,
+                "title_lower":       (m.get("title", "") or "").lower(),
             }
 
         # [OPT-1] Contiguous matrix (float16 halves memory: 65K×384 ~50MB vs ~100MB)
@@ -800,6 +801,8 @@ class SemanticSearchEngine:
         era_preference: Optional[dict] = None,
         genre_hints: Optional[list[int]] = None,
         mood_distribution: Optional[list[dict]] = None,
+        lang_filter: Optional[str] = None,
+        exclude_genre_hints: Optional[list[int]] = None,
     ) -> dict:
         """
         Hybrid semantic search with zero external API calls.
@@ -960,10 +963,20 @@ class SemanticSearchEngine:
                         mx = era_preference.get("max_year")
                         if (mn is not None and y < mn) or (mx is not None and y > mx):
                             continue
-                # Genre filter
+                # Genre filter (include)
                 if genre_hints:
                     gids = meta.get("genre_ids") or []
                     if not any(g in genre_hints for g in gids):
+                        continue
+                # Genre filter (exclude)
+                if exclude_genre_hints:
+                    gids = meta.get("genre_ids") or []
+                    if any(g in exclude_genre_hints for g in gids):
+                        continue
+                # Language filter
+                if lang_filter:
+                    mlang = (meta.get("original_language") or "").strip().lower()
+                    if mlang and mlang != lang_filter:
                         continue
                 # Mood distribution boost
                 raw_score = float(scores[idx])
@@ -991,7 +1004,33 @@ class SemanticSearchEngine:
                 meta = self._meta.get(tmdb_id)
                 if not meta:
                     continue
-                fallback.append(self._build_slim_result(meta, float(scores[idx])))
+                out.append(self._build_slim_result(meta, raw_score))
+                if len(out) >= limit_n:
+                    break
+            return out
+
+        results = _collect(limit)
+        # Graceful fallback: filters too strict → retry without genre/era/lang
+        if len(results) < max(1, limit // 2):
+            fallback = []
+            for idx in top_idxs:
+                if scores[idx] <= 0:
+                    break
+                tmdb_id = int(self._tmdb_ids_np[idx])
+                meta = self._meta.get(tmdb_id)
+                if not meta:
+                    continue
+                # Sadece mood_distribution boost korunur, hard filterlar atlanir
+                raw_score = float(scores[idx])
+                if mood_distribution:
+                    mmid = meta.get("mood_id")
+                    if mmid:
+                        for md in mood_distribution:
+                            if md.get("mood_id") == mmid:
+                                pct = md.get("percentage", 0)
+                                raw_score *= (1.0 + pct / 100.0 * 0.3)
+                                break
+                fallback.append(self._build_slim_result(meta, raw_score))
                 if len(fallback) >= limit:
                     break
             results = fallback if fallback else results

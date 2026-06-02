@@ -262,6 +262,22 @@ NEGATIVE_WORDS = [
     "olmadan", "kaçının", "uzak", "ama", "fakat",
 ]
 
+# Türkçe dil/ülke adları → ISO 639-1 kodları
+LANGUAGE_KEYWORDS = {
+    "türk filmi": "tr", "türkçe": "tr", "yerli": "tr",
+    "japon filmi": "ja", "japonca": "ja", "japon yapımı": "ja",
+    "kore filmi": "ko", "korece": "ko", "kore yapımı": "ko",
+    "fransız filmi": "fr", "fransızca": "fr",
+    "italyan filmi": "it", "italyanca": "it",
+    "alman filmi": "de", "almanca": "de",
+    "ispanyol filmi": "es", "ispanyolca": "es",
+    "amerikan filmi": "en", "ingiliz filmi": "en",
+    "ingilizce": "en",
+}
+
+# "ama/fakat" ile ayrılmış karmaşık cümlelerde negation tespiti
+_CLAUSE_SPLITTER = re.compile(r"\b(?:ama|fakat|ancak|lakin|yalnız)\b", re.IGNORECASE)
+
 
 def _normalize(text: str) -> str:
     if not text:
@@ -448,6 +464,42 @@ _RULE_MOOD_MAP = {
 }
 
 
+def _parse_complex_negation(text: str) -> tuple[list[int], list[int]]:
+    """"ama/fakat" ile bölünmüş cümlelerde ayrı ayrı tür include/exclude çıkar.
+    İlk cümle ana istek, "ama" sonrası olumsuz türleri barındırır.
+    Örn: "korku değil ama gerilim olabilir" → exclude=[27], include=[53]."""
+    t = text.lower().strip()
+    clauses = _CLAUSE_SPLITTER.split(t, maxsplit=1)
+    main_clause = clauses[0].strip()
+    # Önce tüm metinden exclude'ları topla
+    all_exclude = []
+    for gname, gids in GENRE_KEYWORDS.items():
+        if gname in t:
+            before_idx = t.index(gname)
+            before_text = t[max(0, before_idx - 30):before_idx]
+            if any(nw in before_text for nw in ("olmasın", "istemiyorum", "değil", "hariç", "dışında")):
+                all_exclude.extend(gids)
+    # "ama" sonrası varsa, oradaki türleri include'a ekle
+    more_include = []
+    if len(clauses) > 1:
+        after = clauses[1].strip()
+        for gname, gids in GENRE_KEYWORDS.items():
+            if gname in after:
+                after_idx = after.index(gname)
+                after_before = after[max(0, after_idx - 15):after_idx]
+                if not any(nw in after_before for nw in ("olmasın", "istemiyorum", "değil", "hariç")):
+                    more_include.extend(gids)
+    # Ana clause'taki türlerden exclude'ları çıkar
+    main_include = []
+    for gname, gids in GENRE_KEYWORDS.items():
+        if gname in main_clause:
+            before_idx = main_clause.index(gname)
+            before_text = main_clause[max(0, before_idx - 15):before_idx]
+            if not any(nw in before_text for nw in ("olmasın", "istemiyorum", "değil", "hariç")):
+                main_include.extend(gids)
+    return list(set(main_include + more_include)), list(set(all_exclude))
+
+
 def _rule_based_confused_analysis(text: str) -> dict:
     """Local rule-based mood analysis — zero API calls, <1ms.
     Uzun metinlerden mood, süre kısıtı, dönem tercihi ve tür ipuçlarını çıkarır.
@@ -463,11 +515,14 @@ def _rule_based_confused_analysis(text: str) -> dict:
     time_c = _extract_time_constraint(text)
     # Dönem tercihi
     era_c = _extract_era_constraint(text)
-    # Tür ipuçları
-    genre_hints = []
-    for gname, gids in GENRE_KEYWORDS.items():
-        if gname in text_lower:
-            genre_hints.extend(gids)
+    # Karmaşık negation ile tür include/exclude ayır
+    genre_hints, exclude_genre_hints = _parse_complex_negation(text)
+    # Dil filtresi
+    lang_filter = None
+    for phrase, code in LANGUAGE_KEYWORDS.items():
+        if phrase in text_lower:
+            lang_filter = code
+            break
 
     if not scored:
         return {
@@ -478,6 +533,8 @@ def _rule_based_confused_analysis(text: str) -> dict:
             "time_constraint": time_c,
             "era_preference": era_c,
             "genre_hints": genre_hints,
+            "exclude_genre_hints": exclude_genre_hints,
+            "lang_filter": lang_filter,
         }
 
     total = sum(scored.values())
@@ -493,6 +550,8 @@ def _rule_based_confused_analysis(text: str) -> dict:
         "time_constraint": time_c,
         "era_preference": era_c,
         "genre_hints": genre_hints,
+        "exclude_genre_hints": exclude_genre_hints,
+        "lang_filter": lang_filter,
     }
 
 
@@ -590,6 +649,8 @@ class ChatEngine:
         era_preference = mood_analysis.get("era_preference")
         genre_hints = mood_analysis.get("genre_hints")
         mood_distribution = mood_analysis.get("mood_mix", [])
+        lang_filter = mood_analysis.get("lang_filter")
+        exclude_genre_hints = mood_analysis.get("exclude_genre_hints")
 
         # Route to local semantic search (handles entity boost internally)
         from backend.services.semantic_search import semantic_engine
@@ -602,6 +663,8 @@ class ChatEngine:
             era_preference=era_preference,
             genre_hints=genre_hints,
             mood_distribution=mood_distribution,
+            lang_filter=lang_filter,
+            exclude_genre_hints=exclude_genre_hints,
         )
 
         # Üretim OOM fallback: lokal sentence-transformers modeli kullanılamıyorsa
@@ -614,6 +677,8 @@ class ChatEngine:
                 era_preference=era_preference,
                 genre_hints=genre_hints,
                 mood_distribution=mood_distribution,
+                lang_filter=lang_filter,
+                exclude_genre_hints=exclude_genre_hints,
             )
             if gemini_result and gemini_result.get("movies"):
                 logger.info("[ChatEngine] Lokal model yok → Gemini vektör araması kullanıldı (%d film)",
@@ -651,6 +716,8 @@ class ChatEngine:
         era_preference: dict | None = None,
         genre_hints: list[int] | None = None,
         mood_distribution: list[dict] | None = None,
+        lang_filter: str | None = None,
+        exclude_genre_hints: list[int] | None = None,
     ) -> Optional[dict]:
         """
         Üretim-güvenli semantic arama: Gemini text-embedding-004 ile sorguyu
@@ -712,6 +779,8 @@ class ChatEngine:
                 era_preference=era_preference,
                 genre_hints=genre_hints,
                 mood_distribution=mood_distribution,
+                lang_filter=lang_filter,
+                exclude_genre_hints=exclude_genre_hints,
             )
         except Exception as e:
             logger.warning("[ChatEngine] fast_search araması başarısız: %s", e)

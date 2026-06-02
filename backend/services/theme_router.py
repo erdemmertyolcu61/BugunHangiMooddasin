@@ -103,6 +103,12 @@ THEMES = [
     {"key": "aile_sirri", "triggers": ["aile sirri", "aile ici dram", "gizli aile gecmisi", "kardes catismasi", "miras kavgasi"], "terms": ["dysfunctional family", "family secret"], "genres": [18], "label": "Aile sırrı/aile içi dram filmleri", "ustad": "Aynı çatının altındaki en derin yaralar — kan bağının ağırlığı."},
     {"key": "dostluk", "triggers": ["dostluk hikayesi", "iki arkadasin hikayesi", "sadik dostluk", "beklenmedik dostluk"], "terms": ["friendship", "buddy"], "genres": [18, 35], "label": "Dostluk temalı filmler", "ustad": "Kan bağı olmadan kurulan en sağlam bağ — gerçek dostluk."},
     {"key": "mentor_cirak", "triggers": ["usta cirak", "mentor ve ogrenci", "ustasindan ogrenen", "yol gosteren usta"], "terms": ["mentor", "teacher and student"], "genres": [18], "label": "Usta-çırak/mentor temalı filmler", "ustad": "Bir ustanın gölgesinde yetişmek — bilgelik elden ele geçer."},
+    # ── Ödül / Festival ──
+    {"key": "oscar", "triggers": ["oscar odullu", "oscar kazanan", "oscar filmi", "akademi odulu"], "terms": ["academy award", "oscar"], "genres": [], "label": "Oscar ödüllü filmler", "ustad": "Sinema dünyasının en prestijli ödülüne layık görülmüş başyapıtlar."},
+    {"key": "altin_palmiye", "triggers": ["altin palmiye", "cannes odullu", "cannes film festivali"], "terms": ["cannes", "palme d'or"], "genres": [], "label": "Altın Palmiye ödüllü filmler", "ustad": "Cannes'ın en büyük ödülü — sinemanın zirvesindeki seçkinler."},
+    {"key": "berlin_film_festivali", "triggers": ["berlin film festivali", "altin ayi", "berlinale"], "terms": ["berlin international film festival", "golden bear"], "genres": [], "label": "Berlin Film Festivali ödüllü filmler", "ustad": "Berlinale'nin seçkisi — sanatsal sinemanın en cesur örnekleri."},
+    {"key": "venedik", "triggers": ["venedik film festivali", "altin aslan"], "terms": ["venice film festival", "golden lion"], "genres": [], "label": "Venedik Film Festivali ödüllü filmler", "ustad": "Venedik'in altın aslanı — sinema sanatının en nadide parçaları."},
+    {"key": "altin_kure", "triggers": ["altin kure", "golden globe"], "terms": ["golden globe"], "genres": [], "label": "Altın Küre ödüllü filmler", "ustad": "Hollywood'un en gözde ödüllerinden — kalite tescili."},
 ]
 
 # En uzun/özgül trigger önce denensin (örn. "zaman yolculugu" > "yol filmi").

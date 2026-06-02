@@ -201,16 +201,17 @@ class FastSearchEngine:
             # [OPT-4] Truncate overview at source for lightweight payloads
             full_overview = row.get("overview", "") or ""
             meta[tmdb_id] = {
-                "id":           tmdb_id,
-                "title":        row.get("title", ""),
-                "poster_url":   row.get("poster_url"),
-                "backdrop_url": row.get("backdrop_url"),
-                "overview":     _truncate(full_overview),
-                "release_date": row.get("release_date", ""),
-                "vote_average": vote_avg,
-                "genre_ids":    row.get("genre_ids", []),
-                "mood_id":      row.get("primary_mood_id"),
-                "ustad_notu":   row.get("ustad_notu") or _build_ustad_notu(
+                "id":                tmdb_id,
+                "title":             row.get("title", ""),
+                "poster_url":        row.get("poster_url"),
+                "backdrop_url":      row.get("backdrop_url"),
+                "overview":          _truncate(full_overview),
+                "release_date":      row.get("release_date", ""),
+                "vote_average":      vote_avg,
+                "genre_ids":         row.get("genre_ids", []),
+                "mood_id":           row.get("primary_mood_id"),
+                "original_language": row.get("original_language", ""),
+                "ustad_notu":        row.get("ustad_notu") or _build_ustad_notu(
                     row.get("title", ""),
                     row.get("genre_ids", []),
                     row.get("release_date", ""),
@@ -257,10 +258,12 @@ class FastSearchEngine:
         era_preference: dict | None = None,
         genre_hints: list[int] | None = None,
         mood_distribution: list[dict] | None = None,
+        lang_filter: str | None = None,
+        exclude_genre_hints: list[int] | None = None,
     ) -> list[dict]:
         """
         Find top-k most similar movies to query_vec.
-        Applies optional era/genre/mood post-filters with graceful fallback.
+        Applies optional era/genre/mood/lang/exclude post-filters with graceful fallback.
         Returns lightweight movie dicts (truncated overview, no heavy metadata).
         """
         if not self.is_ready:
@@ -270,10 +273,12 @@ class FastSearchEngine:
 
         if _NUMPY_AVAILABLE:
             return self._search_numpy(query_vec, limit, exclude_ids, min_vote,
-                                      era_preference, genre_hints, mood_distribution)
+                                      era_preference, genre_hints, mood_distribution,
+                                      lang_filter, exclude_genre_hints)
         else:
             return self._search_python(query_vec, limit, exclude_ids, min_vote,
-                                       era_preference, genre_hints, mood_distribution)
+                                       era_preference, genre_hints, mood_distribution,
+                                       lang_filter, exclude_genre_hints)
 
     # ── numpy ultra-fast path ────────────────────────────────────────────────
 
@@ -286,6 +291,8 @@ class FastSearchEngine:
         era_preference: dict | None = None,
         genre_hints: list[int] | None = None,
         mood_distribution: list[dict] | None = None,
+        lang_filter: str | None = None,
+        exclude_genre_hints: list[int] | None = None,
     ) -> list[dict]:
         # Normalize query vector
         if isinstance(query_vec, list):
@@ -354,10 +361,20 @@ class FastSearchEngine:
                         mx = era_preference.get("max_year")
                         if (mn is not None and y < mn) or (mx is not None and y > mx):
                             continue
-                # Genre filter
+                # Genre filter (include)
                 if genre_hints:
                     gids = meta.get("genre_ids") or []
                     if not any(g in genre_hints for g in gids):
+                        continue
+                # Genre filter (exclude)
+                if exclude_genre_hints:
+                    gids = meta.get("genre_ids") or []
+                    if any(g in exclude_genre_hints for g in gids):
+                        continue
+                # Language filter
+                if lang_filter:
+                    mlang = (meta.get("original_language") or "").strip().lower()
+                    if mlang and mlang != lang_filter:
                         continue
                 # Mood distribution boost
                 raw_score = float(scores[idx])
@@ -403,6 +420,8 @@ class FastSearchEngine:
         era_preference: dict | None = None,
         genre_hints: list[int] | None = None,
         mood_distribution: list[dict] | None = None,
+        lang_filter: str | None = None,
+        exclude_genre_hints: list[int] | None = None,
     ) -> list[dict]:
         if isinstance(query_vec, (list, tuple)):
             qv = query_vec
@@ -442,10 +461,20 @@ class FastSearchEngine:
                     mx = era_preference.get("max_year")
                     if (mn is not None and y < mn) or (mx is not None and y > mx):
                         continue
-            # Genre filter
+            # Genre filter (include)
             if genre_hints:
                 gids = meta.get("genre_ids") or []
                 if not any(g in genre_hints for g in gids):
+                    continue
+            # Genre filter (exclude)
+            if exclude_genre_hints:
+                gids = meta.get("genre_ids") or []
+                if any(g in exclude_genre_hints for g in gids):
+                    continue
+            # Language filter
+            if lang_filter:
+                mlang = (meta.get("original_language") or "").strip().lower()
+                if mlang and mlang != lang_filter:
                     continue
             # Mood distribution boost
             if mood_distribution:
