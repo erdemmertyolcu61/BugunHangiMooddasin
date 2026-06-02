@@ -1,10 +1,11 @@
-import { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy } from 'lucide-react';
 import LottieAnimation from './LottieAnimation';
 import { detectNewMilestones } from '../utils/milestones';
 import { track } from '../utils/analytics';
+import { getApiUrl } from '../utils/apiConfig';
 
 /**
  * Başarım kutlama sistemi (global).
@@ -25,13 +26,40 @@ export function AchievementProvider({ children }) {
 
   const check = useCallback((stats) => {
     if (!stats) return;
-    const fresh = detectNewMilestones(stats); // kalıcı kaydeder + yenileri döner
+    const fresh = detectNewMilestones(stats);
     if (!fresh.length) return;
-    // 3+ aynı anda → geçmiş migrasyonu say, sadece en büyüğünü kutla (storm yok)
     const toCelebrate = fresh.length >= 3 ? [fresh[fresh.length - 1]] : fresh;
     toCelebrate.forEach((m) => track('milestone_unlock', { id: m.id }));
     setQueue((q) => [...q, ...toCelebrate]);
   }, []);
+
+  const checkFromRemote = useCallback(async () => {
+    try {
+      const res = await fetch(getApiUrl('/api/watchlist'));
+      if (!res.ok) return;
+      const data = await res.json();
+      const movies = data.movies || [];
+      check({
+        saved: movies.length,
+        watched: movies.filter((m) => m.watched).length,
+        notes: movies.filter((m) => (m.personal_note || '').trim()).length,
+      });
+    } catch {}
+  }, [check]);
+
+  // 500ms debounce ile window event dinle
+  const debounceRef = useRef(null);
+  useEffect(() => {
+    const handler = () => {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(checkFromRemote, 500);
+    };
+    window.addEventListener('check-achievements', handler);
+    return () => {
+      window.removeEventListener('check-achievements', handler);
+      clearTimeout(debounceRef.current);
+    };
+  }, [checkFromRemote]);
 
   const dismiss = useCallback(() => setQueue((q) => q.slice(1)), []);
 

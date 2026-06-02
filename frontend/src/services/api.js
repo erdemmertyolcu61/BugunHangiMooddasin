@@ -167,6 +167,7 @@ export async function addToWatchlist(movie) {
       })
     });
   } catch {}
+  try { window.dispatchEvent(new CustomEvent('check-achievements')); } catch {}
   return { success: true };
 }
 
@@ -175,6 +176,7 @@ export async function removeFromWatchlist(movieId) {
   localRemoveFromWatchlist(movieId);
   // Backend'den de sil (başarısız olsa sorun değil)
   try { await fetch(`${BASE}/watchlist/${movieId}`, { method: 'DELETE', headers: { ...authHeaders() } }); } catch {}
+  try { window.dispatchEvent(new CustomEvent('check-achievements')); } catch {}
   return { success: true };
 }
 
@@ -191,6 +193,7 @@ export async function toggleWatched(tmdbId) {
     }
   } catch {}
   // Backend başarısızsa localStorage durumuna güven
+  try { window.dispatchEvent(new CustomEvent('check-achievements')); } catch {}
   return { tmdb_id: tmdbId, watched: localState ? localState.watched : false };
 }
 
@@ -207,6 +210,7 @@ export async function saveNote(movieId, content) {
       body: JSON.stringify({ content })
     });
   } catch {}
+  try { window.dispatchEvent(new CustomEvent('check-achievements')); } catch {}
   return { success: true };
 }
 
