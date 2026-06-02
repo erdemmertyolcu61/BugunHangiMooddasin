@@ -500,6 +500,16 @@ def _extract_time_constraint(text: str) -> dict | None:
     """Süre kısıtı: {"mode": "short"|"long", "max_minutes": int|None} veya None."""
     t = text.lower()
 
+    # Negatif süre: "90 dakikadan uzun olmasın", "2 saatten fazla olmasın"
+    neg_min = re.search(r"(\d{2,3})\s*(?:dakikadan|dakika|dk)\s*(?:uzun|fazla)\s*(?:olmasın|olmasin)", t)
+    if neg_min:
+        return {"mode": "short", "max_minutes": int(neg_min.group(1))}
+
+    neg_hour = re.search(r"(\d+(?:[.,]\d)?)\s*(?:saatten|saat)\s*(?:uzun|fazla)\s*(?:olmasın|olmasin)", t)
+    if neg_hour:
+        h = float(neg_hour.group(1).replace(",", "."))
+        return {"mode": "short", "max_minutes": int(h * 60)}
+
     # Spesifik dakika: "45 dakikalık", "90 dakika"
     min_match = re.search(r"(\d{2,3})\s*(?:dakika|dk)", t)
     if min_match:
@@ -575,6 +585,12 @@ class ChatEngine:
         intent = self.detect_intent(text)
         logger.info("[ChatEngine] Intent: %s | query: '%s'", intent.type, text)
 
+        # Rule-based mood/era/genre analysis (tek geçiş, <1ms)
+        mood_analysis = _rule_based_confused_analysis(text)
+        era_preference = mood_analysis.get("era_preference")
+        genre_hints = mood_analysis.get("genre_hints")
+        mood_distribution = mood_analysis.get("mood_mix", [])
+
         # Route to local semantic search (handles entity boost internally)
         from backend.services.semantic_search import semantic_engine
 
@@ -583,6 +599,9 @@ class ChatEngine:
             limit=limit,
             exclude_ids=exclude_ids,
             min_vote=min_vote,
+            era_preference=era_preference,
+            genre_hints=genre_hints,
+            mood_distribution=mood_distribution,
         )
 
         # Üretim OOM fallback: lokal sentence-transformers modeli kullanılamıyorsa
@@ -592,6 +611,9 @@ class ChatEngine:
         if not result.get("movies"):
             gemini_result = await self._gemini_vector_search(
                 text, limit, min_vote, list(exclude_ids),
+                era_preference=era_preference,
+                genre_hints=genre_hints,
+                mood_distribution=mood_distribution,
             )
             if gemini_result and gemini_result.get("movies"):
                 logger.info("[ChatEngine] Lokal model yok → Gemini vektör araması kullanıldı (%d film)",
@@ -599,7 +621,6 @@ class ChatEngine:
                 result = gemini_result
 
         # Augment response with intent info + rule-based mood mix
-        mood_analysis = _rule_based_confused_analysis(text)
         result["intent"] = intent.type
 
         # Intent'e göre anlaşılır query_understanding mesajı üret
@@ -615,7 +636,7 @@ class ChatEngine:
             result["query_understanding"] = f"Yeni öneriler getiriyorum..."
         else:
             result["query_understanding"] = text
-        result["mood_mix"] = mood_analysis.get("mood_mix", [])
+        result["mood_mix"] = mood_distribution
         if not result.get("ustad_line") or result.get("mode") == "semantic_no_match":
             result["ustad_line"] = mood_analysis.get("ustad_line", result.get("ustad_line", ""))
         result["message"] = mood_analysis.get("message", "")
@@ -627,6 +648,9 @@ class ChatEngine:
     # ─────────── GEMINI VECTOR SEARCH (üretim semantic yolu) ───────────
     async def _gemini_vector_search(
         self, text: str, limit: int, min_vote: float, exclude_ids: list,
+        era_preference: dict | None = None,
+        genre_hints: list[int] | None = None,
+        mood_distribution: list[dict] | None = None,
     ) -> Optional[dict]:
         """
         Üretim-güvenli semantic arama: Gemini text-embedding-004 ile sorguyu
@@ -685,6 +709,9 @@ class ChatEngine:
                 limit=limit,
                 exclude_ids=set(exclude_ids or []),
                 min_vote=min_vote,
+                era_preference=era_preference,
+                genre_hints=genre_hints,
+                mood_distribution=mood_distribution,
             )
         except Exception as e:
             logger.warning("[ChatEngine] fast_search araması başarısız: %s", e)

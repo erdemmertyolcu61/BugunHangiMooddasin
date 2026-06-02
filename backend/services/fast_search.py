@@ -254,9 +254,13 @@ class FastSearchEngine:
         limit: int = 6,
         exclude_ids: set | None = None,
         min_vote: float = 5.5,
+        era_preference: dict | None = None,
+        genre_hints: list[int] | None = None,
+        mood_distribution: list[dict] | None = None,
     ) -> list[dict]:
         """
         Find top-k most similar movies to query_vec.
+        Applies optional era/genre/mood post-filters with graceful fallback.
         Returns lightweight movie dicts (truncated overview, no heavy metadata).
         """
         if not self.is_ready:
@@ -265,9 +269,11 @@ class FastSearchEngine:
         exclude_ids = exclude_ids or set()
 
         if _NUMPY_AVAILABLE:
-            return self._search_numpy(query_vec, limit, exclude_ids, min_vote)
+            return self._search_numpy(query_vec, limit, exclude_ids, min_vote,
+                                      era_preference, genre_hints, mood_distribution)
         else:
-            return self._search_python(query_vec, limit, exclude_ids, min_vote)
+            return self._search_python(query_vec, limit, exclude_ids, min_vote,
+                                       era_preference, genre_hints, mood_distribution)
 
     # ── numpy ultra-fast path ────────────────────────────────────────────────
 
@@ -277,6 +283,9 @@ class FastSearchEngine:
         limit: int,
         exclude_ids: set,
         min_vote: float,
+        era_preference: dict | None = None,
+        genre_hints: list[int] | None = None,
+        mood_distribution: list[dict] | None = None,
     ) -> list[dict]:
         # Normalize query vector
         if isinstance(query_vec, list):
@@ -323,17 +332,63 @@ class FastSearchEngine:
         # Sort the small pool descending
         top_idxs = top_idxs[np.argsort(scores[top_idxs])[::-1]]
 
-        results = []
-        for idx in top_idxs:
-            if scores[idx] <= 0:
-                break
-            tmdb_id = int(self._tmdb_ids_np[idx])
-            meta = self._meta.get(tmdb_id)
-            if not meta:
-                continue
-            results.append(_build_slim_result(meta, float(scores[idx])))
-            if len(results) >= limit:
-                break
+        def _collect(limit_n: int) -> list[dict]:
+            out = []
+            for idx in top_idxs:
+                if scores[idx] <= 0:
+                    break
+                tmdb_id = int(self._tmdb_ids_np[idx])
+                meta = self._meta.get(tmdb_id)
+                if not meta:
+                    continue
+                # Era filter
+                rd = (meta.get("release_date") or "")
+                year_str = rd[:4] if rd else ""
+                if era_preference:
+                    try:
+                        y = int(year_str)
+                    except (ValueError, TypeError):
+                        y = None
+                    if y is not None:
+                        mn = era_preference.get("min_year")
+                        mx = era_preference.get("max_year")
+                        if (mn is not None and y < mn) or (mx is not None and y > mx):
+                            continue
+                # Genre filter
+                if genre_hints:
+                    gids = meta.get("genre_ids") or []
+                    if not any(g in genre_hints for g in gids):
+                        continue
+                # Mood distribution boost
+                raw_score = float(scores[idx])
+                if mood_distribution:
+                    mmid = meta.get("mood_id")
+                    if mmid:
+                        for md in mood_distribution:
+                            if md.get("mood_id") == mmid:
+                                pct = md.get("percentage", 0)
+                                raw_score *= (1.0 + pct / 100.0 * 0.3)
+                                break
+                out.append(_build_slim_result(meta, raw_score))
+                if len(out) >= limit_n:
+                    break
+            return out
+
+        results = _collect(limit)
+        # Graceful fallback: filters too strict → retry without filters
+        if len(results) < max(1, limit // 2):
+            fallback = []
+            for idx in top_idxs:
+                if scores[idx] <= 0:
+                    break
+                tmdb_id = int(self._tmdb_ids_np[idx])
+                meta = self._meta.get(tmdb_id)
+                if not meta:
+                    continue
+                fallback.append(_build_slim_result(meta, float(scores[idx])))
+                if len(fallback) >= limit:
+                    break
+            results = fallback if fallback else results
 
         return results
 
@@ -345,6 +400,9 @@ class FastSearchEngine:
         limit: int,
         exclude_ids: set,
         min_vote: float,
+        era_preference: dict | None = None,
+        genre_hints: list[int] | None = None,
+        mood_distribution: list[dict] | None = None,
     ) -> list[dict]:
         if isinstance(query_vec, (list, tuple)):
             qv = query_vec
@@ -369,8 +427,42 @@ class FastSearchEngine:
         results = []
         for sim, tmdb_id in scored[:limit]:
             meta = self._meta.get(tmdb_id)
-            if meta:
-                results.append(_build_slim_result(meta, sim))
+            if not meta:
+                continue
+            # Era filter
+            rd = (meta.get("release_date") or "")
+            year_str = rd[:4] if rd else ""
+            if era_preference:
+                try:
+                    y = int(year_str)
+                except (ValueError, TypeError):
+                    y = None
+                if y is not None:
+                    mn = era_preference.get("min_year")
+                    mx = era_preference.get("max_year")
+                    if (mn is not None and y < mn) or (mx is not None and y > mx):
+                        continue
+            # Genre filter
+            if genre_hints:
+                gids = meta.get("genre_ids") or []
+                if not any(g in genre_hints for g in gids):
+                    continue
+            # Mood distribution boost
+            if mood_distribution:
+                mmid = meta.get("mood_id")
+                if mmid:
+                    for md in mood_distribution:
+                        if md.get("mood_id") == mmid:
+                            pct = md.get("percentage", 0)
+                            sim *= (1.0 + pct / 100.0 * 0.3)
+                            break
+            results.append(_build_slim_result(meta, sim))
+        if len(results) < max(1, limit // 2):
+            results = []
+            for sim, tmdb_id in scored[:limit]:
+                meta = self._meta.get(tmdb_id)
+                if meta:
+                    results.append(_build_slim_result(meta, sim))
         return results
 
 

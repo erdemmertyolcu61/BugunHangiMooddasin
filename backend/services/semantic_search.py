@@ -797,6 +797,9 @@ class SemanticSearchEngine:
         exclude_ids: Optional[set] = None,
         min_vote: float = 5.0,
         threshold: float = 0.38,
+        era_preference: Optional[dict] = None,
+        genre_hints: Optional[list[int]] = None,
+        mood_distribution: Optional[list[dict]] = None,
     ) -> dict:
         """
         Hybrid semantic search with zero external API calls.
@@ -807,6 +810,11 @@ class SemanticSearchEngine:
         Step B — Composite Vector Matrix:
           Cosine similarity + boost multipliers for entity matches
           (actor +0.80, director +0.80, exact title +0.50).
+
+        Step C — Post-filter:
+          era_preference (year range) + genre_hints (genre ID whitelist)
+          + mood_distribution (mood-based reranking).
+          Falls back gracefully if filters are too strict.
         """
         if not self.is_ready:
             return {
@@ -929,17 +937,64 @@ class SemanticSearchEngine:
         top_idxs = np.argpartition(scores, -pool_size)[-pool_size:]
         top_idxs = top_idxs[np.argsort(scores[top_idxs])[::-1]]
 
-        results = []
-        for idx in top_idxs:
-            if scores[idx] <= 0:
-                break
-            tmdb_id = int(self._tmdb_ids_np[idx])
-            meta = self._meta.get(tmdb_id)
-            if not meta:
-                continue
-            results.append(self._build_slim_result(meta, float(scores[idx])))
-            if len(results) >= limit:
-                break
+        # ── Assemble top-k with optional post-filters ────────────────────────
+        def _collect(limit_n: int) -> list[dict]:
+            out = []
+            for idx in top_idxs:
+                if scores[idx] <= 0:
+                    break
+                tmdb_id = int(self._tmdb_ids_np[idx])
+                meta = self._meta.get(tmdb_id)
+                if not meta:
+                    continue
+                # Era filter
+                rd = (meta.get("release_date") or "")
+                year_str = rd[:4] if rd else ""
+                if era_preference:
+                    try:
+                        y = int(year_str)
+                    except (ValueError, TypeError):
+                        y = None
+                    if y is not None:
+                        mn = era_preference.get("min_year")
+                        mx = era_preference.get("max_year")
+                        if (mn is not None and y < mn) or (mx is not None and y > mx):
+                            continue
+                # Genre filter
+                if genre_hints:
+                    gids = meta.get("genre_ids") or []
+                    if not any(g in genre_hints for g in gids):
+                        continue
+                # Mood distribution boost
+                raw_score = float(scores[idx])
+                if mood_distribution:
+                    mmid = meta.get("mood_id")
+                    if mmid:
+                        for md in mood_distribution:
+                            if md.get("mood_id") == mmid:
+                                pct = md.get("percentage", 0)
+                                raw_score *= (1.0 + pct / 100.0 * 0.3)
+                                break
+                out.append(self._build_slim_result(meta, raw_score))
+                if len(out) >= limit_n:
+                    break
+            return out
+
+        results = _collect(limit)
+        # Graceful fallback: filters too strict → retry without filters
+        if len(results) < max(1, limit // 2):
+            fallback = []
+            for idx in top_idxs:
+                if scores[idx] <= 0:
+                    break
+                tmdb_id = int(self._tmdb_ids_np[idx])
+                meta = self._meta.get(tmdb_id)
+                if not meta:
+                    continue
+                fallback.append(self._build_slim_result(meta, float(scores[idx])))
+                if len(fallback) >= limit:
+                    break
+            results = fallback if fallback else results
 
         if not results:
             return self._empty_response(search_text)
