@@ -25,6 +25,8 @@ export default function ConsentBanner() {
     }
   }, []);
 
+  // Çerezsiz analitik varsayılan açık (opt-out). "Tamam" = açık kalsın,
+  // "Analitiği Kapat" = opt-out. Her iki durumda da karar kaydedilir (banner bir daha çıkmaz).
   const accept = () => {
     grantAnalyticsConsent();
     track(EVENTS.LANDING);
@@ -88,9 +90,10 @@ export default function ConsentBanner() {
               </div>
 
               <p className="text-[13.5px] leading-relaxed text-fg-muted">
-                Deneyimini iyileştirmek için <span className="text-fg font-semibold">gizlilik-dostu, çerezsiz</span> analitik
-                kullanmak istiyoruz. Hesap bilgilerin ve listelerin yalnızca hizmeti sunmak için işlenir; üçüncü
-                taraflara satılmaz.{' '}
+                Deneyimini iyileştirmek için <span className="text-fg font-semibold">çerezsiz, anonim</span> analitik
+                kullanıyoruz — <span className="text-fg font-semibold">çerez yok, IP saklanmaz, kişisel veri toplanmaz</span>.
+                Hesap bilgilerin ve listelerin yalnızca hizmeti sunmak için işlenir; üçüncü taraflara satılmaz.
+                İstersen aşağıdan kapatabilirsin.{' '}
                 <Link to="/gizlilik" onClick={() => setShow(false)}
                   className="text-amber font-semibold underline underline-offset-2 hover:text-amber/80 transition-colors">
                   Detaylar
@@ -105,7 +108,7 @@ export default function ConsentBanner() {
                              text-fg-subtle hover:text-fg border border-default
                              hover:bg-fg/[0.04] transition-colors"
                 >
-                  Reddet
+                  Analitiği Kapat
                 </button>
                 <button
                   onClick={accept}
@@ -113,7 +116,7 @@ export default function ConsentBanner() {
                              bg-amber text-bg shadow-[0_8px_24px_rgba(255,191,0,0.25)]
                              hover:scale-[1.02] active:scale-[0.99] transition-transform"
                 >
-                  Kabul Et
+                  Tamam
                 </button>
               </div>
             </div>

@@ -25,17 +25,21 @@ const DOMAIN = import.meta.env.VITE_ANALYTICS_DOMAIN || '';
 const enabled = !!PROVIDER && !!SRC;
 let _booted = false;
 
-// ── KVKK/gizlilik onayı ──────────────────────────────────────────────
-// Analytics yalnız kullanıcı onay verdiğinde başlar. Onay yoksa tamamen no-op.
+// ── KVKK/gizlilik: çerezsiz analitik (opt-OUT modeli) ────────────────
+// Umami çerezsiz ve anonimdir (çerez yok, IP saklanmaz, kişisel veri yok) →
+// KVKK'da çerezsiz anonim sayım meşru menfaat kapsamında rıza-kapısı
+// gerektirmeden yüklenebilir. Bu yüzden VARSAYILAN AÇIK; yalnızca kullanıcı
+// açıkça "kapat" derse ('0') devre dışı kalır. Banner artık opt-out (bilgilendirme).
 const CONSENT_KEY = 'fc_consent';
 export function hasAnalyticsConsent() {
-  try { return localStorage.getItem(CONSENT_KEY) === '1'; } catch { return false; }
+  try { return localStorage.getItem(CONSENT_KEY) !== '0'; } catch { return true; }
 }
-/** Onay ver + (yapılandırılmışsa) analytics'i hemen başlat. */
+/** Kullanıcı "açık kalsın" dedi: işaretle + (yapılandırılmışsa) hemen başlat. */
 export function grantAnalyticsConsent() {
   try { localStorage.setItem(CONSENT_KEY, '1'); } catch { /* sessiz */ }
   initAnalytics();
 }
+/** Opt-out: analitiği kapat (sonraki yüklemelerde script hiç enjekte edilmez). */
 export function revokeAnalyticsConsent() {
   try { localStorage.setItem(CONSENT_KEY, '0'); } catch { /* sessiz */ }
 }

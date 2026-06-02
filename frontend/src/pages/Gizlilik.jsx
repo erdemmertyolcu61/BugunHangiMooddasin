@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import useDocumentMeta from '../utils/useDocumentMeta';
+import { hasAnalyticsConsent, grantAnalyticsConsent, revokeAnalyticsConsent } from '../utils/analytics';
 
 /**
  * Gizlilik & KVKK Aydınlatma Metni.
@@ -9,6 +10,11 @@ import useDocumentMeta from '../utils/useDocumentMeta';
  */
 export default function Gizlilik() {
   const navigate = useNavigate();
+  const [analyticsOn, setAnalyticsOn] = useState(() => hasAnalyticsConsent());
+  const toggleAnalytics = () => {
+    if (analyticsOn) { revokeAnalyticsConsent(); setAnalyticsOn(false); }
+    else { grantAnalyticsConsent(); setAnalyticsOn(true); }
+  };
   useDocumentMeta({
     title: 'Gizlilik & KVKK — Sinemood',
     description: "Sinemood'da hangi verilerin neden işlendiği, çerez/analitik kullanımı ve KVKK kapsamındaki haklarınız.",
@@ -53,7 +59,7 @@ export default function Gizlilik() {
             <ul className="list-disc pl-5 space-y-1.5">
               <li><span className="text-fg">Hesap bilgileri:</span> Google ile giriş yaptığınızda ad, e-posta ve profil görseliniz (yalnızca kimlik doğrulama ve profilinizi oluşturmak için).</li>
               <li><span className="text-fg">Uygulama içi veriler:</span> izleme listeniz, notlarınız, zevk haritanız, arkadaş/öneri etkileşimleriniz — hizmeti size sunmak için.</li>
-              <li><span className="text-fg">Anonim analitik:</span> sayfa görüntüleme ve özellik kullanımı (çerezsiz, kişisel kimlik içermez) — yalnızca onay verdiğinizde.</li>
+              <li><span className="text-fg">Anonim analitik:</span> sayfa görüntüleme ve özellik kullanımı (çerezsiz, IP saklanmaz, kişisel kimlik içermez). İstediğiniz zaman aşağıdan kapatabilirsiniz.</li>
               <li><span className="text-fg">Teknik veriler:</span> hata/performans amaçlı sınırlı günlükler.</li>
             </ul>
           </section>
@@ -70,10 +76,27 @@ export default function Gizlilik() {
           <section className="space-y-2">
             <h2 className="text-lg font-bold text-fg">4. Çerezler & Analitik</h2>
             <p>
-              Pazarlama/izleme çerezleri kullanmıyoruz. Analitik araçlarımız çerezsiz ve anonimdir;
-              yalnızca açık onayınızla çalışır. Onayınızı istediğiniz zaman tarayıcı verilerini
-              temizleyerek geri çekebilirsiniz.
+              Pazarlama/izleme çerezleri kullanmıyoruz. Analitik araçlarımız (Umami) <span className="text-fg">çerezsiz
+              ve anonimdir</span> — çerez yerleştirmez, IP adresinizi saklamaz, kişisel kimlik toplamaz. Bu nedenle
+              çerezsiz anonim ölçüm varsayılan olarak açıktır; dilediğiniz zaman aşağıdaki düğmeyle kapatabilirsiniz.
             </p>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-default bg-fg/[0.03] px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-fg">Anonim analitik</p>
+                <p className="text-[12px] text-fg-subtle">{analyticsOn ? 'Şu an açık' : 'Şu an kapalı'}</p>
+              </div>
+              <button
+                onClick={toggleAnalytics}
+                aria-pressed={analyticsOn}
+                className={`px-5 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
+                  analyticsOn
+                    ? 'border border-default text-fg-subtle hover:text-fg hover:bg-fg/[0.04]'
+                    : 'bg-amber text-bg hover:scale-[1.02] active:scale-[0.99]'
+                }`}
+              >
+                {analyticsOn ? 'Analitiği Kapat' : 'Analitiği Aç'}
+              </button>
+            </div>
           </section>
 
           <section className="space-y-2">
