@@ -670,6 +670,10 @@ async def cache_control_middleware(request: Request, call_next):
     response = await call_next(request)
     if request.method == "GET" and response.status_code == 200:
         path = request.url.path
+        # SW dosyaları asla cache'lenmesin — her açılışta en güncel versiyon alınmalı
+        if path in ("/sw.js", "/registerSW.js"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            return response
         ttl = None
         for prefix, sec in _CACHE_CONTROL_TTL.items():
             if path.startswith(prefix):

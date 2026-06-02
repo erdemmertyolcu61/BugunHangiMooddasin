@@ -51,6 +51,23 @@ if (new URLSearchParams(window.location.search).get('ref')) {
   } catch { /* sessizce geç */ }
 })();
 
+// ─── PWA Service Worker — her açılışta/öne gelişte güncelleme kontrolü ───
+// iOS PWA'da WKWebView SW güncellemesini kendi kendine kontrol etmez.
+// visibilitychange + reg.update() ile her kullanıcı en geç bir sonraki
+// açılışında Railway'deki son sürümü alır. Tüm platformlarda çalışır.
+(() => {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          navigator.serviceWorker.getRegistration().then(r => r?.update());
+        }
+      });
+    }
+  } catch { /* sessizce geç */ }
+})();
+
 // Eski deploy chunk'ı 404 verince (sekme uzun süre açık kalıp yeni deploy gelince)
 // sayfayı bir kez yenile — "Failed to fetch dynamically imported module" hatasını çözer.
 const RELOAD_FLAG = 'fc_chunk_reloaded';
