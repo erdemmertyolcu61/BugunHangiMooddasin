@@ -5,6 +5,7 @@ import './index.css'
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './context/ToastContext';
+import { AchievementProvider } from './components/AchievementCelebration';
 import { initAnalytics, track, trackAppOpen, EVENTS } from './utils/analytics';
 import { recordStreakOpen } from './utils/streak';
 import { captureReferral } from './context/AuthContext';
@@ -77,7 +78,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <App />
+        <AchievementProvider>
+          <App />
+        </AchievementProvider>
       </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>,

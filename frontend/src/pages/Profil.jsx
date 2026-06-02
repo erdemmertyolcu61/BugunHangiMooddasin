@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LogOut, ChevronLeft, User, Share2, Link2, Brain, Users, Settings } from 'lucide-react';
+import { LogOut, ChevronLeft, User, Share2, Link2, Brain, Users, Settings, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -34,6 +34,8 @@ import ProfileTimeline from '../components/profile/ProfileTimeline';
 import ProfileSocial from '../components/profile/ProfileSocial';
 import ProfileSettings from '../components/profile/ProfileSettings';
 import ReferralCard from '../components/profile/ReferralCard';
+import MilestonesStrip from '../components/MilestonesStrip';
+import { useAchievements } from '../components/AchievementCelebration';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -47,6 +49,7 @@ export default function Profil() {
   const navigate = useNavigate();
   const { user, logout, login, devLogin, emailLogin, emailRegister, updateUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { check: checkMilestones } = useAchievements();
   useDocumentMeta({
     title: 'Profilim — Zevk Haritam | Sinemood',
     description: 'Sinema zevk haritan, izleme listen ve davet ettiklerin. Profilini keşfet ve paylaş.',
@@ -114,7 +117,7 @@ export default function Profil() {
   const [detailMovie, setDetailMovie] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
-  const [profileTab, setProfileTab] = useState('profile');
+  const [profileTab, setProfileTab] = useState('achievements');
   const pollRef = useRef(null);
 
   /* ─── Fetch social on mount ────────────────────────────────────── */
@@ -269,6 +272,19 @@ export default function Profil() {
     [savedMovies]);
 
   const topMoods = tasteMap?.top_moods?.slice(0, 5) || [];
+
+  /* ─── Başarımlar ───────────────────────────────────────────────── */
+  const milestoneStats = useMemo(() => ({
+    saved: savedMovies.length,
+    watched: savedMovies.filter(m => m.watched).length,
+    notes: savedMovies.filter(m => (m.personal_note || '').trim()).length,
+  }), [savedMovies]);
+
+  // Yükleme bitince senkronize et (yeni açılan başarım varsa global kutlama).
+  useEffect(() => {
+    if (loading) return;
+    checkMilestones(milestoneStats);
+  }, [milestoneStats, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ─── Public profile link ──────────────────────────────────────── */
   // Backend OG paylaşım ucu: crawler kişiye özel önizleme görür, insan SPA'ya yönlenir.
@@ -454,7 +470,7 @@ export default function Profil() {
           transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}>
           <div className="flex gap-1 p-1 rounded-full bg-[#1c1512]/90 border border-white/[0.06]">
             {[
-              { id: 'profile', label: 'Profil', short: 'Profil', icon: User },
+              { id: 'achievements', label: 'Başarımlar', short: 'Başarımlar', icon: Trophy },
               { id: 'social', label: 'Arkadaşlar', short: 'Arkadaşlar', icon: Users },
               { id: 'settings', label: 'Ayarlar', short: 'Ayarlar', icon: Settings },
             ].map(tab => (
@@ -474,10 +490,11 @@ export default function Profil() {
         </motion.div>
 
         {/* ─── Tab Content ─── */}
-        {profileTab === 'profile' && (
-          <>
+        {profileTab === 'achievements' && (
+          <div className="space-y-8">
+            <MilestonesStrip stats={milestoneStats} />
             {!loading && <ProfileTimeline recentWatched={recentWatched} topMoods={topMoods} />}
-          </>
+          </div>
         )}
 
         {profileTab === 'social' && (

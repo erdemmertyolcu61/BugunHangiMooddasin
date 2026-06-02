@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,10 +6,7 @@ import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, prox
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import TasteMapCard from '../components/TasteMapCard';
-import MilestonesStrip from '../components/MilestonesStrip';
-import { detectNewMilestones } from '../utils/milestones';
-import { useToast } from '../context/ToastContext';
-import { track } from '../utils/analytics';
+import { useAchievements } from '../components/AchievementCelebration';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
 
@@ -26,7 +23,7 @@ const formatDefterDate = (iso) => {
 export default function Defterim() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const toast = useToast();
+  const { check: checkMilestones } = useAchievements();
   const [savedMovies, setSavedMovies] = useState([]);
   const [watchedIds, setWatchedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -35,24 +32,18 @@ export default function Defterim() {
   const [tasteMap, setTasteMap] = useState(null);
   const [tasteLoading, setTasteLoading] = useState(true);
 
-  // ── Başarımlar (Defterim milestone'ları) ──
+  // ── Başarımlar: tespit burada (izledim/not aksiyonları), kutlama global ──
+  // Rozet arayüzü Profil > Başarımlar sekmesinde. Buradaki etki yeni açılan
+  // başarımı yakalar → global "Başarım Kazanıldı" animasyonu tetiklenir.
   const milestoneStats = useMemo(() => ({
     saved: savedMovies.length,
     watched: watchedIds.size,
     notes: savedMovies.filter((m) => (m.personal_note || '').trim()).length,
   }), [savedMovies, watchedIds]);
 
-  // İlk yükleme geçmiş başarımları sessizce kaydeder (toast bombardımanı olmasın);
-  // sonraki değişiklikler (izledim/not) canlı kutlanır.
-  const firstMilestoneCheck = useRef(true);
   useEffect(() => {
     if (loading) return;
-    const fresh = detectNewMilestones(milestoneStats, { silent: firstMilestoneCheck.current });
-    firstMilestoneCheck.current = false;
-    fresh.forEach((m, i) => {
-      track('milestone_unlock', { id: m.id });
-      setTimeout(() => toast.success(`🏆 ${m.title} — ${m.blurb}`, { duration: 5000 }), i * 700);
-    });
+    checkMilestones(milestoneStats);
   }, [milestoneStats, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchWatchlist = async () => {
@@ -429,9 +420,6 @@ export default function Defterim() {
                 </div>
               </div>
             </motion.div>
-
-            {/* ═══ Başarımlar ═══ */}
-            <MilestonesStrip stats={milestoneStats} />
 
             {savedMovies.map((movie, i) => (
               <motion.div 
