@@ -2686,6 +2686,9 @@ async def health_check():
 @app.get("/api/diag")
 async def diag_endpoint():
     """Production'da 500 alınıyorsa bu endpoint ile temel hata tespiti."""
+    from backend.database import _turso_client as _tc
+
+    # DB connectivity
     db_ok = False
     db_msg = ""
     try:
@@ -2697,14 +2700,31 @@ async def diag_endpoint():
     except Exception as e:
         db_msg = f"{type(e).__name__}: {e}"
 
+    # Users table + avatar_data kolonu
     avatar_col_ok = False
+    avatar_col_error = ""
     try:
         async with _db_conn(cache.db_path, user_data=True) as db:
             cur = await db.execute("SELECT avatar_data FROM users LIMIT 1")
             await cur.fetchone()
         avatar_col_ok = True
-    except Exception:
-        pass
+    except Exception as e:
+        avatar_col_error = f"{type(e).__name__}: {e}"
+
+    # users tablosu varlığı
+    users_table_ok = False
+    users_table_error = ""
+    try:
+        async with _db_conn(cache.db_path, user_data=True) as db:
+            cur = await db.execute("SELECT 1 FROM users LIMIT 1")
+            await cur.fetchone()
+        users_table_ok = True
+    except Exception as e:
+        users_table_error = f"{type(e).__name__}: {e}"
+
+    turso_configured = bool(os.environ.get("TURSO_DATABASE_URL"))
+    turso_token_set = bool(os.environ.get("TURSO_AUTH_TOKEN"))
+    tc_active = _tc is not None
 
     return {
         "environment": ENVIRONMENT,
@@ -2712,7 +2732,13 @@ async def diag_endpoint():
         "db_path": str(cache.db_path),
         "db_ok": db_ok,
         "db_msg": db_msg,
+        "turso_configured": turso_configured,
+        "turso_token_set": turso_token_set,
+        "turso_client_active": tc_active,
+        "users_table_exists": users_table_ok,
+        "users_table_error": users_table_error,
         "avatar_column_exists": avatar_col_ok,
+        "avatar_column_error": avatar_col_error,
         "google_client_configured": bool(GOOGLE_CLIENT_ID),
         "jwt_secret_configured": bool(JWT_SECRET),
         "tmdb_configured": bool(TMDB_API_KEY),

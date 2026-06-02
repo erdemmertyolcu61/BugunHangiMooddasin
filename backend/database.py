@@ -745,7 +745,9 @@ class MovieCache:
         ]
         for stmt in stmts:
             await _turso_client.execute(stmt)
-        # username kolonu + benzersiz index (idempotent, hata yutulur)
+        # username kolonu + benzersiz index (idempotent, hata loglanir)
+        import logging as _mig_log
+        _mig_logger = _mig_log.getLogger(__name__)
         for mig in (
             "ALTER TABLE users ADD COLUMN username TEXT",
             "ALTER TABLE users ADD COLUMN avatar_data BLOB",
@@ -760,8 +762,8 @@ class MovieCache:
         ):
             try:
                 await _turso_client.execute(mig)
-            except Exception:
-                pass
+            except Exception as _mig_e:
+                _mig_logger.warning("[Migration] Turso: %s (%s)", _mig_e, mig)
         try:
             await _turso_client.execute("""
                 UPDATE users SET username =
