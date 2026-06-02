@@ -197,7 +197,7 @@ export default function Defterim() {
                   ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   : <span className="font-serif text-sm font-bold text-amber">{user ? (user.username || user.name || '?').slice(0, 1).toUpperCase() : '?'}</span>}
               </span>
-              <span className="hidden sm:inline font-sans text-[11px] font-semibold text-ivory/70 max-w-[120px] truncate">
+              <span className="inline sm:inline font-sans text-[11px] sm:text-[13px] font-semibold text-ivory/80 max-w-[140px] sm:max-w-[120px] truncate">
                 {user?.username || user?.name || (user ? 'Profilim' : 'Giriş Yap')}
               </span>
             </button>
