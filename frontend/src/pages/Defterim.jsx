@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +6,10 @@ import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, prox
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import TasteMapCard from '../components/TasteMapCard';
+import MilestonesStrip from '../components/MilestonesStrip';
+import { detectNewMilestones } from '../utils/milestones';
+import { useToast } from '../context/ToastContext';
+import { track } from '../utils/analytics';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
 
@@ -22,6 +26,7 @@ const formatDefterDate = (iso) => {
 export default function Defterim() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const [savedMovies, setSavedMovies] = useState([]);
   const [watchedIds, setWatchedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -29,6 +34,26 @@ export default function Defterim() {
   const [noteDraft, setNoteDraft] = useState('');
   const [tasteMap, setTasteMap] = useState(null);
   const [tasteLoading, setTasteLoading] = useState(true);
+
+  // ── Başarımlar (Defterim milestone'ları) ──
+  const milestoneStats = useMemo(() => ({
+    saved: savedMovies.length,
+    watched: watchedIds.size,
+    notes: savedMovies.filter((m) => (m.personal_note || '').trim()).length,
+  }), [savedMovies, watchedIds]);
+
+  // İlk yükleme geçmiş başarımları sessizce kaydeder (toast bombardımanı olmasın);
+  // sonraki değişiklikler (izledim/not) canlı kutlanır.
+  const firstMilestoneCheck = useRef(true);
+  useEffect(() => {
+    if (loading) return;
+    const fresh = detectNewMilestones(milestoneStats, { silent: firstMilestoneCheck.current });
+    firstMilestoneCheck.current = false;
+    fresh.forEach((m, i) => {
+      track('milestone_unlock', { id: m.id });
+      setTimeout(() => toast.success(`🏆 ${m.title} — ${m.blurb}`, { duration: 5000 }), i * 700);
+    });
+  }, [milestoneStats, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchWatchlist = async () => {
     setLoading(true);
@@ -404,6 +429,9 @@ export default function Defterim() {
                 </div>
               </div>
             </motion.div>
+
+            {/* ═══ Başarımlar ═══ */}
+            <MilestonesStrip stats={milestoneStats} />
 
             {savedMovies.map((movie, i) => (
               <motion.div 
