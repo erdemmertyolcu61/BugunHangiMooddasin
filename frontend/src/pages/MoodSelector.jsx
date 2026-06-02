@@ -10,6 +10,7 @@ import useDocumentMeta from '../utils/useDocumentMeta';
 
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
+import StreakBadge from '../components/StreakBadge';
 
 const moodList = Object.values(MOODS);
 
@@ -97,6 +98,7 @@ export default function MoodSelector() {
 
       {/* Bildirim zili + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz, mobilde rahat tıklanır. */}
       <div className="fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
+        <StreakBadge />
         <button
           onClick={() => navigate('/profil')}
           title={user ? 'Profilim' : 'Giriş Yap'}

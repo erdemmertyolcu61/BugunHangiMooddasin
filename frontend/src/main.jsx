@@ -6,12 +6,17 @@ import './index.css'
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './context/ToastContext';
 import { initAnalytics, track, trackAppOpen, EVENTS } from './utils/analytics';
+import { recordStreakOpen } from './utils/streak';
 import { captureReferral } from './context/AuthContext';
 
 // Gizlilik-dostu analytics (yapılandırılmadıysa no-op)
 initAnalytics();
 track(EVENTS.LANDING);
 trackAppOpen(); // app_open + day_n + D1/D7 retention sinyalleri
+
+// Günlük açılış serisi (retention) — açılışta bir kez işlenir
+const _streak = recordStreakOpen();
+if (_streak.changed && _streak.current > 1) track('streak_continue', { n: _streak.current });
 
 // Davet linki ?ref=<username> yakala (kayıt öncesi sakla)
 captureReferral();
