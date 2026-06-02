@@ -71,12 +71,20 @@ async def get_me(user: dict = Depends(get_current_user)):
     uid = user["user_id"]
     is_auto = await cache.is_auto_username(uid)
     info = await cache.get_user_by_username_by_id(uid)
+    picture = (info or {}).get("picture", "") or ""
+
+    # avatar_data varsa ama picture Google URL'i ise → internal URL'e çevir
+    avatar_data = await cache.get_user_avatar_data(uid)
+    if avatar_data and picture.startswith("https://lh3"):
+        picture = f"/api/users/{uid}/avatar?v={int(time.time())}"
+        await cache.update_user_picture(uid, picture)
+
     return {
         "id": uid,
         "username": info.get("username", "") if info else "",
         "name": info.get("name", "") if info else "",
         "email": info.get("email", "") if info else user.get("email", ""),
-        "picture": info.get("picture", "") if info else "",
+        "picture": picture,
         "has_custom_username": not is_auto,
     }
 
@@ -325,6 +333,12 @@ async def upload_avatar(request: Request, user: dict = Depends(get_current_user)
     # Sürüm parametresi (?v=ts) immutable cache'i kırar → yeni foto anında görünür.
     picture_url = f"/api/users/{uid}/avatar?v={int(time.time())}"
     await cache.update_user_picture(uid, picture_url)
+
+    # Readback: avatar_data'nın yazıldığını doğrula
+    verify = await cache.get_user_avatar_data(uid)
+    if not verify:
+        logger.error(f"[Avatar] avatar_data write failed for uid={uid}")
+        raise HTTPException(500, "Avatar verisi yazılamadı")
 
     return {"ok": True, "picture": picture_url}
 

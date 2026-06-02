@@ -943,13 +943,21 @@ async def google_login(request: Request):
         await db.execute("""
             INSERT INTO users (google_id, email, name, picture)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name, picture=excluded.picture
+            ON CONFLICT(google_id) DO UPDATE SET
+                email=excluded.email,
+                name=excluded.name,
+                picture = CASE WHEN avatar_data IS NOT NULL THEN picture ELSE excluded.picture END
         """, (google_id, email, name, picture))
         await db.commit()
-        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,))
+        cur = await db.execute("SELECT id, avatar_data, created_at FROM users WHERE google_id = ?", (google_id,))
         row = await cur.fetchone()
         user_id = row[0] if row else 0
-        created_at = row[1] if row and len(row) > 1 else None
+        avatar_data = row[1] if row and len(row) > 1 else None
+        created_at = row[2] if row and len(row) > 2 else None
+
+    # Google auth yanıtında custom fotoğrafını koru
+    if avatar_data:
+        picture = f"/api/users/{user_id}/avatar?v={int(time.time())}"
 
     # Sosyal ağ için benzersiz username garantile (yoksa email öneki + id ile üret)
     username = ""
@@ -990,13 +998,20 @@ async def dev_login():
         await db.execute("""
             INSERT INTO users (google_id, email, name, picture)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name, picture=excluded.picture
+            ON CONFLICT(google_id) DO UPDATE SET
+                email=excluded.email,
+                name=excluded.name,
+                picture = CASE WHEN avatar_data IS NOT NULL THEN picture ELSE excluded.picture END
         """, (google_id, email, name, picture))
         await db.commit()
-        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,))
+        cur = await db.execute("SELECT id, avatar_data, created_at FROM users WHERE google_id = ?", (google_id,))
         row = await cur.fetchone()
         user_id = row[0] if row else 0
-        created_at = row[1] if row and len(row) > 1 else None
+        avatar_data = row[1] if row and len(row) > 1 else None
+        created_at = row[2] if row and len(row) > 2 else None
+
+    if avatar_data:
+        picture = f"/api/users/{user_id}/avatar?v={int(time.time())}"
 
     username = ""
     try:
