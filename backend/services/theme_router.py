@@ -109,6 +109,17 @@ THEMES = [
     {"key": "berlin_film_festivali", "triggers": ["berlin film festivali", "altin ayi", "berlinale"], "terms": ["berlin international film festival", "golden bear"], "genres": [], "label": "Berlin Film Festivali ödüllü filmler", "ustad": "Berlinale'nin seçkisi — sanatsal sinemanın en cesur örnekleri."},
     {"key": "venedik", "triggers": ["venedik film festivali", "altin aslan"], "terms": ["venice film festival", "golden lion"], "genres": [], "label": "Venedik Film Festivali ödüllü filmler", "ustad": "Venedik'in altın aslanı — sinema sanatının en nadide parçaları."},
     {"key": "altin_kure", "triggers": ["altin kure", "golden globe"], "terms": ["golden globe"], "genres": [], "label": "Altın Küre ödüllü filmler", "ustad": "Hollywood'un en gözde ödüllerinden — kalite tescili."},
+    # ── Sinema akımları ──
+    {"key": "fransiz_yeni_dalgasi", "triggers": ["yeni dalga", "fransiz yeni dalgasi", "nouvelle vague"], "terms": ["french new wave", "nouvelle vague"], "genres": [], "label": "Fransız Yeni Dalgası filmleri", "ustad": "Godard'dan Truffaut'ya — sinemanın en devrimci dönemi, kuralları yıkanlar."},
+    {"key": "italyan_yeni_gercekciligi", "triggers": ["italyan yeni gercekciligi", "italyan neorealizmi", "neorealizm"], "terms": ["italian neorealism"], "genres": [], "label": "İtalyan Yeni Gerçekçiliği filmleri", "ustad": "De Sica ve Rossellini'nin gözünden savaş sonrası İtalya — gerçeğin en yalın hâli."},
+    {"key": "dogma_95", "triggers": ["dogma 95", "dogma film"], "terms": ["dogma 95", "dogme"], "genres": [], "label": "Dogma 95 filmleri", "ustad": "Lars von Trier'in manifestosu — sahiciliğe adanmış yalın sinema."},
+    {"key": "yeni_hollywood", "triggers": ["yeni hollywood", "new hollywood"], "terms": ["new hollywood"], "genres": [], "label": "Yeni Hollywood dönemi filmleri", "ustad": "60'ların sonu, 70'lerin başı — Coppola, Scorsese ve asi bir kuşak."},
+    {"key": "japon_yeni_dalgasi", "triggers": ["japon yeni dalgasi", "japon yeni dalgas"], "terms": ["japanese new wave"], "genres": [], "label": "Japon Yeni Dalgası filmleri", "ustad": "Oshima ve Shinoda'nın isyanı — geleneğe başkaldıran bir sinema dili."},
+    {"key": "alman_disavurumculugu", "triggers": ["alman disavurumculugu", "alman ekspresyonizmi", "ekspresyonist film"], "terms": ["german expressionism"], "genres": [], "label": "Alman Dışavurumculuğu filmleri", "ustad": "Murnau ve Lang'ın gölgeleri — karanlığın estetik zaferi."},
+    # ── Görsel tarz ──
+    {"key": "siyah_beyaz", "triggers": ["siyah beyaz", "siyahbeyaz", "monokrom"], "terms": ["black and white", "monochrome", "b w"], "genres": [], "label": "Siyah beyaz filmler", "ustad": "Renksiz dünyanın çarpıcı güzelliği — her kare bir fotoğraf karesi."},
+    {"key": "tek_plan_cekim", "triggers": ["tek plan", "tek plan cekim", "tek seferde cekilmis", "tek planda"], "terms": ["one shot", "single take", "long take"], "genres": [], "label": "Tek plan çekim filmler", "ustad": "Hiç kesmeden akan bir hikâye — her saniyesi kusursuz bir zamanlama."},
+    {"key": "el_kamerasi", "triggers": ["el kamerasi", "titreksiz mekansiz", "dogallik goruntusunu"], "terms": ["handheld camera", "found footage"], "genres": [], "label": "El kamerası/buluntu görüntü filmleri", "ustad": "Titreşen kadraj, terleyen objektif — gerçeğin en sarsıcı hâli."},
 ]
 
 # En uzun/özgül trigger önce denensin (örn. "zaman yolculugu" > "yol filmi").

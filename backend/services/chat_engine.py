@@ -1004,6 +1004,14 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     # Üretim / köken
     "türk filmi":  {"mood_boost": {"kalp": 0.30},                       "genre_ids": [18]},
     "yerli":       {"mood_boost": {"kalp": 0.25},                       "genre_ids": [18]},
+
+    # ── Görsel tarz ──
+    "siyah beyaz": {"mood_boost": {"sessiz": 0.35, "gece": 0.25},       "genre_ids": []},
+    "siyahbeyaz":  {"mood_boost": {"sessiz": 0.35, "gece": 0.25},       "genre_ids": []},
+    "monokrom":    {"mood_boost": {"sessiz": 0.35, "gece": 0.20},       "genre_ids": []},
+    "tek plan":    {"mood_boost": {"zihin": 0.30, "sessiz": 0.20},      "genre_ids": []},
+    "el kamerası": {"mood_boost": {"adrenalin": 0.30, "gercekci": 0.25},"genre_ids": []},
+    "buluntu":     {"mood_boost": {"adrenalin": 0.30, "gercekci": 0.20},"genre_ids": [27]},
     "bağımsız":    {"mood_boost": {"kalp": 0.40, "sessiz": 0.20},       "genre_ids": [18]},
     "festival":    {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.25}, "genre_ids": [18]},
     "belgesel":    {"mood_boost": {"sessiz": 0.30, "zihin": 0.20},      "genre_ids": [99]},
