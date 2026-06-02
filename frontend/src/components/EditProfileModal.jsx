@@ -8,6 +8,51 @@ import { resolveAvatarUrl } from '../utils/apiConfig';
 const USERNAME_RE = /^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,20}$/;
 
 /**
+ * Bir dosyayı görüntüye çözer. Önce createImageBitmap (yönelim + format desteği
+ * en geniş, büyük dosyalarda güvenilir); olmazsa FileReader+Image'a düşer ve
+ * 10sn timeout uygular → HEIC/desteklenmeyen formatta SESSİZCE asılı kalmaz.
+ */
+async function decodeImage(file) {
+  if ('createImageBitmap' in window) {
+    try {
+      const bmp = await createImageBitmap(file);
+      if (bmp && bmp.width && bmp.height) return bmp;
+    } catch { /* fallback'e geç */ }
+  }
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read'));
+    reader.onload = (ev) => {
+      const img = new Image();
+      const to = setTimeout(() => reject(new Error('timeout')), 10000);
+      img.onload = () => {
+        clearTimeout(to);
+        if (!img.width || !img.height) reject(new Error('empty'));
+        else resolve(img);
+      };
+      img.onerror = () => { clearTimeout(to); reject(new Error('decode')); };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Çözülmüş görüntüyü (ImageBitmap veya HTMLImageElement) maxSize'a sığdırıp JPEG base64 üretir. */
+function imageToJpegBase64(src, maxSize = 400) {
+  let w = src.width || maxSize;
+  let h = src.height || maxSize;
+  if (w > h) { if (w > maxSize) { h = (h * maxSize) / w; w = maxSize; } }
+  else { if (h > maxSize) { w = (w * maxSize) / h; h = maxSize; } }
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w);
+  canvas.height = Math.round(h);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+  if (src.close) { try { src.close(); } catch { /* ImageBitmap temizliği */ } }
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+/**
  * Profil Düzenleme Modalı
  * - Avatar yükle (dosya seçici → canvas resize → base64 → backend)
  * - Görüntü adı (name) değiştir
@@ -22,69 +67,44 @@ export default function EditProfileModal({ onClose, onSaved }) {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarBase64, setAvatarBase64] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
   const currentAvatar = user?.picture || '';
 
-  const handleFileSelect = useCallback((e) => {
+  const handleFileSelect = useCallback(async (e) => {
     const file = e.target.files?.[0];
+    // input'u sıfırla ki aynı dosya tekrar seçilebilsin
+    if (e.target) e.target.value = '';
     if (!file) return;
 
     // Tip kontrolü gevşek: bazı cihazlarda (iPhone HEIC vb.) file.type boş gelebilir.
-    if (file.type && !file.type.startsWith('image/')) {
+    if (file.type && !file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(file.name || '')) {
       setError('Sadece resim dosyaları yükleyebilirsin.');
       return;
     }
-
-    // Orijinal boyut sınırı YOK: zaten 400x400'e küçültüp tekrar sıkıştırıyoruz.
-    // Sadece çok aşırı dosyalarda (telefon belleğini zorlamamak için) üst sınır.
     if (file.size > 40 * 1024 * 1024) {
       setError('Görsel çok büyük (40MB+). Daha küçük bir fotoğraf seç.');
       return;
     }
 
     setError('');
-
-    const reader = new FileReader();
-    reader.onerror = () => setError('Görsel okunamadı. Başka bir fotoğraf deneyin.');
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onerror = () => setError('Bu görsel biçimi açılamadı. JPEG veya PNG deneyin.');
-      img.onload = () => {
-        try {
-          // Canvas ile resize (max 400x400)
-          const canvas = document.createElement('canvas');
-          const maxSize = 400;
-          let w = img.width || maxSize;
-          let h = img.height || maxSize;
-
-          if (w > h) {
-            if (w > maxSize) { h = (h * maxSize) / w; w = maxSize; }
-          } else {
-            if (h > maxSize) { w = (w * maxSize) / h; h = maxSize; }
-          }
-
-          canvas.width = Math.round(w);
-          canvas.height = Math.round(h);
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          const base64 = canvas.toDataURL('image/jpeg', 0.85);
-          if (!base64 || base64.length < 100) {
-            setError('Görsel işlenemedi. Başka bir fotoğraf deneyin.');
-            return;
-          }
-          setAvatarPreview(base64);
-          setAvatarBase64(base64);
-          setError('');
-        } catch (_) {
-          setError('Görsel işlenemedi. Başka bir fotoğraf deneyin.');
-        }
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+    setProcessing(true);
+    // Önceki seçimi temizle ki başarısız decode'da eski/yanlış foto "kaydedildi" sanılmasın
+    setAvatarBase64(null);
+    setAvatarPreview(null);
+    try {
+      const img = await decodeImage(file);
+      const base64 = imageToJpegBase64(img, 400);
+      if (!base64 || base64.length < 100) throw new Error('encode');
+      setAvatarPreview(base64);
+      setAvatarBase64(base64);
+    } catch (_) {
+      setError('Bu fotoğraf açılamadı (HEIC/desteklenmeyen olabilir). Lütfen JPEG veya PNG seç ya da fotoğrafın ekran görüntüsünü al.');
+    } finally {
+      setProcessing(false);
+    }
   }, []);
 
   const handleSave = async () => {
@@ -256,7 +276,7 @@ export default function EditProfileModal({ onClose, onSaved }) {
           {!success && (
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || processing}
               className="w-full py-3.5 rounded-xl bg-amber text-[#120d0b] font-bold text-[15px]
                        uppercase tracking-wider hover:bg-amber-400 transition-all
                        disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
@@ -265,6 +285,11 @@ export default function EditProfileModal({ onClose, onSaved }) {
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 rounded-full border-2 border-[#120d0b]/30 border-t-[#120d0b] animate-spin" />
                   Kaydediliyor...
+                </span>
+              ) : processing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 rounded-full border-2 border-[#120d0b]/30 border-t-[#120d0b] animate-spin" />
+                  Fotoğraf işleniyor...
                 </span>
               ) : 'Kaydet'}
             </button>

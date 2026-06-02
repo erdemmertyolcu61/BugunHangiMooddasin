@@ -11,7 +11,9 @@ export const DIRECT_BASE = "http://127.0.0.1:8002";
 
 // Vite dev server'da proxy calisir, production'da direkt baglanti gerekir
 const isDev = import.meta.env.DEV;
-const prodBase = import.meta.env.VITE_API_BASE_URL || "https://bug-nhangimooddas-n.onrender.com";
+// NOT: eski onrender backend KAPALI. Env set değilse canlı Railway backend'e düş
+// (ölü host'a giden istekler "Bağlantı hatası" / push gelmeme sebebiydi).
+const prodBase = import.meta.env.VITE_API_BASE_URL || "https://bug-nhangimooddas-n-production.up.railway.app";
 if (!isDev && !prodBase) {
   console.error("[API] VITE_API_BASE_URL not set! Frontend cannot reach backend.");
 }

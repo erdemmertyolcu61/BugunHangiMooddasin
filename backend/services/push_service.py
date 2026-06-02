@@ -81,8 +81,10 @@ async def send_push_to_user(user_id: int, title: str, body: str,
 
 
 async def send_push_for_hour(hour: int, title: str, body: str, url: str = "/",
-                             tag: str = "sinemood", pwa_only: bool = True) -> int:
+                             tag: str = "sinemood", pwa_only: bool = False) -> int:
     """notify_hour == hour olan abonelere push gönderir (kullanıcı-ayarlı günlük saat).
+    pwa_only=False (varsayılan): Android tarayıcı aboneleri DAHİL herkese gönderir.
+    (iOS yalnız kurulu PWA'da abone olabildiği için is_pwa filtresi gereksiz.)
     Ölü abonelikleri temizler. Döner: başarıyla gönderilen cihaz sayısı."""
     if not PUSH_ENABLED:
         return 0

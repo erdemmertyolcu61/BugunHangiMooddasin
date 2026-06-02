@@ -568,7 +568,7 @@ async def lifespan(app: FastAPI):
                                 now_tr.hour,
                                 "Üstad'ın Bugünkü Filmi",
                                 f"{m.get('title') or 'Bugünün Filmi'} — {m.get('vote_average', 0):.1f} ⭐",
-                                url="/gunun-filmi", tag="daily-film", pwa_only=True,
+                                url="/gunun-filmi", tag="daily-film", pwa_only=False,
                             )
                             if n:
                                 logger.info("[DailyPush] %02d:00 push gonderildi (%d cihaz): %s",
@@ -584,7 +584,7 @@ async def lifespan(app: FastAPI):
                         await send_push_broadcast(
                             "Sinemood",
                             "Haftalık raporun hazır 📊 Bu hafta ne kadar yol geldin, Üstad özetledi.",
-                            url="/profil", tag="weekly-report", pwa_only=True,
+                            url="/profil", tag="weekly-report", pwa_only=False,
                         )
                         logger.info("[WeeklyPush] Pazar 19:00 haftalik rapor push gonderildi: %s", week_key)
             except Exception as e:
