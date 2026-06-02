@@ -31,8 +31,8 @@ if (new URLSearchParams(window.location.search).get('ref')) {
 // okurken backend arka planda uyanır, mood'a tıklayınca hazır olur.
 (() => {
   try {
-    const base = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE_URL || '');
-    fetch(`${base}/api/health`, { method: 'GET', mode: 'cors', keepalive: true }).catch(() => {});
+    // Same-origin (dev: vite proxy, prod: vercel rewrite) → cross-origin gerekmez.
+    fetch('/api/health', { method: 'GET', keepalive: true }).catch(() => {});
   } catch { /* sessizce geç */ }
 })();
 

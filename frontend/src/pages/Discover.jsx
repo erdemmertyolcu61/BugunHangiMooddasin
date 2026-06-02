@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
 import UpcomingSlider from '../components/UpcomingSlider';
 import QuizModal from '../components/QuizModal';
-import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
 import useDocumentMeta from '../utils/useDocumentMeta';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
@@ -477,7 +477,7 @@ export default function Discover() {
   const [shareCopied, setShareCopied] = useState(false);
   const handleShare = async () => {
     if (!selectedMovie) return;
-    const shareUrl = getApiUrl(`/share/${selectedMovie.id}`);
+    const shareUrl = getShareUrl(`/share/${selectedMovie.id}`);
     const analysis = selectedMovie.ai_analysis?.replace('Üstadın Notu:', '').trim() || '';
     const shareData = {
       title: `${selectedMovie.title} — Sinemood`,

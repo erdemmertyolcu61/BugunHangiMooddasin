@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, UserX } from 'lucide-react';
-import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
 import ProfileTasteMap from '../components/profile/ProfileTasteMap';
@@ -35,7 +35,7 @@ export default function PublicProfile() {
   }, [username]);
 
   // Backend OG paylaşım ucu: kişiye özel link önizlemesi için.
-  const profileUrl = getApiUrl(`/share/u/${username}`);
+  const profileUrl = getShareUrl(`/share/u/${username}`);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}

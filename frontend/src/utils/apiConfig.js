@@ -4,29 +4,38 @@
  * Production: VITE_API_BASE_URL env ile backend adresini belirt.
  */
 
-// Vite dev'de proxy kullan (relative path -> ayni origin -> CORS yok)
-// Production'da VITE_API_BASE_URL ile backend adresini set et
-const PROXY_BASE = "";  // relative: /api/movies/turkish gibi
 export const DIRECT_BASE = "http://127.0.0.1:8002";
 
-// Vite dev server'da proxy calisir, production'da direkt baglanti gerekir
-const isDev = import.meta.env.DEV;
-// NOT: eski onrender backend KAPALI. Env set değilse canlı Railway backend'e düş
-// (ölü host'a giden istekler "Bağlantı hatası" / push gelmeme sebebiydi).
-const prodBase = import.meta.env.VITE_API_BASE_URL || "https://bug-nhangimooddas-n-production.up.railway.app";
-if (!isDev && !prodBase) {
-  console.error("[API] VITE_API_BASE_URL not set! Frontend cannot reach backend.");
-}
-export const API_BASE_URL = isDev ? PROXY_BASE : prodBase;
+// ─── API tabanı: SAME-ORIGIN proxy ───
+// API/XHR çağrıları RELATIVE ("/api/...") yapılır → hem dev (vite proxy) hem
+// prod (Vercel rewrite, vercel.json) backend'e same-origin olarak iletir.
+// Neden: iOS standalone PWA'da cross-origin fetch WebKit tarafından
+// "TypeError: Load failed" ile engelleniyordu (CORS/ITP). Same-origin'de bu yok.
+export const API_BASE_URL = "";
+
+// Backend'in MUTLAK adresi — yalnız tarayıcıda açılan (fetch değil) paylaşım/OG
+// linkleri için. Env yoksa canlı Railway'e düşer (eski onrender KAPALI).
+const BACKEND_ABSOLUTE = (import.meta.env.VITE_API_BASE_URL
+  || "https://bug-nhangimooddas-n-production.up.railway.app").replace(/\/$/, "");
 
 export const getApiUrl = (path) => {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}${cleanPath}`;
+  return `${API_BASE_URL}${cleanPath}`; // relative → same-origin proxy
 };
 
 /**
- * Avatar URL çözümleyici — /uploads veya /api ile başlayan lokal yolları
- * API base'e bağlar. Google/harici URL'leri olduğu gibi döndürür.
+ * Paylaşım/OG linki üretir — MUTLAK backend URL'si döner. Bu linkler dış
+ * uygulamalarda/sekmede açılır (fetch değil, navigasyon) ve backend OG meta'sını
+ * sunar; o yüzden same-origin proxy'ye değil doğrudan backend'e gitmeli.
+ */
+export const getShareUrl = (path) => {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${BACKEND_ABSOLUTE}${cleanPath}`;
+};
+
+/**
+ * Avatar URL çözümleyici — /uploads veya /api ile başlayan yolları same-origin
+ * proxy üzerinden (relative) döndürür. Google/harici URL'leri olduğu gibi.
  */
 export const resolveAvatarUrl = (url) => {
   if (!url) return '';

@@ -4,7 +4,7 @@ import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircl
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import TasteMapCard from '../components/TasteMapCard';
 import { useAchievements } from '../components/AchievementCelebration';
 
@@ -122,7 +122,7 @@ export default function Defterim() {
 
   const [shareCopiedId, setShareCopiedId] = useState(null);
   const handleShare = async (movie) => {
-    const shareUrl = getApiUrl(`/share/${movie.tmdb_id}`);
+    const shareUrl = getShareUrl(`/share/${movie.tmdb_id}`);
     const note = (movie.personal_note || '').trim();
     const shareData = {
       title: `${movie.title} — Sinemood`,

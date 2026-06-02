@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CalendarRange, Flame, Film, Trophy, BookMarked, Share2 } from 'lucide-react';
 import { computeWeeklyReport, weeklyReportShareText } from '../utils/weeklyReport';
 import { proxyImageUrl } from '../services/api';
-import { getApiUrl } from '../utils/apiConfig';
+import { getShareUrl } from '../utils/apiConfig';
 import { track } from '../utils/analytics';
 
 /**
@@ -16,7 +16,7 @@ export default function WeeklyReportCard({ movies, topMood }) {
 
   const handleShare = async () => {
     const text = weeklyReportShareText(report);
-    const url = getApiUrl('/');
+    const url = getShareUrl('/');
     track('weekly_report_share');
     try {
       if (navigator.share) {

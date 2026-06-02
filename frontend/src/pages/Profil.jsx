@@ -20,7 +20,7 @@ import {
   respondFriendRequest, removeFriend, sendFriendRequest,
   markSharesRead, getRecommendationHistory, retractRecommendation, getMe,
 } from '../services/api';
-import { resolveAvatarUrl, getApiUrl } from '../utils/apiConfig';
+import { resolveAvatarUrl, getApiUrl, getShareUrl } from '../utils/apiConfig';
 import useDocumentMeta from '../utils/useDocumentMeta';
 import { copyToClipboard } from '../utils/shareUtils';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -289,7 +289,7 @@ export default function Profil() {
 
   /* ─── Public profile link ──────────────────────────────────────── */
   // Backend OG paylaşım ucu: crawler kişiye özel önizleme görür, insan SPA'ya yönlenir.
-  const profileUrl = user?.username ? getApiUrl(`/share/u/${user.username}`) : '';
+  const profileUrl = user?.username ? getShareUrl(`/share/u/${user.username}`) : '';
 
   const handleCopyProfileLink = async () => {
     if (!profileUrl) return;
