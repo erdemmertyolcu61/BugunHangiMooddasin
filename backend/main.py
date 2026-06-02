@@ -547,25 +547,32 @@ async def lifespan(app: FastAPI):
     async def _daily_push_scheduler():
         """Her 60 sn'de bir saati kontrol eder, 18:00 İstanbul'da
         sadece PWA kullanıcılarına günün filmi push'unu gönderir."""
-        from backend.services.push_service import send_push_broadcast, PUSH_ENABLED as _push_ok
+        from backend.services.push_service import send_push_broadcast, send_push_for_hour, PUSH_ENABLED as _push_ok
         tz = ZoneInfo("Europe/Istanbul")
-        last_push = None
+        last_push = None  # (date, hour) — saat başı bir kez
         last_weekly = None
         while True:
             try:
                 now_tr = datetime.now(tz)
-                if now_tr.hour == 18 and now_tr.minute == 0 and last_push != now_tr.date():
-                    last_push = now_tr.date()
+                # ── Günlük film push'u — KULLANICI-AYARLI SAAT ──
+                # Her saat başı (HH:00), o saati seçmiş abonelere günün filmini gönderir.
+                # Varsayılan saat 18 (mevcut kullanıcılar 18:00'da almaya devam eder).
+                push_key = (now_tr.date(), now_tr.hour)
+                if now_tr.minute == 0 and last_push != push_key:
+                    last_push = push_key
                     if _push_ok:
                         payload = await _get_daily_film()
                         if payload and payload.get("movie"):
                             m = payload["movie"]
-                            await send_push_broadcast(
+                            n = await send_push_for_hour(
+                                now_tr.hour,
                                 "Üstad'ın Bugünkü Filmi",
                                 f"{m.get('title') or 'Bugünün Filmi'} — {m.get('vote_average', 0):.1f} ⭐",
                                 url="/gunun-filmi", tag="daily-film", pwa_only=True,
                             )
-                            logger.info("[DailyPush] 18:00 push gonderildi: %s", m.get("title"))
+                            if n:
+                                logger.info("[DailyPush] %02d:00 push gonderildi (%d cihaz): %s",
+                                            now_tr.hour, n, m.get("title"))
 
                 # ── Haftalık rapor push (Pazar 19:00 İstanbul) ──
                 # Re-engagement: kişiselleştirilmiş "Bu Hafta" kartı /profil'de
@@ -1248,6 +1255,25 @@ class PushUnsubscribeBody(BaseModel):
 async def push_unsubscribe(body: PushUnsubscribeBody, user=Depends(verify_user)):
     await cache.delete_push_subscription(body.endpoint)
     return {"ok": True}
+
+
+class NotifyTimeBody(BaseModel):
+    hour: int
+
+
+@app.get("/api/push/notify-time")
+async def get_notify_time(user=Depends(verify_user)):
+    """Kullanıcının seçtiği günlük bildirim saatini döndürür (yoksa varsayılan 18)."""
+    hour = await cache.get_notify_hour(user["user_id"])
+    return {"hour": hour}
+
+
+@app.post("/api/push/notify-time")
+async def set_notify_time(body: NotifyTimeBody, user=Depends(verify_user)):
+    """Günlük bildirim saatini ayarlar (8–23 arası; gece bildirimi engellenir)."""
+    hour = max(8, min(23, int(body.hour)))
+    ok = await cache.set_notify_hour(user["user_id"], hour)
+    return {"ok": ok, "hour": hour}
 
 
 def optional_user_id(request: Request) -> int:

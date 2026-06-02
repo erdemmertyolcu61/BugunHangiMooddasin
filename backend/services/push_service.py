@@ -80,6 +80,33 @@ async def send_push_to_user(user_id: int, title: str, body: str,
     return sent
 
 
+async def send_push_for_hour(hour: int, title: str, body: str, url: str = "/",
+                             tag: str = "sinemood", pwa_only: bool = True) -> int:
+    """notify_hour == hour olan abonelere push gönderir (kullanıcı-ayarlı günlük saat).
+    Ölü abonelikleri temizler. Döner: başarıyla gönderilen cihaz sayısı."""
+    if not PUSH_ENABLED:
+        return 0
+    try:
+        subs = await cache.get_push_subscriptions_by_hour(hour)
+    except Exception:
+        return 0
+    payload = {"title": title, "body": body, "url": url, "tag": tag}
+    sent = 0
+    for sub in subs:
+        if pwa_only and not sub.get("is_pwa"):
+            continue
+        result = await asyncio.to_thread(_send_web_push, sub, payload)
+        if result == "ok":
+            sent += 1
+        elif result == "gone":
+            try:
+                await cache.delete_push_subscription(sub["endpoint"])
+            except Exception:
+                pass
+        # "fail": geçici hata → aboneliği KORU
+    return sent
+
+
 async def send_push_broadcast(title: str, body: str, url: str = "/", tag: str = "sinemood", pwa_only: bool = False) -> int:
     """Tüm abonelere push gönderir (günlük içerik). Ölü abonelikleri temizler.
     pwa_only=True: sadece Ana Ekrana Eklenmiş (PWA) kullanıcılara gönderir.

@@ -344,6 +344,20 @@ export async function unsubscribePush(endpoint) {
   return res.ok ? res.json() : { ok: false };
 }
 
+export async function getNotifyTime() {
+  const res = await fetch(`${BASE}/push/notify-time`, { headers: { ...authHeaders() } });
+  return res.ok ? res.json() : { hour: 18 };
+}
+
+export async function setNotifyTime(hour) {
+  const res = await fetch(`${BASE}/push/notify-time`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ hour }),
+  });
+  return res.ok ? res.json() : { ok: false };
+}
+
 /**
  * Quick mood mix — rule-based, no Claude API.
  * @param {Array} moodMix - [{mood_id, percentage}, ...]

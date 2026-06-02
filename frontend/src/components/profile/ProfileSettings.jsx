@@ -1,10 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Settings, Bell, Palette, Database, AlertTriangle, ChevronRight,
+  Settings, Bell, Palette, Database, AlertTriangle, ChevronRight, Clock,
 } from 'lucide-react';
-import { getWatchlist } from '../../services/api';
+import { getWatchlist, getNotifyTime, setNotifyTime } from '../../services/api';
 import { getApiUrl } from '../../utils/apiConfig';
+import { isPushSubscribed } from '../../utils/push';
+
+/**
+ * Günlük film bildirimi saati seçici — yalnız bu cihaz push'a aboneyse görünür.
+ * Saat kullanıcının tüm cihazlarına uygulanır (backend per-user notify_hour).
+ */
+function NotifyTimeRow() {
+  const [subscribed, setSubscribed] = useState(false);
+  const [hour, setHour] = useState(18);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const sub = await isPushSubscribed();
+      if (!alive) return;
+      setSubscribed(sub);
+      if (sub) {
+        try { const r = await getNotifyTime(); if (alive && r?.hour != null) setHour(r.hour); } catch { /* sessiz */ }
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  if (!subscribed) return null;
+
+  const onChange = async (e) => {
+    const h = parseInt(e.target.value, 10);
+    setHour(h);
+    try {
+      const r = await setNotifyTime(h);
+      if (r?.ok) { setSaved(true); setTimeout(() => setSaved(false), 1500); }
+    } catch { /* sessiz */ }
+  };
+
+  return (
+    <div className="w-full flex items-center gap-3.5 px-5 py-4">
+      <Clock size={17} className="text-ivory/65" />
+      <div className="flex-1 min-w-0">
+        <p className="font-sans text-[14px] font-semibold text-ivory/80">Günlük Film Saati</p>
+        <p className="font-sans text-[12px] text-ivory/60 mt-0.5">
+          {saved ? 'Kaydedildi ✓' : 'Günün filmi bildiriminin saati'}
+        </p>
+      </div>
+      <select
+        value={hour}
+        onChange={onChange}
+        aria-label="Günlük bildirim saati"
+        className="shrink-0 bg-amber/10 border border-amber/20 rounded-full px-3 py-1.5 font-sans text-[13px] font-bold text-amber/90 focus:outline-none focus:border-amber/50"
+      >
+        {Array.from({ length: 16 }, (_, i) => i + 8).map((h) => (
+          <option key={h} value={h} className="bg-[#1c1512] text-ivory">
+            {String(h).padStart(2, '0')}:00
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 /**
  * Settings shortcuts panel.
@@ -64,6 +123,7 @@ export default function ProfileSettings({ theme, toggleTheme, logout, navigate, 
       </div>
 
       <div className="rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">
+        <NotifyTimeRow />
         {settings.map(({ icon: Icon, label, desc, danger, action, badge }) => (
           <button key={label} onClick={action}
             className={`w-full flex items-center gap-3.5 px-5 py-4 text-left transition-all

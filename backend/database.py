@@ -641,6 +641,7 @@ class MovieCache:
                     p256dh TEXT NOT NULL,
                     auth TEXT NOT NULL,
                     is_pwa INTEGER DEFAULT 0,
+                    notify_hour INTEGER DEFAULT 18,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -650,6 +651,11 @@ class MovieCache:
             # is_pwa migration (güvenli ALTER TABLE)
             try:
                 await db.execute("ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0")
+            except Exception:
+                pass
+            # notify_hour migration (kullanıcı-ayarlı bildirim saati; varsayılan 18:00)
+            try:
+                await db.execute("ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18")
             except Exception:
                 pass
             await db.commit()
@@ -733,6 +739,7 @@ class MovieCache:
                 p256dh TEXT NOT NULL,
                 auth TEXT NOT NULL,
                 is_pwa INTEGER DEFAULT 0,
+                notify_hour INTEGER DEFAULT 18,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
         ]
@@ -748,6 +755,8 @@ class MovieCache:
             "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)",
             "CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)",
             "CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id)",
+            "ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0",
+            "ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -877,13 +886,52 @@ class MovieCache:
         if not user_id or not endpoint or not p256dh or not auth:
             return False
         async with _get_connection(self.db_path, user_data=True) as db:
+            # UPSERT: yeniden abone olunca notify_hour (kullanıcı tercihi) KORUNUR.
             await db.execute(
-                """INSERT OR REPLACE INTO push_subscriptions
-                   (endpoint, user_id, p256dh, auth, is_pwa) VALUES (?, ?, ?, ?, ?)""",
+                """INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, is_pwa)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(endpoint) DO UPDATE SET
+                       user_id=excluded.user_id, p256dh=excluded.p256dh,
+                       auth=excluded.auth, is_pwa=excluded.is_pwa""",
                 (endpoint, user_id, p256dh, auth, is_pwa),
             )
             await db.commit()
             return True
+
+    async def set_notify_hour(self, user_id: int, hour: int) -> bool:
+        """Kullanıcının tüm cihazları için günlük bildirim saatini ayarlar (0–23)."""
+        if not user_id:
+            return False
+        hour = max(0, min(23, int(hour)))
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "UPDATE push_subscriptions SET notify_hour = ? WHERE user_id = ?",
+                (hour, user_id),
+            )
+            await db.commit()
+            return True
+
+    async def get_notify_hour(self, user_id: int) -> int:
+        """Kullanıcının seçtiği bildirim saati (yoksa varsayılan 18)."""
+        if not user_id:
+            return 18
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT notify_hour FROM push_subscriptions WHERE user_id = ? LIMIT 1",
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            return int(row[0]) if row and row[0] is not None else 18
+
+    async def get_push_subscriptions_by_hour(self, hour: int) -> list:
+        """notify_hour == hour olan tüm abonelikleri döndürür (saatlik günlük push)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT endpoint, p256dh, auth, user_id, is_pwa FROM push_subscriptions WHERE notify_hour = ?",
+                (int(hour),),
+            )
+            rows = await cur.fetchall()
+            return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2], "user_id": r[3], "is_pwa": r[4] or 0} for r in rows]
 
     async def delete_push_subscription(self, endpoint: str) -> bool:
         if not endpoint:
