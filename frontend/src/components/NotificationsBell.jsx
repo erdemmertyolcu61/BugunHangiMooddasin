@@ -93,7 +93,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
         const r = await enablePush();
         if (r.ok) {
           setPushOn(true);
-          track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'enable' });
+          track(EVENTS.NOTIF_ENABLED, { source: 'bell' });
         } else {
           // Başarısızsa sebebi kullanıcıya açıkça göster (özellikle iOS).
           const reasons = {

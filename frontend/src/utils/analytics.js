@@ -43,16 +43,29 @@ export function revokeAnalyticsConsent() {
 /** Standart olay adları — tutarlılık için tek kaynak. */
 export const EVENTS = {
   LANDING: 'landing',
+  APP_OPEN: 'app_open',            // her açılış (gün-n + dönen kullanıcı)
   MOOD_SELECT: 'mood_select',
   SURPRISE_VIEW: 'surprise_view',
   CONFUSED_SUBMIT: 'confused_submit',
   RESULT_VIEW: 'result_view',
   FILM_INSPECT: 'film_inspect',
   SAVE_MOVIE: 'save_movie',
+  WATCHED_MOVIE: 'watched_movie',
   SIGNUP: 'signup',
   SHARE_CLICK: 'share_click',
   INVITE_LANDING: 'invite_landing',
   INVITED_SIGNUP: 'invited_signup',
+  // ── Aktivasyon & retention (Faz 1) ──
+  ACTIVATED: 'activated',          // ilk değer: film_inspect + save_movie
+  RETAINED_D1: 'retained_d1',
+  RETAINED_D7: 'retained_d7',
+  // ── Bildirim ──
+  NOTIF_ENABLED: 'notif_enabled',
+  // ── Monetizasyon (Faz 3'te tetiklenecek) ──
+  PAYWALL_VIEW: 'paywall_view',
+  TRIAL_START: 'trial_start',
+  SUBSCRIBE: 'subscribe',
+  AD_IMPRESSION: 'ad_impression',
 };
 
 /**
@@ -97,6 +110,59 @@ export function track(event, props = {}) {
   } catch {
     /* no-op */
   }
+
+  // Aktivasyon sinyali — film_inspect + save_movie birlikte → 'activated' (bir kez)
+  if (event === EVENTS.FILM_INSPECT) _recordActivation('inspect');
+  else if (event === EVENTS.SAVE_MOVIE) _recordActivation('save');
+}
+
+// ── Aktivasyon & retention yardımcıları ──────────────────────────────
+const ACT_KEY = 'fc_activation'; // {inspect, save, done}
+
+/** Aktivasyon sinyali kaydet; her iki sinyal toplanınca ACTIVATED bir kez tetiklenir. */
+function _recordActivation(signal) {
+  try {
+    const cur = JSON.parse(localStorage.getItem(ACT_KEY) || '{}');
+    if (cur.done) return;
+    cur[signal] = true;
+    if (cur.inspect && cur.save) {
+      cur.done = true;
+      track(EVENTS.ACTIVATED);
+    }
+    localStorage.setItem(ACT_KEY, JSON.stringify(cur));
+  } catch { /* sessiz */ }
+}
+
+const FIRST_OPEN_KEY = 'fc_first_open';   // YYYY-MM-DD
+const LAST_OPEN_KEY = 'fc_last_open';
+const RET_D1_KEY = 'fc_ret_d1';
+const RET_D7_KEY = 'fc_ret_d7';
+
+/**
+ * Uygulama açılışında çağrılır (main.jsx). İlk açılış tarihini kaydeder, kaçıncı
+ * gün olduğunu (day_n) hesaplar, APP_OPEN ile dönen-kullanıcı sinyali + D1/D7
+ * retention olaylarını (bir kez) gönderir.
+ */
+export function trackAppOpen() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    let first = localStorage.getItem(FIRST_OPEN_KEY);
+    if (!first) { first = today; localStorage.setItem(FIRST_OPEN_KEY, first); }
+    const dayN = Math.max(0, Math.round((Date.parse(today) - Date.parse(first)) / 86400000));
+    localStorage.setItem(LAST_OPEN_KEY, today);
+    // Olay gönderimi + retention flag'leri yalnız analytics aktif + onaylıyken
+    // (yoksa onaysız açılışta flag yanıp event kaybolurdu).
+    if (!enabled || !hasAnalyticsConsent()) return;
+    track(EVENTS.APP_OPEN, { day_n: dayN, returning: dayN > 0 });
+    if (dayN >= 1 && !localStorage.getItem(RET_D1_KEY)) {
+      localStorage.setItem(RET_D1_KEY, '1');
+      track(EVENTS.RETAINED_D1, { day_n: dayN });
+    }
+    if (dayN >= 7 && !localStorage.getItem(RET_D7_KEY)) {
+      localStorage.setItem(RET_D7_KEY, '1');
+      track(EVENTS.RETAINED_D7, { day_n: dayN });
+    }
+  } catch { /* sessiz */ }
 }
 
 /** Sağlayıcı yapılandırılmış mı (test/dallanma için). */

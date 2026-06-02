@@ -87,6 +87,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
 
   useEffect(() => {
     if (!activeId) return;
+    track(EVENTS.FILM_INSPECT, { id: activeId }); // aktivasyon sinyali (inspect)
     let active = true;
     setSimilar([]);
     // Yeni filme geçince (Bunları da Sevebilirsin) önceki filmin durumu sızmasın:
@@ -134,6 +135,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     if (!movie) return;
     const now = !watched;
     setWatched(now);
+    if (now) track(EVENTS.WATCHED_MOVIE, { id: movie.id });
     if (now && !saved) {
       setSaved(true);
       try { await addToWatchlist(movie); } catch { setSaved(false); }

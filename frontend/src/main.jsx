@@ -5,12 +5,13 @@ import './index.css'
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './context/ToastContext';
-import { initAnalytics, track, EVENTS } from './utils/analytics';
+import { initAnalytics, track, trackAppOpen, EVENTS } from './utils/analytics';
 import { captureReferral } from './context/AuthContext';
 
 // Gizlilik-dostu analytics (yapılandırılmadıysa no-op)
 initAnalytics();
 track(EVENTS.LANDING);
+trackAppOpen(); // app_open + day_n + D1/D7 retention sinyalleri
 
 // Davet linki ?ref=<username> yakala (kayıt öncesi sakla)
 captureReferral();

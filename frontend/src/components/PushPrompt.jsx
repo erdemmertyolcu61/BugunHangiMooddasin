@@ -51,7 +51,7 @@ export default function PushPrompt() {
       const r = await enablePush();
       if (r.ok) {
         try { localStorage.setItem(DISMISS_KEY, '1'); } catch {}
-        track(EVENTS.SHARE_CLICK, { network: 'push', kind: 'enable_prompt' });
+        track(EVENTS.NOTIF_ENABLED, { source: 'prompt' });
         setShow(false);
       }
       // Başarısızsa (izin reddi vb.) kart açık kalır; kullanıcı kapatabilir.
