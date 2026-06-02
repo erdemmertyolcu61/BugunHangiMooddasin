@@ -550,6 +550,7 @@ async def lifespan(app: FastAPI):
         from backend.services.push_service import send_push_broadcast, PUSH_ENABLED as _push_ok
         tz = ZoneInfo("Europe/Istanbul")
         last_push = None
+        last_weekly = None
         while True:
             try:
                 now_tr = datetime.now(tz)
@@ -565,6 +566,20 @@ async def lifespan(app: FastAPI):
                                 url="/gunun-filmi", tag="daily-film", pwa_only=True,
                             )
                             logger.info("[DailyPush] 18:00 push gonderildi: %s", m.get("title"))
+
+                # ── Haftalık rapor push (Pazar 19:00 İstanbul) ──
+                # Re-engagement: kişiselleştirilmiş "Bu Hafta" kartı /profil'de
+                # gösterilir; push yalnız nazik bir hatırlatma (broadcast).
+                week_key = now_tr.isocalendar()[:2]  # (yıl, ISO hafta no)
+                if now_tr.weekday() == 6 and now_tr.hour == 19 and now_tr.minute == 0 and last_weekly != week_key:
+                    last_weekly = week_key
+                    if _push_ok:
+                        await send_push_broadcast(
+                            "Sinemood",
+                            "Haftalık raporun hazır 📊 Bu hafta ne kadar yol geldin, Üstad özetledi.",
+                            url="/profil", tag="weekly-report", pwa_only=True,
+                        )
+                        logger.info("[WeeklyPush] Pazar 19:00 haftalik rapor push gonderildi: %s", week_key)
             except Exception as e:
                 logger.warning("[DailyPush] Scheduler hatasi: %s", e)
             await asyncio.sleep(60)

@@ -35,6 +35,7 @@ import ProfileSocial from '../components/profile/ProfileSocial';
 import ProfileSettings from '../components/profile/ProfileSettings';
 import ReferralCard from '../components/profile/ReferralCard';
 import MilestonesStrip from '../components/MilestonesStrip';
+import WeeklyReportCard from '../components/WeeklyReportCard';
 import { useAchievements } from '../components/AchievementCelebration';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -492,6 +493,7 @@ export default function Profil() {
         {/* ─── Tab Content ─── */}
         {profileTab === 'achievements' && (
           <div className="space-y-8">
+            {!loading && <WeeklyReportCard movies={savedMovies} topMood={topMoods[0] || null} />}
             <MilestonesStrip stats={milestoneStats} />
             {!loading && <ProfileTimeline recentWatched={recentWatched} topMoods={topMoods} />}
           </div>
