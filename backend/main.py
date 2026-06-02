@@ -646,18 +646,23 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+_error_counter = 0
+
 @app.middleware("http")
 async def production_error_handler(request: Request, call_next):
-    """In production, hide stack traces from users."""
+    """In production, hide stack traces from users but include a traceable error ID."""
     if not IS_PRODUCTION:
         return await call_next(request)
+    global _error_counter
     try:
         return await call_next(request)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Unhandled error on {request.method} {request.url.path}: {type(e).__name__}: {e}")
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        _error_counter += 1
+        err_id = f"E{_error_counter:04d}"
+        logger.error(f"[{err_id}] Unhandled error on {request.method} {request.url.path}: {type(e).__name__}: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"detail": "Internal server error", "error_id": err_id})
 
 
 # ─── Cache-Control Middleware ────────────────────────────────
@@ -946,27 +951,31 @@ async def google_login(request: Request):
     except Exception:
         ref_username = ""
 
-    # Upsert user — önce var mı diye bak (yeni kullanıcı tespiti için)
+    # Upsert user — custom fotoğrafı olan kullanıcıda picture korunur
     async with _db_conn(cache.db_path, user_data=True) as db:
-        cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,))
+        cur = await db.execute("SELECT id, avatar_data FROM users WHERE google_id = ?", (google_id,))
         existing = await cur.fetchone()
         is_new = existing is None
-        await db.execute("""
-            INSERT INTO users (google_id, email, name, picture)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(google_id) DO UPDATE SET
-                email=excluded.email,
-                name=excluded.name,
-                picture = CASE WHEN avatar_data IS NOT NULL THEN picture ELSE excluded.picture END
-        """, (google_id, email, name, picture))
+
+        if existing:
+            uid, avatar_data = existing
+            if avatar_data:
+                await db.execute("UPDATE users SET email=?, name=? WHERE id=?", (email, name, uid))
+            else:
+                await db.execute("UPDATE users SET email=?, name=?, picture=? WHERE id=?", (email, name, picture, uid))
+        else:
+            avatar_data = None
+            await db.execute(
+                "INSERT INTO users (google_id, email, name, picture) VALUES (?, ?, ?, ?)",
+                (google_id, email, name, picture),
+            )
+
         await db.commit()
-        cur = await db.execute("SELECT id, avatar_data, created_at FROM users WHERE google_id = ?", (google_id,))
+        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,))
         row = await cur.fetchone()
         user_id = row[0] if row else 0
-        avatar_data = row[1] if row and len(row) > 1 else None
-        created_at = row[2] if row and len(row) > 2 else None
+        created_at = row[1] if row and len(row) > 1 else None
 
-    # Google auth yanıtında custom fotoğrafını koru
     if avatar_data:
         picture = f"/api/users/{user_id}/avatar?v={int(time.time())}"
 
@@ -1003,23 +1012,28 @@ async def dev_login():
     picture = ""
 
     async with _db_conn(cache.db_path, user_data=True) as db:
-        cur = await db.execute("SELECT id FROM users WHERE google_id = ?", (google_id,))
+        cur = await db.execute("SELECT id, avatar_data FROM users WHERE google_id = ?", (google_id,))
         existing = await cur.fetchone()
         is_new = existing is None
-        await db.execute("""
-            INSERT INTO users (google_id, email, name, picture)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(google_id) DO UPDATE SET
-                email=excluded.email,
-                name=excluded.name,
-                picture = CASE WHEN avatar_data IS NOT NULL THEN picture ELSE excluded.picture END
-        """, (google_id, email, name, picture))
+
+        if existing:
+            uid, avatar_data = existing
+            if avatar_data:
+                await db.execute("UPDATE users SET email=?, name=? WHERE id=?", (email, name, uid))
+            else:
+                await db.execute("UPDATE users SET email=?, name=?, picture=? WHERE id=?", (email, name, picture, uid))
+        else:
+            avatar_data = None
+            await db.execute(
+                "INSERT INTO users (google_id, email, name, picture) VALUES (?, ?, ?, ?)",
+                (google_id, email, name, picture),
+            )
+
         await db.commit()
-        cur = await db.execute("SELECT id, avatar_data, created_at FROM users WHERE google_id = ?", (google_id,))
+        cur = await db.execute("SELECT id, created_at FROM users WHERE google_id = ?", (google_id,))
         row = await cur.fetchone()
         user_id = row[0] if row else 0
-        avatar_data = row[1] if row and len(row) > 1 else None
-        created_at = row[2] if row and len(row) > 2 else None
+        created_at = row[1] if row and len(row) > 1 else None
 
     if avatar_data:
         picture = f"/api/users/{user_id}/avatar?v={int(time.time())}"
@@ -2667,6 +2681,43 @@ async def health_check():
         "beta_enabled": bool(BETA_PASSWORD),
         "semantic_search_ready": semantic_engine.is_ready,
         "semantic_movie_count": semantic_engine.movie_count,
+    }
+
+@app.get("/api/diag")
+async def diag_endpoint():
+    """Production'da 500 alınıyorsa bu endpoint ile temel hata tespiti."""
+    db_ok = False
+    db_msg = ""
+    try:
+        async with _db_conn(cache.db_path, user_data=True) as db:
+            cur = await db.execute("SELECT 1")
+            await cur.fetchone()
+        db_ok = True
+        db_msg = "reachable"
+    except Exception as e:
+        db_msg = f"{type(e).__name__}: {e}"
+
+    avatar_col_ok = False
+    try:
+        async with _db_conn(cache.db_path, user_data=True) as db:
+            cur = await db.execute("SELECT avatar_data FROM users LIMIT 1")
+            await cur.fetchone()
+        avatar_col_ok = True
+    except Exception:
+        pass
+
+    return {
+        "environment": ENVIRONMENT,
+        "is_production": IS_PRODUCTION,
+        "db_path": str(cache.db_path),
+        "db_ok": db_ok,
+        "db_msg": db_msg,
+        "avatar_column_exists": avatar_col_ok,
+        "google_client_configured": bool(GOOGLE_CLIENT_ID),
+        "jwt_secret_configured": bool(JWT_SECRET),
+        "tmdb_configured": bool(TMDB_API_KEY),
+        "claude_configured": bool(ANTHROPIC_API_KEY),
+        "frontend_base": FRONTEND_BASE_URL,
     }
 
 
