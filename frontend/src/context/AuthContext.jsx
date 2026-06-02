@@ -64,9 +64,10 @@ export function AuthProvider({ children }) {
     const ctrl = new AbortController();
     // Render free-tier soğuk başlatma uzun sürebilir → 35sn timeout
     const timer = setTimeout(() => ctrl.abort(), 35000);
+    const authUrl = getApiUrl('/api/auth/google');
     try {
       const ref = (() => { try { return localStorage.getItem(REF_KEY) || ''; } catch { return ''; } })();
-      const res = await fetch(getApiUrl('/api/auth/google'), {
+      const res = await fetch(authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: googleCredential, ref }),
@@ -99,10 +100,14 @@ export function AuthProvider({ children }) {
       }
       return { ok: true };
     } catch (e) {
+      // Teşhis: gerçek hata tipi/mesajı + hedef host. "Failed to fetch" → ağ/CORS,
+      // host onrender ise eski bundle, railway ise farklı bir sorun.
+      let host = '';
+      try { host = new URL(authUrl).host; } catch { host = authUrl; }
       const msg = e?.name === 'AbortError'
         ? 'Sunucu yanıt vermedi (uyanıyor olabilir, birkaç saniye sonra tekrar dene).'
-        : 'Bağlantı hatası. İnternetini kontrol edip tekrar dene.';
-      console.error('[Auth] Google login error:', e);
+        : `Bağlantı hatası [${e?.name || 'Error'}: ${e?.message || e}] · hedef: ${host}`;
+      console.error('[Auth] Google login error:', e, 'url:', authUrl);
       return { ok: false, error: msg };
     } finally {
       clearTimeout(timer);
@@ -136,9 +141,10 @@ export function AuthProvider({ children }) {
   // E-posta + şifre ile giriş/kayıt (Google'dan bağımsız).
   // mode: 'login' | 'register'. { ok } veya { ok:false, error } döndürür.
   const emailAuth = useCallback(async (mode, { email, password, name = '' }) => {
+    const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const authUrl = getApiUrl(path);
     try {
-      const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
-      const res = await fetch(getApiUrl(path), {
+      const res = await fetch(authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mode === 'register' ? { email, password, name } : { email, password }),
@@ -159,7 +165,9 @@ export function AuthProvider({ children }) {
       track(EVENTS.SIGNUP, { is_new: !!data.is_new, method: 'email' });
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: 'Bağlantı hatası. İnternetini kontrol edip tekrar dene.' };
+      let host = '';
+      try { host = new URL(authUrl).host; } catch { host = authUrl; }
+      return { ok: false, error: `Bağlantı hatası [${e?.name || 'Error'}: ${e?.message || e}] · hedef: ${host}` };
     }
   }, []);
 
