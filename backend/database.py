@@ -1197,14 +1197,14 @@ class MovieCache:
     async def update_user_avatar_data(self, user_id: int, data: bytes):
         """Avatar binary verisini DB'ye kaydet (filesystem'siz kalıcı depolama).
         Kolon Turso'da yoksa (migration eksik) False döner, patlamaz."""
-        try:
-            async with _get_connection(self.db_path, user_data=True) as db:
-                await db.execute(
-                    "UPDATE users SET avatar_data = ? WHERE id = ?",
-                    (data, user_id)
-                )
-                await db.commit()
-            return True
+    try:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "UPDATE users SET avatar_data = ? WHERE id = ?",
+                (base64.b64encode(data).decode(), user_id)
+            )
+            await db.commit()
+        return True
         except Exception:
             return False
 
