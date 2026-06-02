@@ -51,11 +51,6 @@ export default function BetaGate({ children }) {
   const [showPassword, setShowPassword] = useState(false);
   const { login: googleLogin, user: googleUser } = useAuth();
 
-  // If Google login succeeds, mark authenticated
-  useEffect(() => {
-    if (googleUser) setAuthenticated(true);
-  }, [googleUser]);
-
   const [gBusy, setGBusy] = useState(false);
   const [gError, setGError] = useState('');
   const handleGoogleCredential = useCallback(async (cred) => {
@@ -71,6 +66,8 @@ export default function BetaGate({ children }) {
   useEffect(() => {
     // Check if beta gate is needed — parallel checks
     const check = async () => {
+      // Google ile giriş yapmış kullanıcı varsa beta gate'i atla
+      if (googleUser) { setAuthenticated(true); return; }
       const [valid, healthRes] = await Promise.all([
         verifyStoredToken(),
         fetch(getApiUrl('/api/health')).catch(() => null),
@@ -83,7 +80,7 @@ export default function BetaGate({ children }) {
       setAuthenticated(false);
     };
     check();
-  }, []);
+  }, [googleUser]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
