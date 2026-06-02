@@ -773,7 +773,7 @@ def _auth_response(data: dict, token: str):
     resp.set_cookie(
         key="fc_user_token",
         value=token,
-        max_age=604800,
+        max_age=7776000,
         path="/",
         secure=IS_PRODUCTION,
         httponly=False,
@@ -784,7 +784,7 @@ def _auth_response(data: dict, token: str):
         resp.set_cookie(
             key="fc_user_info",
             value=_json.dumps(user_data),
-            max_age=604800,
+            max_age=7776000,
             path="/",
             secure=IS_PRODUCTION,
             httponly=False,

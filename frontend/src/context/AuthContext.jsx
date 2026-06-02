@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '../utils/apiConfig';
 import { track, EVENTS } from '../utils/analytics';
+import { getAuthItem, setAuthItem, removeAuthItem } from '../utils/authStorage';
 
 const AUTH_KEY = 'fc_user_token';
 const USER_KEY = 'fc_user_info';
@@ -85,6 +86,8 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      setAuthItem(AUTH_KEY, data.token);
+      setAuthItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
       track(EVENTS.SIGNUP, { is_new: !!data.is_new });
       // Davet atıfı backend'de işlendi → ref'i temizle (tekrar atıf olmasın)
@@ -121,6 +124,8 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      setAuthItem(AUTH_KEY, data.token);
+      setAuthItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
       return { ok: true };
     } catch (e) {
@@ -148,6 +153,8 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       localStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      setAuthItem(AUTH_KEY, data.token);
+      setAuthItem(USER_KEY, JSON.stringify(data.user));
       window.__fc_user_token = data.token;
       track(EVENTS.SIGNUP, { is_new: !!data.is_new, method: 'email' });
       return { ok: true };
@@ -159,44 +166,80 @@ export function AuthProvider({ children }) {
   const emailLogin = useCallback((email, password) => emailAuth('login', { email, password }), [emailAuth]);
   const emailRegister = useCallback((email, password, name) => emailAuth('register', { email, password, name }), [emailAuth]);
 
-  // Startup'ta token süresi dolmuşsa temizle
+  // Startup: IndexedDB'den hydrate et (iOS localStorage+cookie silinmişse) + expiry check
   useEffect(() => {
-    if (!token) return;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.exp * 1000 < Date.now()) {
-        localStorage.removeItem(AUTH_KEY);
-        localStorage.removeItem(USER_KEY);
-        setToken(null);
-        setUser(null);
+    let cancelled = false;
+    (async () => {
+      let currentToken = token;
+      let currentUser = user;
+
+      // IndexedDB fallback (iOS PWA localStorage+cookie tahliyesine karşı)
+      if (!currentToken) {
+        try {
+          const storedToken = await getAuthItem(AUTH_KEY);
+          const storedUser = await getAuthItem(USER_KEY);
+          if (storedToken && !cancelled) {
+            currentToken = storedToken;
+            try { localStorage.setItem(AUTH_KEY, storedToken); } catch {}
+            window.__fc_user_token = storedToken;
+          }
+          if (storedUser && !cancelled) {
+            try {
+              currentUser = JSON.parse(storedUser);
+              localStorage.setItem(USER_KEY, storedUser);
+            } catch {}
+          }
+        } catch {}
       }
-    } catch {
-      // Geçersiz token → temizle
-      localStorage.removeItem(AUTH_KEY);
-      localStorage.removeItem(USER_KEY);
-      setToken(null);
-      setUser(null);
-    }
+
+      if (cancelled) return;
+
+      // Expiry check
+      if (currentToken) {
+        try {
+          const payload = JSON.parse(atob(currentToken.split('.')[1]));
+          if (payload.exp * 1000 < Date.now()) {
+            await removeAuthItem(AUTH_KEY);
+            await removeAuthItem(USER_KEY);
+            setToken(null);
+            setUser(null);
+            window.__fc_user_token = null;
+            return;
+          }
+        } catch {
+          await removeAuthItem(AUTH_KEY);
+          await removeAuthItem(USER_KEY);
+          setToken(null);
+          setUser(null);
+          window.__fc_user_token = null;
+          return;
+        }
+      }
+
+      // State'i güncelle (hydration sonrası fark varsa)
+      if (!cancelled) {
+        if (currentToken !== token) setToken(currentToken);
+        if (currentUser !== user && currentUser) setUser(currentUser);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = useCallback(() => {
     clearLocalUserData();
     setToken(null);
     setUser(null);
-    localStorage.removeItem(AUTH_KEY);
-    localStorage.removeItem(USER_KEY);
-    document.cookie = 'fc_user_token=; Max-Age=0; path=/; SameSite=Lax';
-    document.cookie = 'fc_user_info=; Max-Age=0; path=/; SameSite=Lax';
+    removeAuthItem(AUTH_KEY);
+    removeAuthItem(USER_KEY);
     window.__fc_user_token = null;
   }, []);
 
   const updateUser = useCallback((patch) => {
     setUser((prev) => {
       const next = { ...prev, ...patch };
-      localStorage.setItem(USER_KEY, JSON.stringify(next));
-      try {
-        document.cookie = `fc_user_info=${encodeURIComponent(JSON.stringify(next))}; Max-Age=604800; path=/; SameSite=Lax`;
-      } catch {}
+      const json = JSON.stringify(next);
+      localStorage.setItem(USER_KEY, json);
+      setAuthItem(USER_KEY, json);
       return next;
     });
   }, []);
