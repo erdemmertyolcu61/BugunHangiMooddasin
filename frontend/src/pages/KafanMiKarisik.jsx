@@ -70,6 +70,18 @@ const FEEDBACK_BUTTONS = [
   { label: "Az Bilinen", refine: "less_known", icon: Gem },
 ];
 
+const reliableRating = (movie) => {
+  if (movie.imdb_rating) {
+    const n = parseFloat(movie.imdb_rating);
+    if (!isNaN(n) && n > 0) return n.toFixed(1);
+  }
+  const avg = movie.vote_average;
+  if (avg == null || avg <= 0) return null;
+  const count = movie.vote_count;
+  if (count != null && count < 5) return null;
+  return avg <= 10.0 ? avg.toFixed(1) : null;
+};
+
 export default function KafanMiKarisik() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -461,31 +473,6 @@ export default function KafanMiKarisik() {
                             </div>
                           )}
 
-                          <div className="absolute bottom-4 left-4 right-4">
-                            <h3 className="text-xl font-serif font-bold text-white drop-shadow-lg line-clamp-2">
-                              {movie.title}
-                            </h3>
-                            <div className="flex items-center gap-3 mt-2 flex-wrap">
-                              <span className="flex items-center gap-1 text-[11px] text-[#ffbf00] font-bold">
-                                <Star size={11} className="fill-[#ffbf00]" />
-                                {movie.vote_average > 0 ? movie.vote_average.toFixed(1) : '—'}
-                              </span>
-                              {movie.release_date && (
-                                <span className="text-[10px] text-amber-100/50">
-                                  {movie.release_date?.split('-')[0]}
-                                </span>
-                              )}
-                              {movie.matched_moods && movie.matched_moods.slice(0, 2).map((mood) => (
-                                <span
-                                  key={mood}
-                                  className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber/10 text-amber/80 border border-amber/20"
-                                >
-                                  {mood}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-
                           {/* Desktop: hover overlay butonları — MovieCard ile aynı */}
                           <div className="hidden sm:flex absolute bottom-0 left-0 right-0 z-10 items-center gap-1.5 p-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <button
@@ -543,6 +530,22 @@ export default function KafanMiKarisik() {
                           >
                             {quickWatchedIds.has(movie.id) ? <Check size={14} /> : <Eye size={14} />}
                           </button>
+                        </div>
+
+                        {/* Başlık + puan — MovieCard ile aynı */}
+                        <div className="mt-2 sm:mt-5 px-1 sm:px-4">
+                          <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
+                            {movie.title}
+                          </h3>
+                          <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
+                            {reliableRating(movie) != null && (
+                              <div className="flex items-center gap-1.5">
+                                <Star size={10} className="fill-amber text-amber" />
+                                <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Üstad'ın Gerekçesi */}

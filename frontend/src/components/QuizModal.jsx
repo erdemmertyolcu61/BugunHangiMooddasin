@@ -103,24 +103,23 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto bg-surface border border-white/[0.06] rounded-[1.75rem] sm:rounded-[2.25rem] p-4 sm:p-8 md:p-10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)]"
           >
-            <button onClick={onClose} className="absolute top-0 right-0 m-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm border border-white/15 flex items-center justify-center text-fg-subtle hover:text-amber hover:bg-black/50 transition-all active:scale-90">
-              <X size={16} />
-            </button>
-
             {step === 0 ? null : step <= QUESTIONS.length ? (
               /* ── QUESTION STEP ── */
               <div className="space-y-6 sm:space-y-8" key={step}>
-                {/* Progress */}
+                {/* Progress + kapatma */}
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber/50">
                     {step} / {QUESTIONS.length}
                   </span>
-                  <div className="flex gap-1.5">
+                  <div className="flex items-center gap-1.5">
                     {QUESTIONS.map((_, i) => (
                       <div key={i} className={`w-4 sm:w-6 h-1 rounded-full transition-colors ${
                         i < step ? 'bg-amber/60' : 'bg-fg-subtle/30'
                       }`} />
                     ))}
+                    <button onClick={onClose} className="ml-2 p-0.5 text-fg-subtle/40 hover:text-amber transition-colors active:scale-90">
+                      <X size={13} />
+                    </button>
                   </div>
                 </div>
 
