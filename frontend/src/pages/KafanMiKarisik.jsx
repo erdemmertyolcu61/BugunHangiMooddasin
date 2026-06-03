@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, Sparkles, Send, RefreshCw, Star, Brain, Eye, BookmarkPlus, Check, Clock, TrendingUp, Gem } from 'lucide-react';
+import { ChevronLeft, Sparkles, Send, RefreshCw, Brain, Clock, TrendingUp, Gem } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
 import FilmDetailModal from '../components/FilmDetailModal';
+import MovieCard from '../components/MovieCard';
 import { playMoodAudio } from '../utils/moodAudioManager';
 import LottieAnimation from '../components/LottieAnimation';
 import { track, EVENTS } from '../utils/analytics';
@@ -69,18 +70,6 @@ const FEEDBACK_BUTTONS = [
   { label: "Daha Farklı", refine: "different", icon: RefreshCw },
   { label: "Az Bilinen", refine: "less_known", icon: Gem },
 ];
-
-const reliableRating = (movie) => {
-  if (movie.imdb_rating) {
-    const n = parseFloat(movie.imdb_rating);
-    if (!isNaN(n) && n > 0) return n.toFixed(1);
-  }
-  const avg = movie.vote_average;
-  if (avg == null || avg <= 0) return null;
-  const count = movie.vote_count;
-  if (count != null && count < 5) return null;
-  return avg <= 10.0 ? avg.toFixed(1) : null;
-};
 
 export default function KafanMiKarisik() {
   const navigate = useNavigate();
@@ -207,15 +196,13 @@ export default function KafanMiKarisik() {
     navigate('/discover');
   };
 
-  const handleQuickSave = async (e, movie) => {
-    e.stopPropagation();
+  const handleQuickSave = async (movie) => {
     if (quickSavedIds.has(movie.id)) return;
     setQuickSavedIds(prev => new Set([...prev, movie.id]));
     try { await addToWatchlist(movie); } catch (err) { console.error('Quick save error:', err); }
   };
 
-  const handleQuickWatched = async (e, movie) => {
-    e.stopPropagation();
+  const handleQuickWatched = async (movie) => {
     const nowWatched = !quickWatchedIds.has(movie.id);
     setQuickWatchedIds(prev => {
       const next = new Set(prev);
@@ -445,121 +432,21 @@ export default function KafanMiKarisik() {
                   </p>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {result.movies.map((movie) => (
-                      <motion.div
-                        key={movie.id}
-                        layout
-                        className={`movie-grid-item rounded-[2rem] border overflow-hidden group transition-all cursor-pointer ${
-                          movie.is_primary_match
-                            ? 'bg-amber-500/[0.08] border-amber/30 ring-1 ring-amber/20'
-                            : 'bg-white/8 border-white/10 hover:border-amber/35'
-                        }`}
-                        onClick={() => { setDetailInitialMovie(movie); setDetailMovieId(movie.id); }}
-                      >
-                        <div className="aspect-[2/3] relative overflow-hidden">
-                          <OptimizedImage
-                            src={movie.poster_url}
-                            alt={movie.title}
-                            fallbackTitle={movie.title}
-                            aspect="poster"
-                            size="md"
-                            className="w-full h-full"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent max-sm:hidden" />
-
-                          {/* Primary match badge */}
-                          {movie.is_primary_match && (
-                            <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-amber/90 text-black text-[9px] font-bold uppercase tracking-wider">
-                              Tam Eşleşme
-                            </div>
-                          )}
-
-                          {/* Desktop: hover overlay butonları — MovieCard ile aynı */}
-                          <div className="hidden sm:flex absolute bottom-0 left-0 right-0 z-10 items-center gap-1.5 p-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                            <button
-                              onClick={(e) => handleQuickSave(e, movie)}
-                              title="Deftere Ekle"
-                              className={`flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
-                                quickSavedIds.has(movie.id)
-                                  ? 'bg-amber/90 border-amber/60 text-black'
-                                  : 'bg-black/70 border-white/20 text-white/80 hover:bg-amber/80 hover:text-black hover:border-amber/50'
-                              }`}
-                            >
-                              {quickSavedIds.has(movie.id)
-                                ? <><Check size={9} /> Eklendi</>
-                                : <><BookmarkPlus size={9} /> Deftere</>
-                              }
-                            </button>
-                            <button
-                              onClick={(e) => handleQuickWatched(e, movie)}
-                              title="İzledim"
-                              className={`flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider backdrop-blur-md border transition-all active:scale-95 ${
-                                quickWatchedIds.has(movie.id)
-                                  ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-                                  : 'bg-black/70 border-white/20 text-white/80 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
-                              }`}
-                            >
-                              {quickWatchedIds.has(movie.id)
-                                ? <><Check size={9} /> İzledim</>
-                                : <><Eye size={9} /> İzledim</>
-                              }
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Mobil: ikon ibareler — yazı yok */}
-                        <div className="sm:hidden flex items-center gap-2 mt-2 px-1">
-                          <button
-                            onClick={(e) => handleQuickSave(e, movie)}
-                            className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90 ${
-                              quickSavedIds.has(movie.id)
-                                ? 'bg-amber/90 border-amber/60 text-black'
-                                : 'bg-black/70 border-white/20 text-white/70 hover:bg-amber/80 hover:text-black hover:border-amber/50'
-                            }`}
-                            title={quickSavedIds.has(movie.id) ? 'Eklendi' : 'Deftere Ekle'}
-                          >
-                            {quickSavedIds.has(movie.id) ? <Check size={14} /> : <BookmarkPlus size={14} />}
-                          </button>
-                          <button
-                            onClick={(e) => handleQuickWatched(e, movie)}
-                            className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors duration-200 active:scale-90 ${
-                              quickWatchedIds.has(movie.id)
-                                ? 'bg-emerald-500/90 border-emerald-400/60 text-white'
-                                : 'bg-black/70 border-white/20 text-white/70 hover:bg-emerald-500/80 hover:text-white hover:border-emerald-400/50'
-                            }`}
-                            title={quickWatchedIds.has(movie.id) ? 'İzledim' : 'İzlemedim'}
-                          >
-                            {quickWatchedIds.has(movie.id) ? <Check size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-
-                        {/* Başlık + puan — MovieCard ile aynı */}
-                        <div className="mt-2 sm:mt-5 px-1 sm:px-4">
-                          <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
-                            {movie.title}
-                          </h3>
-                          <div className="flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity duration-500">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-ivory/50">{movie.release_date?.split('-')[0]}</span>
-                            {reliableRating(movie) != null && (
-                              <div className="flex items-center gap-1.5">
-                                <Star size={10} className="fill-amber text-amber" />
-                                <span className="text-xs font-bold text-ivory/70">{reliableRating(movie)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Üstad'ın Gerekçesi */}
+                      <div key={movie.id} className="flex flex-col">
+                        <MovieCard
+                          movie={movie}
+                          isSaved={quickSavedIds.has(movie.id)}
+                          isWatched={quickWatchedIds.has(movie.id)}
+                          onQuickSave={handleQuickSave}
+                          onQuickWatched={handleQuickWatched}
+                          onAnalyze={(m) => { setDetailInitialMovie(m); setDetailMovieId(m.id); }}
+                        />
                         {movie.reason && (
-                          <div className="p-4 sm:p-5 space-y-1.5 sm:space-y-2 max-sm:hidden">
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-amber/55">
-                              {movie.is_primary_match ? 'Eşleşme' : "Üstad'ın Gerekçesi"}
-                            </p>
-                            <p className="text-xs sm:text-sm font-serif text-amber-100/80 leading-relaxed line-clamp-3">
-                              &ldquo;{movie.reason}&rdquo;
-                            </p>
-                          </div>
+                          <p className="hidden sm:block mt-2 px-1 text-[11px] font-serif italic text-amber-100/55 leading-relaxed line-clamp-2">
+                            &ldquo;{movie.reason}&rdquo;
+                          </p>
                         )}
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 </div>
