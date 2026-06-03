@@ -18,7 +18,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
-  markSharesRead, getRecommendationHistory, retractRecommendation, getMe,
+  getRecommendationHistory, retractRecommendation, getMe,
 } from '../services/api';
 import { resolveAvatarUrl, getApiUrl, getShareUrl } from '../utils/apiConfig';
 import useDocumentMeta from '../utils/useDocumentMeta';
@@ -119,7 +119,13 @@ export default function Profil() {
   const [detailMovie, setDetailMovie] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
-  const [profileTab, setProfileTab] = useState('achievements');
+  // Push/deep-link: /profil?tab=social → doğrudan ilgili sekmeyi aç.
+  const [profileTab, setProfileTab] = useState(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab');
+      return ['achievements', 'social', 'settings'].includes(t) ? t : 'achievements';
+    } catch { return 'achievements'; }
+  });
   const pollRef = useRef(null);
 
   /* ─── Fetch social on mount ────────────────────────────────────── */
@@ -139,8 +145,9 @@ export default function Profil() {
           setRequests(rq.requests || []);
           setShares(hist.received || []);
           setSentShares(hist.sent || []);
-          // Rozeti sıfırla ama listeden silme (kalıcı görünür kalsın)
-          if ((hist.received || []).some(s => !s.is_read)) markSharesRead().catch(() => {});
+          // NOT: burada otomatik markSharesRead ÇAĞRILMAZ. Aksi halde kullanıcı
+          // zile tıklamadan rozet sıfırlanıp bildirim "yokmuş gibi" görünüyordu.
+          // Okundu işaretleme yalnız zil paneli açılınca yapılır (NotificationsBell).
         }
       } finally {
         if (alive) { setSocialLoading(false); setSharesLoading(false); }
@@ -165,7 +172,7 @@ export default function Profil() {
         setRequests(rq.requests || []);
         setShares(hist.received || []);
         setSentShares(hist.sent || []);
-        if ((hist.received || []).some(s => !s.is_read)) markSharesRead().catch(() => {});
+        // Otomatik markSharesRead kaldırıldı (bkz. mount effect notu).
       } catch {}
     };
     const onVisibilityChange = () => {

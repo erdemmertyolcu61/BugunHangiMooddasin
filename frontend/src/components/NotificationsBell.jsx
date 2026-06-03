@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getShares, getUnreadShareCount, markSharesRead, markShareRead,
+  getRecommendationHistory, getUnreadShareCount, markSharesRead, markShareRead,
   getFriendRequests, respondFriendRequest, proxyImageUrl,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
@@ -117,13 +117,18 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
     setOpen(true);
     setLoading(true);
     try {
-      const [sharesData, requestsData] = await Promise.all([
-        getShares().catch(() => ({ shares: [] })),
+      // GELEN öneriler (okunmuş DAHİL) → panel push sonrası asla yanlışlıkla boş
+      // kalmaz. Badge için unread sayımı ayrı (getUnreadShareCount).
+      const [recsData, requestsData] = await Promise.all([
+        getRecommendationHistory().catch(() => ({ received: [] })),
         getFriendRequests().catch(() => ({ requests: [] })),
       ]);
-      setShares(sharesData.shares || []);
+      setShares(recsData.received || []);
       setRequests(requestsData.requests || []);
-      // Count'u güncelle
+      // Paneli görüntüleyince okundu işaretle → rozet sıfırlanır ama kartlar görünür kalır.
+      if ((recsData.received || []).some((s) => !s.is_read)) {
+        await markSharesRead().catch(() => {});
+      }
       refreshCount();
     } catch {
       setShares([]);
@@ -355,6 +360,11 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                                 <span className="text-[12px] text-amber/80 font-semibold truncate">
                                   {s.sender?.username || s.sender?.name}
                                 </span>
+                                {!s.is_read && (
+                                  <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-amber text-[#120d0b] text-[9px] font-bold uppercase tracking-wider">
+                                    Yeni
+                                  </span>
+                                )}
                               </div>
                               <h4 className="text-[15px] font-serif font-bold text-[#f5f2eb] line-clamp-1">
                                 {s.movie_title || `Film #${s.movie_id}`}
