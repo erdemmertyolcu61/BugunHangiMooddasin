@@ -4,7 +4,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { MoodProvider, useMood } from './context/MoodContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import BetaGate from './components/BetaGate';
 import SplashScreen from './components/SplashScreen';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
@@ -177,12 +176,10 @@ function App() {
       <SplashScreen />
       <ThemeProvider>
         <AuthProvider>
-          <BetaGate>
-            <AppReadyNotifier />
-            <MoodProvider>
-              <AppContent />
-            </MoodProvider>
-          </BetaGate>
+          <AppReadyNotifier />
+          <MoodProvider>
+            <AppContent />
+          </MoodProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

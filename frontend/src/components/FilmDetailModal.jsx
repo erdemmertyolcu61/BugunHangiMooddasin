@@ -47,7 +47,7 @@ const reliableRating = (m) => {
   return avg <= 9.0 ? avg.toFixed(1) : null;
 };
 
-export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null, onActiveChange = null }) {
+export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null, onActiveChange = null, hideWatchProviders = false }) {
   // Escape tuşuyla kapat
   const handleEsc = useCallback((e) => { if (e.key === 'Escape') onClose(); }, [onClose]);
   useEffect(() => { document.addEventListener('keydown', handleEsc); return () => document.removeEventListener('keydown', handleEsc); }, [handleEsc]);
@@ -266,8 +266,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   </div>
                 </div>
 
-                {/* Nerede İzlenir — her platform tıklanabilir */}
-                {movie.watch_providers && (() => {
+                {/* Nerede İzlenir — her platform tıklanabilir (chat akışında gizli) */}
+                {!hideWatchProviders && movie.watch_providers && (() => {
                   const wp = movie.watch_providers;
                   const all = [
                     ...(wp.flatrate || []).map(p => ({ ...p, tag: 'Abonelik' })),

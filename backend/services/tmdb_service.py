@@ -167,7 +167,9 @@ class TMDBService:
                                 primary_release_date_lte: str = None,
                                 primary_release_date_gte: str = None,
                                 with_runtime_lte: int = None,
-                                with_companies: str = None) -> dict:
+                                with_companies: str = None,
+                                with_watch_providers: str = None,
+                                watch_region: str = None) -> dict:
         params = {
             "api_key": self.api_key, "language": "tr-TR",
             "sort_by": sort_by,
@@ -197,6 +199,10 @@ class TMDBService:
             params["with_runtime.lte"] = with_runtime_lte
         if with_companies:
             params["with_companies"] = with_companies
+        if with_watch_providers:
+            params["with_watch_providers"] = with_watch_providers
+        if watch_region:
+            params["watch_region"] = watch_region
 
         data = await self._get(f"{self.base_url}/discover/movie", params)
         return {

@@ -3116,7 +3116,6 @@ class ConfusedRequest(BaseModel):
     exclude_ids: list = []
     forced_mood_override: str = ""  # Session-based anti-repetition
     refine: str = ""  # "" | more_popular | newer | different | less_known (4 buton)
-    provider_filter: str = ""  # "netflix" | "amazon prime" | "disney+" | "mubi" | "blutv" | ""
 
 class QuickMoodMixRequest(BaseModel):
     mood_mix: list  # [{"mood_id": "battaniye", "percentage": 50}, ...]
@@ -4652,7 +4651,8 @@ async def _resolve_keyword_ids(terms: list) -> list:
 async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_ids,
                            sort_by="vote_average.desc", min_vote_count=200,
                            max_vote_count=None, date_gte=None, page=1, reason="",
-                           company_ids=None, original_language=None) -> list:
+                           company_ids=None, original_language=None,
+                           watch_providers=None, watch_region=None) -> list:
     """TMDB Discover ile tema/refine sonucu çek (poster + exclude filtreli)."""
     kwargs = {"sort_by": sort_by, "min_vote_average": min_vote,
               "min_vote_count": min_vote_count, "page": page}
@@ -4666,6 +4666,9 @@ async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_i
         kwargs["with_companies"] = "|".join(str(c) for c in company_ids)
     if original_language:
         kwargs["with_original_language"] = original_language
+    if watch_providers:
+        kwargs["with_watch_providers"] = "|".join(str(p) for p in watch_providers)
+        kwargs["watch_region"] = watch_region or "TR"
     try:
         res = await tmdb_service.discover_movies(list(genre_ids or []), **kwargs)
     except Exception as e:
@@ -4810,15 +4813,20 @@ async def _refine_similar_pool(ref_title: str, exclude_set: set) -> tuple:
 
 async def _refine_via_discover(refine: str, keyword_ids: list, genre_ids: list,
                                company_ids: list, lang_filter, label: str,
-                               limit: int, min_vote: float, exclude_ids: list) -> dict:
-    """Tema/tür yolu: TMDB Discover'ın native sort/filtre'siyle refine."""
+                               limit: int, min_vote: float, exclude_ids: list,
+                               watch_providers: list = None) -> dict:
+    """Tema/tür/platform yolu: TMDB Discover'ın native sort/filtre'siyle refine."""
     sort_by, min_vc, max_vc, date_gte, page, mv_override = _refine_discover_params(refine)
     mv = mv_override if mv_override is not None else min_vote
+    # Platform sorgularında oy eşiği düşük tutulur (katalog daha dar)
+    if watch_providers and refine != "less_known":
+        min_vc = min(min_vc, 100)
     movies = await _discover_themed(
         keyword_ids=keyword_ids, genre_ids=genre_ids, limit=limit, min_vote=mv,
         exclude_ids=exclude_ids, sort_by=sort_by, min_vote_count=min_vc,
         max_vote_count=max_vc, date_gte=date_gte, page=page, reason=label,
         company_ids=company_ids or None, original_language=lang_filter,
+        watch_providers=watch_providers, watch_region="TR" if watch_providers else None,
     )
     if not movies:
         return None
@@ -4839,7 +4847,7 @@ async def _refine_recommendation(refine: str, text: str, limit: int,
     from backend.services.theme_router import match_theme
     from backend.services.chat_engine import (
         ChatEngine, parse_chat_hints, _rule_based_confused_analysis,
-        _normalize, KNOWN_PERSONS,
+        _normalize, KNOWN_PERSONS, _detect_platform_filter, STREAMING_PLATFORMS,
     )
     exclude_set = set(exclude_ids)
     engine = ChatEngine(db=cache)
@@ -4848,6 +4856,17 @@ async def _refine_recommendation(refine: str, text: str, limit: int,
     hints = parse_chat_hints(text)
     mood_analysis = _rule_based_confused_analysis(text)
     lang_filter = mood_analysis.get("lang_filter")
+
+    # 0) Yayın platformu ("Netflix'te olan") → availability korunur, modifier uygulanır
+    provider_key = _detect_platform_filter(text)
+    if provider_key:
+        pinfo = STREAMING_PLATFORMS.get(provider_key, {})
+        pname = pinfo.get("label", provider_key.title())
+        return await _refine_via_discover(
+            refine, [], hints.genre_ids, [], lang_filter,
+            f"{pname}'te izlenebilen filmler", limit, min_vote, exclude_ids,
+            watch_providers=[pinfo.get("provider_id")] if pinfo.get("provider_id") else None,
+        )
 
     director = intent.type == "director_recommendation" and bool(intent.person_name)
     actor = intent.type == "actor_recommendation" and bool(intent.person_name)
@@ -4909,13 +4928,6 @@ async def _refine_recommendation(refine: str, text: str, limit: int,
     }
 
 
-async def _with_provider_filter(result: dict, provider_key: str) -> dict:
-    """Streaming platform filtresini result dict'ine uygula."""
-    if provider_key and result.get("movies"):
-        result["movies"] = await _apply_streaming_filter(result["movies"], provider_key)
-    return result
-
-
 @app.post("/api/recommend/confused", dependencies=[Depends(rate_limit_ai)])
 async def post_confused_recommendation(req: ConfusedRequest):
     """
@@ -4941,10 +4953,42 @@ async def post_confused_recommendation(req: ConfusedRequest):
     text       = req.text.strip()
     override   = (req.forced_mood_override or "").strip().lower()
     refine     = (req.refine or "").strip().lower()
-    provider_filter = (req.provider_filter or "").strip().lower().strip()
-    if not provider_filter:
-        from backend.services.chat_engine import _detect_platform_filter
-        provider_filter = _detect_platform_filter(text) or ""
+    from backend.services.chat_engine import _detect_platform_filter, STREAMING_PLATFORMS as _SP, parse_chat_hints as _pch
+    provider_filter = _detect_platform_filter(text) or ""
+
+    # ── PLATFORM DISCOVERY: "Netflix'te olan", "amazonda korku filmleri" ─────────
+    # TMDB with_watch_providers + watch_region=TR ile gerçekten erişilebilir filmler.
+    # Tür ipucu varsa birleştirilir ("netflixte korku" → Netflix + korku).
+    if provider_filter and not refine:
+        pinfo = _SP.get(provider_filter)
+        if pinfo:
+            try:
+                _ph = _pch(text)
+                discover = await tmdb_service.discover_movies(
+                    genre_ids=_ph.genre_ids or [], min_vote_count=80,
+                    min_vote_average=max(min_vote, 5.5),
+                    sort_by="popularity.desc",
+                    with_watch_providers=str(pinfo["provider_id"]),
+                    watch_region="TR",
+                )
+                exset = set(exclude_ids)
+                movies = [
+                    m for m in discover.get("movies", [])
+                    if (m.get("id") or m.get("tmdb_id")) not in exset and m.get("poster_url")
+                ][:limit]
+                if movies:
+                    pname = pinfo.get("label", provider_filter.title())
+                    return {
+                        "ok": True, "mode": "platform_discover",
+                        "intent": "watch_provider",
+                        "query_understanding": f"{pname}'te izlenebilen filmler",
+                        "ustad_line": f"İşte {pname}'te bu akşam izleyebileceklerin evlat.",
+                        "message": f"{pname} kütüphanesinden seçtiklerim.",
+                        "mood_mix": [],
+                        "movies": movies,
+                    }
+            except Exception:
+                logger.warning("[Confused] Platform discover failed for '%s', falling through", provider_filter)
 
     # ── REFINE: 4 buton (Daha Popüler/Yeni/Farklı/Az Bilinen) — deterministik ──
     if refine in _REFINE_USTAD:
@@ -4972,7 +5016,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
                     "ustad_line":          recipe.get("ustad_line", "İşte seçtiklerim."),
                     "message":             recipe.get("query_understanding", ""),
                     "mood_mix":            [{"mood_id": r_mood_id, "title": r_mood_name, "percentage": 100}],
-                    "movies":              await _apply_streaming_filter(movies, provider_filter) if provider_filter else movies,
+                    "movies":              movies,
                 }
     except Exception as e:
         logger.warning("[Confused] Recipe router failed (%s), falling through to next path", e)
@@ -4981,8 +5025,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
     if override and override in MOOD_NAMES:
         try:
             bypass_result = await _fast_mood_bypass(override, limit, min_vote, exclude_ids, text)
-            if provider_filter and bypass_result.get("movies"):
-                bypass_result["movies"] = await _apply_streaming_filter(bypass_result["movies"], provider_filter)
             return bypass_result
         except Exception as e:
             logger.error("[Confused] Fast mood bypass failed (%s), falling through", e, exc_info=True)
@@ -5029,7 +5071,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
     _skip_theme = (
         local_intent.type in ("similar_to_movie", "director_recommendation", "feedback")
         or (local_intent.person_name and _norm(local_intent.person_name) in _KNOWN_PERSONS)
-        or bool(provider_filter)  # streaming platform filtresi varsa tema yönlendirmesini atla
     )
     if not _skip_theme:
         try:
@@ -5047,8 +5088,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
                     )
                     if len(themed) >= 3:
                         logger.info("[Confused] Theme '%s' → %d film (TMDB discover)", theme["key"], len(themed))
-                        if provider_filter:
-                            themed = await _apply_streaming_filter(themed, provider_filter)
                         return {
                             "ok": True, "mode": "theme_discover", "intent": "theme",
                             "query_understanding": theme["label"],
@@ -5073,8 +5112,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
                 genre_ids=local_intent.genres,
                 time_constraint=local_intent.time_constraint)
             if person_movies:
-                if provider_filter:
-                    person_movies = await _apply_streaming_filter(person_movies, provider_filter)
                 return {
                     "movies": person_movies[:limit],
                     "query_understanding": f"'{local_intent.person_name}' yönetmenliğindeki filmler.",
@@ -5094,8 +5131,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
                 genre_ids=local_intent.genres,
                 time_constraint=local_intent.time_constraint)
             if person_movies:
-                if provider_filter:
-                    person_movies = await _apply_streaming_filter(person_movies, provider_filter)
                 return {
                     "movies": person_movies[:limit],
                     "query_understanding": f"'{local_intent.person_name}' filmlerini arıyorsun.",
@@ -5179,8 +5214,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
         result["is_fallback"] = False
         if local_intent.type not in ("mood_recommendation",):
             result["intent"] = local_intent.type
-        if provider_filter and result.get("movies"):
-            result["movies"] = await _apply_streaming_filter(result["movies"], provider_filter)
         return result
 
     # ── PATH 2.5: Saçma arama tespiti → Üstad reaksiyonu ──────────────────
@@ -5198,8 +5231,6 @@ async def post_confused_recommendation(req: ConfusedRequest):
             bypass["ustad_line"] = ns["ustad_line"]
             bypass["mode"] = ns["mode"]
             bypass["is_fallback"] = ns["is_fallback"]
-            if provider_filter and bypass.get("movies"):
-                bypass["movies"] = await _apply_streaming_filter(bypass["movies"], provider_filter)
             return bypass
     except Exception as exc:
         logger.debug("[NonsenseHandler] skipped: %s", exc)
@@ -5209,52 +5240,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
     # Semantic engine'in üstad mesajını koru (PATH 2'den taşındı)
     if _fallback_ustad and not fallback_result.get("ustad_line"):
         fallback_result["ustad_line"] = _fallback_ustad
-    if provider_filter and fallback_result.get("movies"):
-        fallback_result["movies"] = await _apply_streaming_filter(fallback_result["movies"], provider_filter)
     return fallback_result
-
-
-# ═══════════════════════════════════════════════════════════════
-# STREAMING PLATFORM FILTER
-# ═══════════════════════════════════════════════════════════════
-
-async def _apply_streaming_filter(movies: list, provider_key: str) -> list:
-    """Film listesini belirtilen platformda olanlarla filtrele.
-    provider_key: STREAMING_PLATFORMS normalized key ("netflix", "disney+", ...).
-    Boş/filtre yoksa aynı listeyi döndür.
-    """
-    if not provider_key or not movies:
-        return movies
-    from backend.services.chat_engine import STREAMING_PLATFORMS
-    info = STREAMING_PLATFORMS.get(provider_key)
-    if not info:
-        return movies
-    target_id = info["provider_id"]
-    filtered = []
-    for m in movies:
-        mid = m.get("id") or m.get("tmdb_id")
-        if not mid:
-            filtered.append(m)
-            continue
-        try:
-            wp = await cache.get_watch_providers(mid, "TR")
-            if not wp:
-                wp = await tmdb_service.get_movie_watch_providers(mid, region="TR")
-                await cache.save_watch_providers(mid, "TR", wp)
-            found = False
-            for cat in ("flatrate", "free", "ads"):
-                for p in wp.get(cat, []):
-                    pid = p.get("provider_id")
-                    if pid == target_id:
-                        found = True
-                        break
-                if found:
-                    break
-            if found:
-                filtered.append(m)
-        except Exception:
-            filtered.append(m)
-    return filtered
 
 
 @app.post("/api/recommend/mood-quiz", dependencies=[Depends(rate_limit_ai)])

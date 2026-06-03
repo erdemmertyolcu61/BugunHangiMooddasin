@@ -12,14 +12,6 @@ import LottieAnimation from '../components/LottieAnimation';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
 
-const STREAMING_CHIPS = [
-  { label: "Netflix", key: "netflix" },
-  { label: "Amazon Prime", key: "amazon prime" },
-  { label: "Disney+", key: "disney+" },
-  { label: "MUBI", key: "mubi" },
-  { label: "BluTV", key: "blutv" },
-];
-
 const QUICK_MOODS = [
   {
     id: "relaxing_cinema",
@@ -94,7 +86,6 @@ export default function KafanMiKarisik() {
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
-  const [selectedProvider, setSelectedProvider] = useState('');
   const inputRef = useRef(null);
   const phraseTimer = useRef(null);
 
@@ -137,7 +128,7 @@ export default function KafanMiKarisik() {
     if (!feedbackMode) track(EVENTS.CONFUSED_SUBMIT, { len: txt.length });
 
     try {
-      const data = await postConfusedRecommendation(txt, 6, 5.0, sessionExcludeIds, '', refine, selectedProvider);
+      const data = await postConfusedRecommendation(txt, 6, 5.0, sessionExcludeIds, '', refine);
 
       if (data?.movies?.length) {
         setResult(data);
@@ -159,7 +150,7 @@ export default function KafanMiKarisik() {
     setResult(null);
     setLastQuery(quickMood.label);
     try {
-      const data = await postConfusedRecommendation(quickMood.label, 6, 5.0, sessionExcludeIds, quickMood.slug, '', selectedProvider);
+      const data = await postConfusedRecommendation(quickMood.label, 6, 5.0, sessionExcludeIds, quickMood.slug, '');
       
       // Validate response
       if (!data) {
@@ -297,34 +288,6 @@ export default function KafanMiKarisik() {
               <p className="text-[11px] font-serif italic text-[#f5f2eb]/70">Hiç düşünme, perde açılsın.</p>
             </div>
 
-            {/* Streaming platform chips */}
-            <div className="max-w-3xl mx-auto">
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber/60 mb-4">Nerede İzlemek İstersin?</p>
-              <div className="flex flex-wrap gap-2.5 justify-center">
-                {STREAMING_CHIPS.map((sc) => (
-                  <button
-                    key={sc.key}
-                    onClick={() => setSelectedProvider(selectedProvider === sc.key ? '' : sc.key)}
-                    className={`px-4 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all border ${
-                      selectedProvider === sc.key
-                        ? 'bg-amber/20 border-amber/60 text-amber-100'
-                        : 'bg-white/5 border-white/10 text-amber-100/50 hover:bg-white/10 hover:border-white/25'
-                    }`}
-                  >
-                    {sc.label}
-                    {selectedProvider === sc.key && ' ✓'}
-                  </button>
-                ))}
-                {selectedProvider && (
-                  <button
-                    onClick={() => setSelectedProvider('')}
-                    className="px-4 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-wider border border-white/10 text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
-                  >
-                    Temizle
-                  </button>
-                )}
-              </div>
-            </div>
 
             {/* Quick mood pills — rule-based, premium layout */}
             <div className="max-w-3xl mx-auto">
@@ -540,6 +503,7 @@ export default function KafanMiKarisik() {
         <FilmDetailModal
           movieId={detailMovieId}
           initialMovie={detailInitialMovie}
+          hideWatchProviders
           onClose={() => { setDetailMovieId(null); setDetailInitialMovie(null); }}
         />
       )}

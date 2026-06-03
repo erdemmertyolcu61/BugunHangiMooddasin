@@ -373,11 +373,11 @@ export async function quickMoodMix(moodMix, { limit = 6, minVote = 5.0, excludeI
   return res.json();
 }
 
-export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0, excludeIds = [], forcedMoodOverride = '', refine = '', providerFilter = '') {
+export async function postConfusedRecommendation(text, limit = 6, minVote = 5.0, excludeIds = [], forcedMoodOverride = '', refine = '') {
   const res = await fetch(`${BASE}/recommend/confused`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0, exclude_ids: excludeIds, forced_mood_override: forcedMoodOverride, refine, provider_filter: providerFilter })
+    body: JSON.stringify({ text, limit, min_vote: minVote, min_mood_score: 0, exclude_ids: excludeIds, forced_mood_override: forcedMoodOverride, refine })
   });
   if (!res.ok) throw new Error(`Öneri alınamadı (${res.status})`);
   return res.json();

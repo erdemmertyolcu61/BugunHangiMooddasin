@@ -362,19 +362,31 @@ KNOWN_PERSONS = {
 # ═══════════════════════════════════════════════════════════════
 # STREAMING PLATFORMS — provider_filter intent tespiti için
 # ═══════════════════════════════════════════════════════════════
+# TMDB watch-provider ID'leri (TR bölgesi) — frontend streamingMemory.js ile uyumlu.
+# label: kullanıcıya gösterilecek görünen ad.
 STREAMING_PLATFORMS = {
-    "netflix":       {"aliases": ["netflix", "netflixde", "netflix'te", "netflixte"], "provider_id": 8},
-    "amazon prime":  {"aliases": ["amazon prime", "prime video", "amazonda", "prime"], "provider_id": 9},
-    "disney+":       {"aliases": ["disney", "disney+"], "provider_id": 337},
-    "mubi":          {"aliases": ["mubi", "mubi'de"], "provider_id": 11},
-    "blutv":         {"aliases": ["blutv", "blu tv"], "provider_id": 69},
-    "exxen":         {"aliases": ["exxen", "exxen'de"], "provider_id": 514},
-    "apple tv":      {"aliases": ["apple tv", "appletv"], "provider_id": 350},
-    "hbo max":       {"aliases": ["hbo", "max", "hbo max"], "provider_id": 384},
-    "paramount+":    {"aliases": ["paramount", "paramount+"], "provider_id": 531},
-    "tabii":         {"aliases": ["tabii"], "provider_id": 618},
-    "gain":          {"aliases": ["gain"], "provider_id": 553},
+    "netflix":      {"aliases": ["netflix", "netflıx"],                       "provider_id": 8,    "label": "Netflix"},
+    "amazon prime": {"aliases": ["amazon prime", "prime video", "amazon"],    "provider_id": 119,  "label": "Amazon Prime"},
+    "disney+":      {"aliases": ["disney plus", "disney+", "disney"],         "provider_id": 337,  "label": "Disney+"},
+    "mubi":         {"aliases": ["mubi"],                                     "provider_id": 11,   "label": "MUBI"},
+    "blutv":        {"aliases": ["blutv", "blu tv"],                          "provider_id": 341,  "label": "BluTV"},
+    "exxen":        {"aliases": ["exxen"],                                    "provider_id": 1968, "label": "Exxen"},
+    "apple tv":     {"aliases": ["apple tv", "appletv", "apple tv+"],         "provider_id": 350,  "label": "Apple TV+"},
+    "max":          {"aliases": ["hbo max", "hbomax", "max"],                 "provider_id": 1899, "label": "Max"},
+    "paramount+":   {"aliases": ["paramount", "paramount+"],                  "provider_id": 531,  "label": "Paramount+"},
+    "tabii":        {"aliases": ["tabii"],                                    "provider_id": 2235, "label": "tabii"},
+    "gain":         {"aliases": ["gain"],                                     "provider_id": 1898, "label": "Gain"},
+    "puhu":         {"aliases": ["puhutv", "puhu tv", "puhu"],                "provider_id": 1796, "label": "puhuTV"},
+    "crunchyroll":  {"aliases": ["crunchyroll"],                              "provider_id": 283,  "label": "Crunchyroll"},
 }
+
+# Erişim/availability ipuçları + durum ekleri — "netflix yapımı" (üretim şirketi)
+# ile "netflix'te olan" (erişilebilirlik) ayrımı için.
+_PLATFORM_AVAIL_CUES = (
+    "olan", "var", "izle", "seyret", "mevcut", "bulunan", "yayinda",
+    "eklenen", "izlenecek", "cikan", "nerede", "hangi", "neler",
+)
+_PLATFORM_LOC_SUFFIXES = ("te", "de", "da", "ta", "ten", "den", "dan", "tan", "deki", "daki", "teki", "taki")
 
 # ═══════════════════════════════════════════════════════════════
 # SLANG / INTERNET DILI — günlük konuşma ifadeleri
@@ -926,11 +938,25 @@ def _extract_era_constraint(text: str) -> dict | None:
 # ═══════════════════════════════════════════════════════════════
 
 def _detect_platform_filter(text: str) -> str | None:
-    """Metinde streaming platform adı geçiyor mu? Varsa normalized key döndür."""
-    tl = text.lower()
+    """Yayın platformu ERİŞİLEBİLİRLİK sorgusu mu? ("Netflix'te olan", "amazonda var mı").
+    Üretim-şirketi temalarıyla ("netflix yapımı/filmi") karışmaması için EK/İPUCU şart:
+      - bitişik durum eki ("netflixte", "amazonda", "mubideki") VEYA
+      - cümlede erişim ipucu ("olan/var/izle/mevcut/nerede/...").
+    Kelime sınırı kullanır → "max" "maksimum" içinde, "prime" "primer" içinde eşleşmez.
+    """
+    t = _fold(text)  # aksansız + noktalama→boşluk ("netflix'te" → "netflix te")
+    if not t:
+        return None
+    padded = f" {t} "
+    has_cue = any(f" {c}" in padded for c in _PLATFORM_AVAIL_CUES)
     for key, info in STREAMING_PLATFORMS.items():
         for alias in info["aliases"]:
-            if alias in tl:
+            a = _fold(alias)
+            if not a:
+                continue
+            glued = any(f" {a}{suf} " in padded for suf in _PLATFORM_LOC_SUFFIXES)
+            present = f" {a} " in padded
+            if glued or (present and has_cue):
                 return key
     return None
 
