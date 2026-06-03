@@ -201,20 +201,17 @@ async def recommend_movie(body: RecommendBody, user: dict = Depends(get_current_
 
 @router.get("/notifications/shares")
 async def get_shares(user: dict = Depends(get_current_user)):
-    """Tüm paylaşımları (okunmuş + okunmamış) film metadata'sıyla kronolojik döndür."""
-    shares = await cache.get_received_recommendations(user["user_id"], limit=30)
+    """Sadece okunmamış paylaşımları film metadata'sıyla (başlık, afiş) kronolojik döndür."""
+    shares = await cache.get_unread_shares(user["user_id"])
     movie_ids = list({s["movie_id"] for s in shares})
     meta = await cache.get_movies_meta_by_ids(movie_ids) if movie_ids else {}
-    share_count = 0
     for s in shares:
         m = meta.get(s["movie_id"], {})
         s["movie_title"] = m.get("title")
         s["poster_url"] = m.get("poster_url")
         s["vote_average"] = m.get("vote_average")
         s["release_date"] = m.get("release_date")
-        if not s.get("is_read"):
-            share_count += 1
-    return {"shares": shares, "unread_count": share_count}
+    return {"shares": shares, "unread_count": len(shares)}
 
 
 @router.delete("/movies/recommend/{rec_id}")

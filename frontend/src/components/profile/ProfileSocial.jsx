@@ -20,6 +20,7 @@ export default function ProfileSocial({
   sent = [],
   socialLoading = false,
   socialError = '',
+  respondLoading = null,
   onRespondRequest,
   onRemoveFriend,
   onAddFriend,
@@ -211,13 +212,15 @@ export default function ProfileSocial({
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button onClick={() => onRespondRequest(r.request_id, 'ACCEPT')}
+                        disabled={!!respondLoading}
                         className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20
-                          flex items-center justify-center hover:bg-emerald-500/20 transition-all" title="Onayla">
+                          flex items-center justify-center hover:bg-emerald-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="Onayla">
                         <Check size={14} className="text-emerald-400" />
                       </button>
                       <button onClick={() => onRespondRequest(r.request_id, 'DECLINE')}
+                        disabled={!!respondLoading}
                         className="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/20
-                          flex items-center justify-center hover:bg-rose-500/20 transition-all" title="Reddet">
+                          flex items-center justify-center hover:bg-rose-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="Reddet">
                         <X size={14} className="text-rose-400" />
                       </button>
                     </div>

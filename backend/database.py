@@ -1030,16 +1030,35 @@ class MovieCache:
             return {"status": "PENDING", "request_id": row[0] if row else None}
 
     async def respond_friend_request(self, request_id: int, user_id: int, action: str) -> bool:
-        """Sadece isteğin alıcısı (friend_id == user_id) yanıtlayabilir."""
+        """Sadece isteğin alıcısı (friend_id == user_id) yanıtlayabilir.
+        
+        Artık idempotent: zaten ACCEPTED durumdaysa True döner (hata fırlatmaz).
+        ACCEPT durumunda, varsa karşı yöndeki PENDING isteği de otomatik kabul eder.
+        """
+        action = action.upper()
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
-                "SELECT friend_id, status FROM friendships WHERE id = ?", (request_id,)
+                "SELECT user_id, friend_id, status FROM friendships WHERE id = ?", (request_id,)
             )
             row = await cur.fetchone()
-            if not row or row[0] != user_id or row[1] != "PENDING":
+            if not row:
                 return False
-            new_status = "ACCEPTED" if action.upper() == "ACCEPT" else "DECLINED"
+            req_user, req_friend, req_status = row
+            if req_friend != user_id:
+                return False
+            # Zaten ACCEPTED — idempotent (double-click koruması)
+            if req_status == "ACCEPTED":
+                return True
+            if req_status != "PENDING":
+                return False
+            new_status = "ACCEPTED" if action == "ACCEPT" else "DECLINED"
             await db.execute("UPDATE friendships SET status = ? WHERE id = ?", (new_status, request_id))
+            if action == "ACCEPT":
+                # Karşı yöndeki PENDING isteği de kabul et (çift taraflı arkadaşlık)
+                await db.execute(
+                    "UPDATE friendships SET status = 'ACCEPTED' WHERE user_id = ? AND friend_id = ? AND status = 'PENDING'",
+                    (req_friend, req_user),
+                )
             await db.commit()
             return True
 

@@ -37,6 +37,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState('');
+  const [respondLoading, setRespondLoading] = useState(null); // request_id yüklemede
   const [failedAvatars, setFailedAvatars] = useState(new Set());
   const onAvatarError = useCallback((id) => {
     setFailedAvatars((prev) => { const n = new Set(prev); n.add(id); return n; });
@@ -133,11 +134,14 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   };
 
   const handleRespond = async (requestId, action) => {
+    if (respondLoading === requestId) return;
+    setRespondLoading(requestId);
     try {
       await respondFriendRequest(requestId, action);
       setRequests(prev => prev.filter(r => r.request_id !== requestId));
       refreshCount();
     } catch { /* sessiz */ }
+    finally { setRespondLoading(null); }
   };
 
   const watchNow = async (s) => {
@@ -299,15 +303,15 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                               <p className="text-[11px] text-white/45 truncate">@{r.username}</p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <button onClick={() => handleRespond(r.request_id, 'ACCEPT')}
+                              <button onClick={() => handleRespond(r.request_id, 'ACCEPT')} disabled={respondLoading === r.request_id}
                                 className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20
-                                  flex items-center justify-center hover:bg-emerald-500/20 transition-all"
+                                  flex items-center justify-center hover:bg-emerald-500/20 transition-all disabled:opacity-30 disabled:pointer-events-none"
                                 title="Onayla" aria-label={`${r.username || r.name} isteğini onayla`}>
                                 <Check size={14} className="text-emerald-400" />
                               </button>
-                              <button onClick={() => handleRespond(r.request_id, 'DECLINE')}
+                              <button onClick={() => handleRespond(r.request_id, 'DECLINE')} disabled={respondLoading === r.request_id}
                                 className="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/20
-                                  flex items-center justify-center hover:bg-rose-500/20 transition-all"
+                                  flex items-center justify-center hover:bg-rose-500/20 transition-all disabled:opacity-30 disabled:pointer-events-none"
                                 title="Reddet" aria-label={`${r.username || r.name} isteğini reddet`}>
                                 <X size={14} className="text-rose-400" />
                               </button>
@@ -335,20 +339,6 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             className="relative flex gap-3.5 p-4 rounded-2xl bg-white/[0.04] border border-white/8"
                           >
-                            {!s.is_read && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  await markShareRead(s.id).catch(() => {});
-                                  setShares(prev => prev.filter(x => x.id !== s.id));
-                                  refreshCount();
-                                }}
-                                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center transition-all"
-                                aria-label="Bildirimi kapat"
-                              >
-                                <X size={12} className="text-white/40" />
-                              </button>
-                            )}
                             <div className="w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/10">
                               {s.poster_url ? (
                                 <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
@@ -379,14 +369,29 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                                   &ldquo;{s.user_note}&rdquo;
                                 </p>
                               )}
-                              <button
-                                onClick={() => watchNow(s)}
-                                className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
-                                           bg-amber text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
-                                           hover:bg-amber-400 transition-all active:scale-95"
-                              >
-                                <Play size={11} className="fill-[#120d0b]" /> Hemen İzle
-                              </button>
+                              <div className="mt-auto self-stretch flex items-end gap-2">
+                                <button
+                                  onClick={() => watchNow(s)}
+                                  className="flex items-center gap-1.5 px-5 py-1.5 rounded-full
+                                             bg-amber text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
+                                             hover:bg-amber-400 transition-all active:scale-95"
+                                >
+                                  <Play size={11} className="fill-[#120d0b]" /> Hemen İzle
+                                </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await markShareRead(s.id).catch(() => {});
+                                    setShares(prev => prev.filter(x => x.id !== s.id));
+                                    refreshCount();
+                                  }}
+                                  className="flex items-center gap-1 px-4 py-1.5 rounded-full
+                                             bg-white/5 border border-white/10 text-white/50 text-[10px] font-bold uppercase tracking-wider
+                                             hover:bg-white/10 hover:text-white/70 transition-all active:scale-95"
+                                >
+                                  Okundu
+                                </button>
+                              </div>
                             </div>
                           </motion.div>
                         ))}

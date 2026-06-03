@@ -110,6 +110,7 @@ export default function Profil() {
   const [requests, setRequests] = useState([]);
   const [socialLoading, setSocialLoading] = useState(true);
   const [socialError, setSocialError] = useState('');
+  const [respondLoading, setRespondLoading] = useState(null);
 
   /* ─── Shares ───────────────────────────────────────────────────── */
   const [shares, setShares] = useState([]);
@@ -180,6 +181,8 @@ export default function Profil() {
 
   /* ─── Social handlers ──────────────────────────────────────────── */
   const handleRespondRequest = useCallback(async (requestId, action) => {
+    if (respondLoading) return;
+    setRespondLoading(`${requestId}-${action}`);
     try {
       setSocialError('');
       await respondFriendRequest(requestId, action);
@@ -190,8 +193,10 @@ export default function Profil() {
       }
     } catch (err) {
       setSocialError(err?.message || 'İstek işlenemedi.');
+    } finally {
+      setRespondLoading(null);
     }
-  }, []);
+  }, [respondLoading]);
 
   const handleRemoveFriend = useCallback(async (friendId) => {
     try {
@@ -515,6 +520,7 @@ export default function Profil() {
                 onAddFriend={handleAddFriend}
                 onRetractSent={handleRetractSent}
                 onDetailMovie={setDetailMovie}
+                respondLoading={respondLoading}
               />
             </div>
           ) : (
