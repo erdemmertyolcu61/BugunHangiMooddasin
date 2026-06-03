@@ -3254,6 +3254,29 @@ async def trigger_daily_push(simulate: str = Query(None, description="Ödül tes
             "award_sent": award_sent, "awards": awarded, "movie_id": movie_id}
 
 
+@app.get("/api/admin/push-debug/{user_id}", dependencies=[Depends(verify_admin)])
+async def push_debug(user_id: int):
+    """Bir kullanıcının push subscription'larını listeler + test push gönderir.
+    Teşhis: subscription var mı? Gidiyor mu? is_pwa değeri ne?"""
+    subs = await cache.get_push_subscriptions(user_id)
+    result = {"user_id": user_id, "subscription_count": len(subs), "subscriptions": []}
+    for s in subs:
+        entry = {
+            "endpoint_tail": s["endpoint"][-40:],  # güvenlik: tamamını gösterme
+            "is_pwa": s.get("is_pwa", "N/A"),
+        }
+        if PUSH_ENABLED:
+            from backend.services.push_service import _send_web_push
+            import asyncio
+            test_payload = {"title": "Sinemood Test", "body": "Push testi — bu bildirim yok sayılabilir.", "url": "/", "tag": "push-debug"}
+            res = await asyncio.to_thread(_send_web_push, s, test_payload)
+            entry["test_result"] = res
+            if res == "gone":
+                await cache.delete_push_subscription(s["endpoint"])
+        result["subscriptions"].append(entry)
+    return result
+
+
 @app.post("/api/admin/game-push", dependencies=[Depends(verify_admin)])
 async def trigger_game_push():
     """Gece yarısı Mood Kâhini sıfırlanınca tüm abonelere 'yeni oyun hazır' push'lar.
