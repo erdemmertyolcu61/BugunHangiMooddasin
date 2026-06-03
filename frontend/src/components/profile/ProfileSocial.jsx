@@ -6,6 +6,7 @@ import {
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import { proxyImageUrl } from '../../services/api';
 import LottieAnimation from '../LottieAnimation';
+import { useTheme } from '../../context/ThemeContext';
 
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
@@ -27,6 +28,8 @@ export default function ProfileSocial({
   onRetractSent,
   onDetailMovie,
 }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [activeTab, setActiveTab] = useState('friends');
   const [shareDir, setShareDir] = useState('received'); // received | sent
   const [addUsername, setAddUsername] = useState('');
@@ -234,7 +237,11 @@ export default function ProfileSocial({
           {activeTab === 'shares' && (
             <div className="space-y-2.5">
               {/* Gelen / Gönderdiğim alt-toggle */}
-              <div className="flex gap-1 p-1 rounded-full bg-[#221913]/80 border border-white/[0.05] w-full max-w-[280px] mx-auto">
+              <div className={`flex gap-1 p-1 rounded-full w-full max-w-[280px] mx-auto ${
+                  isLight
+                    ? 'bg-amber/10 border border-amber/20'
+                    : 'bg-[#221913]/80 border border-white/[0.05]'
+                }`}>
                 {[
                   { id: 'received', label: 'Gelen', n: shares.length },
                   { id: 'sent', label: 'Gönderdiğim', n: sent.length },
@@ -244,7 +251,7 @@ export default function ProfileSocial({
                       shareDir === d.id ? 'bg-amber/15 text-amber border border-amber/20' : 'text-ivory/40 hover:text-ivory/60'
                     }`}>
                     {d.label}
-                    {d.n > 0 && <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${shareDir === d.id ? 'bg-amber/25 text-amber' : 'bg-white/10 text-ivory/40'}`}>{d.n}</span>}
+                    {d.n > 0 && <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${shareDir === d.id ? 'bg-amber/25 text-amber' : `${isLight ? 'bg-black/5' : 'bg-white/10'} text-ivory/40`}`}>{d.n}</span>}
                   </button>
                 ))}
               </div>
