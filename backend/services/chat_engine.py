@@ -262,6 +262,27 @@ MOOD_PHRASES = {
     "kafamı dağıtayım", "dağıtmak istiyorum", "çok feels", "feels veren",
     "ruhum yorgun", "yorgun düştüm", "moralim yerlerde", "içim karardı",
     "ağlamak istiyorum ama", "gülmek istiyorum ama",
+    # ── Argo / internet memeleri ──
+    "fena sarmak", "müq film", "müthiş film", "çok iyi film", "kafa yapan", "kafa yapar",
+    "fena film", "aşırı iyi", "boş film", "kafa boşalt", "kafamı boşalt",
+    "dizi gibi film", "akıcı film", "sarıyor", "sarmıyor", "sarar",
+    "çerezlik film", "izlemesi keyifli", "izlemesi zevkli",
+    # ── Ek İngilizce ifadeler ──
+    "something like", "i want a movie about", "show me something",
+    "i want something", "give me a movie", "i need a movie",
+    "looking for a movie", "looking for something",
+    "a movie about", "any movie", "any film", "suggest something",
+    "i feel like watching", "feeling like", "in the mood for",
+    "blow my mind", "mind blowing", "mind-blowing",
+    "thought provoking", "eye opening", "eye-opening",
+    "edge of my seat", "edge of your seat", "keep me guessing",
+    "heart warming", "heartwarming", "feel-good",
+    # ── Soyut / metaforik ──
+    "mavi hüzün", "sessiz çığlık", "içimdeki fırtına", "bulutların üstünde",
+    "derin sularda", "kaybolmak istiyorum", "kendimi kaybetmek",
+    "başka bir dünya", "başka bir evren", "rüya gibi",
+    "içimi ısıt", "içimi ısıtacak", "ruhumu dinlendir",
+    "zihnimi dinlendir", "düşüncelerden kaçış",
 }
 
 # Tek kelimelik ünlü yönetmen/oyuncu adları — _looks_like_person_name tek kelime için de çalışsın.
@@ -290,10 +311,102 @@ KNOWN_PERSONS = {
     # ── Türk yönetmenler ──
     "demirkubuz", "akın", "kaplanoğlu", "alper", "ustaoğlu",
     "pirselimoğlu", "erdem", "yeşilçam", "kemp",
+    # ── Eklenen (önceki eksik) ──
+    "jodorowsky", "alex jodorowsky",
+    "herzog", "werner herzog",
+    "tarkovsky", "andrei tarkovsky", "tarkovski",
+    "kieslowski", "kieslowski",
+    "ozu", "yasujiro ozu",
+    "mizoguchi", "kenji mizoguchi",
+    "bresson", "robert bresson",
+    "godard", "jean-luc godard",
+    "truffaut", "francois truffaut",
+    "fellini", "federico fellini",
+    "bergman", "ingmar bergman",
+    "kurosawa", "akira kurosawa",
+    "wong kar-wai", "wong kar wai",
+    "park chan-wook", "park chan wook", "chan-wook",
+    "bong joon-ho", "bong joon ho", "bong",
+    "lee chang-dong", "lee chang dong",
+    "hamaguchi", "ryusuke hamaguchi",
+    "kore-eda", "koreeda", "hirokazu kore-eda",
+    "miyazaki", "hayao miyazaki",
+    # ── Ek oyuncular ──
+    "joaquin phoenix", "phoenix",
+    "cate blanchett", "blanchett",
+    "meryl streep", "streep",
+    "daniel day-lewis", "daniel day lewis",
+    "gary oldman", "oldman",
+    "morgan freeman", "freeman",
+    "christian bale", "bale",
+    "heath ledger", "ledger",
+    "jake gyllenhaal", "gyllenhaal",
+    "tom hardy", "hardy",
+    "leonardo dicaprio", "dicaprio",
+    "brad pitt", "pitt",
+    "robert de niro", "deniro",
+    "al pacino", "pacino",
+    "anthony hopkins", "hopkins",
+    "samuel l jackson", "samuel jackson", "jackson",
     # ── Oyuncular ──
     "pitt", "dicaprio", "deniro", "pacino", "hopkins", "streep",
-    "roberts", "hanks", "blanchett", "phoenix", "gosling", "bale",
+    "roberts", "hanks", "blanchett", "phoenix",     "gosling", "bale",
     "fassbender", "oldman", "freeman", "washington", "nicholson",
+    "cumberbatch", "mcconaughey", "waltz", "swinton",
+    "dafoe", "pattinson", "hathaway", "portman", "jolie",
+    "roberts", "chastain", "adams", "stone", "lawrence",
+    "ryder", "kidman", "foster", "mirren", "dench",
+}
+
+
+# ═══════════════════════════════════════════════════════════════
+# STREAMING PLATFORMS — provider_filter intent tespiti için
+# ═══════════════════════════════════════════════════════════════
+STREAMING_PLATFORMS = {
+    "netflix":       {"aliases": ["netflix", "netflixde", "netflix'te", "netflixte"], "provider_id": 8},
+    "amazon prime":  {"aliases": ["amazon prime", "prime video", "amazonda", "prime"], "provider_id": 9},
+    "disney+":       {"aliases": ["disney", "disney+"], "provider_id": 337},
+    "mubi":          {"aliases": ["mubi", "mubi'de"], "provider_id": 11},
+    "blutv":         {"aliases": ["blutv", "blu tv"], "provider_id": 69},
+    "exxen":         {"aliases": ["exxen", "exxen'de"], "provider_id": 514},
+    "apple tv":      {"aliases": ["apple tv", "appletv"], "provider_id": 350},
+    "hbo max":       {"aliases": ["hbo", "max", "hbo max"], "provider_id": 384},
+    "paramount+":    {"aliases": ["paramount", "paramount+"], "provider_id": 531},
+    "tabii":         {"aliases": ["tabii"], "provider_id": 618},
+    "gain":          {"aliases": ["gain"], "provider_id": 553},
+}
+
+# ═══════════════════════════════════════════════════════════════
+# SLANG / INTERNET DILI — günlük konuşma ifadeleri
+# ═══════════════════════════════════════════════════════════════
+SLANG_MOOD_MAP = {
+    "fena sarmak":    {"adrenalin": 0.8, "kahkaha": 0.5},
+    "müq film":       {"sessiz": 0.6, "kalp": 0.5},
+    "müthiş film":    {"sessiz": 0.5, "kalp": 0.5},
+    "çok iyi film":   {"sessiz": 0.5, "zihin": 0.5},
+    "banger":         {"adrenalin": 0.9, "sipsak": 0.3},
+    "underrated":     {"karmakar": 0.5, "zihin": 0.4},
+    "overrated":      {"karmakar": 0.3, "zihin": 0.3},
+    "kafa yapan":     {"zihin": 0.8, "karmakar": 0.5},
+    "kafa yapar":     {"zihin": 0.8, "karmakar": 0.5},
+    "bayıldım":       {"kalp": 0.7, "sessiz": 0.3},
+    "fena film":      {"adrenalin": 0.7, "gece": 0.4},
+    "aşırı iyi":      {"kahkaha": 0.6, "adrenalin": 0.4},
+    "boş film":       {"kalp": 0.6, "sessiz": 0.4},
+    "kafa boşalt":    {"kahkaha": 0.7, "battaniye": 0.5},
+    "kafa dağıtmak":  {"kahkaha": 0.7, "battaniye": 0.5},
+    "dizi gibi film": {"adrenalin": 0.6, "gece": 0.4},
+    "akıcı film":     {"adrenalin": 0.6, "sipsak": 0.4},
+    "sarmayan":       {"kalp": -0.5, "sessiz": -0.3},
+    "sarıyor":        {"battaniye": 0.6, "kalp": 0.4},
+    "vibe":           {"gece": 0.5, "sessiz": 0.4, "kahkaha": 0.3},
+    "vibes":          {"gece": 0.5, "sessiz": 0.4, "kahkaha": 0.3},
+    "good vibes":     {"kahkaha": 0.7, "battaniye": 0.5},
+    "dark vibes":     {"gece": 0.8, "deep-chills": 0.5},
+    "aesthetic":      {"kadraj-estetigi": 0.8, "sessiz": 0.4},
+    "çerezlik":       {"sipsak": 0.7, "kahkaha": 0.5},
+    "izlemesi keyifli": {"battaniye": 0.7, "kahkaha": 0.4},
+    "psikolojik çöküş": {"zihin": 0.9, "deep-chills": 0.6},
 }
 
 GENRE_KEYWORDS = {
@@ -314,6 +427,9 @@ GENRE_KEYWORDS = {
     "crime": [80], "documentary": [99],
     "animation": [16], "musical": [10402], "fantasy": [14],
     "science fiction": [878], "history": [36],
+    "thriller": [53], "thrill": [53],
+    "action movie": [28], "war movie": [10752],
+    "romcom": [10749, 35], "rom-com": [10749, 35],
 }
 
 NEGATIVE_WORDS = [
@@ -550,6 +666,12 @@ class Intent:
         self.exclude_genres = kwargs.get("exclude_genres", [])
         self.modifiers = kwargs.get("modifiers", {})
         self.original_text = kwargs.get("original_text", "")
+        # ── Çoklu intent / cross-signal alanları ──
+        self.era_constraint = kwargs.get("era_constraint", None)
+        self.platform_filter = kwargs.get("platform_filter", None)
+        self.mood_signals = kwargs.get("mood_signals", {})
+        self.time_constraint = kwargs.get("time_constraint", None)
+        self.lang_filter = kwargs.get("lang_filter", None)
 
     def to_dict(self):
         return {
@@ -561,6 +683,11 @@ class Intent:
             "genres": self.genres,
             "exclude_genres": self.exclude_genres,
             "modifiers": self.modifiers,
+            "era_constraint": self.era_constraint,
+            "platform_filter": self.platform_filter,
+            "mood_signals": self.mood_signals,
+            "time_constraint": self.time_constraint,
+            "lang_filter": self.lang_filter,
         }
 
 
@@ -795,6 +922,63 @@ def _extract_era_constraint(text: str) -> dict | None:
 
 
 # ═══════════════════════════════════════════════════════════════
+# STREAMING PLATFORM DETECTION
+# ═══════════════════════════════════════════════════════════════
+
+def _detect_platform_filter(text: str) -> str | None:
+    """Metinde streaming platform adı geçiyor mu? Varsa normalized key döndür."""
+    tl = text.lower()
+    for key, info in STREAMING_PLATFORMS.items():
+        for alias in info["aliases"]:
+            if alias in tl:
+                return key
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════
+# FUZZY TITLE MATCH — alias'ta olmayan film adlarını dene
+# ═══════════════════════════════════════════════════════════════
+
+_FUZZY_CACHE: dict[str, tuple[str, float]] = {}
+
+def _fuzzy_title_match(text: str, min_ratio: float = 0.85) -> tuple[str | None, float]:
+    """Alias'tan tam eşleşmeyen metinler için fuzzy match dene.
+    Türkçe karakterleri katlayarak karşılaştırır (dovus kulubu → dövüş kulübü).
+    Önce cache'e bak, yoksa TURKISH_TITLE_ALIASES'te ara.
+    """
+    folded = _fold(text)
+    if not folded or len(folded) < 3:
+        return None, 0.0
+    cached = _FUZZY_CACHE.get(folded)
+    if cached:
+        return cached if cached[1] >= min_ratio else (None, 0.0)
+    best_match, best_ratio = None, 0.0
+    for alias, eng_title in TURKISH_TITLE_ALIASES.items():
+        alias_folded = _fold(alias)
+        ratio = SequenceMatcher(None, folded, alias_folded).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_match = eng_title
+    _FUZZY_CACHE[folded] = (best_match, best_ratio)
+    if best_match and best_ratio >= min_ratio:
+        return best_match, best_ratio
+    return None, 0.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# LANGUAGE FILTER DETECTION
+# ═══════════════════════════════════════════════════════════════
+
+def _detect_lang_filter(text: str) -> str | None:
+    """Metinde dil/ülke adı geçiyorsa ISO kodu döndür."""
+    tl = text.lower()
+    for phrase, code in LANGUAGE_KEYWORDS.items():
+        if phrase in tl:
+            return code
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════
 # CHAT ENGINE (local only — zero external API calls)
 # ═══════════════════════════════════════════════════════════════
 class ChatEngine:
@@ -973,53 +1157,99 @@ class ChatEngine:
             "query_understanding": search_text,
         }
 
+    # ─────────── CROSS-SIGNAL COLLECTOR ───────────
+    @staticmethod
+    def _collect_signals(text: str) -> tuple:
+        """Intent belirlemeden önce tüm çapraz sinyalleri topla (era, time, genre)."""
+        return (
+            _extract_era_constraint(text),
+            _extract_time_constraint(text),
+            *_parse_complex_negation(text),
+        )
+
     # ─────────── INTENT DETECTION ───────────
     def detect_intent(self, text: str) -> Intent:
         """Rule-based intent classification (fully local)."""
         text_lower = text.lower().strip()
         text_norm = _normalize(text)
 
+        # ── Önce feedback ──
         for pattern, fb_type in FEEDBACK_PATTERNS.items():
             if pattern in text_lower:
                 return Intent("feedback", feedback_type=fb_type, original_text=text)
 
+        # ── Platform filter (text'te streaming platform adı geçiyorsa) ──
+        platform_filter = _detect_platform_filter(text)
+
+        # ── Yönetmen keyword'leri (yüksek güven) ──
+        for kw in DIRECTOR_KEYWORDS:
+            if kw in text_lower:
+                idx = text_lower.index(kw)
+                person_name = text[:idx].strip().strip('"\'')
+                if person_name and _is_plausible_person_name(person_name, allow_single=True):
+                    # intent belirlendikten sonra cross-signal'lar toplanır
+                    era_c, time_c, g_hints, ex_g_hints = _collect_signals(text)
+                    return Intent("director_recommendation", person_name=person_name,
+                                  person_type="director", original_text=text,
+                                  platform_filter=platform_filter,
+                                  era_constraint=era_c, time_constraint=time_c,
+                                  genres=g_hints, exclude_genres=ex_g_hints,
+                                  mood_signals=_rule_based_confused_analysis(text).get("mood_mix", []),
+                                  lang_filter=_detect_lang_filter(text))
+
+        # ── Oyuncu keyword'leri (yüksek güven) ──
+        for kw in PERSON_KEYWORDS:
+            if kw in text_lower:
+                idx = text_lower.index(kw)
+                person_name = text[:idx].strip().strip('"\'')
+                if person_name and _is_plausible_person_name(person_name, allow_single=True):
+                    era_c, time_c, g_hints, ex_g_hints = _collect_signals(text)
+                    return Intent("actor_recommendation", person_name=person_name,
+                                  person_type="actor", original_text=text,
+                                  platform_filter=platform_filter,
+                                  era_constraint=era_c, time_constraint=time_c,
+                                  genres=g_hints, exclude_genres=ex_g_hints,
+                                  mood_signals=_rule_based_confused_analysis(text).get("mood_mix", []),
+                                  lang_filter=_detect_lang_filter(text))
+
+        # ── Similar-to patterns ("X gibi", "X tarzı") — GUARD: mood phrase'i yakalama ──
         for pat in SIMILAR_PATTERNS:
             m = re.search(pat, text_lower)
             if m:
                 ref_title = m.group(1).strip().strip('"\'')
                 if len(ref_title) >= 2:
-                    alias_check = _normalize(ref_title)
+                    # Guard: referans kısa ve mood phrase'i andırıyorsa atla
+                    ref_norm = _normalize(ref_title)
+                    if len(ref_norm.split()) <= 2 and any(mp in ref_norm for mp in ("bir şey", "birsey", "şey", "film", "sey", "bisey")):
+                        break
+                    alias_check = ref_norm
                     if alias_check in TURKISH_TITLE_ALIASES:
                         ref_title = TURKISH_TITLE_ALIASES[alias_check]
-                    return Intent("similar_to_movie", reference_title=ref_title, original_text=text)
+                    era_c, time_c, g_hints, ex_g_hints = _collect_signals(text)
+                    return Intent("similar_to_movie", reference_title=ref_title, original_text=text,
+                                  platform_filter=platform_filter,
+                                  era_constraint=era_c, time_constraint=time_c,
+                                  genres=g_hints, exclude_genres=ex_g_hints)
 
-        for kw in DIRECTOR_KEYWORDS:
-            if kw in text_lower:
-                idx = text_lower.index(kw)
-                person_name = text[:idx].strip().strip('"\'')
-                # "kadın yönetmenli dram" gibi betimlemeleri ele — sadece gerçek isim
-                if person_name and _is_plausible_person_name(person_name, allow_single=True):
-                    return Intent("director_recommendation", person_name=person_name,
-                                  person_type="director", original_text=text)
-
-        for kw in PERSON_KEYWORDS:
-            if kw in text_lower:
-                idx = text_lower.index(kw)
-                person_name = text[:idx].strip().strip('"\'')
-                # "korku filmi", "güçlü kadın karakter" gibi betimleme/tür isteklerini ele
-                if person_name and _is_plausible_person_name(person_name, allow_single=True):
-                    return Intent("actor_recommendation", person_name=person_name,
-                                  person_type="actor", original_text=text)
+        # ── Çapraz sinyal toplama
+        era_constraint = _extract_era_constraint(text)
+        time_constraint = _extract_time_constraint(text)
+        genre_hints, exclude_genre_hints = _parse_complex_negation(text)
+        cross_mood = _rule_based_confused_analysis(text).get("mood_mix", [])
 
         if text_norm in TURKISH_TITLE_ALIASES:
             return Intent("exact_movie_search",
                           reference_title=TURKISH_TITLE_ALIASES[text_norm],
-                          original_text=text)
+                          original_text=text, platform_filter=platform_filter)
 
-        # Alias'ı TAM KELİME olarak ara (substring değil): "baba" → "babam" içinde
-        # eşleşmemeli ("Babam ve Oğlum" yanlışlıkla The Godfather'a gitmesin).
-        # Metni boşlukla padleyip f" {alias} " kontrolü hem tek hem çok kelimeli
-        # alias'larda ("kara şövalye") kelime sınırını garanti eder.
+        # Fuzzy title match — alias'ta tam eşleşme yoksa yakın eşleşme dene
+        fuzzy_match, fuzzy_ratio = _fuzzy_title_match(text)
+        if fuzzy_match:
+            return Intent("exact_movie_search",
+                          reference_title=fuzzy_match,
+                          original_text=text, platform_filter=platform_filter)
+
+        # Alias'ı TAM KELİME olarak ara
         _padded_norm = f" {text_norm} "
         for alias, eng_title in TURKISH_TITLE_ALIASES.items():
             if len(alias) >= 4 and f" {alias} " in _padded_norm:
@@ -1027,46 +1257,71 @@ class ChatEngine:
                 if len(remaining) < 10 or not _has_mood_words(remaining):
                     return Intent("exact_movie_search",
                                   reference_title=eng_title,
-                                  original_text=text)
+                                  original_text=text, platform_filter=platform_filter)
 
-        genres_wanted = []
-        genres_excluded = []
+        genres_wanted = list(set(genre_hints))
+        genres_excluded = list(set(exclude_genre_hints))
+        # Ek genre ayrıştırma — olumsuzluk içeren türleri exclude'a ekle
         for genre_name, genre_ids in GENRE_KEYWORDS.items():
             if genre_name in text_lower:
                 pos = text_lower.index(genre_name)
                 before = text_lower[max(0, pos - 20):pos]
                 is_negative = any(nw in before for nw in NEGATIVE_WORDS)
                 if is_negative:
-                    genres_excluded.extend(genre_ids)
+                    genres_excluded = list(set(genres_excluded + genre_ids))
                 else:
-                    genres_wanted.extend(genre_ids)
+                    genres_wanted = list(set(genres_wanted + genre_ids))
 
-        # Tümce düzeyinde ruh hali/distraction kontrolü — kişi adı tespitinden ÖNCE
-        text_norm_lower = text_norm
+        # Tümce düzeyinde ruh hali kontrolü — alias/kişi eşleşmeyen metinlerde
         for phrase in MOOD_PHRASES:
             if phrase in text_lower:
-                return Intent("mood_recommendation", original_text=text)
+                return Intent("mood_recommendation", original_text=text,
+                              platform_filter=platform_filter,
+                              era_constraint=era_constraint,
+                              time_constraint=time_constraint,
+                              genres=genres_wanted,
+                              exclude_genres=genres_excluded,
+                              mood_signals=cross_mood)
 
-        # Kişi adı tespiti: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan" gibi
-        # exact_movie_search'ten ÖNCE kontrol et — kısa metinleri yanlış yere atmasın.
-        # TURKISH_TITLE_ALIASES'te yoksa ve kişi adı gibi görünüyorsa actor olarak işle.
+        # Kişi adı tespiti — tmdb'ye async lookup olmadan heuristic
         if _looks_like_person_name(text) and _normalize(text) not in TURKISH_TITLE_ALIASES:
             return Intent("actor_recommendation", person_name=text.strip(),
-                          person_type="actor", original_text=text)
+                          person_type="actor", original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_constraint,
+                          time_constraint=time_constraint,
+                          genres=genres_wanted,
+                          exclude_genres=genres_excluded,
+                          mood_signals=cross_mood,
+                          lang_filter=_detect_lang_filter(text))
 
         if _is_short_title_like(text):
             return Intent("exact_movie_search", reference_title=text.strip(),
-                          original_text=text)
+                          original_text=text, platform_filter=platform_filter)
 
         if genres_wanted and not _has_mood_words(text):
             return Intent("genre_recommendation", genres=genres_wanted,
-                          exclude_genres=genres_excluded, original_text=text)
+                          exclude_genres=genres_excluded, original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_constraint,
+                          time_constraint=time_constraint,
+                          mood_signals=cross_mood)
 
         if genres_wanted or genres_excluded:
             return Intent("mixed_request", genres=genres_wanted,
-                          exclude_genres=genres_excluded, original_text=text)
+                          exclude_genres=genres_excluded, original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_constraint,
+                          time_constraint=time_constraint,
+                          mood_signals=cross_mood)
 
-        return Intent("mood_recommendation", original_text=text)
+        return Intent("mood_recommendation", original_text=text,
+                      platform_filter=platform_filter,
+                      era_constraint=era_constraint,
+                      time_constraint=time_constraint,
+                      genres=genres_wanted,
+                      exclude_genres=genres_excluded,
+                      mood_signals=cross_mood)
 
     @staticmethod
     def _empty_response(msg: str) -> dict:
