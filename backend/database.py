@@ -2161,14 +2161,19 @@ class MovieCache:
                 signals[tid]["score"] += score
                 signals[tid]["sources"].append("future")
 
-            # Movie notes (signal +3)
-            cursor = await db.execute("SELECT tmdb_id FROM movie_notes WHERE user_id = ?", (user_id,))
+            # Movie notes (signal +3) — not METNİNİ de taşı (zevk haritası
+            # duygu/tonu sıfır-maliyet çözümlemek için kullanır).
+            cursor = await db.execute(
+                "SELECT tmdb_id, note_content FROM movie_notes WHERE user_id = ?", (user_id,)
+            )
             for row in await cursor.fetchall():
                 tid = row[0]
                 if tid not in signals:
                     signals[tid] = {"score": 0, "sources": []}
                 signals[tid]["score"] += 3
                 signals[tid]["sources"].append("note")
+                if row[1]:
+                    signals[tid]["note_text"] = row[1]
 
         # ── Analysis bonus: only for movies the user already interacted with ──
         # Previously this read the ENTIRE movie_cache table (shared pool),

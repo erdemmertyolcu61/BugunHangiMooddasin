@@ -83,6 +83,23 @@ _ERA_OLD_DESC = "Klasik dönem sinemasına ve zamansız yapımlara ilgin artıyo
 _ERA_NEW_DESC = "Güncel ve modern tempolu filmlere yakın duruyorsun."
 _ERA_BALANCED_DESC = "Geçmişten günümüze geniş bir zaman aralığında film keşfediyorsun."
 
+# ── Not duygu sözlüğü (sıfır-maliyet, LLM'siz) ───────────────────────────
+# Kullanıcının not metnindeki ton, o filmin zevk haritasına katkısını ölçekler:
+# beğenilen film → daha güçlü sinyal; beğenilmeyen → zayıf sinyal.
+_NOTE_POSITIVE = (
+    "harika", "muhteşem", "müthiş", "mükemmel", "başyapıt", "efsane", "şahane",
+    "bayıldım", "sevdim", "beğendim", "favori", "favorim", "çok iyi", "çok güzel",
+    "güzeldi", "etkileyici", "unutulmaz", "tavsiye", "kesinlikle izleyin",
+    "10/10", "destansı", "dokundu", "ağlattı", "harikaydı", "süper", "bayıldığım",
+    "❤", "🔥", "⭐", "👍", "😍",
+)
+_NOTE_NEGATIVE = (
+    "berbat", "rezalet", "kötüydü", "çok kötü", "sıkıcı", "vasat", "beğenmedim",
+    "sevmedim", "zaman kaybı", "saçma", "boştu", "pişman", "fazla uzun",
+    "uyudum", "yarıda bıraktım", "hayal kırıklığı", "0/10", "berbattı",
+    "👎", "😴", "🤮",
+)
+
 
 class TasteMapEngine:
     """
@@ -153,9 +170,18 @@ class TasteMapEngine:
             for gid, s in self._top_n(genre_scores, 5)
         ]
 
+        # Not tonu istatistiği (özet için) — enrich sırasında hesaplanan
+        # note_sentiment değerlerini yeniden kullan.
+        note_items = [e for e in enriched if e.get("note_text")]
+        note_stats = {
+            "count": len(note_items),
+            "positive": sum(1 for e in note_items if e.get("note_sentiment", 1.0) > 1.0),
+            "negative": sum(1 for e in note_items if e.get("note_sentiment", 1.0) < 1.0),
+        }
+
         mood_ids = [mid for mid, _ in top_moods]
         title = self._generate_title(mood_ids, style, era_stats)
-        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total, runtime_stats, style, pacing)
+        summary = self._generate_summary(mood_ids, top_genres_list, era_stats, total, runtime_stats, style, pacing, note_stats)
 
         confidence = "low" if total < 3 else ("medium" if total < 8 else "high")
 
@@ -201,12 +227,14 @@ class TasteMapEngine:
         if not signals:
             return {}
 
-        # Add counts
+        # Kaynak kırılımını hesapla ve sinyallere iliştir (analyze() bunu
+        # _counts olarak okur). Önceden hesaplanıp atılıyordu → tüm sayımlar
+        # (watchlist_count, notes_count, ...) yanlışlıkla 0 dönüyordu.
         counts = Counter()
         for tid, sig in signals.items():
             for src in sig.get("sources", []):
                 counts[src] += 1
-        counts = dict(counts)
+        signals["_counts"] = dict(counts)
         return signals
 
     async def _enrich_signals(self, signals: dict) -> list[dict]:
@@ -255,6 +283,12 @@ class TasteMapEngine:
             sig = signals[tid]
             weight = min(sig["score"], 5)
 
+            # Not metni tonuna göre ağırlığı ölçekle (sıfır-maliyet duygu analizi):
+            # beğenilen film haritaya daha güçlü, beğenilmeyen daha zayıf katkı verir.
+            note_text = sig.get("note_text")
+            note_sentiment = self._note_sentiment(note_text) if note_text else 1.0
+            weight = weight * note_sentiment
+
             mood_id = mood_map.get(tid)
             genre_ids = []
             year = None
@@ -294,6 +328,8 @@ class TasteMapEngine:
                 "runtime": runtime,
                 "popularity": popularity,
                 "sources": sig["sources"],
+                "note_text": note_text,
+                "note_sentiment": note_sentiment,
             })
 
         # 4) TMDB fallback: movies still missing genre_ids
@@ -574,12 +610,34 @@ class TasteMapEngine:
                           era: dict, total_signals: int,
                           runtime_stats: Optional[dict] = None,
                           style: Optional[dict] = None,
-                          pacing: Optional[dict] = None) -> list[str]:
+                          pacing: Optional[dict] = None,
+                          note_stats: Optional[dict] = None) -> list[str]:
         if total_signals < 3:
             return []
 
         summaries = []
         top_mid = mood_ids[0] if mood_ids else None
+
+        # ── 0. Not tonuna dayalı kişisel içgörü (defterdeki yazılı notlar) ──
+        # Yüksek öncelik: yazılı notlar zevk haritasının en güçlü sinyali.
+        if note_stats and note_stats.get("count", 0) >= 2:
+            pos = note_stats.get("positive", 0)
+            neg = note_stats.get("negative", 0)
+            if pos >= 2 and pos >= neg * 2:
+                summaries.append(
+                    "Notların çoğu övgü dolu — sevdiğin filmleri tek tek işaretleyip arşivliyorsun. "
+                    "Bu, zevk haritanı en çok netleştiren şey."
+                )
+            elif neg > pos:
+                summaries.append(
+                    "Notlarında eleştirel bir ton var — neyi sevmediğini açıkça yazıyorsun. "
+                    "Bu, haritanı daha da keskinleştiriyor; beğenmediklerin önerilerden eleniyor."
+                )
+            else:
+                summaries.append(
+                    "Film notları tutan az sayıda izleyiciden birisin — yazdığın her satır, "
+                    "zevk haritanı zenginleştiren güçlü bir imza."
+                )
 
         # ── 1. Stil profili — Blockbuster/Indie/Hibrit ──
         if style:
@@ -692,6 +750,25 @@ class TasteMapEngine:
         if total == 0:
             return {}
         return {k: round(v / total * 100, 1) for k, v in scores.items()}
+
+    @staticmethod
+    def _note_sentiment(text: str) -> float:
+        """Not metnindeki kaba ton (sıfır-maliyet, sözlük tabanlı).
+
+        Döndürür: 1.4 (olumlu) · 1.0 (nötr) · 0.45 (olumsuz). Bu çarpan,
+        filmin zevk haritasına katkı ağırlığını ölçekler — böylece beğenilen
+        filmler haritayı daha çok, beğenilmeyenler daha az şekillendirir.
+        """
+        if not text:
+            return 1.0
+        t = text.lower()
+        pos = sum(1 for w in _NOTE_POSITIVE if w in t)
+        neg = sum(1 for w in _NOTE_NEGATIVE if w in t)
+        if pos > neg:
+            return 1.4
+        if neg > pos:
+            return 0.45
+        return 1.0
 
     @staticmethod
     def _empty_result() -> dict:
