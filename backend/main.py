@@ -706,6 +706,22 @@ async def production_error_handler(request: Request, call_next):
         return JSONResponse(status_code=500, content={"detail": "Internal server error", "error_id": err_id})
 
 
+def _safe_http_500(e: Exception, context: str = "") -> HTTPException:
+    """500 için güvenli HTTPException üretir.
+
+    Prod'da iç hata detayını (SQLite mesajı, dosya yolu vb.) client'a SIZDIRMAZ —
+    sunucuda tam traceback'i loglar ve takip için bir error_id döndürür. Dev'de
+    ham mesajı gösterir. `raise _safe_http_500(e)` olarak kullanılır.
+    """
+    global _error_counter
+    _error_counter += 1
+    err_id = f"E{_error_counter:04d}"
+    logger.error(f"[{err_id}] {context or 'handler'} error: {type(e).__name__}: {e}", exc_info=True)
+    if IS_PRODUCTION:
+        return HTTPException(status_code=500, detail=f"Sunucu hatası ({err_id})")
+    return HTTPException(status_code=500, detail=str(e))
+
+
 # ─── Cache-Control Middleware ────────────────────────────────
 # Per-endpoint TTL so browsers/CDNs cache aggressively.
 _CACHE_CONTROL_TTL = {
@@ -782,31 +798,10 @@ def _slim_movie_list(movies: list[dict]) -> list[dict]:
     return [_slim_movie(m) for m in movies]
 
 
-# ─── Rate Limiter (simple in-memory) ───
-_rate_store = defaultdict(list)
-
-def _check_rate_limit(request: Request, limit: int):
-    """Check per-IP rate limit. limit = requests per minute."""
-    ip = request.client.host if request.client else "unknown"
-    now = time.time()
-    window = 60  # 1 minute
-    key = f"{ip}:{request.url.path}"
-    # Clean old entries
-    _rate_store[key] = [t for t in _rate_store[key] if now - t < window]
-    if len(_rate_store[key]) >= limit:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please try again later.")
-    _rate_store[key].append(now)
-    # Bellek sınırı: max 50K key
-    if len(_rate_store) > 50000:
-        oldest = sorted(_rate_store.keys(), key=lambda k: min(_rate_store[k]) if _rate_store[k] else 0)[:10000]
-        for k in oldest:
-            del _rate_store[k]
-
-def rate_limit_general(request: Request):
-    _check_rate_limit(request, RATE_LIMIT_GENERAL)
-
-def rate_limit_ai(request: Request):
-    _check_rate_limit(request, RATE_LIMIT_AI)
+# ─── Rate Limiter (paylaşılan modül — social.py vb. de aynı limiter'ı kullanır) ───
+from backend.services.rate_limit import (
+    rate_limit_general, rate_limit_ai, rate_limit_strict,
+)
 
 
 # ─── Beta Auth ───
@@ -1321,7 +1316,7 @@ class PushSubscribeBody(BaseModel):
     is_pwa: bool = False
 
 
-@app.post("/api/push/subscribe")
+@app.post("/api/push/subscribe", dependencies=[Depends(rate_limit_strict)])
 async def push_subscribe(body: PushSubscribeBody, user=Depends(verify_user)):
     """Cihaz push aboneliğini kaydeder."""
     if not PUSH_ENABLED:
@@ -1552,7 +1547,7 @@ async def discover_movies(
     except ValueError:
         raise HTTPException(status_code=422, detail="Geçersiz tür ID formatı.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 @app.get("/api/movies", dependencies=[Depends(rate_limit_general)])
@@ -1588,7 +1583,7 @@ async def get_movies(
             "total_pages": result["total_pages"],
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 # --- Movie Repository Endpoints (kaliteli film havuzu) ---
@@ -1627,7 +1622,7 @@ async def seed_repository(mood_id: str = Query(None)):
             "details": results,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 @app.post("/api/repository/classify", dependencies=[Depends(verify_admin)])
@@ -1713,7 +1708,7 @@ async def classify_repository_movies(
             "total_unclassified": len(unclassified),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 # ── Curator Override: Üstad'ın kişisel seçkileri ─────────────────────
@@ -2150,7 +2145,7 @@ async def debug_mood_repository(mood_id: str, limit: int = Query(5, ge=1, le=20)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 @app.post("/api/repository/enrich-keywords", dependencies=[Depends(verify_admin)])
@@ -2184,7 +2179,7 @@ async def enrich_keywords(
             "total_checked": len(movies),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 @app.post("/api/repository/expand-similar", dependencies=[Depends(verify_admin)])
@@ -2256,7 +2251,7 @@ async def expand_similar_movies(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 @app.get("/api/repository/classify-movie/{movie_id}", dependencies=[Depends(rate_limit_general)])
@@ -2313,7 +2308,7 @@ async def classify_single_movie(movie_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 from pydantic import BaseModel
@@ -2345,7 +2340,7 @@ async def get_watchlist(request: Request):
         movies = await cache.get_watchlist(user_id=uid)
         return {"movies": movies}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.post("/api/watchlist", dependencies=[Depends(rate_limit_general)])
 async def add_to_watchlist(req: WatchlistRequest, request: Request):
@@ -2364,7 +2359,7 @@ async def add_to_watchlist(req: WatchlistRequest, request: Request):
             pass
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.delete("/api/watchlist/{tmdb_id}", dependencies=[Depends(rate_limit_general)])
 async def remove_from_watchlist(tmdb_id: int, request: Request):
@@ -2376,7 +2371,7 @@ async def remove_from_watchlist(tmdb_id: int, request: Request):
             await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.post("/api/watchlist/{tmdb_id}/toggle-watched", dependencies=[Depends(rate_limit_general)])
 async def toggle_watched(request: Request, tmdb_id: int = Path(..., ge=1)):
@@ -2389,7 +2384,7 @@ async def toggle_watched(request: Request, tmdb_id: int = Path(..., ge=1)):
         return {"tmdb_id": tmdb_id, "watched": new_state}
     except Exception as e:
         logger.error(f"Toggle watched error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 # --- Personal Notes Endpoints ---
 
@@ -2401,7 +2396,7 @@ async def get_movie_note(movie_id: int, request: Request):
         note = await cache.get_note(movie_id, user_id=uid)
         return {"note": note}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.post("/api/movies/{movie_id}/notes", dependencies=[Depends(rate_limit_general)])
 async def save_movie_note(movie_id: int, req: NoteRequest, request: Request):
@@ -2413,7 +2408,7 @@ async def save_movie_note(movie_id: int, req: NoteRequest, request: Request):
             await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 @app.get("/api/movies/{movie_id}/analyze", dependencies=[Depends(rate_limit_ai)])
@@ -2747,7 +2742,7 @@ async def image_proxy(url: str = Query(...)):
 @app.get("/", response_class=RedirectResponse)
 async def root_redirect():
     """Backend root → frontend'e yönlendir."""
-    return RedirectResponse(url="https://film-elestirmeni.vercel.app", status_code=302)
+    return RedirectResponse(url=FRONTEND_BASE_URL, status_code=302)
 
 @app.get("/health")
 @app.get("/api/health")
@@ -2838,7 +2833,7 @@ async def get_future_plans(request: Request):
         movies = await cache.get_future_plans(user_id=uid)
         return {"movies": movies}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.post("/api/future", dependencies=[Depends(rate_limit_general)])
 async def add_to_future(req: FuturePlanRequest, request: Request):
@@ -2850,7 +2845,7 @@ async def add_to_future(req: FuturePlanRequest, request: Request):
             await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.delete("/api/future/{tmdb_id}", dependencies=[Depends(rate_limit_general)])
 async def remove_from_future(tmdb_id: int, request: Request):
@@ -2862,7 +2857,7 @@ async def remove_from_future(tmdb_id: int, request: Request):
             await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.put("/api/future/{tmdb_id}/priority", dependencies=[Depends(rate_limit_general)])
 async def update_future_priority(tmdb_id: int, request: Request, priority: int = Query(0, ge=0, le=5)):
@@ -2874,7 +2869,7 @@ async def update_future_priority(tmdb_id: int, request: Request, priority: int =
             await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 @app.put("/api/future/{tmdb_id}/date", dependencies=[Depends(rate_limit_general)])
 async def update_future_date(tmdb_id: int, request: Request, watch_date: str = Query(None)):
@@ -2886,7 +2881,7 @@ async def update_future_date(tmdb_id: int, request: Request, watch_date: str = Q
             await cache.invalidate_taste_profile(uid)
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 # --- "Kafan mı Karışık?" AI Öneri Endpoint ---
@@ -2913,7 +2908,7 @@ async def get_confused_recommendation(mood: str = Query(None, description="Mevcu
         random.shuffle(movies)
         return {"mood_analysis": None, "reasoning": None, "suggested_genres": [], "movies": movies[:5]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _safe_http_500(e)
 
 
 # Confused mood keyword fallback (AI cagrisi basarisiz olursa)

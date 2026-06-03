@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from backend.config import JWT_SECRET
 from backend.database import cache
+from backend.services.rate_limit import rate_limit_strict
 
 logger = logging.getLogger("social")
 
@@ -105,7 +106,7 @@ async def set_username(body: UsernameBody, user: dict = Depends(get_current_user
 
 
 # ─── Arkadaşlık rotaları ─────────────────────────────────────────────────────
-@router.post("/friends/request/{friend_username}")
+@router.post("/friends/request/{friend_username}", dependencies=[Depends(rate_limit_strict)])
 async def send_friend_request(friend_username: str, user: dict = Depends(get_current_user)):
     """Kullanıcı adına göre PENDING arkadaşlık isteği gönder."""
     me = user["user_id"]
@@ -171,7 +172,7 @@ async def remove_friend(friend_id: int, user: dict = Depends(get_current_user)):
 
 
 # ─── Doğrudan film paylaşımı ─────────────────────────────────────────────────
-@router.post("/movies/recommend")
+@router.post("/movies/recommend", dependencies=[Depends(rate_limit_strict)])
 async def recommend_movie(body: RecommendBody, user: dict = Depends(get_current_user)):
     """
     Bir arkadaşına film öner (not ekiyle).

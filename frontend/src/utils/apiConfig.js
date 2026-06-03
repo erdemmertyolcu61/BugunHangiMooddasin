@@ -18,6 +18,14 @@ export const API_BASE_URL = "";
 const BACKEND_ABSOLUTE = (import.meta.env.VITE_API_BASE_URL
   || "https://bug-nhangimooddas-n-production.up.railway.app").replace(/\/$/, "");
 
+// Kanonik herkese açık FRONTEND adresi — paylaşım/QR linkleri için TEK kaynak.
+// `window.location.origin` web'de doğru ama native (Capacitor) içinde
+// "capacitor://localhost" döner → paylaşılan linkler bozulur. Bu sabiti
+// kullanan kod hem web hem native'de doğru linki üretir. İleride özel domaine
+// (ör. sinemood.app) geçişte yalnız burası / VITE_SITEMAP_HOST değişir.
+export const CANONICAL_URL = (import.meta.env.VITE_SITEMAP_HOST
+  || "https://bug-n-hangi-mooddas-n.vercel.app").replace(/\/$/, "");
+
 export const getApiUrl = (path) => {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${API_BASE_URL}${cleanPath}`; // relative → same-origin proxy

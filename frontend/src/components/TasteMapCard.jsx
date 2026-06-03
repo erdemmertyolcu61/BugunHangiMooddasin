@@ -4,6 +4,7 @@ import { captureAndShare, captureElementAsBlob, downloadBlob } from '../utils/sh
 import ShareButtons from './ShareButtons';
 import { track, EVENTS } from '../utils/analytics';
 import { useTheme } from '../context/ThemeContext';
+import { CANONICAL_URL } from '../utils/apiConfig';
 
 /**
  * "Zevk Haritam" — paylaşılabilir zevk haritası kartı.
@@ -54,7 +55,7 @@ export default function TasteMapCard({ tasteMap, username = '', profileUrl = '' 
 
   if (!tasteMap || tasteMap.confidence === 'low') return null;
 
-  const shareUrl = profileUrl || `${window.location.origin}`;
+  const shareUrl = profileUrl || CANONICAL_URL;
   const shareText = username
     ? `${username}'in Sinemood Zevk Haritası — Sen de sinema DNA'nı keşfet!`
     : 'Sinemood Zevk Haritam — Sen de sinema DNA\'nı keşfet!';

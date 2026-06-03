@@ -11,6 +11,7 @@ import { getOracleState, applyResult, rankFor } from '../utils/oracleRank';
 import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
+import { CANONICAL_URL } from '../utils/apiConfig';
 
 const TOTAL = 5;
 const DAILY_KEY = 'fc_oracle_last_played'; // YYYY-MM-DD
@@ -119,7 +120,7 @@ export default function MoodOracle() {
   }, [phase, summary, results, rounds.length]);
 
   const correctCount = results.filter(Boolean).length;
-  const shareUrl = `${window.location.origin}/oyun`;
+  const shareUrl = `${CANONICAL_URL}/oyun`;
   const shareText = summary
     ? `Mood Kâhini'nde ${correctCount}/${rounds.length || TOTAL} bildim — Rütbem: ${summary.rank.name} 🎬\nSen de filmlerin ruhunu oku 👉`
     : '';

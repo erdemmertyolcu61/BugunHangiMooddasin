@@ -10,7 +10,7 @@
  */
 import { useEffect } from 'react';
 
-const HOST = (import.meta.env.VITE_SITEMAP_HOST || 'https://sinemood.onrender.com').replace(/\/$/, '');
+const HOST = (import.meta.env.VITE_SITEMAP_HOST || 'https://bug-n-hangi-mooddas-n.vercel.app').replace(/\/$/, '');
 const DEFAULT_TITLE = 'Sinemood — Bugün Hangi Mooddasın?';
 
 function upsertMeta(selector, attr, name, content) {

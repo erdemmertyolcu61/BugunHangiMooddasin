@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HOST = (process.env.VITE_SITEMAP_HOST || 'https://sinemood.onrender.com').replace(/\/$/, '');
+const HOST = (process.env.VITE_SITEMAP_HOST || 'https://bug-n-hangi-mooddas-n.vercel.app').replace(/\/$/, '');
 
 // Botların indekslemesini istediğimiz herkese açık route'lar
 const STATIC_ROUTES = [

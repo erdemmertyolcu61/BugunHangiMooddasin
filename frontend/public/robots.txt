@@ -6,4 +6,4 @@ Allow: /
 Disallow: /api/
 Disallow: /share/
 
-Sitemap: https://sinemood.onrender.com/sitemap.xml
+Sitemap: https://bug-n-hangi-mooddas-n.vercel.app/sitemap.xml

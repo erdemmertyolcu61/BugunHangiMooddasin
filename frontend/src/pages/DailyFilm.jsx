@@ -8,6 +8,7 @@ import { track, EVENTS } from '../utils/analytics';
 import FilmDetailModal from '../components/FilmDetailModal';
 import useDocumentMeta from '../utils/useDocumentMeta';
 import { useTheme } from '../context/ThemeContext';
+import { CANONICAL_URL } from '../utils/apiConfig';
 
 /**
  * "Üstad'ın Bugünkü Filmi" — günlük tek film (gün boyu sabit).
@@ -39,7 +40,7 @@ export default function DailyFilm() {
   }, []);
 
   const movie = data?.movie;
-  const shareUrl = `${window.location.origin}/gunun-filmi`;
+  const shareUrl = `${CANONICAL_URL}/gunun-filmi`;
   const dateLabel = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
   const shareText = movie
     ? `Üstad'ın bugünkü filmi: ${movie.title} 🎬\nSen de günün filmini keşfet 👉`

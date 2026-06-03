@@ -17,6 +17,7 @@ import {
 import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
+import { CANONICAL_URL } from '../utils/apiConfig';
 
 /* ─── 8 Çekirdek Mood (gerçek MOODS'tan türetilir) ─── */
 const CORE_MOOD_IDS = [
@@ -225,8 +226,8 @@ export default function TasteMapCollision() {
   // Davet linki — oluşturulan ya da girilen oda kodu üzerinden
   const activeCode = (mode === 'create' ? roomCode : joinInput).trim().toUpperCase();
   const inviteUrl = activeCode
-    ? `${window.location.origin}/carpistir?oda=${encodeURIComponent(activeCode)}`
-    : `${window.location.origin}/carpistir`;
+    ? `${CANONICAL_URL}/carpistir?oda=${encodeURIComponent(activeCode)}`
+    : `${CANONICAL_URL}/carpistir`;
 
   /* Oda oluştur */
   const createRoom = () => {

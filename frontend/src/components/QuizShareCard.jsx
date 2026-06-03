@@ -6,6 +6,7 @@ import { captureAndShare, captureElementAsBlob, downloadBlob } from '../utils/sh
 import ShareButtons from './ShareButtons';
 import { track, EVENTS } from '../utils/analytics';
 import { useToast } from '../context/ToastContext';
+import { CANONICAL_URL } from '../utils/apiConfig';
 
 /**
  * "Hangi Film Ruh Hali Seninki?" — shareable quiz result card.
@@ -74,7 +75,7 @@ export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
   const emoji = MOOD_EMOJIS[primary.moodId] || '🎬';
   const gradient = MOOD_GRADIENTS[primary.moodId] || 'from-amber-600 to-zinc-900';
 
-  const shareUrl = `${window.location.origin}`;
+  const shareUrl = CANONICAL_URL;
   const shareText = `Bu gece benim film ruh halim: ${moodName} ${emoji}\nSen hangi mooddasın? Sinemood'da keşfet!`;
   const fileName = `sinemood-${primary.moodId}.png`;
 
