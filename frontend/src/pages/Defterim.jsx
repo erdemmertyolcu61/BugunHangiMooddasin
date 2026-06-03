@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, Sparkles, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -358,7 +358,7 @@ export default function Defterim() {
                       {tasteMap.summary && tasteMap.summary.length > 0 && (
                         <div className="space-y-4">
                           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber/40 flex items-center gap-2">
-                            <Sparkles size={11} /> Üstad'ın Analizi
+                            Üstad'ın Analizi
                           </p>
                           <div className="space-y-4 pl-4 border-l-2 border-amber/15">
                             {tasteMap.summary.slice(0, 5).map((s, i) => (

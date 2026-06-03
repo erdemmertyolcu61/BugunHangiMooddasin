@@ -612,12 +612,18 @@ class MovieCache:
                     movie_id INTEGER NOT NULL,
                     user_note TEXT,
                     is_read INTEGER NOT NULL DEFAULT 0,
+                    dismissed INTEGER NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_direct_rec_inbox ON direct_recommendations(receiver_id, is_read)"
             )
+            # dismissed migration (alıcı kalıcı "okundu/gizle" — panelden tamamen kalkar)
+            try:
+                await db.execute("ALTER TABLE direct_recommendations ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0")
+            except Exception:
+                pass
             # Ek performans index'leri
             await db.execute("CREATE INDEX IF NOT EXISTS idx_watchlist_user_date ON watchlist(user_id, added_at DESC)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_future_priority ON future_plans(user_id, priority DESC, added_at DESC)")
@@ -731,6 +737,7 @@ class MovieCache:
                 movie_id INTEGER NOT NULL,
                 user_note TEXT,
                 is_read INTEGER NOT NULL DEFAULT 0,
+                dismissed INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
             """CREATE TABLE IF NOT EXISTS user_taste_profiles (
@@ -770,6 +777,7 @@ class MovieCache:
             "CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id)",
             "ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0",
             "ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18",
+            "ALTER TABLE direct_recommendations ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -1151,7 +1159,7 @@ class MovieCache:
                 """SELECT d.id, d.movie_id, d.user_note, d.created_at, d.is_read,
                           u.id, u.username, u.name, u.picture
                    FROM direct_recommendations d JOIN users u ON u.id = d.sender_id
-                   WHERE d.receiver_id = ?
+                   WHERE d.receiver_id = ? AND d.dismissed = 0
                    ORDER BY d.created_at DESC LIMIT ?""",
                 (user_id, limit),
             )
@@ -1187,6 +1195,16 @@ class MovieCache:
             )
             row = await cur.fetchone()
             return row[0] if row else 0
+
+    async def dismiss_recommendation(self, user_id: int, share_id: int) -> None:
+        """Alıcı bir öneriyi kalıcı olarak gizler ('Okundu') — panelde bir daha görünmez."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "UPDATE direct_recommendations SET is_read = 1, dismissed = 1 "
+                "WHERE receiver_id = ? AND id = ?",
+                (user_id, share_id),
+            )
+            await db.commit()
 
     async def mark_shares_read(self, user_id: int, share_ids: list = None) -> None:
         async with _get_connection(self.db_path, user_data=True) as db:

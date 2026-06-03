@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Shuffle, RefreshCw, X, Star, BookOpen, Sparkles, ExternalLink } from 'lucide-react';
+import { ChevronLeft, Shuffle, RefreshCw, X, Star, BookOpen, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { proxyImageUrl } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
@@ -147,7 +147,7 @@ export default function SurpriseFilm() {
                 className="absolute inset-4 rounded-full border border-[#00d4ff]/20 border-b-[#00d4ff]/60"
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles size={28} className="text-[#ffbf00]/60" />
+                <Shuffle size={28} className="text-[#ffbf00]/60" />
               </div>
             </div>
             <AnimatePresence mode="wait">

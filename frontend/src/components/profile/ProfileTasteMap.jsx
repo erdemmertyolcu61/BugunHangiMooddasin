@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Sparkles, Clock, Clapperboard, Gauge, Palette, Timer } from 'lucide-react';
+import { Brain, Clock, Clapperboard, Gauge, Palette, Timer } from 'lucide-react';
 import TasteMapCard from '../TasteMapCard';
 
 const MOOD_COLORS = {
@@ -115,7 +115,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
           {/* ─── Mood DNA chips ─── */}
           {tasteMap.top_moods?.length > 0 && (
             <div className="space-y-3.5">
-              <SectionLabel icon={Sparkles}>Sinema DNA'n</SectionLabel>
+              <SectionLabel icon={Clapperboard}>Sinema DNA'n</SectionLabel>
               <div className="flex flex-wrap gap-2.5">
                 {tasteMap.top_moods.slice(0, 5).map(m => {
                   const dotColor = MOOD_COLORS[m.mood_id] || '#d4af37';
@@ -227,7 +227,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
           {/* ─── İmza: Tempo · Stil · Süre ─── */}
           {(pacing.label || style.label || runtime.label) && (
             <div className="space-y-3.5">
-              <SectionLabel icon={Sparkles}>İmzan</SectionLabel>
+              <SectionLabel icon={Palette}>İmzan</SectionLabel>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Tempo */}
                 {pacing.label && (
@@ -280,7 +280,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
           {tasteMap.summary?.length > 0 && (
             <div className="space-y-4">
               <div className="h-px bg-gradient-to-r from-transparent via-border-default to-transparent" />
-              <SectionLabel icon={Sparkles}>Üstad'ın Analizi</SectionLabel>
+              <SectionLabel icon={Brain}>Üstad'ın Analizi</SectionLabel>
               <div className="space-y-4 pl-4 border-l-2 border-amber/25">
                 {tasteMap.summary.slice(0, 5).map((s, i) => (
                   <motion.p key={i}

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, Sparkles, Send, RefreshCw, Brain, Clock, TrendingUp, Gem } from 'lucide-react';
+import { ChevronLeft, Send, RefreshCw, Brain, Clock, TrendingUp, Gem } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
@@ -483,7 +483,7 @@ export default function KafanMiKarisik() {
                     onClick={() => goToMood(result.mood_mix[0].mood_id)}
                     className="flex items-center gap-2 px-8 py-4 border border-amber/35 text-amber/80 hover:text-[#ffbf00] rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-amber/5 transition-all"
                   >
-                    <Sparkles size={14} /> Bu Mood'a Git
+                    Bu Mood'a Git
                   </button>
                 )}
                 <button

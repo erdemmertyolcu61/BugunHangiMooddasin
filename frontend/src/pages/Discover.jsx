@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, Sparkles, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies } from '../services/api';
 import { useAuth } from '../context/AuthContext';

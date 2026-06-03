@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, AlertCircle, Check } from 'lucide-react';
+import { Clapperboard, AlertCircle, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getMe, setUsername } from '../services/api';
 
@@ -118,7 +118,7 @@ export default function UsernameOnboardingModal() {
               <div className="text-center space-y-2">
                 <div className="w-14 h-14 mx-auto rounded-full bg-[#d4af37]/15 border border-[#d4af37]/30
                                flex items-center justify-center">
-                  <Sparkles size={22} className="text-[#d4af37]" />
+                  <Clapperboard size={22} className="text-[#d4af37]" />
                 </div>
                 <h2 className="font-serif text-2xl font-bold text-[#f5f2eb] tracking-tight">
                   Sinematik Kimliğini Seç

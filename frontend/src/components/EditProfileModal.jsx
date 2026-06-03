@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { X, Camera, User, AtSign, Sparkles, Check } from 'lucide-react';
+import { X, Camera, User, AtSign, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, uploadAvatar } from '../services/api';
 import { resolveAvatarUrl } from '../utils/apiConfig';
@@ -222,7 +222,7 @@ export default function EditProfileModal({ onClose, onSaved }) {
           {/* Name */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.15em] text-ivory/60">
-              <Sparkles size={12} /> Goruntu Adi
+              Goruntu Adi
             </label>
             <input
               type="text"

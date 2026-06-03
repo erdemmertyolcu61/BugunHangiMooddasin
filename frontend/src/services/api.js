@@ -620,3 +620,13 @@ export async function markShareRead(shareId) {
   if (!res.ok) return { ok: false };
   return res.json();
 }
+
+// Öneriyi kalıcı gizle ('Okundu' butonu) — panelde bir daha görünmez.
+export async function dismissShare(shareId) {
+  const res = await fetch(`${BASE}/notifications/shares/${shareId}/dismiss`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) return { ok: false };
+  return res.json();
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Star, Share2, Download, CalendarDays, Sparkles, Play } from 'lucide-react';
+import { ChevronLeft, Star, Share2, Download, CalendarDays, Play } from 'lucide-react';
 import { getDailyFilm, proxyImageUrl } from '../services/api';
 import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
 import { track, EVENTS } from '../utils/analytics';
@@ -113,7 +113,6 @@ export default function DailyFilm() {
               <div className={`absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 ${isLight ? 'bg-amber/20' : 'bg-amber/10'}`} />
 
               <div className="relative z-10 flex items-center gap-2 mb-6">
-                <Sparkles size={14} className="text-amber" />
                 <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-amber/60">
                   Üstad'ın {dateLabel} Filmi
                 </p>
@@ -152,7 +151,7 @@ export default function DailyFilm() {
                   <div className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold text-amber ${isLight ? 'bg-amber/30' : 'bg-amber/20'}`}>S</div>
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/40">Sinemood</span>
                 </div>
-                <span className="text-[9px] text-ivory/25">sinemood.onrender.com/gunun-filmi</span>
+                <span className="text-[9px] text-ivory/25">sinemood.app/gunun-filmi</span>
               </div>
             </div>
 

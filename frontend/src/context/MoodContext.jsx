@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useMemo, useRef } from 'react';
 
-import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Flame, Map as MapIcon, VolumeX, Ghost, Sparkles, Camera, Radio } from 'lucide-react';
+import { Coffee, Zap, Moon, Film, Droplets, Smile, Heart, Brain, Flame, Map as MapIcon, VolumeX, Ghost, Gem, Camera, Radio } from 'lucide-react';
 import { repositoryMovies, proxyImageUrl } from '../services/api';
 
 const MoodContext = createContext();
@@ -150,8 +150,8 @@ export const MOODS = {
   kalp: {
     id: 'kalp',
     title: 'Kalbimin Sesi',
-    icon: Sparkles,
-    iconType: 'sparkles',
+    icon: Gem,
+    iconType: 'gem',
     subtitle: 'Bağımsız & Festival Sineması',
     color: 'from-rose-900/90 via-pink-950/80 to-black',
     auraColors: ['#9f1239', '#831843', '#500724', '#750d33'],

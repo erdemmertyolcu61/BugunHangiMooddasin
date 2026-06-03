@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, Heart, ArrowRight, Star, Eye, BookmarkPlus, Check, Sparkles, Brain } from 'lucide-react';
+import { X, ChevronLeft, Heart, ArrowRight, Star, Eye, BookmarkPlus, Check, Brain } from 'lucide-react';
 import { QUESTIONS, MOOD_NAMES, calculateQuizResult, getResultMessage } from '../utils/moodQuiz';
 import { moodQuizSearch } from '../services/api';
 import OptimizedImage from './OptimizedImage';
@@ -301,7 +301,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                       onClick={() => setShowShare(true)}
                       className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-amber/10 hover:bg-amber/15 border border-amber/20 text-amber/80 hover:text-amber text-[10px] font-bold uppercase tracking-[0.2em] transition-all mx-auto"
                     >
-                      <Sparkles size={13} /> Sonucu Paylaş
+                      Sonucu Paylaş
                     </button>
                   ) : (
                     <motion.div

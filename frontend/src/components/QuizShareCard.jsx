@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Share2 } from 'lucide-react';
 import { MOOD_NAMES } from '../utils/moodQuiz';
 import { captureAndShare, captureElementAsBlob, downloadBlob } from '../utils/shareUtils';
 import ShareButtons from './ShareButtons';
 import { track, EVENTS } from '../utils/analytics';
+import { useToast } from '../context/ToastContext';
 
 /**
  * "Hangi Film Ruh Hali Seninki?" — shareable quiz result card.
@@ -42,35 +43,92 @@ const MOOD_GRADIENTS = {
 
 export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
   const cardRef = useRef(null);
+  const shareBlobRef = useRef(null); // önceden hazırlanan PNG — iOS senkron paylaşım için
   const [sharing, setSharing] = useState(false);
+  const toast = useToast();
 
-  if (!topMoods || topMoods.length === 0) return null;
+  const primary = topMoods && topMoods.length ? topMoods[0] : null;
+  const primaryId = primary?.moodId;
 
-  const primary = topMoods[0];
+  // Kart göründüğünde görseli önceden üret. iOS Safari/PWA'da navigator.share
+  // yalnızca dokunma jesti İÇİNDE senkron çağrılırsa açılır; tıklamada
+  // html2canvas'ı (async) beklersek jest düşer ve paylaşım sessizce başarısız
+  // olur. Bu yüzden blob'u baştan hazırlayıp tıklamada hazır kullanırız.
+  useEffect(() => {
+    let cancelled = false;
+    shareBlobRef.current = null;
+    if (!primaryId) return undefined;
+    const t = setTimeout(async () => {
+      if (!cardRef.current) return;
+      try {
+        const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0c0a12' });
+        if (!cancelled) shareBlobRef.current = blob;
+      } catch { /* sessiz — tıklamada tekrar denenir */ }
+    }, 650); // giriş animasyonu otursun
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [primaryId]);
+
+  if (!primary) return null;
+
   const moodName = MOOD_NAMES[primary.moodId] || primary.moodId;
   const emoji = MOOD_EMOJIS[primary.moodId] || '🎬';
   const gradient = MOOD_GRADIENTS[primary.moodId] || 'from-amber-600 to-zinc-900';
 
   const shareUrl = `${window.location.origin}`;
   const shareText = `Bu gece benim film ruh halim: ${moodName} ${emoji}\nSen hangi mooddasın? Sinemood'da keşfet!`;
+  const fileName = `sinemood-${primary.moodId}.png`;
 
   const handleShareImage = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
+    if (sharing) return;
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'quiz' });
+    const blob = shareBlobRef.current;
+
+    // ── Hızlı yol: blob hazır → jest içinde SENKRON paylaş (iOS dostu) ──
+    if (blob) {
+      try {
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ text: `${shareText} ${shareUrl}`.trim(), files: [file] });
+          return;
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return; // kullanıcı iptal etti
+        // paylaşım reddedildi → indirmeye düş
+      }
+      // Web Share yok (ör. masaüstü) → indir
+      try {
+        downloadBlob(blob, fileName);
+        toast.success('Görsel indirildi 📸');
+        return;
+      } catch { /* aşağıdaki yola düş */ }
+    }
+
+    // ── Yedek yol: blob henüz hazır değil → üret + paylaş/indir ──
+    if (!cardRef.current) { toast.error('Görsel oluşturulamadı, tekrar dene.'); return; }
+    setSharing(true);
     try {
-      await captureAndShare(cardRef.current, `sinemood-${primary.moodId}.png`, `${shareText} ${shareUrl}`.trim(), { backgroundColor: '#0c0a12' });
+      const r = await captureAndShare(cardRef.current, fileName, `${shareText} ${shareUrl}`.trim(), { backgroundColor: '#0c0a12' });
+      if (r === 'downloaded') toast.success('Görsel indirildi 📸');
+      else if (r === 'error') toast.error('Görsel oluşturulamadı, tekrar dene.');
     } finally {
       setSharing(false);
     }
   };
 
   const handleDownload = async () => {
-    if (!cardRef.current || sharing) return;
+    if (sharing) return;
+    const ready = shareBlobRef.current;
+    if (ready) {
+      try { downloadBlob(ready, fileName); toast.success('Görsel indirildi 📸'); return; } catch { /* yeniden üret */ }
+    }
+    if (!cardRef.current) return;
     setSharing(true);
     try {
       const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0c0a12' });
-      downloadBlob(blob, `sinemood-${primary.moodId}.png`);
+      downloadBlob(blob, fileName);
+      toast.success('Görsel indirildi 📸');
+    } catch {
+      toast.error('Görsel oluşturulamadı, tekrar dene.');
     } finally {
       setSharing(false);
     }
@@ -126,7 +184,7 @@ export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
             <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center text-[8px] font-bold text-white">S</div>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Sinemood</span>
           </div>
-          <span className="text-[9px] text-white/25">sinemood.onrender.com</span>
+          <span className="text-[9px] text-white/25">sinemood.app</span>
         </div>
       </div>
 

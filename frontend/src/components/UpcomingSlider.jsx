@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { proxyImageUrl } from '../services/api';
 import { getApiUrl } from '../utils/apiConfig';
 
@@ -130,7 +130,7 @@ export default function UpcomingSlider() {
           <div className="relative z-10 flex-1 min-w-0 pr-4 sm:p-6 space-y-1 sm:space-y-3">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="px-2 py-0.5 bg-amber/20 border border-amber/40 text-amber text-[9px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
-                <Sparkles size={8} /> Yakında
+                Yakında
               </span>
               <span className="text-[9px] font-bold uppercase tracking-widest text-ivory/40 flex items-center gap-1">
                 <Calendar size={8} /> {formatDate(film.release_date)}

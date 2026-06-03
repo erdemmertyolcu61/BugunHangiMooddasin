@@ -267,6 +267,13 @@ async def mark_share_read(share_id: int, user: dict = Depends(get_current_user))
     return {"ok": True}
 
 
+@router.post("/notifications/shares/{share_id}/dismiss")
+async def dismiss_share(share_id: int, user: dict = Depends(get_current_user)):
+    """Bir öneriyi kalıcı gizle ('Okundu' butonu) — panelde bir daha görünmez."""
+    await cache.dismiss_recommendation(user["user_id"], share_id)
+    return {"ok": True}
+
+
 # ─── Profil Düzenleme ────────────────────────────────────────────────────────
 
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "avatars")

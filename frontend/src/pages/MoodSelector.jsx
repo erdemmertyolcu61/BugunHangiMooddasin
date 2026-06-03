@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Book, ChevronRight, Brain, User, Sparkles } from 'lucide-react';
+import { Book, ChevronRight, Brain, User, Gem } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import { track, EVENTS } from '../utils/analytics';
@@ -270,7 +270,7 @@ export default function MoodSelector() {
                        text-rose/25 hover:text-amber/80 transition-all duration-500 hover:scale-110"
           >
             <span className="pointer-events-none absolute inset-0 rounded-full border border-amber/15 animate-ping opacity-20 group-hover:opacity-0" />
-            <Sparkles size={15} strokeWidth={1.5} />
+            <Gem size={15} strokeWidth={1.5} />
           </button>
           <p className="text-[8px] uppercase tracking-[0.5em] text-rose/30 font-medium">sinema bir atmosferdir</p>
           <button onClick={() => navigate('/gizlilik')}

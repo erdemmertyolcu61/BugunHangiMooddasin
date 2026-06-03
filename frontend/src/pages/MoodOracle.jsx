@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, Brain, Trophy, Share2, Download, RefreshCw,
+  Brain, Trophy, Share2, Download, RefreshCw,
   ChevronLeft, Check, X, ArrowRight, Quote, Clock,
 } from 'lucide-react';
 import { MOODS } from '../context/MoodContext';
@@ -151,7 +151,7 @@ export default function MoodOracle() {
             <span className="text-[11px] font-bold uppercase tracking-widest">Ana Sayfa</span>
           </button>
           <div className="flex items-center gap-2 text-amber">
-            <Sparkles size={16} />
+            <Trophy size={16} />
             <span className="text-[11px] font-bold uppercase tracking-[0.3em]">Mood Kâhini</span>
           </div>
         </div>
@@ -349,7 +349,7 @@ export default function MoodOracle() {
                         <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'rgba(255,191,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: '#ffbf00' }}>S</div>
                         <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(245,242,235,0.4)' }}>Sinemood</span>
                       </div>
-                      <span style={{ fontSize: '9px', color: 'rgba(245,242,235,0.25)' }}>sinemood.onrender.com/oyun</span>
+                      <span style={{ fontSize: '9px', color: 'rgba(245,242,235,0.25)' }}>sinemood.app/oyun</span>
                     </div>
                   </div>
                 </div>

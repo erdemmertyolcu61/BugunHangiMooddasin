@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MOODS } from '../context/MoodContext';
 import {
-  Users, Plus, LogIn, Copy, Check, Swords, Sparkles, Star,
+  Users, Plus, LogIn, Copy, Check, Swords, Star,
   Ban, RefreshCw, ChevronLeft, Clapperboard, Heart, Quote, Share2, Download,
 } from 'lucide-react';
 import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
@@ -563,7 +563,7 @@ export default function TasteMapCollision() {
                   transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
                 />
                 <div className="absolute inset-[4.5rem] rounded-full bg-bg flex items-center justify-center">
-                  <Sparkles size={28} className="text-amber" />
+                  <Swords size={28} className="text-amber" />
                 </div>
                 {/* Kıvılcımlar */}
                 {[...Array(8)].map((_, i) => (
@@ -643,7 +643,7 @@ export default function TasteMapCollision() {
                         <div className="w-5 h-5 rounded bg-amber/20 flex items-center justify-center text-[8px] font-bold text-amber">S</div>
                         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/40">Sinemood</span>
                       </div>
-                      <span className="text-[9px] text-ivory/25">sinemood.onrender.com/carpistir</span>
+                      <span className="text-[9px] text-ivory/25">sinemood.app/carpistir</span>
                     </div>
                   </div>
                 </div>

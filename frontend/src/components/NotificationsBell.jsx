@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getRecommendationHistory, getUnreadShareCount, markSharesRead, markShareRead,
+  getRecommendationHistory, getUnreadShareCount, markSharesRead, markShareRead, dismissShare,
   getFriendRequests, respondFriendRequest, proxyImageUrl,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
@@ -391,8 +391,9 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
-                                    await markShareRead(s.id).catch(() => {});
+                                    // Kalıcı gizle: tekrar açıldığında geri gelmesin.
                                     setShares(prev => prev.filter(x => x.id !== s.id));
+                                    await dismissShare(s.id).catch(() => {});
                                     refreshCount();
                                   }}
                                   className="flex items-center gap-1 px-4 py-1.5 rounded-full

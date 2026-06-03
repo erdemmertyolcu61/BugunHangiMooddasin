@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Send, Check, X, Users, UserPlus, Sparkles } from 'lucide-react';
+import { Search, Send, Check, X, Users, UserPlus, Loader2 } from 'lucide-react';
 import { getFriends, recommendMovieToFriend, sendFriendRequest } from '../services/api';
 import { resolveAvatarUrl } from '../utils/apiConfig';
 import OptimizedImage from './OptimizedImage';
@@ -288,7 +288,7 @@ export default function RecommendToFriendSheet({ movie, onClose }) {
                                bg-[#ffbf00] text-[#120d0b] shadow-[0_0_20px_rgba(255,191,0,0.25)]
                                disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-400 transition-all"
                   >
-                    {sending ? <Sparkles size={14} className="animate-spin" /> : <Send size={14} />}
+                    {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     Gönder{selected.size > 0 ? ` (${selected.size})` : ''}
                   </button>
                 </div>
