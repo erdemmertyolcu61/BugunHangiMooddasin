@@ -1357,6 +1357,9 @@ async def get_notify_time(user=Depends(verify_user)):
 @app.post("/api/push/notify-time")
 async def set_notify_time(body: NotifyTimeBody, user=Depends(verify_user)):
     """Günlük bildirim saatini ayarlar (8–23 arası; gece bildirimi engellenir)."""
+    hour = max(8, min(23, int(body.hour)))
+    ok = await cache.set_notify_hour(user["user_id"], hour)
+    return {"ok": ok, "hour": hour}
 
 
 @app.post("/api/users/ping")
@@ -1366,9 +1369,6 @@ async def user_ping(request: Request):
     if uid:
         await cache.update_last_active(uid)
     return {"ok": True}
-    hour = max(8, min(23, int(body.hour)))
-    ok = await cache.set_notify_hour(user["user_id"], hour)
-    return {"ok": ok, "hour": hour}
 
 
 def optional_user_id(request: Request) -> int:
