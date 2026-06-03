@@ -548,12 +548,16 @@ async def lifespan(app: FastAPI):
         """Her 60 sn'de bir saati kontrol eder, 18:00 İstanbul'da
         sadece PWA kullanıcılarına günün filmi push'unu gönderir."""
         from backend.services.push_service import send_push_broadcast, send_push_for_hour, PUSH_ENABLED as _push_ok
+        from backend.database import cache as _cache_for_push
         tz = ZoneInfo("Europe/Istanbul")
         last_push = None  # (date, hour) — saat başı bir kez
         last_weekly = None
+        last_game_push = None  # date — günde bir kez
+        last_reengage = None   # (date) — günde bir kez
         while True:
             try:
                 now_tr = datetime.now(tz)
+
                 # ── Günlük film push'u — KULLANICI-AYARLI SAAT ──
                 # Her saat başı (HH:00), o saati seçmiş abonelere günün filmini gönderir.
                 # Varsayılan saat 18 (mevcut kullanıcılar 18:00'da almaya devam eder).
@@ -574,9 +578,46 @@ async def lifespan(app: FastAPI):
                                 logger.info("[DailyPush] %02d:00 push gonderildi (%d cihaz): %s",
                                             now_tr.hour, n, m.get("title"))
 
+                # ── Mood Kâhini sıfırlanma push'u (gece yarısı 00:00) ──
+                game_key = now_tr.date()
+                if now_tr.hour == 0 and now_tr.minute == 0 and _push_ok and last_game_push != game_key:
+                    last_game_push = game_key
+                    await send_push_broadcast(
+                        "Sinemood",
+                        "Mood Kâhini yenilendi 🔮 Bugünün filmlerini keşfet.",
+                        url="/oyun", tag="mood-oracle-daily", pwa_only=False,
+                    )
+                    logger.info("[GamePush] Gece yarısı oyun push'u gonderildi: %s", game_key)
+
+                # ── Pasif kullanıcı re-engagement push'u (günde 1 kez 10:00) ──
+                if now_tr.hour == 10 and now_tr.minute == 0 and _push_ok and last_reengage != game_key:
+                    last_reengage = game_key
+                    try:
+                        inactive_subs = await _cache_for_push.get_inactive_user_subs(days=7)
+                        if inactive_subs:
+                            from backend.services.push_service import _send_web_push as __send_push
+                            _payload = {
+                                "title": "Sinemood",
+                                "body": "Seni özledik 🎬 Uzun zamandır yoktun, Üstad'ın yeni seçkileri seni bekliyor.",
+                                "url": "/kesfet",
+                                "tag": "re-engage",
+                            }
+                            sent = 0
+                            for sub in inactive_subs:
+                                result = await asyncio.to_thread(__send_push, sub, _payload)
+                                if result == "ok":
+                                    sent += 1
+                                elif result == "gone":
+                                    try:
+                                        await _cache_for_push.delete_push_subscription(sub["endpoint"])
+                                    except Exception:
+                                        pass
+                            if sent:
+                                logger.info("[ReEngage] %d pasif kullaniciya re-engagement push gonderildi", sent)
+                    except Exception as e:
+                        logger.warning("[ReEngage] Hata: %s", e)
+
                 # ── Haftalık rapor push (Pazar 19:00 İstanbul) ──
-                # Re-engagement: kişiselleştirilmiş "Bu Hafta" kartı /profil'de
-                # gösterilir; push yalnız nazik bir hatırlatma (broadcast).
                 week_key = now_tr.isocalendar()[:2]  # (yıl, ISO hafta no)
                 if now_tr.weekday() == 6 and now_tr.hour == 19 and now_tr.minute == 0 and last_weekly != week_key:
                     last_weekly = week_key
@@ -1316,6 +1357,15 @@ async def get_notify_time(user=Depends(verify_user)):
 @app.post("/api/push/notify-time")
 async def set_notify_time(body: NotifyTimeBody, user=Depends(verify_user)):
     """Günlük bildirim saatini ayarlar (8–23 arası; gece bildirimi engellenir)."""
+
+
+@app.post("/api/users/ping")
+async def user_ping(request: Request):
+    """Kullanıcının son aktif olma zamanını günceller (frontend periyodik çağırır)."""
+    uid = optional_user_id(request)
+    if uid:
+        await cache.update_last_active(uid)
+    return {"ok": True}
     hour = max(8, min(23, int(body.hour)))
     ok = await cache.set_notify_hour(user["user_id"], hour)
     return {"ok": ok, "hour": hour}

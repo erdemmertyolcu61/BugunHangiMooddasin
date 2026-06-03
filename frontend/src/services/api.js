@@ -611,3 +611,12 @@ export async function markSharesRead() {
   if (!res.ok) return { ok: false };
   return res.json();
 }
+
+export async function markShareRead(shareId) {
+  const res = await fetch(`${BASE}/notifications/shares/${shareId}/read`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) return { ok: false };
+  return res.json();
+}

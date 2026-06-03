@@ -553,6 +553,12 @@ class MovieCache:
             except Exception:
                 pass  # kolon zaten var
 
+            # last_active kolonu — pasif kullanıcı re-engagement push'u için
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMP")
+            except Exception:
+                pass  # kolon zaten var
+
             # Eski /uploads yollarını temizle (ephemeral filesystem'de dosya yok)
             try:
                 await db.execute("""
@@ -963,6 +969,26 @@ class MovieCache:
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
                 "SELECT endpoint, p256dh, auth, user_id, is_pwa FROM push_subscriptions"
+            )
+            rows = await cur.fetchall()
+            return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2], "user_id": r[3], "is_pwa": r[4] or 0} for r in rows]
+
+    async def update_last_active(self, user_id: int) -> None:
+        """Kullanıcının son aktif olma zamanını günceller."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute("UPDATE users SET last_active = CURRENT_TIMESTAMP WHERE id = ?", (user_id,))
+            await db.commit()
+
+    async def get_inactive_user_subs(self, days: int = 7) -> list:
+        """Belirtilen gündür aktif olmayan kullanıcıların push aboneliklerini döndürür."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT ps.endpoint, ps.p256dh, ps.auth, ps.user_id, ps.is_pwa
+                   FROM push_subscriptions ps
+                   WHERE ps.user_id NOT IN (
+                       SELECT id FROM users WHERE last_active >= datetime('now', ? || ' days')
+                   )""",
+                (f"-{int(days)}",),
             )
             rows = await cur.fetchall()
             return [{"endpoint": r[0], "p256dh": r[1], "auth": r[2], "user_id": r[3], "is_pwa": r[4] or 0} for r in rows]

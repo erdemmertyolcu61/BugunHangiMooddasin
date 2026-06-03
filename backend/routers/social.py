@@ -201,17 +201,20 @@ async def recommend_movie(body: RecommendBody, user: dict = Depends(get_current_
 
 @router.get("/notifications/shares")
 async def get_shares(user: dict = Depends(get_current_user)):
-    """Okunmamış paylaşımları film metadata'sıyla (başlık, afiş) kronolojik döndür."""
-    shares = await cache.get_unread_shares(user["user_id"])
+    """Tüm paylaşımları (okunmuş + okunmamış) film metadata'sıyla kronolojik döndür."""
+    shares = await cache.get_received_recommendations(user["user_id"], limit=30)
     movie_ids = list({s["movie_id"] for s in shares})
     meta = await cache.get_movies_meta_by_ids(movie_ids) if movie_ids else {}
+    share_count = 0
     for s in shares:
         m = meta.get(s["movie_id"], {})
         s["movie_title"] = m.get("title")
         s["poster_url"] = m.get("poster_url")
         s["vote_average"] = m.get("vote_average")
         s["release_date"] = m.get("release_date")
-    return {"shares": shares, "unread_count": len(shares)}
+        if not s.get("is_read"):
+            share_count += 1
+    return {"shares": shares, "unread_count": share_count}
 
 
 @router.delete("/movies/recommend/{rec_id}")
@@ -257,6 +260,13 @@ async def unread_count(user: dict = Depends(get_current_user)):
 async def mark_shares_read(user: dict = Depends(get_current_user)):
     """Tüm paylaşımları okundu olarak işaretle (rozeti sıfırlar)."""
     await cache.mark_shares_read(user["user_id"])
+    return {"ok": True}
+
+
+@router.post("/notifications/shares/{share_id}/read")
+async def mark_share_read(share_id: int, user: dict = Depends(get_current_user)):
+    """Tek bir paylaşımı okundu işaretle."""
+    await cache.mark_shares_read(user["user_id"], share_ids=[share_id])
     return {"ok": True}
 
 

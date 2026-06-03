@@ -25,6 +25,16 @@ if (new URLSearchParams(window.location.search).get('ref')) {
   track(EVENTS.INVITE_LANDING);
 }
 
+// ─── Aktiflik ping'i (5 dk) — pasif kullanıcı re-engagement push'u için ───
+// last_active'i günceller; 7+ gün ping göndermeyen kullanıcı hatırlatma push'u alır.
+(() => {
+  const ping = () => {
+    fetch('/api/users/ping', { method: 'POST', keepalive: true }).catch(() => {});
+  };
+  ping();
+  setInterval(ping, 300000); // 5 dakika
+})();
+
 // ─── Backend Cold-Start Warm-Up ───
 // Render free tier 15dk boştan sonra uyur; ilk istek ~30sn sürer.
 // React render'dan ÖNCE fire-and-forget ping → kullanıcı ana sayfayı

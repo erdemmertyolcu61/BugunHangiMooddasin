@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getShares, getUnreadShareCount, markSharesRead,
+  getShares, getUnreadShareCount, markSharesRead, markShareRead,
   getFriendRequests, respondFriendRequest, proxyImageUrl,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
@@ -122,11 +122,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
       ]);
       setShares(sharesData.shares || []);
       setRequests(requestsData.requests || []);
-      // Film önerilerini okundu işaretle
-      if ((sharesData.shares || []).length > 0) {
-        await markSharesRead();
-      }
-      // Count'u güncelle (requests hâlâ kalabilir)
+      // Count'u güncelle
       refreshCount();
     } catch {
       setShares([]);
@@ -144,7 +140,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
     } catch { /* sessiz */ }
   };
 
-  const watchNow = (s) => {
+  const watchNow = async (s) => {
     setOpen(false);
     setDetailMovie({
       id: s.movie_id,
@@ -153,6 +149,9 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
       vote_average: s.vote_average,
       release_date: s.release_date,
     });
+    // Sadece bu share'i okundu işaretle, diğerleri kalsın
+    await markShareRead(s.id).catch(() => {});
+    refreshCount();
   };
 
   if (!token) return null;
@@ -334,8 +333,22 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                           <motion.div
                             key={s.id}
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                            className="flex gap-3.5 p-4 rounded-2xl bg-white/[0.04] border border-white/8"
+                            className="relative flex gap-3.5 p-4 rounded-2xl bg-white/[0.04] border border-white/8"
                           >
+                            {!s.is_read && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await markShareRead(s.id).catch(() => {});
+                                  setShares(prev => prev.filter(x => x.id !== s.id));
+                                  refreshCount();
+                                }}
+                                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center transition-all"
+                                aria-label="Bildirimi kapat"
+                              >
+                                <X size={12} className="text-white/40" />
+                              </button>
+                            )}
                             <div className="w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/10">
                               {s.poster_url ? (
                                 <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
