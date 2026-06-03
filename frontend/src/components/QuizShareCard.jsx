@@ -1,11 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Share2 } from 'lucide-react';
 import { MOOD_NAMES } from '../utils/moodQuiz';
-import { captureAndShare, captureElementAsBlob, downloadBlob } from '../utils/shareUtils';
 import ShareButtons from './ShareButtons';
 import { track, EVENTS } from '../utils/analytics';
-import { useToast } from '../context/ToastContext';
+import { useShareableImage } from '../utils/useShareableImage';
 import { CANONICAL_URL } from '../utils/apiConfig';
 
 /**
@@ -44,96 +43,31 @@ const MOOD_GRADIENTS = {
 
 export default function QuizShareCard({ topMoods = [], resultMessage = '' }) {
   const cardRef = useRef(null);
-  const shareBlobRef = useRef(null); // önceden hazırlanan PNG — iOS senkron paylaşım için
-  const [sharing, setSharing] = useState(false);
-  const toast = useToast();
 
   const primary = topMoods && topMoods.length ? topMoods[0] : null;
   const primaryId = primary?.moodId;
 
-  // Kart göründüğünde görseli önceden üret. iOS Safari/PWA'da navigator.share
-  // yalnızca dokunma jesti İÇİNDE senkron çağrılırsa açılır; tıklamada
-  // html2canvas'ı (async) beklersek jest düşer ve paylaşım sessizce başarısız
-  // olur. Bu yüzden blob'u baştan hazırlayıp tıklamada hazır kullanırız.
-  useEffect(() => {
-    let cancelled = false;
-    shareBlobRef.current = null;
-    if (!primaryId) return undefined;
-    const t = setTimeout(async () => {
-      if (!cardRef.current) return;
-      try {
-        const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0c0a12' });
-        if (!cancelled) shareBlobRef.current = blob;
-      } catch { /* sessiz — tıklamada tekrar denenir */ }
-    }, 650); // giriş animasyonu otursun
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [primaryId]);
-
-  if (!primary) return null;
-
-  const moodName = MOOD_NAMES[primary.moodId] || primary.moodId;
-  const emoji = MOOD_EMOJIS[primary.moodId] || '🎬';
-  const gradient = MOOD_GRADIENTS[primary.moodId] || 'from-amber-600 to-zinc-900';
-
+  const moodName = primaryId ? (MOOD_NAMES[primaryId] || primaryId) : '';
+  const emoji = primaryId ? (MOOD_EMOJIS[primaryId] || '🎬') : '🎬';
+  const gradient = MOOD_GRADIENTS[primaryId] || 'from-amber-600 to-zinc-900';
   const shareUrl = CANONICAL_URL;
   const shareText = `Bu gece benim film ruh halim: ${moodName} ${emoji}\nSen hangi mooddasın? Sinemood'da keşfet!`;
-  const fileName = `sinemood-${primary.moodId}.png`;
+  const fileName = `sinemood-${primaryId || 'mood'}.png`;
 
-  const handleShareImage = async () => {
-    if (sharing) return;
+  // Hook'lar erken return'den ÖNCE (Rules of Hooks). iOS senkron paylaşım +
+  // önceden capture + toast bu hook içinde merkezîleştirildi.
+  const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {
+    fileName,
+    shareText: `${shareText} ${shareUrl}`.trim(),
+    backgroundColor: '#0c0a12',
+    deps: [primaryId],
+  });
+  const handleShareImage = () => {
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'quiz' });
-    const blob = shareBlobRef.current;
-
-    // ── Hızlı yol: blob hazır → jest içinde SENKRON paylaş (iOS dostu) ──
-    if (blob) {
-      try {
-        const file = new File([blob], fileName, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ text: `${shareText} ${shareUrl}`.trim(), files: [file] });
-          return;
-        }
-      } catch (e) {
-        if (e.name === 'AbortError') return; // kullanıcı iptal etti
-        // paylaşım reddedildi → indirmeye düş
-      }
-      // Web Share yok (ör. masaüstü) → indir
-      try {
-        downloadBlob(blob, fileName);
-        toast.success('Görsel indirildi 📸');
-        return;
-      } catch { /* aşağıdaki yola düş */ }
-    }
-
-    // ── Yedek yol: blob henüz hazır değil → üret + paylaş/indir ──
-    if (!cardRef.current) { toast.error('Görsel oluşturulamadı, tekrar dene.'); return; }
-    setSharing(true);
-    try {
-      const r = await captureAndShare(cardRef.current, fileName, `${shareText} ${shareUrl}`.trim(), { backgroundColor: '#0c0a12' });
-      if (r === 'downloaded') toast.success('Görsel indirildi 📸');
-      else if (r === 'error') toast.error('Görsel oluşturulamadı, tekrar dene.');
-    } finally {
-      setSharing(false);
-    }
+    return share();
   };
 
-  const handleDownload = async () => {
-    if (sharing) return;
-    const ready = shareBlobRef.current;
-    if (ready) {
-      try { downloadBlob(ready, fileName); toast.success('Görsel indirildi 📸'); return; } catch { /* yeniden üret */ }
-    }
-    if (!cardRef.current) return;
-    setSharing(true);
-    try {
-      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0c0a12' });
-      downloadBlob(blob, fileName);
-      toast.success('Görsel indirildi 📸');
-    } catch {
-      toast.error('Görsel oluşturulamadı, tekrar dene.');
-    } finally {
-      setSharing(false);
-    }
-  };
+  if (!primary) return null;
 
   return (
     <div className="space-y-4">

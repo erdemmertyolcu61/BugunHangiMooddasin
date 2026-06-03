@@ -8,7 +8,8 @@ import {
 import { MOODS } from '../context/MoodContext';
 import { getMoodOracleRounds, proxyImageUrl } from '../services/api';
 import { getOracleState, applyResult, rankFor } from '../utils/oracleRank';
-import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { useShareableImage } from '../utils/useShareableImage';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
 import { CANONICAL_URL } from '../utils/apiConfig';
@@ -60,7 +61,6 @@ export default function MoodOracle() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [summary, setSummary] = useState(null);
-  const [sharing, setSharing] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const cardRef = useRef(null);
 
@@ -125,21 +125,15 @@ export default function MoodOracle() {
     ? `Mood Kâhini'nde ${correctCount}/${rounds.length || TOTAL} bildim — Rütbem: ${summary.rank.name} 🎬\nSen de filmlerin ruhunu oku 👉`
     : '';
 
-  const handleShareImage = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
+  const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {
+    fileName: 'sinemood-mood-kahini.png',
+    shareText: `${shareText} ${shareUrl}`.trim(),
+    backgroundColor: '#0c0906',
+    deps: [summary, correctCount],
+  });
+  const handleShareImage = () => {
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'game' });
-    try {
-      await captureAndShare(cardRef.current, 'sinemood-mood-kahini.png', `${shareText} ${shareUrl}`.trim(), { backgroundColor: '#0c0906' });
-    } finally { setSharing(false); }
-  };
-  const handleDownload = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
-    try {
-      const b = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0c0906' });
-      downloadBlob(b, 'sinemood-mood-kahini.png');
-    } finally { setSharing(false); }
+    return share();
   };
 
   return (
@@ -228,7 +222,7 @@ export default function MoodOracle() {
               <div className="flex gap-4 sm:gap-5 p-4 sm:p-5 rounded-3xl bg-surface border border-default mb-6">
                 <div className="w-24 sm:w-28 shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-surface-2 ring-1 ring-white/10">
                   {round.film.poster_url
-                    ? <img src={proxyImageUrl(round.film.poster_url)} alt={round.film.title} className="w-full h-full object-cover" />
+                    ? <img src={proxyImageUrl(round.film.poster_url)} alt={round.film.title} className="w-full h-full object-cover" crossOrigin="anonymous" />
                     : <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">🎬</div>}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center">

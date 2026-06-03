@@ -94,10 +94,17 @@ function _sanitizeModernColors(origRoot, cloneRoot) {
  * @returns {Promise<Blob>} PNG blob
  */
 export async function captureElementAsBlob(element, opts = {}) {
+  // Yazı tipleri (serif/display) yüklenmeden capture alınırsa html2canvas yedek
+  // fonta düşer → görsel "bozuk/çirkin" çıkar. Önce fontların hazır olmasını bekle.
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+  } catch { /* sessiz */ }
+
   const canvas = await html2canvas(element, {
     backgroundColor: '#111111',
     scale: 2,
     useCORS: true,
+    imageTimeout: 15000,
     logging: false,
     onclone: (_doc, clonedEl) => {
       try { _sanitizeModernColors(element, clonedEl); } catch { /* sessiz */ }

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Share2, Download } from 'lucide-react';
-import { captureAndShare, captureElementAsBlob, downloadBlob } from '../utils/shareUtils';
+import { useShareableImage } from '../utils/useShareableImage';
 import ShareButtons from './ShareButtons';
 import { track, EVENTS } from '../utils/analytics';
 import { useTheme } from '../context/ThemeContext';
@@ -49,38 +49,27 @@ const PALETTES = {
 
 export default function TasteMapCard({ tasteMap, username = '', profileUrl = '' }) {
   const cardRef = useRef(null);
-  const [sharing, setSharing] = useState(false);
   const { theme } = useTheme();
   const p = theme === 'light' ? PALETTES.light : PALETTES.dark;
-
-  if (!tasteMap || tasteMap.confidence === 'low') return null;
 
   const shareUrl = profileUrl || CANONICAL_URL;
   const shareText = username
     ? `${username}'in Sinemood Zevk Haritası — Sen de sinema DNA'nı keşfet!`
     : 'Sinemood Zevk Haritam — Sen de sinema DNA\'nı keşfet!';
 
-  const handleShareImage = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
+  // Hook'lar erken return'den ÖNCE çağrılmalı (Rules of Hooks).
+  const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {
+    fileName: 'sinemood-zevk-haritam.png',
+    shareText: `${shareText} ${shareUrl}`.trim(),
+    backgroundColor: p.captureBg,
+    deps: [tasteMap, theme, username],
+  });
+  const handleShareImage = () => {
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'taste_map' });
-    try {
-      await captureAndShare(cardRef.current, 'sinemood-zevk-haritam.png', `${shareText} ${shareUrl}`.trim(), { backgroundColor: p.captureBg });
-    } finally {
-      setSharing(false);
-    }
+    return share();
   };
 
-  const handleDownload = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
-    try {
-      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: p.captureBg });
-      downloadBlob(blob, 'sinemood-zevk-haritam.png');
-    } finally {
-      setSharing(false);
-    }
-  };
+  if (!tasteMap || tasteMap.confidence === 'low') return null;
 
   const moodPctEntries = tasteMap.mood_pct ? Object.entries(tasteMap.mood_pct).slice(0, 5) : [];
   const totalMovies = tasteMap.signals?.total_movies || 0;

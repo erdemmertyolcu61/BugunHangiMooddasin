@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Star, Share2, Download, CalendarDays, Play } from 'lucide-react';
 import { getDailyFilm, proxyImageUrl } from '../services/api';
-import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { useShareableImage } from '../utils/useShareableImage';
 import { track, EVENTS } from '../utils/analytics';
 import FilmDetailModal from '../components/FilmDetailModal';
 import useDocumentMeta from '../utils/useDocumentMeta';
@@ -21,7 +22,6 @@ export default function DailyFilm() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const cardRef = useRef(null);
 
@@ -46,26 +46,15 @@ export default function DailyFilm() {
     ? `Üstad'ın bugünkü filmi: ${movie.title} 🎬\nSen de günün filmini keşfet 👉`
     : '';
 
-  const handleShareImage = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
+  const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {
+    fileName: 'sinemood-gunun-filmi.png',
+    shareText: `${shareText} ${shareUrl}`.trim(),
+    backgroundColor: isLight ? '#e7dabd' : '#0f0d0a',
+    deps: [movie?.id, isLight],
+  });
+  const handleShareImage = () => {
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'daily' });
-    try {
-      await captureAndShare(cardRef.current, 'sinemood-gunun-filmi.png', `${shareText} ${shareUrl}`.trim(), { backgroundColor: isLight ? '#e7dabd' : '#0f0d0a' });
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
-    try {
-      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: isLight ? '#e7dabd' : '#0f0d0a' });
-      downloadBlob(blob, 'sinemood-gunun-filmi.png');
-    } finally {
-      setSharing(false);
-    }
+    return share();
   };
 
   return (

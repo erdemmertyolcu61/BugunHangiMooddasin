@@ -14,7 +14,8 @@ import {
   Users, Plus, LogIn, Copy, Check, Swords, Star,
   Ban, RefreshCw, ChevronLeft, Clapperboard, Heart, Quote, Share2, Download,
 } from 'lucide-react';
-import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { shareToWhatsApp, shareToTelegram } from '../utils/shareUtils';
+import { useShareableImage } from '../utils/useShareableImage';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
 import { CANONICAL_URL } from '../utils/apiConfig';
@@ -207,7 +208,6 @@ export default function TasteMapCollision() {
   const [veto, setVeto] = useState(new Set());
   const [results, setResults] = useState([]);
   const [match, setMatch] = useState(0);
-  const [sharing, setSharing] = useState(false);
   const cardRef = useRef(null);
 
   const merged = step === 'colliding' || step === 'results';
@@ -277,26 +277,15 @@ export default function TasteMapCollision() {
 
   const shareText = `Sinema uyumumuz %${match}! "${moodTitle(u1Mood)}" ✕ "${moodTitle(u2Mood)}" çarpıştı. Sen de zevkini çarpıştır 👉`;
 
-  const handleShareImage = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
+  const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {
+    fileName: 'sinemood-carpisma.png',
+    shareText: `${shareText} ${inviteUrl}`.trim(),
+    backgroundColor: '#0a0807',
+    deps: [match, activeCode],
+  });
+  const handleShareImage = () => {
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'collision' });
-    try {
-      await captureAndShare(cardRef.current, 'sinemood-carpisma.png', `${shareText} ${inviteUrl}`.trim(), { backgroundColor: '#0a0807' });
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!cardRef.current || sharing) return;
-    setSharing(true);
-    try {
-      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0a0807' });
-      downloadBlob(blob, 'sinemood-carpisma.png');
-    } finally {
-      setSharing(false);
-    }
+    return share();
   };
 
   const collidingPhrases = useMemo(() => [

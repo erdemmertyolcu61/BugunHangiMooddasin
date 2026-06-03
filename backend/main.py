@@ -2713,7 +2713,12 @@ async def image_proxy(url: str = Query(...)):
         return FileResponse(
             cache_path,
             media_type=content_type,
-            headers={"Cache-Control": "public, max-age=604800", "X-Cache": "HIT"},
+            headers={
+                "Cache-Control": "public, max-age=604800",
+                "X-Cache": "HIT",
+                # html2canvas (paylaşım görseli) + native (mutlak URL) için CORS.
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
     # Disk cache miss — TMDB'den çek ve kaydet
@@ -2733,7 +2738,12 @@ async def image_proxy(url: str = Query(...)):
         return Response(
             content=body,
             media_type=content_type,
-            headers={"Cache-Control": "public, max-age=604800", "X-Cache": "MISS"},
+            headers={
+                "Cache-Control": "public, max-age=604800",
+                "X-Cache": "MISS",
+                # html2canvas (paylaşım görseli) + native (mutlak URL) için CORS.
+                "Access-Control-Allow-Origin": "*",
+            },
         )
     except Exception:
         raise HTTPException(status_code=502, detail="Görsel yüklenemedi.")
