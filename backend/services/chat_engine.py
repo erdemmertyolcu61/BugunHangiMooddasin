@@ -125,6 +125,13 @@ SIMILAR_PATTERNS = [
     r"(.+?)['']?[eaıiuü]\s+benzer\b",
     r"(.+?)\s+gibi\s+(?:bir\s+)?film",
     r"(.+?)\s+(?:gibisini|gibileri)\b",
+    # ── İngilizce benzerlik kalıpları ──
+    r"something\s+like\s+(.+)",
+    r"similar\s+to\s+(.+)",
+    r"movies?\s+like\s+(.+)",
+    r"films?\s+like\s+(.+)",
+    r"in\s+the\s+style\s+of\s+(.+)",
+    r"(.+?)\s+vibes?\b",
 ]
 
 PERSON_KEYWORDS = [
@@ -188,6 +195,12 @@ MOOD_KEYWORDS = {
     "aşkı", "aşkın", "aşkla", "aşkını", "sevgisi", "sevgiyle", "sevgiyi",
     # Konuya işaret eden sıfatlar
     "felsefi", "derin", "varoluşsal", "sorgulayan",
+    # Soyut / şiirsel ruh hali
+    "melankoli", "melankolik", "umutsuz", "umutsuzum", "umut", "huzur",
+    "boşluk", "boşlukta", "daralıyor", "daraldı", "küstüm", "sıkışıyor",
+    "boğuluyorum", "yalnızlık", "yalnızım", "hüzünlüyüm", "özlem", "özledim",
+    "ısıtacak", "ısıtsın", "feels", "duygulanmak", "dağıtmak", "dağılmak",
+    "buruk", "kırgın", "yorgunum", "bitkin", "tükendim", "ağlatsın",
 }
 
 # Tümce düzeyinde ruh hali/distraction ifadeleri — kelime bazlı mood kontrolünden ÖNCE kontrol edilir.
@@ -232,18 +245,55 @@ MOOD_PHRASES = {
     "taşra kasveti", "distopik bilimkurgu", "sanat filmi",
     "tempo düşmeyen", "temposu hiç düşmeyen",
     "dakikalık", "şipşak",
+    # ── İngilizce ruh hali ifadeleri (yabancı dil sorguları) ──
+    "i'm sad", "im sad", "feeling sad", "i feel sad", "feeling down",
+    "i'm tired", "im tired", "feeling tired", "i'm bored", "im bored",
+    "i'm happy", "feeling happy", "i want to cry", "wanna cry",
+    "make me laugh", "something funny", "something light", "something scary",
+    "something sad", "something romantic", "feel good", "feel-good",
+    "i'm stressed", "im stressed", "relaxing", "something relaxing",
+    "what should i watch", "recommend me", "suggest me a movie",
+    "i don't know what to watch", "cheer me up", "mind bending",
+    # ── Soyut / şiirsel ruh hali (Türkçe) ──
+    "içim daralıyor", "içim sıkışıyor", "içim daraldı", "hayata küstüm",
+    "ait olamıyorum", "ait olamamak", "kendimi boşlukta", "boşlukta hissediyorum",
+    "umudum yok", "umutsuzum", "içimi ısıtacak", "içimi ısıtsın",
+    "huzur bulmak", "huzura ihtiyacım", "kafayı yedim", "aklımı başımdan alacak",
+    "kafamı dağıtayım", "dağıtmak istiyorum", "çok feels", "feels veren",
+    "ruhum yorgun", "yorgun düştüm", "moralim yerlerde", "içim karardı",
+    "ağlamak istiyorum ama", "gülmek istiyorum ama",
 }
 
 # Tek kelimelik ünlü yönetmen/oyuncu adları — _looks_like_person_name tek kelime için de çalışsın.
+# Soyadı tek başına yazıldığında bile TMDB kişi aramasına yönlendirilir
+# (örn. "eggers filmi", "lanthimos tarzı"). Tireli/iki kelimelik isimler
+# _looks_like_person_name heuristic'i ile ayrıca yakalanır.
 KNOWN_PERSONS = {
+    # ── Klasik / usta yönetmenler ──
     "tarantino", "nolan", "kubrick", "scorsese", "ceylan", "spielberg",
     "hitchcock", "fellini", "bergman", "kurosawa", "lynch", "fincher",
     "villeneuve", "tarkovsky", "herzog", "haneke", "kieslowski",
     "kusturica", "polanski", "coppola", "godard", "truffaut",
     "klein", "reiner", "ersoy", "sorrentino", "haggis", "cameron",
+    "cronenberg", "demir", "şener", "emre yükselen", "martin eden",
+    "ozu", "mizoguchi", "antonioni", "visconti", "pasolini", "rossellini",
+    "wilder", "ford", "hawks", "welles", "kazan", "lean", "leone",
+    "altman", "malick", "lumet", "cassavetes", "varda", "resnais",
+    # ── Çağdaş auteur'ler ──
+    "aster", "eggers", "gerwig", "lanthimos", "peele", "chazelle",
+    "inarritu", "iñárritu", "del toro", "refn", "baumbach", "payne",
+    "mcdonagh", "ramsay", "glazer", "östlund", "ostlund", "hamaguchi",
+    "koreeda", "kore-eda", "bong", "park chan-wook", "wong kar-wai",
+    "almodovar", "almodóvar", "farhadi", "kiarostami", "panahi",
+    "audiard", "ozon", "dolan", "garrone", "haynes", "anderson",
+    "aronofsky", "iñarritu", "zhang yimou", "jia zhangke", "weerasethakul",
+    # ── Türk yönetmenler ──
+    "demirkubuz", "akın", "kaplanoğlu", "alper", "ustaoğlu",
+    "pirselimoğlu", "erdem", "yeşilçam", "kemp",
+    # ── Oyuncular ──
     "pitt", "dicaprio", "deniro", "pacino", "hopkins", "streep",
-    "roberts", "hanks", "yeşilçam", "kemp", "cronenberg", "demir",
-    "şener", "emre yükselen", "martin eden",
+    "roberts", "hanks", "blanchett", "phoenix", "gosling", "bale",
+    "fassbender", "oldman", "freeman", "washington", "nicholson",
 }
 
 GENRE_KEYWORDS = {
@@ -255,12 +305,31 @@ GENRE_KEYWORDS = {
     "western": [37], "kovboy": [37], "müzikal": [10402],
     "suç": [80], "gizem": [9648], "tarih": [36],
     "aile": [10751],
+    # ── İngilizce tür adları (yabancı dil sorguları) ──
+    # Not: "war"/"action" gibi kısa kelimeler (award, satisfaction içinde
+    # substring olarak geçtiğinden) bilinçli olarak EKLENMEDİ; bunlar theme_router
+    # (savas, kelime-sınırı) ve _RULE_MOOD_MAP (adrenalin) ile karşılanır.
+    "comedy": [35], "horror": [27], "romance": [10749],
+    "romantic": [10749], "adventure": [12], "mystery": [9648],
+    "crime": [80], "documentary": [99],
+    "animation": [16], "musical": [10402], "fantasy": [14],
+    "science fiction": [878], "history": [36],
 }
 
 NEGATIVE_WORDS = [
     "olmasın", "istemiyorum", "değil", "hariç", "dışında", "yok",
     "olmadan", "kaçının", "uzak", "ama", "fakat",
 ]
+
+# İçerik bazlı reddetme: tür adı geçmeden "şiddet/kan/korkutma" gibi içerik
+# kısıtları → ilgili türleri hariç tut. (phrase → exclude genre_ids)
+_CONTENT_NEGATION = {
+    "şiddet içermesin": [27, 53, 10752, 80], "şiddet olmasın": [27, 53, 10752, 80],
+    "şiddetsiz": [27, 53, 10752, 80], "kan olmasın": [27, 53], "kanlı olmasın": [27, 53],
+    "korkutmasın": [27], "ürkütmesin": [27], "korkutucu olmasın": [27],
+    "ağlatmasın": [],  # tür değil, mood ile ele alınır
+    "ağır olmasın": [], "kasvetli olmasın": [],
+}
 
 # Türkçe dil/ülke adları → ISO 639-1 kodları
 LANGUAGE_KEYWORDS = {
@@ -372,36 +441,99 @@ def _is_short_title_like(text: str) -> bool:
         return False
     if _looks_conceptual(text):
         return False
+    # Tür kelimesi içeren kısa ifadeler ("a horror movie", "romantik film")
+    # film başlığı değil, tür isteğidir → genre_recommendation'a düşsün.
+    text_lower = text.lower()
+    if any(gw in text_lower for gw in GENRE_KEYWORDS):
+        return False
+    return True
+
+
+# KNOWN_PERSONS'ın normalize edilmiş (aksansız, noktalamasız) sürümü — çok kelimeli
+# ve tireli isimlerin (örn. "park chan-wook", "kore-eda") karşılaştırmasını sağlar.
+_KNOWN_PERSONS_NORM = {_normalize(p) for p in KNOWN_PERSONS}
+
+
+# Kişi adı OLAMAYACAK kelimeler — bunları içeren ifadeler isim sayılmaz.
+# (Bağlaç, edat, zamir, betimleyici isim/sıfat ve İngilizce film terimleri.)
+_NON_NAME_WORDS = {
+    # İngilizce film terimleri + edatlar
+    "film", "films", "movie", "movies", "winning", "best", "good", "great",
+    "gems", "underrated", "vibes", "of", "the", "an", "to", "in", "on",
+    "with", "and", "or", "my", "me", "something", "coming", "age",
+    # Türkçe bağlaç / edat / zamir / nicelik
+    "bir", "bu", "şu", "ve", "ile", "ama", "fakat", "ancak", "ya", "ki",
+    "çok", "daha", "en", "gibi", "için", "kadar", "her", "hiç", "az", "biraz",
+    "sonra", "sonrası", "önce", "öncesi", "olan", "olduğu", "kalmış", "bilinen",
+    # Betimleyici isim / sıfat (kişi adı değil)
+    "şey", "şeyler", "dizi", "diziler", "hikaye", "hikayesi", "hikayeler",
+    "öykü", "öyküsü", "dünya", "dünyası", "evren", "evreni", "karakter",
+    "karakteri", "ilişki", "ilişkisi", "akşam", "akşamı", "gece", "gecesi",
+    "sabah", "adam", "adamın", "adamı", "kadın", "kadının", "çocuk", "çocukla",
+    "çocuğu", "aile", "ailesi", "dönem", "dönemi", "sinema", "sineması",
+    "yıl", "yılın", "yılı", "tarz", "tarzı", "güçlü", "yaşlı", "genç", "dahi",
+    "deli", "modern", "klasik", "eski", "yeni", "veren", "alacak", "yapan", "eden",
+}
+
+# Türkçe fiil/ek sonları — kişi adları (neredeyse) hiç bu eklerle bitmez.
+# "maz/mez" (Yılmaz), "sin/sın" (Muhsin) bilinçli DIŞARIDA — gerçek soyadlarını bozar.
+_NAME_VERB_SUFFIXES = (
+    "yorum", "yoruz", "iyor", "ıyor", "uyor", "üyor",
+    "dım", "dim", "dum", "düm", "tım", "tim", "tüm", "tum",
+    "mak", "mek", "ecek", "acak", "yacak", "yecek",
+    "miş", "muş", "mış", "müş", "ması", "mesi",
+    "makta", "mekte", "malı", "meli", "masin", "mesin",
+)
+
+
+def _is_name_token(w: str) -> bool:
+    """İsim parçası mı? Harf + tire/kesme işareti kabul (joon-ho, kar-wai, o'brien)."""
+    if not (2 <= len(w) <= 15):
+        return False
+    return all(ch.isalpha() or ch in "-'" for ch in w)
+
+
+def _is_plausible_person_name(name: str, allow_single: bool = False) -> bool:
+    """
+    Verilen metin gerçekten bir kişi adı gibi mi? Betimleyici cümleleri eler.
+    - KNOWN_PERSONS'taki adları daima kabul.
+    - Olumsuzluk, ruh hali, tür kelimesi, durak kelime, fiil eki içermesin.
+    - Kelime sayısı: KNOWN dışında 2-3 (allow_single=True ise 1-3).
+    Örnekler (kabul): "Tom Hanks", "Nuri Bilge Ceylan", "Bong Joon-ho", "Tarantino".
+    Örnekler (red): "içim daralıyor", "güçlü kadın karakter", "dahi ama deli".
+    """
+    name = name.strip().strip('"\'')
+    if not name:
+        return False
+    if _normalize(name) in _KNOWN_PERSONS_NORM:
+        return True
+    words = name.split()
+    lo = 1 if allow_single else 2
+    if not (lo <= len(words) <= 3):
+        return False
+    nl = name.lower()
+    if _has_mood_words(name):
+        return False
+    if any(nw in nl for nw in NEGATIVE_WORDS):
+        return False
+    for gw in GENRE_KEYWORDS:
+        if gw in nl:
+            return False
+    for w in words:
+        wl = w.lower()
+        wf = _fold(wl)
+        if wl in _NON_NAME_WORDS or wf in _NON_NAME_WORDS:
+            return False
+        if not _is_name_token(w):
+            return False
+        if len(wf) >= 6 and any(wf.endswith(s) for s in _NAME_VERB_SUFFIXES):
+            return False
     return True
 
 
 def _looks_like_person_name(text: str) -> bool:
-    """
-    2-3 kelimeli kişi adı mı? Tek kelimelik KNOWN_PERSONS da kabul.
-    Heuristic: her kelime 2-15 karakter, küçük harfle başlamıyor (büyük harf beklenir),
-    rakam ve noktalama yok, mood/genre keyword değil.
-    Örnekler: "Tom Hanks", "Brad Pitt", "Nuri Bilge Ceylan", "Christopher Nolan", "Tarantino"
-    """
-    text_normalized = _normalize(text)
-    if text_normalized in KNOWN_PERSONS:
-        return True
-    words = text.strip().split()
-    if not (2 <= len(words) <= 3):
-        return False
-    # Ruh hali veya tür kelimesi içermesin
-    if _has_mood_words(text):
-        return False
-    text_lower = text.lower()
-    for gw in GENRE_KEYWORDS:
-        if gw in text_lower:
-            return False
-    # Her kelime: harf karakterlerinden oluşsun, 2-15 karakter arasında
-    for w in words:
-        if not w.isalpha():
-            return False
-        if not (2 <= len(w) <= 15):
-            return False
-    return True
+    """Bare metin kişi adı mı? (PERSON_KEYWORD bağlamı olmadan — tek kelime yalnız KNOWN.)"""
+    return _is_plausible_person_name(text, allow_single=False)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -444,23 +576,40 @@ _MOOD_WEIGHTS = {
 }
 
 _RULE_MOOD_MAP = {
-    ("yorgun", "sakin", "rahatlamak", "battaniye", "sarılmak", "huzur", "dinlen"):  "battaniye",
-    ("macera", "yol", "keşif", "seyahat", "kaçış"):                                  "yolculuk",
-    ("karanlık", "gece", "gizem", "korku", "gerilim", "kasvet", "loş"):              "gece",
-    ("gülmek", "komik", "eğlence", "kahkaha", "neşe", "güldür"):                    "kahkaha",
-    ("ağlamak", "üzgün", "hüzün", "gözyaşı", "duygusal", "dokunaklı", "yürek"):    "gozyasi",
-    ("heyecan", "adrenalin", "patlama", "savaş", "aksiyon", "tempo"):               "adrenalin",
+    ("yorgun", "sakin", "rahatlamak", "battaniye", "sarılmak", "huzur", "dinlen",
+     "tired", "relax", "cozy", "feel good", "feel-good", "comfort",
+     "ısıtacak", "ısıtsın", "içimi ısıt", "huzur bul", "quiet", "sakin bir"):        "battaniye",
+    ("macera", "yol", "keşif", "seyahat", "kaçış",
+     "adventure", "journey", "road trip"):                                           "yolculuk",
+    ("karanlık", "gece", "gizem", "korku", "gerilim", "kasvet", "loş",
+     "dark", "noir", "crime", "mystery"):                                            "gece",
+    ("gülmek", "komik", "eğlence", "kahkaha", "neşe", "güldür",
+     "laugh", "funny", "comedy", "fun", "cheer me up",
+     "kafayı yedim", "dağıt", "kafamı dağı", "sıkıl", "bunal", "sıkıntı"):           "kahkaha",
+    ("ağlamak", "üzgün", "hüzün", "gözyaşı", "duygusal", "dokunaklı", "yürek",
+     "sad", "cry", "emotional", "tearjerker", "feeling down",
+     "melankoli", "umutsuz", "küstüm", "boşlukta", "ait olama", "yalnızlık",
+     "özlem", "özledim", "içim daral", "içim karar", "buruk", "kırgın", "feels"):    "gozyasi",
+    ("heyecan", "adrenalin", "patlama", "savaş", "aksiyon", "tempo",
+     "action", "adrenaline", "thrill", "intense", "aklımı başımdan"):                "adrenalin",
     ("romantik", "aşk", "kalp", "sevgi", "tutku", "kelebek",
-     "sevgilimle", "şehvetli", "erotik", "tutkulu"):                                  "askbahcesi",
-    ("nostalji", "eski", "çocukluk", "geçmiş", "retro", "vintage"):                  "zamanyolcusu",
+     "sevgilimle", "şehvetli", "erotik", "tutkulu",
+     "romantic", "romance", "love story"):                                            "askbahcesi",
+    ("nostalji", "eski", "çocukluk", "geçmiş", "retro", "vintage",
+     "nostalgic", "classic"):                                                        "zamanyolcusu",
     ("düşünmek", "felsefe", "zihin", "entelektüel", "soru", "derin", "beyin",
-     "yapay zeka", "felsefi"):                                                        "zihin",
-    ("küçük", "kalp", "samimi", "içten", "basit", "sıcak"):                          "kalp",
-    ("deneysel", "sıradışı", "karmaşık", "garip", "absürt", "kült"):                "karmakar",
-    ("kisa", "kısa", "kompakt", "sipsak", "çekim"):                                  "sipsak",
-    ("atmosfer", "gerilim", "yavaş", "ürperti", "tedirgin", "kasvet"):               "deep-chills",
-    ("estetik", "görsel", "sinematografi", "kompozisyon", "kadraj"):                  "kadraj-estetigi",
-    ("itiraf", "konuşma", "diyalog", "sohbet", "samimi", "gece yarısı"):             "geceyarisi-itirafi",
+     "yapay zeka", "felsefi", "mind bending", "twist", "thought provoking"):          "zihin",
+    ("küçük", "kalp", "samimi", "içten", "basit", "sıcak",
+     "indie", "intimate", "heartfelt"):                                              "kalp",
+    ("deneysel", "sıradışı", "karmaşık", "garip", "absürt", "kült",
+     "experimental", "surreal", "weird", "absurd"):                                  "karmakar",
+    ("kisa", "kısa", "kompakt", "sipsak", "çekim", "short", "quick"):                "sipsak",
+    ("atmosfer", "gerilim", "yavaş", "ürperti", "tedirgin", "kasvet",
+     "horror", "scary", "creepy", "unsettling", "slow burn"):                        "deep-chills",
+    ("estetik", "görsel", "sinematografi", "kompozisyon", "kadraj",
+     "aesthetic", "cinematography", "visually"):                                     "kadraj-estetigi",
+    ("itiraf", "konuşma", "diyalog", "sohbet", "samimi", "gece yarısı",
+     "dialogue", "conversation"):                                                    "geceyarisi-itirafi",
 }
 
 
@@ -517,6 +666,10 @@ def _rule_based_confused_analysis(text: str) -> dict:
     era_c = _extract_era_constraint(text)
     # Karmaşık negation ile tür include/exclude ayır
     genre_hints, exclude_genre_hints = _parse_complex_negation(text)
+    # İçerik bazlı reddetme ("şiddet içermesin", "kan olmasın") → tür hariç tut
+    for phrase, ex_ids in _CONTENT_NEGATION.items():
+        if phrase in text_lower and ex_ids:
+            exclude_genre_hints = list(set(exclude_genre_hints + ex_ids))
     # Dil filtresi
     lang_filter = None
     for phrase, code in LANGUAGE_KEYWORDS.items():
@@ -543,10 +696,22 @@ def _rule_based_confused_analysis(text: str) -> dict:
         for mid, pct in sorted(scored.items(), key=lambda x: -x[1])[:4]
     ]
     top_mood = mood_mix[0]["mood_id"]
+    top_title = top_mood.replace("-", " ").title()
+
+    # Çelişkili/karmaşık duygu: ilk iki mood yakınsa tek mood'a indirgeme —
+    # ikisini birlikte onurlandır (örn. "hem gülmek hem hüzünlenmek").
+    if len(mood_mix) >= 2 and mood_mix[1]["percentage"] >= mood_mix[0]["percentage"] * 0.6:
+        second_title = mood_mix[1]["mood_id"].replace("-", " ").title()
+        message = f"İçinde iki ses var gibi: hem '{top_title}' hem '{second_title}'. İkisini de harmanladım."
+        ustad_line = f"Karışık bir ruh hâli bu evlat — '{top_title}' ile '{second_title}' arasında bir yerdesin. İkisini de gözettim."
+    else:
+        message = f"Sana en uygun ruh hali: {top_title}."
+        ustad_line = f"Şu anki haline en çok '{top_title}' yakışıyor gibi."
+
     return {
         "mood_mix": mood_mix,
-        "message": f"Sana en uygun ruh hali: {top_mood.replace('-', ' ').title()}.",
-        "ustad_line": f"Şu anki haline en çok '{top_mood.replace('-', ' ').title()}' yakışıyor gibi.",
+        "message": message,
+        "ustad_line": ustad_line,
         "time_constraint": time_c,
         "era_preference": era_c,
         "genre_hints": genre_hints,
@@ -594,6 +759,13 @@ def _extract_time_constraint(text: str) -> dict | None:
 def _extract_era_constraint(text: str) -> dict | None:
     """Dönem kısıtı: {"min_year": int|None, "max_year": int|None} veya None."""
     t = text.lower()
+
+    # "son 5 yıl", "son 3 yılın", "geçen 10 yıl" → güncel yıldan geriye
+    recent_n = re.search(r"(?:son|geçen|geçtiğimiz)\s+(\d{1,2})\s*yıl", t)
+    if recent_n:
+        from datetime import datetime
+        n = int(recent_n.group(1))
+        return {"min_year": datetime.now().year - n, "max_year": None}
 
     # Onluk dilimler: "80'ler", "80'lerden", "90lar", "2000'ler"
     decade_match = re.search(r"(\d{2,4})[''’]?\s*(?:ler|lar|lerden|lardan)", t)
@@ -825,7 +997,8 @@ class ChatEngine:
             if kw in text_lower:
                 idx = text_lower.index(kw)
                 person_name = text[:idx].strip().strip('"\'')
-                if person_name and len(person_name) >= 2:
+                # "kadın yönetmenli dram" gibi betimlemeleri ele — sadece gerçek isim
+                if person_name and _is_plausible_person_name(person_name, allow_single=True):
                     return Intent("director_recommendation", person_name=person_name,
                                   person_type="director", original_text=text)
 
@@ -833,12 +1006,8 @@ class ChatEngine:
             if kw in text_lower:
                 idx = text_lower.index(kw)
                 person_name = text[:idx].strip().strip('"\'')
-                if person_name and len(person_name) >= 2:
-                    pn_lower = person_name.lower()
-                    if _has_mood_words(person_name) or len(person_name) > 40:
-                        continue
-                    if any(nw in pn_lower for nw in NEGATIVE_WORDS):
-                        continue
+                # "korku filmi", "güçlü kadın karakter" gibi betimleme/tür isteklerini ele
+                if person_name and _is_plausible_person_name(person_name, allow_single=True):
                     return Intent("actor_recommendation", person_name=person_name,
                                   person_type="actor", original_text=text)
 
@@ -847,9 +1016,14 @@ class ChatEngine:
                           reference_title=TURKISH_TITLE_ALIASES[text_norm],
                           original_text=text)
 
+        # Alias'ı TAM KELİME olarak ara (substring değil): "baba" → "babam" içinde
+        # eşleşmemeli ("Babam ve Oğlum" yanlışlıkla The Godfather'a gitmesin).
+        # Metni boşlukla padleyip f" {alias} " kontrolü hem tek hem çok kelimeli
+        # alias'larda ("kara şövalye") kelime sınırını garanti eder.
+        _padded_norm = f" {text_norm} "
         for alias, eng_title in TURKISH_TITLE_ALIASES.items():
-            if alias in text_norm and len(alias) >= 4:
-                remaining = text_norm.replace(alias, "").strip()
+            if len(alias) >= 4 and f" {alias} " in _padded_norm:
+                remaining = _padded_norm.replace(f" {alias} ", " ").strip()
                 if len(remaining) < 10 or not _has_mood_words(remaining):
                     return Intent("exact_movie_search",
                                   reference_title=eng_title,
@@ -970,6 +1144,8 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     # Sevgili / romantik gece
     "sevgilimle":  {"mood_boost": {"askbahcesi": 0.50},                 "genre_ids": [10749]},
     "sevgili":     {"mood_boost": {"askbahcesi": 0.40},                 "genre_ids": [10749]},
+    "ilk buluşma": {"mood_boost": {"askbahcesi": 0.45, "kahkaha": 0.20}, "genre_ids": [10749, 35]},
+    "nişanlımla":  {"mood_boost": {"askbahcesi": 0.45},                 "genre_ids": [10749]},
     "şehvetli":    {"mood_boost": {"askbahcesi": 0.50},                 "genre_ids": [10749, 18]},
     "tutkulu":     {"mood_boost": {"askbahcesi": 0.45},                 "genre_ids": [10749, 18]},
     "erotik":      {"mood_boost": {"askbahcesi": 0.50},                 "genre_ids": [10749, 18]},
@@ -978,10 +1154,18 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     "ailemle":     {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.25}, "genre_ids": [10751]},
     "aile filmi":  {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.25}, "genre_ids": [10751]},
     "çocuğuma":    {"mood_boost": {"battaniye": 0.35, "kahkaha": 0.25}, "genre_ids": [16, 10751]},
+    "çocukla":     {"mood_boost": {"battaniye": 0.35, "kahkaha": 0.25}, "genre_ids": [16, 10751]},
     "çocuklar":    {"mood_boost": {"battaniye": 0.30, "kahkaha": 0.25}, "genre_ids": [16, 10751]},
     "çocuk filmi": {"mood_boost": {"battaniye": 0.35, "kahkaha": 0.20}, "genre_ids": [16, 10751]},
 
     # Sosyal bağlam
+    "anneme":      {"mood_boost": {"battaniye": 0.40, "gozyasi": 0.20}, "genre_ids": [10751, 18]},
+    "annemle":     {"mood_boost": {"battaniye": 0.40, "gozyasi": 0.20}, "genre_ids": [10751, 18]},
+    "ailecek":     {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.25}, "genre_ids": [10751]},
+    "klişe olma":  {"mood_boost": {"kalp": 0.40, "karmakar": 0.25},     "genre_ids": [18]},
+    "klişe değil": {"mood_boost": {"kalp": 0.40, "karmakar": 0.25},     "genre_ids": [18]},
+    "sıradan olma":{"mood_boost": {"kalp": 0.35, "karmakar": 0.25},     "genre_ids": [18]},
+    "yaşlılık":    {"mood_boost": {"gozyasi": 0.35, "sessiz": 0.25},    "genre_ids": [18]},
     "arkadaşlarla":{"mood_boost": {"kahkaha": 0.45, "adrenalin": 0.20}, "genre_ids": [35]},
     "arkadaşımla": {"mood_boost": {"kahkaha": 0.40, "adrenalin": 0.20}, "genre_ids": [35]},
     "yalnız":      {"mood_boost": {"sessiz": 0.35, "geceyarisi-itirafi": 0.30}, "genre_ids": [18]},
@@ -1004,6 +1188,12 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     # Üretim / köken
     "türk filmi":  {"mood_boost": {"kalp": 0.30},                       "genre_ids": [18]},
     "yerli":       {"mood_boost": {"kalp": 0.25},                       "genre_ids": [18]},
+    "hollywood olma": {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.20}, "genre_ids": [18]},
+    "hollywood değil": {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.20}, "genre_ids": [18]},
+    "amerikan değil": {"mood_boost": {"kalp": 0.35},                    "genre_ids": [18]},
+    "şiddet içermesin": {"mood_boost": {"battaniye": 0.40},             "genre_ids": [10751, 35]},
+    "şiddet olmasın": {"mood_boost": {"battaniye": 0.40},               "genre_ids": [10751, 35]},
+    "şiddetsiz":   {"mood_boost": {"battaniye": 0.35},                  "genre_ids": [10751, 35]},
 
     # ── Görsel tarz ──
     "siyah beyaz": {"mood_boost": {"sessiz": 0.35, "gece": 0.25},       "genre_ids": []},

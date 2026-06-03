@@ -4548,7 +4548,7 @@ async def _resolve_keyword_ids(terms: list) -> list:
 async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_ids,
                            sort_by="vote_average.desc", min_vote_count=200,
                            max_vote_count=None, date_gte=None, page=1, reason="",
-                           company_ids=None) -> list:
+                           company_ids=None, original_language=None) -> list:
     """TMDB Discover ile tema/refine sonucu çek (poster + exclude filtreli)."""
     kwargs = {"sort_by": sort_by, "min_vote_average": min_vote,
               "min_vote_count": min_vote_count, "page": page}
@@ -4560,6 +4560,8 @@ async def _discover_themed(*, keyword_ids, genre_ids, limit, min_vote, exclude_i
         kwargs["primary_release_date_gte"] = date_gte
     if company_ids:
         kwargs["with_companies"] = "|".join(str(c) for c in company_ids)
+    if original_language:
+        kwargs["with_original_language"] = original_language
     try:
         res = await tmdb_service.discover_movies(list(genre_ids or []), **kwargs)
     except Exception as e:
@@ -4586,48 +4588,220 @@ _REFINE_USTAD = {
 }
 
 
-async def _refine_recommendation(refine: str, text: str, limit: int,
-                                  min_vote: float, exclude_ids: list) -> dict:
-    """4 buton için deterministik öneri: önceki sorgunun tema/türünü koruyup
-    sıralama/filtre modifier'ı uygular (TMDB Discover)."""
+def _refine_discover_params(refine: str):
+    """Discover (tema/tür) yolu için TMDB-native sıralama/filtre parametreleri."""
     import random as _rnd
     from datetime import datetime as _dt
-    from backend.services.theme_router import match_theme
-    from backend.services.chat_engine import parse_chat_hints
-
-    theme = match_theme(text)
-    hints = parse_chat_hints(text)
-    keyword_ids = await _resolve_keyword_ids(theme["terms"]) if theme else []
-    genre_ids = (theme["genres"] if theme else []) or hints.genre_ids
-
-    sort_by, min_vc, max_vc, date_gte, page = "vote_average.desc", 200, None, None, 1
-    mv = min_vote
+    sort_by, min_vc, max_vc, date_gte, page, mv_override = \
+        "vote_average.desc", 200, None, None, 1, None
     if refine == "more_popular":
         sort_by, min_vc = "popularity.desc", 1000
     elif refine == "newer":
         sort_by, min_vc = "primary_release_date.desc", 150
         date_gte = f"{_dt.utcnow().year - 4}-01-01"
     elif refine == "different":
-        sort_by, page = "vote_average.desc", _rnd.randint(1, 3)
+        page = _rnd.randint(1, 3)
     elif refine == "less_known":
-        sort_by, min_vc, max_vc = "vote_average.desc", 80, 2500
-        mv = max(min_vote, 6.5)
+        sort_by, min_vc, max_vc, mv_override = "vote_average.desc", 80, 2500, 6.5
+    return sort_by, min_vc, max_vc, date_gte, page, mv_override
 
-    reason = theme["label"] if theme else "Senin için yeniden seçtim."
+
+def _apply_refine_modifier(movies: list, refine: str, limit: int) -> list:
+    """Kişi/benzer/mood havuzu (TMDB Discover dışı) için refine sıralama/filtresi —
+    metadata üzerinden yerel uygulanır."""
+    import random as _rnd
+    def _vc(m):  return int(m.get("vote_count") or 0)
+    def _va(m):  return float(m.get("vote_average") or 0)
+    def _pop(m): return float(m.get("popularity") or 0)
+    def _yr(m):  return _extract_year(m.get("release_date")) or 0
+    pool = list(movies)
+    if refine == "more_popular":
+        pool.sort(key=lambda m: (_pop(m), _vc(m)), reverse=True)
+    elif refine == "newer":
+        pool.sort(key=lambda m: _yr(m), reverse=True)
+    elif refine == "less_known":
+        # Az bilinen ama kaliteli: düşük oy sayısı + iyi puan
+        lesser = [m for m in pool if _vc(m) < 3000 and _va(m) >= 6.5]
+        lesser.sort(key=lambda m: (_va(m), -_vc(m)), reverse=True)
+        pool = lesser or sorted(pool, key=_vc)  # hiç yoksa en az oylananlar
+    elif refine == "different":
+        _rnd.shuffle(pool)
+    return pool[:limit]
+
+
+def _genres_from_mood(mood_analysis: dict) -> list:
+    """mood_mix'in baskın mood'undan tür listesi üretir (saf mood sorgularında)."""
+    try:
+        from backend.services.claude_service import MOOD_TO_GENRES
+    except Exception:
+        return []
+    mm = mood_analysis.get("mood_mix") or []
+    if not mm:
+        return []
+    return MOOD_TO_GENRES.get(mm[0].get("mood_id"), [])[:3]
+
+
+async def _refine_person_pool(person_name: str, role: str, min_vote: float,
+                              exclude_set: set) -> tuple:
+    """Yönetmen/oyuncu filmografisinden geniş aday havuzu (modifier sonradan)."""
+    try:
+        persons = await tmdb_service.search_person(person_name)
+        if not persons:
+            return [], ""
+        pid = persons[0]["id"]
+        if role == "director":
+            raw = await tmdb_service.get_director_filmography(pid, limit=40, min_vote_count=20)
+        else:
+            raw = await tmdb_service.get_person_movie_credits(pid)
+        pool = []
+        for m in raw or []:
+            mid = m.get("id")
+            if not mid or mid in exclude_set or not m.get("poster_url"):
+                continue
+            if float(m.get("vote_average", 0) or 0) < min_vote:
+                continue
+            m["mood_score"] = 85.0
+            m["matched_mood"] = "battaniye"
+            pool.append(m)
+        return pool, persons[0].get("name", person_name)
+    except Exception as e:
+        logger.warning("[Refine] person pool failed: %s", e)
+        return [], ""
+
+
+async def _refine_similar_pool(ref_title: str, exclude_set: set) -> tuple:
+    """Referans filme benzer (recommendations + similar) aday havuzu."""
+    from backend.services.chat_engine import TURKISH_TITLE_ALIASES, _normalize
+    alias = _normalize(ref_title)
+    if alias in TURKISH_TITLE_ALIASES:
+        ref_title = TURKISH_TITLE_ALIASES[alias]
+    try:
+        hits = await tmdb_service.search_movies(ref_title, page=1)
+        if not hits:
+            return [], ""
+        ref_id = hits[0]["id"]
+        rec, sim = await asyncio.gather(
+            tmdb_service.get_recommendations(ref_id, page=1),
+            tmdb_service.get_similar_movies(ref_id, page=1),
+        )
+        pool = {}
+        for m in rec.get("movies", []):
+            pool[m["id"]] = m
+        for m in sim.get("movies", []):
+            pool.setdefault(m["id"], m)
+        pool.pop(ref_id, None)
+        out = []
+        for m in pool.values():
+            mid = m.get("id")
+            if not mid or mid in exclude_set or not m.get("poster_url"):
+                continue
+            m["mood_score"] = 85.0
+            m["matched_mood"] = "battaniye"
+            out.append(m)
+        return out, hits[0].get("title", ref_title)
+    except Exception as e:
+        logger.warning("[Refine] similar pool failed: %s", e)
+        return [], ""
+
+
+async def _refine_via_discover(refine: str, keyword_ids: list, genre_ids: list,
+                               company_ids: list, lang_filter, label: str,
+                               limit: int, min_vote: float, exclude_ids: list) -> dict:
+    """Tema/tür yolu: TMDB Discover'ın native sort/filtre'siyle refine."""
+    sort_by, min_vc, max_vc, date_gte, page, mv_override = _refine_discover_params(refine)
+    mv = mv_override if mv_override is not None else min_vote
     movies = await _discover_themed(
         keyword_ids=keyword_ids, genre_ids=genre_ids, limit=limit, min_vote=mv,
         exclude_ids=exclude_ids, sort_by=sort_by, min_vote_count=min_vc,
-        max_vote_count=max_vc, date_gte=date_gte, page=page, reason=reason,
-        company_ids=theme.get("companies", []) if theme else None,
+        max_vote_count=max_vc, date_gte=date_gte, page=page, reason=label,
+        company_ids=company_ids or None, original_language=lang_filter,
     )
+    if not movies:
+        return None
+    return {
+        "ok": True, "mode": f"refine_{refine}", "intent": "refine",
+        "query_understanding": label,
+        "ustad_line": _REFINE_USTAD.get(refine, "İşte yeni bir seçki."),
+        "message": label, "movies": movies,
+    }
+
+
+async def _refine_recommendation(refine: str, text: str, limit: int,
+                                  min_vote: float, exclude_ids: list) -> dict:
+    """4 buton için INTENT-FARKINDA deterministik refine: önceki sorgunun
+    NİYETİNİ (kişi / benzer film / tema / tür / mood) koruyup, o havuza
+    sıralama/filtre modifier'ı uygular. Ana endpoint'in öncelik sırasını yansıtır:
+    yönetmen/bilinen-oyuncu → tema → benzer film → bilinmeyen kişi → tür/mood."""
+    from backend.services.theme_router import match_theme
+    from backend.services.chat_engine import (
+        ChatEngine, parse_chat_hints, _rule_based_confused_analysis,
+        _normalize, KNOWN_PERSONS,
+    )
+    exclude_set = set(exclude_ids)
+    engine = ChatEngine(db=cache)
+    intent = engine.detect_intent(text)
+    theme = match_theme(text)
+    hints = parse_chat_hints(text)
+    mood_analysis = _rule_based_confused_analysis(text)
+    lang_filter = mood_analysis.get("lang_filter")
+
+    director = intent.type == "director_recommendation" and bool(intent.person_name)
+    actor = intent.type == "actor_recommendation" and bool(intent.person_name)
+    person_known = bool(intent.person_name) and _normalize(intent.person_name) in KNOWN_PERSONS
+
+    pool, source, reason = [], None, ""
+
+    # 1) Yönetmen veya BİLİNEN oyuncu → filmografi havuzu (temadan önce gelir)
+    if director or (actor and person_known):
+        role = "director" if director else "actor"
+        pool, pname = await _refine_person_pool(intent.person_name, role, min_vote, exclude_set)
+        if pool:
+            source, reason = "person", f"'{pname}' kariyerinden bir seçki."
+
+    # 2) Tema → TMDB Discover (kişiyle çözülmediyse)
+    if not pool and theme:
+        kw = await _resolve_keyword_ids(theme["terms"])
+        return await _refine_via_discover(refine, kw, theme["genres"],
+                                          theme.get("companies", []), lang_filter,
+                                          theme["label"], limit, min_vote, exclude_ids)
+
+    # 3) Benzer / film adı → referansa benzer havuz
+    if not pool and intent.reference_title:
+        pool, rtitle = await _refine_similar_pool(intent.reference_title, exclude_set)
+        if pool:
+            source, reason = "similar", f"'{rtitle}' sevenlerin sevdiği filmler."
+
+    # 4) BİLİNMEYEN oyuncu/yönetmen → best-effort filmografi (gerçek kişiyse tutar).
+    #    Dil sorgusu varsa ("kore filmi") atla — bu kişi değil ülke isteğidir.
+    if not pool and (actor or director) and not lang_filter:
+        role = "director" if director else "actor"
+        pool, pname = await _refine_person_pool(intent.person_name, role, min_vote, exclude_set)
+        if pool:
+            source, reason = "person", f"'{pname}' kariyerinden bir seçki."
+
+    # 5) Tür / mood → Discover (mood'dan tür türet). Varsayılan mood (gerçek sinyal
+    #    yokken zihin/gece) tür enjekte etmesin — özellikle saf dil sorgularını
+    #    ("kore filmi") gereksiz daraltmamak için.
+    if not pool:
+        mm = mood_analysis.get("mood_mix") or []
+        is_default_mood = (
+            len(mm) == 2 and mm[0].get("mood_id") == "zihin"
+            and mm[1].get("mood_id") == "gece" and not hints.mood_bonuses
+        )
+        genre_ids = hints.genre_ids or ([] if is_default_mood else _genres_from_mood(mood_analysis))
+        return await _refine_via_discover(refine, [], genre_ids, [], lang_filter,
+                                          "Senin için yeniden seçtim.", limit,
+                                          min_vote, exclude_ids)
+
+    # Havuz tabanlı (kişi/benzer) → yerel modifier
+    movies = _apply_refine_modifier(pool, refine, limit)
     if not movies:
         return None
     return {
         "ok": True, "mode": f"refine_{refine}", "intent": "refine",
         "query_understanding": reason,
         "ustad_line": _REFINE_USTAD.get(refine, "İşte yeni bir seçki."),
-        "message": reason,
-        "movies": movies,
+        "message": reason, "movies": movies,
     }
 
 
