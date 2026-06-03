@@ -7,6 +7,7 @@ import { captureAndShare, captureElementAsBlob, downloadBlob, shareToWhatsApp, s
 import { track, EVENTS } from '../utils/analytics';
 import FilmDetailModal from '../components/FilmDetailModal';
 import useDocumentMeta from '../utils/useDocumentMeta';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * "Üstad'ın Bugünkü Filmi" — günlük tek film (gün boyu sabit).
@@ -14,6 +15,8 @@ import useDocumentMeta from '../utils/useDocumentMeta';
  */
 export default function DailyFilm() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -47,7 +50,7 @@ export default function DailyFilm() {
     setSharing(true);
     track(EVENTS.SHARE_CLICK, { network: 'image', kind: 'daily' });
     try {
-      await captureAndShare(cardRef.current, 'sinemood-gunun-filmi.png', `${shareText} ${shareUrl}`.trim(), { backgroundColor: '#0f0d0a' });
+      await captureAndShare(cardRef.current, 'sinemood-gunun-filmi.png', `${shareText} ${shareUrl}`.trim(), { backgroundColor: isLight ? '#e7dabd' : '#0f0d0a' });
     } finally {
       setSharing(false);
     }
@@ -57,7 +60,7 @@ export default function DailyFilm() {
     if (!cardRef.current || sharing) return;
     setSharing(true);
     try {
-      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: '#0f0d0a' });
+      const blob = await captureElementAsBlob(cardRef.current, { backgroundColor: isLight ? '#e7dabd' : '#0f0d0a' });
       downloadBlob(blob, 'sinemood-gunun-filmi.png');
     } finally {
       setSharing(false);
@@ -101,9 +104,13 @@ export default function DailyFilm() {
             {/* ── Paylaşılabilir Kart ── */}
             <div
               ref={cardRef}
-              className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1f1410] via-[#17100d] to-[#0a0807] border border-amber/15 p-6 sm:p-8"
+              className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 ${
+                isLight
+                  ? 'bg-gradient-to-br from-[#f3ecdb] via-[#efe5cf] to-[#e7dabd] border-amber/20'
+                  : 'bg-gradient-to-br from-[#1f1410] via-[#17100d] to-[#0a0807] border-amber/15'
+              } border`}
             >
-              <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-amber/10 blur-3xl translate-x-1/3 -translate-y-1/3" />
+              <div className={`absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 ${isLight ? 'bg-amber/20' : 'bg-amber/10'}`} />
 
               <div className="relative z-10 flex items-center gap-2 mb-6">
                 <Sparkles size={14} className="text-amber" />
@@ -113,7 +120,7 @@ export default function DailyFilm() {
               </div>
 
               <div className="relative z-10 flex flex-col sm:flex-row gap-6">
-                <div className="w-40 sm:w-48 shrink-0 mx-auto sm:mx-0 aspect-[2/3] rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7)] bg-white/5">
+                <div className={`w-40 sm:w-48 shrink-0 mx-auto sm:mx-0 aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7)] ${isLight ? 'ring-1 ring-black/5' : 'ring-1 ring-white/10'} bg-white/5`}>
                   {movie.poster_url ? (
                     <img src={proxyImageUrl(movie.poster_url)} alt={movie.title}
                       className="w-full h-full object-cover" crossOrigin="anonymous" />
@@ -140,9 +147,9 @@ export default function DailyFilm() {
                 </div>
               </div>
 
-              <div className="relative z-10 mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+              <div className={`relative z-10 mt-6 pt-4 flex items-center justify-between ${isLight ? 'border-t border-black/10' : 'border-t border-white/10'}`}>
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded bg-amber/20 flex items-center justify-center text-[8px] font-bold text-amber">S</div>
+                  <div className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold text-amber ${isLight ? 'bg-amber/30' : 'bg-amber/20'}`}>S</div>
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/40">Sinemood</span>
                 </div>
                 <span className="text-[9px] text-ivory/25">sinemood.onrender.com/gunun-filmi</span>
