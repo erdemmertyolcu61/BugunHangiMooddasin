@@ -145,30 +145,13 @@ export default function MoodSelector() {
         />
       )}
 
-      {/* Streak + Ara (büyüteç) + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz.
+      {/* Ara (büyüteç) + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz.
           chrome-fade: aşağı kaydırınca yumuşakça kaybolur, yukarı/üstte geri gelir. */}
       <div className="chrome-fade fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
-        {searchOpen ? (
-          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full pl-4 pr-2 border border-white/10" style={{ minHeight: 40 }}>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Film ara..."
-              className="w-44 sm:w-56 bg-transparent text-sm text-ivory placeholder:text-ivory/35 outline-none"
-            />
-            <button onClick={closeSearch} aria-label="Aramayı kapat"
-              className="w-8 h-8 flex items-center justify-center rounded-full text-ivory/50 hover:text-amber hover:bg-white/5 transition-all">
-              <X size={16} />
-            </button>
-          </div>
-        ) : (
-          <button onClick={openSearch} title="Film ara" aria-label="Film ara"
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-ivory/55 hover:text-amber hover:border-amber/40 transition-all">
-            <Search size={17} />
-          </button>
-        )}
+        <button onClick={() => searchOpen ? closeSearch() : openSearch()} title="Film ara" aria-label="Film ara"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-ivory/55 hover:text-amber hover:border-amber/40 transition-all">
+          <Search size={17} />
+        </button>
         <button
           onClick={() => navigate('/profil')}
           title={user ? 'Profilim' : 'Giriş Yap'}
@@ -211,7 +194,25 @@ export default function MoodSelector() {
 
         {/* ═══ Grid: Mood Kartları + Quiz Widget / Arama Sonuçları ═══ */}
         {searchOpen ? (
-          <div className="w-full max-w-7xl mb-10">
+          <div className="w-full max-w-7xl mb-10 min-h-[60vh]">
+            {/* Arama çubuğu — full-width, text-[16px] iOS zoom'u engeller */}
+            <div className="mb-8">
+              <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md rounded-full pl-5 pr-2 border border-white/10 max-w-xl mx-auto">
+                <Search size={16} className="text-ivory/30 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Film ara..."
+                  className="flex-1 bg-transparent text-[16px] text-ivory placeholder:text-ivory/35 outline-none py-3"
+                />
+                <button onClick={closeSearch} aria-label="Aramayı kapat"
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-ivory/50 hover:text-amber hover:bg-white/5 transition-all shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
             {searchLoading && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {Array.from({ length: 10 }).map((_, i) => (
