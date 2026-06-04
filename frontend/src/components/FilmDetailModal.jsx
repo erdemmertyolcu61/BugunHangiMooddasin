@@ -196,7 +196,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
           <button onClick={() => { if (trailerPlaying) setTrailerPlaying(false); else onClose(); }}
             aria-label={trailerPlaying ? 'Fragmanı kapat' : 'Kapat'}
             className="absolute right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-ivory/80 hover:text-amber hover:bg-black/80 transition-colors"
-            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}>
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 44px)' }}>
             <X size={24} />
           </button>
 
