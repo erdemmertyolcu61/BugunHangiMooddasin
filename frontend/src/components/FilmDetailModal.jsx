@@ -82,12 +82,12 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   const [showListSheet, setShowListSheet] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [sentRecIds, setSentRecIds] = useState([]); // bu filmi önerdiğin kayıt id'leri
-  const [myRating, setMyRating] = useState({ rating: null, reaction: null });
+  const [myReaction, setMyReaction] = useState(null);
   const { token } = useAuth();
 
-  const handleRatingChange = useCallback((next) => {
-    setMyRating(next);          // optimistik
-    saveRating(activeId, next); // backend (token yoksa no-op)
+  const handleReactionChange = useCallback((next) => {
+    setMyReaction(next.reaction);          // optimistik
+    saveRating(activeId, { reaction: next.reaction }); // backend (token yoksa no-op)
   }, [activeId]);
 
   // Bu film için gönderilmiş önerileri yükle (giriş yapılmışsa) → "Geri Al" için.
@@ -161,8 +161,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     getMovieVideos(activeId).then((d) => { if (active && d && d.key) setTrailerKey(d.key); });
     setSentRecIds([]);
     loadSentForMovie(activeId);
-    setMyRating({ rating: null, reaction: null });
-    if (isLoggedIn()) getRating(activeId).then((r) => { if (active && r) setMyRating({ rating: r.rating ?? null, reaction: r.reaction ?? null }); });
+    setMyReaction(null);
+    if (isLoggedIn()) getRating(activeId).then((r) => { if (active && r) setMyReaction(r.reaction ?? null); });
     return () => { active = false; };
   }, [activeId, loadSentForMovie]);
 
@@ -319,14 +319,14 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   {movie.overview || 'Bu yapıt hakkında henüz bir özet bulunmuyor...'}
                 </p>
 
-                {/* Senin Değerlendirmen — puan (1-10) + beğeni (giriş zorunlu) */}
+                {/* Senin Değerlendirmen — beğeni (giriş zorunlu) */}
                 <div className="border-t border-white/10 pt-6 space-y-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber/70">Senin Puanın</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber/70">Beğen</p>
                   {token ? (
-                    <RatingControl value={myRating.rating} reaction={myRating.reaction} onChange={handleRatingChange} />
+                    <RatingControl reaction={myReaction} onChange={handleReactionChange} />
                   ) : (
                     <p className="text-sm font-serif italic text-ivory/45">
-                      Filmleri puanlamak ve beğenmek için <span className="text-amber/80">giriş yap</span>.
+                      Filmleri beğenmek için <span className="text-amber/80">giriş yap</span>.
                     </p>
                   )}
                 </div>
@@ -509,10 +509,11 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     {/* Paylaş — film görsel kartı overlay */}
     {showShareCard && movie && (
       <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowShareCard(false)} />
+        <div className="fixed inset-0 backdrop-blur-sm" onClick={() => setShowShareCard(false)} style={{ backgroundColor: 'rgba(0,0,0,0.8)' }} />
         <div className="relative z-10 w-full max-w-sm">
           <button onClick={() => setShowShareCard(false)} aria-label="Kapat"
-            className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center rounded-full bg-black/60 text-ivory/80 hover:text-amber transition-colors">
+            className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors"
+            style={{ backgroundColor: 'rgba(0,0,0,0.6)', color: 'rgba(245,242,235,0.8)' }}>
             <X size={22} />
           </button>
           <FilmShareCard movie={{ id: activeId, ...movie }} />

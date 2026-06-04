@@ -662,27 +662,27 @@ export async function dismissShare(shareId) {
   return res.json();
 }
 
-// ─── Film puanı (1-10) + beğeni — giriş zorunlu, backend ───────────────────
+// ─── Film beğeni (like/dislike) — giriş zorunlu, backend ──────────────────
 export function isLoggedIn() {
   return !!(window.__fc_user_token || localStorage.getItem('fc_user_token'));
 }
 
 export async function getRating(movieId) {
-  if (!isLoggedIn()) return { rating: null, reaction: null };
+  if (!isLoggedIn()) return { reaction: null };
   try {
     const res = await fetch(`${BASE}/movies/${movieId}/rating`, { headers: { ...authHeaders() } });
-    if (!res.ok) return { rating: null, reaction: null };
+    if (!res.ok) return { reaction: null };
     return res.json();
-  } catch { return { rating: null, reaction: null }; }
+  } catch { return { reaction: null }; }
 }
 
-export async function saveRating(movieId, { rating = null, reaction = null } = {}) {
+export async function saveRating(movieId, { reaction = null } = {}) {
   if (!isLoggedIn()) return { ok: false };
   try {
     const res = await fetch(`${BASE}/movies/${movieId}/rating`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ rating, reaction }),
+      body: JSON.stringify({ reaction }),
     });
     if (!res.ok) return { ok: false };
     return res.json();

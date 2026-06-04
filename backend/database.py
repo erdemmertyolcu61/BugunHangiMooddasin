@@ -1417,12 +1417,12 @@ class MovieCache:
             await db.commit()
 
     async def get_watchlist(self, user_id: int = 0) -> list:
-        """Get all movies in the watchlist for a user (with personal notes + rating)."""
+        """Get all movies in the watchlist for a user (with personal notes + reaction)."""
         async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 """SELECT w.tmdb_id, w.title, w.poster_url, w.added_at, w.watched,
                           COALESCE(n.note_content, '') as personal_note, w.watched_at,
-                          r.rating, r.reaction
+                          r.reaction
                    FROM watchlist w
                    LEFT JOIN movie_notes n ON w.tmdb_id = n.tmdb_id AND n.user_id = w.user_id
                    LEFT JOIN movie_ratings r ON w.tmdb_id = r.tmdb_id AND r.user_id = w.user_id
@@ -1435,8 +1435,7 @@ class MovieCache:
                  "added_at": r[3], "watched": bool(r[4]),
                  "personal_note": r[5] or "",
                  "watched_at": r[6] if len(r) > 6 else None,
-                 "rating": r[7] if len(r) > 7 else None,
-                 "reaction": r[8] if len(r) > 8 else None}
+                 "reaction": r[7] if len(r) > 7 else None}
                 for r in rows
             ]
 
@@ -1491,31 +1490,29 @@ class MovieCache:
             row = await cursor.fetchone()
             return row[0] if row else None
 
-    # --- Movie Rating (1-10) + reaction (like/dislike) Methods ---
+    # --- Movie reaction (like/dislike) Methods ---
     async def save_rating(self, tmdb_id: int, rating: Optional[int], reaction: Optional[str], user_id: int):
-        """Upsert kullanıcı puanı/beğenisi. ON CONFLICT ile mevcut satırı SİLMEDEN günceller
-        (INSERT OR REPLACE yerine — diğer alanları korur)."""
+        """Upsert kullanıcı beğenisi (rating parametresi artık kullanılmıyor)."""
         async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(
-                """INSERT INTO movie_ratings (tmdb_id, user_id, rating, reaction, updated_at)
-                   VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """INSERT INTO movie_ratings (tmdb_id, user_id, reaction, updated_at)
+                   VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                    ON CONFLICT(tmdb_id, user_id) DO UPDATE SET
-                       rating = excluded.rating,
                        reaction = excluded.reaction,
                        updated_at = CURRENT_TIMESTAMP""",
-                (tmdb_id, user_id, rating, reaction)
+                (tmdb_id, user_id, reaction)
             )
             await db.commit()
 
     async def get_rating(self, tmdb_id: int, user_id: int) -> dict:
-        """Get the user's rating + reaction for a movie."""
+        """Get the user's reaction (like/dislike) for a movie."""
         async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
-                "SELECT rating, reaction FROM movie_ratings WHERE tmdb_id = ? AND user_id = ?",
+                "SELECT reaction FROM movie_ratings WHERE tmdb_id = ? AND user_id = ?",
                 (tmdb_id, user_id)
             )
             row = await cursor.fetchone()
-            return {"rating": row[0], "reaction": row[1]} if row else {"rating": None, "reaction": None}
+            return {"reaction": row[0]} if row else {"reaction": None}
 
     # --- Custom Lists (kullanıcının kendi listeleri) Methods ---
     async def create_list(self, user_id: int, name: str, emoji: Optional[str] = None) -> Optional[int]:

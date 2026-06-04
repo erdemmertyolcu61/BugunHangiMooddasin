@@ -35,9 +35,9 @@ export default function Defterim() {
   const [tasteLoading, setTasteLoading] = useState(true);
   const [defterTab, setDefterTab] = useState('movies'); // 'movies' | 'lists'
 
-  const handleCardRating = (id, next) => {
-    setSavedMovies(prev => prev.map(m => m.tmdb_id === id ? { ...m, rating: next.rating, reaction: next.reaction } : m));
-    saveRating(id, next);
+  const handleCardReaction = (id, next) => {
+    setSavedMovies(prev => prev.map(m => m.tmdb_id === id ? { ...m, reaction: next.reaction } : m));
+    saveRating(id, { reaction: next.reaction });
   };
 
   // ── Başarımlar: tespit burada (izledim/not aksiyonları), kutlama global ──
@@ -551,17 +551,15 @@ export default function Defterim() {
                         </AnimatePresence>
                     </div>
 
-                    {/* Senin puanın (1-10) + beğeni — giriş zorunlu */}
+                    {/* Senin değerlendirmen — beğeni (giriş zorunlu) */}
                     {user && (
                       <div className="space-y-2.5 pt-2">
                         <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] text-amber/40 flex items-center gap-2 sm:gap-3">
-                          <Star size={12} className="sm:w-[14px] sm:h-[14px]" /> PUANIN
+                          <Heart size={12} className="sm:w-[14px] sm:h-[14px]" /> BEĞEN
                         </p>
                         <RatingControl
-                          value={movie.rating ?? null}
                           reaction={movie.reaction ?? null}
-                          onChange={(next) => handleCardRating(movie.tmdb_id, next)}
-                          compact
+                          onChange={(next) => handleCardReaction(movie.tmdb_id, next)}
                         />
                       </div>
                     )}

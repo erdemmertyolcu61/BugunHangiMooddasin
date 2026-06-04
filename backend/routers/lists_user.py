@@ -22,7 +22,6 @@ router = APIRouter(prefix="/api", tags=["user-content"], dependencies=[Depends(r
 
 # ─── Request modelleri ───────────────────────────────────────────────────────
 class RatingBody(BaseModel):
-    rating: Optional[int] = Field(default=None, ge=1, le=10)
     reaction: Optional[str] = Field(default=None)  # 'like' | 'dislike' | None
 
 
@@ -41,7 +40,7 @@ def _clean_reaction(reaction: Optional[str]) -> Optional[str]:
     return reaction if reaction in ("like", "dislike") else None
 
 
-# ─── Film puanı (1-10) + beğeni ──────────────────────────────────────────────
+# ─── Film beğeni (like/dislike) ─────────────────────────────────────────────
 @router.get("/movies/{movie_id}/rating")
 async def get_movie_rating(movie_id: int = Path(..., ge=1), user: dict = Depends(get_current_user)):
     return await cache.get_rating(movie_id, user["user_id"])
@@ -50,12 +49,12 @@ async def get_movie_rating(movie_id: int = Path(..., ge=1), user: dict = Depends
 @router.post("/movies/{movie_id}/rating")
 async def save_movie_rating(body: RatingBody, movie_id: int = Path(..., ge=1), user: dict = Depends(get_current_user)):
     uid = user["user_id"]
-    await cache.save_rating(movie_id, body.rating, _clean_reaction(body.reaction), uid)
+    await cache.save_rating(movie_id, None, _clean_reaction(body.reaction), uid)
     try:
         await cache.invalidate_taste_profile(uid)
     except Exception:
         pass
-    return {"status": "success", "rating": body.rating, "reaction": _clean_reaction(body.reaction)}
+    return {"status": "success", "reaction": _clean_reaction(body.reaction)}
 
 
 # ─── Özel listeler ───────────────────────────────────────────────────────────
