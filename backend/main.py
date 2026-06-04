@@ -671,6 +671,8 @@ app.add_middleware(
 # ── Sosyal ağ rotaları: Arkadaşlık + Doğrudan Film Paylaşımı ──
 from backend.routers.social import router as social_router
 app.include_router(social_router)
+from backend.routers.lists_user import router as user_content_router
+app.include_router(user_content_router)
 
 # ── Statik dosyalar: Avatar yüklemeleri ──
 import os
@@ -1432,6 +1434,19 @@ async def community_recommendations(tmdb_id: int = Path(..., ge=1)):
         rows = await cur.fetchall()
     recommenders = [{"uid": r[0], "username": r[1], "avatar": r[2]} for r in rows]
     return {"count": len(recommenders), "recommenders": recommenders}
+
+
+@app.delete("/api/community/recommend/{tmdb_id}", dependencies=[Depends(rate_limit_general)])
+async def community_unrecommend(tmdb_id: int = Path(..., ge=1), user=Depends(verify_user)):
+    """Kullanıcı topluluk önerisini geri alır (yalnız kendi önerisini)."""
+    user_id = user.get("user_id", 0)
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        await db.execute(
+            "DELETE FROM community_recommendations WHERE tmdb_id = ? AND user_id = ?",
+            (int(tmdb_id), user_id),
+        )
+        await db.commit()
+    return {"success": True}
 
 
 @app.get("/api/perf-test", dependencies=[Depends(verify_admin)])

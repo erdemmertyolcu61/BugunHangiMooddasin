@@ -295,6 +295,19 @@ nav.sticky,
     pointer-events: auto;
   }
 
+  /* Sabit (fixed) yüzen kontroller — ana ekranda tema/profil/büyüteç gibi.
+     Aşağı kaydırınca yumuşakça kaybolur, yukarı/üstte geri gelir.
+     Pozisyondan bağımsız (üst veya alt) çalışsın diye translate küçük tutuldu. */
+  .chrome-fade {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    will-change: opacity, transform;
+  }
+  html[data-chrome="down"] .chrome-fade {
+    opacity: 0;
+    transform: translateY(-12px);
+    pointer-events: none;
+  }
+
   .app-bottom-nav {
     /* Bottom nav her zaman sabit — scroll ile gizlenmez */
   }

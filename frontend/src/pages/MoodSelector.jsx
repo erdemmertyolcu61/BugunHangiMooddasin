@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Book, ChevronRight, Brain, User, Gem } from 'lucide-react';
+import { Book, ChevronRight, Brain, User, Gem, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 
@@ -96,9 +96,18 @@ export default function MoodSelector() {
         />
       )}
 
-      {/* Bildirim zili + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz, mobilde rahat tıklanır. */}
-      <div className="fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
+      {/* Streak + Ara (büyüteç) + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz.
+          chrome-fade: aşağı kaydırınca yumuşakça kaybolur, yukarı/üstte geri gelir. */}
+      <div className="chrome-fade fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
         <StreakBadge />
+        <button
+          onClick={() => navigate('/search')}
+          title="Film ara"
+          aria-label="Film ara"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-ivory/55 hover:text-amber hover:border-amber/40 transition-all"
+        >
+          <Search size={17} />
+        </button>
         <button
           onClick={() => navigate('/profil')}
           title={user ? 'Profilim' : 'Giriş Yap'}

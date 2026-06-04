@@ -5,18 +5,23 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Check, Eye, ExternalLink, Users } from 'lucide-react';
+import { X, Plus, Check, Eye, ExternalLink, Users, RotateCcw, ListPlus, Share2 } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
 import {
   proxyImageUrl, getSimilarMovies, getMovieVideos,
   addToWatchlist, removeFromWatchlist, toggleWatched,
+  getRecommendationHistory, retractRecommendation,
+  getRating, saveRating, isLoggedIn,
 } from '../services/api';
 import { buildWatchUrl, getPlatformInfo } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
 import TrailerPlayer from './TrailerPlayer';
+import RatingControl from './RatingControl';
 import UstadLoader from './UstadLoader';
 import UstadinNotu from './UstadinNotu';
 import RecommendToFriendSheet from './RecommendToFriendSheet';
+import AddToListSheet from './AddToListSheet';
+import FilmShareCard from './FilmShareCard';
 import { useAuth } from '../context/AuthContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useToast } from '../context/ToastContext';
@@ -74,7 +79,41 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   const [watched, setWatched] = useState(false);
   const [activeId, setActiveId] = useState(movieId);
   const [showFriendSheet, setShowFriendSheet] = useState(false);
+  const [showListSheet, setShowListSheet] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [sentRecIds, setSentRecIds] = useState([]); // bu filmi önerdiğin kayıt id'leri
+  const [myRating, setMyRating] = useState({ rating: null, reaction: null });
   const { token } = useAuth();
+
+  const handleRatingChange = useCallback((next) => {
+    setMyRating(next);          // optimistik
+    saveRating(activeId, next); // backend (token yoksa no-op)
+  }, [activeId]);
+
+  // Bu film için gönderilmiş önerileri yükle (giriş yapılmışsa) → "Geri Al" için.
+  const loadSentForMovie = useCallback(async (mid) => {
+    if (!token || !mid) { setSentRecIds([]); return; }
+    try {
+      const hist = await getRecommendationHistory();
+      const ids = (hist.sent || [])
+        .filter((s) => String(s.movie_id) === String(mid))
+        .map((s) => s.id);
+      setSentRecIds(ids);
+    } catch { setSentRecIds([]); }
+  }, [token]);
+
+  const handleRetractFromModal = useCallback(async () => {
+    if (sentRecIds.length === 0) return;
+    const ids = [...sentRecIds];
+    setSentRecIds([]); // optimistik
+    try {
+      await Promise.all(ids.map((id) => retractRecommendation(id)));
+      toast.success('Öneri geri alındı.');
+    } catch {
+      toast.error('Geri alınamadı. Tekrar dene.');
+      loadSentForMovie(activeId); // gerçek durumu geri yükle
+    }
+  }, [sentRecIds, activeId, toast, loadSentForMovie]);
 
   useEffect(() => { setActiveId(movieId); }, [movieId]);
 
@@ -120,8 +159,12 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     })();
     getSimilarMovies(activeId).then((d) => { if (active) setSimilar(d.movies || []); });
     getMovieVideos(activeId).then((d) => { if (active && d && d.key) setTrailerKey(d.key); });
+    setSentRecIds([]);
+    loadSentForMovie(activeId);
+    setMyRating({ rating: null, reaction: null });
+    if (isLoggedIn()) getRating(activeId).then((r) => { if (active && r) setMyRating({ rating: r.rating ?? null, reaction: r.reaction ?? null }); });
     return () => { active = false; };
-  }, [activeId]);
+  }, [activeId, loadSentForMovie]);
 
   const handleSave = async () => {
     if (!movie) return;
@@ -276,6 +319,18 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   {movie.overview || 'Bu yapıt hakkında henüz bir özet bulunmuyor...'}
                 </p>
 
+                {/* Senin Değerlendirmen — puan (1-10) + beğeni (giriş zorunlu) */}
+                <div className="border-t border-white/10 pt-6 space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber/70">Senin Puanın</p>
+                  {token ? (
+                    <RatingControl value={myRating.rating} reaction={myRating.reaction} onChange={handleRatingChange} />
+                  ) : (
+                    <p className="text-sm font-serif italic text-ivory/45">
+                      Filmleri puanlamak ve beğenmek için <span className="text-amber/80">giriş yap</span>.
+                    </p>
+                  )}
+                </div>
+
                 {movie.ai_analysis ? (
                   <UstadinNotu
                     noteText={movie.ai_analysis
@@ -392,6 +447,26 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                       <Users size={14} /> Arkadaşına Öner
                     </button>
                   )}
+                  {/* Listeye Ekle — giriş zorunlu */}
+                  {token && (
+                    <button onClick={() => setShowListSheet(true)}
+                      className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-amber/30 text-amber/80 hover:bg-amber/10 hover:text-amber transition-all active:scale-95">
+                      <ListPlus size={14} /> Listeye Ekle
+                    </button>
+                  )}
+                  {/* Paylaş — herkese açık (görsel kart) */}
+                  <button onClick={() => setShowShareCard(true)}
+                    className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-white/15 text-ivory/70 hover:bg-white/10 hover:text-ivory transition-all active:scale-95">
+                    <Share2 size={14} /> Paylaş
+                  </button>
+                  {/* Bu filmi önerdiyse → doğrudan modaldan geri al */}
+                  {token && sentRecIds.length > 0 && (
+                    <button onClick={handleRetractFromModal}
+                      title="Bu filmin önerisini geri al"
+                      className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-rose-400/30 text-rose-300/80 hover:bg-rose-500/10 hover:text-rose-300 transition-all active:scale-95">
+                      <RotateCcw size={14} /> Öneriyi Geri Al{sentRecIds.length > 1 ? ` (${sentRecIds.length})` : ''}
+                    </button>
+                  )}
                   {/* Opsiyonel ek aksiyonlar (örn. Paylaş, Topluluğa Öner) */}
                   {extraActions}
                   <button onClick={onClose}
@@ -419,8 +494,30 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     {showFriendSheet && movie && (
       <RecommendToFriendSheet
         movie={{ id: activeId, title: movie.title }}
-        onClose={() => setShowFriendSheet(false)}
+        onClose={() => { setShowFriendSheet(false); loadSentForMovie(activeId); }}
       />
+    )}
+
+    {/* Listeye Ekle Bottom Sheet */}
+    {showListSheet && movie && (
+      <AddToListSheet
+        movie={{ id: activeId, title: movie.title, poster_url: movie.poster_url, poster_path: movie.poster_path }}
+        onClose={() => setShowListSheet(false)}
+      />
+    )}
+
+    {/* Paylaş — film görsel kartı overlay */}
+    {showShareCard && movie && (
+      <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowShareCard(false)} />
+        <div className="relative z-10 w-full max-w-sm">
+          <button onClick={() => setShowShareCard(false)} aria-label="Kapat"
+            className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center rounded-full bg-black/60 text-ivory/80 hover:text-amber transition-colors">
+            <X size={22} />
+          </button>
+          <FilmShareCard movie={{ id: activeId, ...movie }} />
+        </div>
+      </div>
     )}
     </>
   );

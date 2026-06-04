@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched } from '../services/api';
+import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched, saveRating } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import TasteMapCard from '../components/TasteMapCard';
+import RatingControl from '../components/RatingControl';
+import CustomListsPanel from '../components/CustomListsPanel';
 import { useAchievements } from '../components/AchievementCelebration';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
@@ -31,6 +33,12 @@ export default function Defterim() {
   const [noteDraft, setNoteDraft] = useState('');
   const [tasteMap, setTasteMap] = useState(null);
   const [tasteLoading, setTasteLoading] = useState(true);
+  const [defterTab, setDefterTab] = useState('movies'); // 'movies' | 'lists'
+
+  const handleCardRating = (id, next) => {
+    setSavedMovies(prev => prev.map(m => m.tmdb_id === id ? { ...m, rating: next.rating, reaction: next.reaction } : m));
+    saveRating(id, next);
+  };
 
   // ── Başarımlar: tespit burada (izledim/not aksiyonları), kutlama global ──
   // Rozet arayüzü Profil > Başarımlar sekmesinde. Buradaki etki yeni açılan
@@ -211,7 +219,26 @@ export default function Defterim() {
                 <Book className="text-amber animate-pulse" size={48} />
                 <p className="text-xl font-serif italic text-ivory/20">Defterin sayfaları çevriliyor...</p>
             </div>
-        ) : savedMovies.length === 0 ? (
+        ) : (
+          <>
+            {/* Sekme şeridi: Filmler / Listelerim */}
+            <div className="flex gap-1 p-1 mb-8 sm:mb-10 rounded-full bg-white/5 border border-white/10 max-w-sm">
+              {[
+                { id: 'movies', label: 'Filmler', icon: Film },
+                { id: 'lists', label: 'Listelerim', icon: ListPlus },
+              ].map(t => (
+                <button key={t.id} onClick={() => setDefterTab(t.id)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
+                    defterTab === t.id ? 'bg-amber/15 text-amber border border-amber/20' : 'text-ivory/40 hover:text-ivory/60'
+                  }`}>
+                  <t.icon size={13} /> {t.label}
+                </button>
+              ))}
+            </div>
+
+            {defterTab === 'lists' ? (
+              <CustomListsPanel user={user} />
+            ) : savedMovies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 sm:py-40 space-y-8 sm:space-y-10 px-4">
              <div className="w-28 h-28 sm:w-40 sm:h-40 rounded-full border border-white/5 flex items-center justify-center opacity-10 bg-white/5"><Book size={48} /></div>
              <div className="text-center space-y-6">
@@ -523,8 +550,23 @@ export default function Defterim() {
                             )}
                         </AnimatePresence>
                     </div>
+
+                    {/* Senin puanın (1-10) + beğeni — giriş zorunlu */}
+                    {user && (
+                      <div className="space-y-2.5 pt-2">
+                        <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] text-amber/40 flex items-center gap-2 sm:gap-3">
+                          <Star size={12} className="sm:w-[14px] sm:h-[14px]" /> PUANIN
+                        </p>
+                        <RatingControl
+                          value={movie.rating ?? null}
+                          reaction={movie.reaction ?? null}
+                          onChange={(next) => handleCardRating(movie.tmdb_id, next)}
+                          compact
+                        />
+                      </div>
+                    )}
                   </div>
-                  
+
                   <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap pt-4 sm:pt-8 border-t border-white/5">
                      <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                         <div className="flex items-center gap-1.5 sm:gap-3 text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-amber/60">
@@ -547,6 +589,8 @@ export default function Defterim() {
               </motion.div>
             ))}
           </div>
+            )}
+          </>
         )}
       </main>
     </div>

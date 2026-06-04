@@ -25,7 +25,7 @@ export default function ThemeToggle() {
       title={isDark ? 'Latte (gündüz) temasına geç' : 'Espresso (gece) temasına geç'}
       aria-label="Tema değiştir"
       className={`
-        fixed left-4 z-[96] ${posClass}
+        chrome-fade fixed left-4 z-[96] ${posClass}
         flex items-center justify-center
         w-12 h-12 md:w-auto md:gap-2 md:pl-3 md:pr-4
         rounded-full bg-black/55 backdrop-blur-md border border-amber/30 text-amber

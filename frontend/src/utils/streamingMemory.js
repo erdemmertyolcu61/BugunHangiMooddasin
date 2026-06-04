@@ -98,7 +98,7 @@ const PLATFORM_MAPPING = {
   188:  { name: 'YouTube',        color: '#FF0000', web: (t) => `https://www.youtube.com/results?search_query=${encodeURIComponent(t + ' full film')}`, app: null, home: 'https://www.youtube.com/movies' },
   192:  { name: 'YouTube',        color: '#FF0000', web: (t) => `https://www.youtube.com/results?search_query=${encodeURIComponent(t + ' full film')}`, app: null, home: 'https://www.youtube.com/movies' },
    341:  { name: 'BluTV',          color: '#00B6F1', web: (t) => `https://www.blutv.com/arama?q=${encodeURIComponent(t)}`, app: null, home: 'https://www.blutv.com' },
-   11:   { name: 'MUBI',          color: '#001E3C', web: (t) => `https://mubi.com/search/films?query=${encodeURIComponent(t)}`, app: null, home: 'https://mubi.com' },
+   11:   { name: 'MUBI',          color: '#001E3C', web: (t) => `https://mubi.com/tr/search/films?query=${encodeURIComponent(t)}`, app: null, home: 'https://mubi.com' },
    531:  { name: 'Paramount+',     color: '#0064FF', web: (t) => `https://www.paramountplus.com/search/?query=${encodeURIComponent(t)}`, app: null, home: 'https://www.paramountplus.com' },
   1796: { name: 'puhuTV',         color: '#FF6A00', web: (t) => `https://puhutv.com/arama?q=${encodeURIComponent(t)}`, app: null, home: 'https://puhutv.com' },
    342: { name: 'puhuTV',         color: '#FF6A00', web: (t) => `https://puhutv.com/arama?q=${encodeURIComponent(t)}`, app: null, home: 'https://puhutv.com' },
@@ -130,5 +130,7 @@ export function buildWatchUrl(providerId, movieTitle, fallbackLink = null) {
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
   if (isMobile && info.app && title) return info.app(title);
   if (title && info.web) return info.web(title);
-  return info.home;
+  // Platforma özel arama yoksa: jenerik ana sayfa yerine FİLME ait TMDB/JustWatch
+  // sayfasına düş (doğru filmi gösterir) — yoksa son çare ana sayfa.
+  return fallbackLink || info.home;
 }

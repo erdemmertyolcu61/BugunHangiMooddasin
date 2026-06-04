@@ -369,6 +369,39 @@ class MovieCache:
                 await db.execute("ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP")
             except Exception:
                 pass
+            # Kullanıcı film puanı (1-10) + beğeni (like/dislike) — giriş zorunlu.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS movie_ratings (
+                    tmdb_id INTEGER NOT NULL,
+                    rating INTEGER,
+                    reaction TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (tmdb_id, user_id)
+                )
+            """)
+            # Kullanıcının özel listeleri ("Nolan filmleri" vb.) + liste öğeleri.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_lists (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    emoji TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS list_items (
+                    list_id INTEGER NOT NULL,
+                    tmdb_id INTEGER NOT NULL,
+                    title TEXT,
+                    poster_url TEXT,
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (list_id, tmdb_id)
+                )
+            """)
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_user_lists_user ON user_lists(user_id)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id)")
             # OMDb Ratings Cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS omdb_cache (
@@ -727,6 +760,29 @@ class MovieCache:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (tmdb_id, user_id)
             )""",
+            """CREATE TABLE IF NOT EXISTS movie_ratings (
+                tmdb_id INTEGER NOT NULL,
+                rating INTEGER,
+                reaction TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                user_id INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (tmdb_id, user_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS user_lists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                emoji TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            """CREATE TABLE IF NOT EXISTS list_items (
+                list_id INTEGER NOT NULL,
+                tmdb_id INTEGER NOT NULL,
+                title TEXT,
+                poster_url TEXT,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (list_id, tmdb_id)
+            )""",
             # ── Sosyal ağ tabloları ──────────────────────────────────────────
             """CREATE TABLE IF NOT EXISTS friendships (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -786,6 +842,8 @@ class MovieCache:
             "ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18",
             "ALTER TABLE direct_recommendations ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP",
+            "CREATE INDEX IF NOT EXISTS idx_user_lists_user ON user_lists(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id)",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -1359,13 +1417,15 @@ class MovieCache:
             await db.commit()
 
     async def get_watchlist(self, user_id: int = 0) -> list:
-        """Get all movies in the watchlist for a user (with personal notes)."""
+        """Get all movies in the watchlist for a user (with personal notes + rating)."""
         async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 """SELECT w.tmdb_id, w.title, w.poster_url, w.added_at, w.watched,
-                          COALESCE(n.note_content, '') as personal_note, w.watched_at
+                          COALESCE(n.note_content, '') as personal_note, w.watched_at,
+                          r.rating, r.reaction
                    FROM watchlist w
                    LEFT JOIN movie_notes n ON w.tmdb_id = n.tmdb_id AND n.user_id = w.user_id
+                   LEFT JOIN movie_ratings r ON w.tmdb_id = r.tmdb_id AND r.user_id = w.user_id
                    WHERE w.user_id = ? ORDER BY w.added_at DESC""",
                 (user_id,)
             )
@@ -1374,7 +1434,9 @@ class MovieCache:
                 {"tmdb_id": r[0], "title": r[1], "poster_url": r[2],
                  "added_at": r[3], "watched": bool(r[4]),
                  "personal_note": r[5] or "",
-                 "watched_at": r[6] if len(r) > 6 else None}
+                 "watched_at": r[6] if len(r) > 6 else None,
+                 "rating": r[7] if len(r) > 7 else None,
+                 "reaction": r[8] if len(r) > 8 else None}
                 for r in rows
             ]
 
@@ -1428,6 +1490,140 @@ class MovieCache:
             )
             row = await cursor.fetchone()
             return row[0] if row else None
+
+    # --- Movie Rating (1-10) + reaction (like/dislike) Methods ---
+    async def save_rating(self, tmdb_id: int, rating: Optional[int], reaction: Optional[str], user_id: int):
+        """Upsert kullanıcı puanı/beğenisi. ON CONFLICT ile mevcut satırı SİLMEDEN günceller
+        (INSERT OR REPLACE yerine — diğer alanları korur)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                """INSERT INTO movie_ratings (tmdb_id, user_id, rating, reaction, updated_at)
+                   VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                   ON CONFLICT(tmdb_id, user_id) DO UPDATE SET
+                       rating = excluded.rating,
+                       reaction = excluded.reaction,
+                       updated_at = CURRENT_TIMESTAMP""",
+                (tmdb_id, user_id, rating, reaction)
+            )
+            await db.commit()
+
+    async def get_rating(self, tmdb_id: int, user_id: int) -> dict:
+        """Get the user's rating + reaction for a movie."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute(
+                "SELECT rating, reaction FROM movie_ratings WHERE tmdb_id = ? AND user_id = ?",
+                (tmdb_id, user_id)
+            )
+            row = await cursor.fetchone()
+            return {"rating": row[0], "reaction": row[1]} if row else {"rating": None, "reaction": None}
+
+    # --- Custom Lists (kullanıcının kendi listeleri) Methods ---
+    async def create_list(self, user_id: int, name: str, emoji: Optional[str] = None) -> Optional[int]:
+        """Create a new custom list, return its id. (RETURNING → Turso + aiosqlite uyumlu;
+        Turso HTTP cursor'unda lastrowid yok.)"""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute(
+                "INSERT INTO user_lists (user_id, name, emoji) VALUES (?, ?, ?) RETURNING id",
+                (user_id, name, emoji)
+            )
+            row = await cursor.fetchone()
+            await db.commit()
+            return row[0] if row else None
+
+    async def rename_list(self, list_id: int, user_id: int, name: str, emoji: Optional[str] = None) -> bool:
+        """Rename / re-emoji a list (only if owned). rowcount yerine açık sahiplik kontrolü."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            if not await self._owns_list(db, list_id, user_id):
+                return False
+            await db.execute(
+                "UPDATE user_lists SET name = ?, emoji = ? WHERE id = ? AND user_id = ?",
+                (name, emoji, list_id, user_id)
+            )
+            await db.commit()
+            return True
+
+    async def delete_list(self, list_id: int, user_id: int) -> bool:
+        """Delete a list + its items (only if owned)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            if not await self._owns_list(db, list_id, user_id):
+                return False
+            await db.execute("DELETE FROM list_items WHERE list_id = ?", (list_id,))
+            await db.execute("DELETE FROM user_lists WHERE id = ? AND user_id = ?", (list_id, user_id))
+            await db.commit()
+            return True
+
+    async def _owns_list(self, db, list_id: int, user_id: int) -> bool:
+        cur = await db.execute(
+            "SELECT 1 FROM user_lists WHERE id = ? AND user_id = ?", (list_id, user_id)
+        )
+        return await cur.fetchone() is not None
+
+    async def get_lists(self, user_id: int) -> list:
+        """All lists for a user with item count + up to 4 cover posters."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute(
+                "SELECT id, name, emoji, created_at FROM user_lists WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,)
+            )
+            lists = await cursor.fetchall()
+            result = []
+            for lst in lists:
+                lid = lst[0]
+                cur2 = await db.execute(
+                    "SELECT COUNT(*) FROM list_items WHERE list_id = ?", (lid,)
+                )
+                count = (await cur2.fetchone())[0]
+                cur3 = await db.execute(
+                    "SELECT poster_url FROM list_items WHERE list_id = ? AND poster_url IS NOT NULL ORDER BY added_at DESC LIMIT 4",
+                    (lid,)
+                )
+                covers = [r[0] for r in await cur3.fetchall()]
+                result.append({"id": lid, "name": lst[1], "emoji": lst[2],
+                               "created_at": lst[3], "count": count, "covers": covers})
+            return result
+
+    async def get_list_items(self, list_id: int, user_id: int) -> Optional[dict]:
+        """A list's header + its movies (None if not owned)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT id, name, emoji FROM user_lists WHERE id = ? AND user_id = ?",
+                (list_id, user_id)
+            )
+            header = await cur.fetchone()
+            if not header:
+                return None
+            cur2 = await db.execute(
+                "SELECT tmdb_id, title, poster_url, added_at FROM list_items WHERE list_id = ? ORDER BY added_at DESC",
+                (list_id,)
+            )
+            items = [
+                {"tmdb_id": r[0], "title": r[1], "poster_url": r[2], "added_at": r[3]}
+                for r in await cur2.fetchall()
+            ]
+            return {"id": header[0], "name": header[1], "emoji": header[2], "movies": items}
+
+    async def add_to_list(self, list_id: int, user_id: int, tmdb_id: int, title: str, poster_url: Optional[str]) -> bool:
+        """Add a movie to a list (only if owned). Returns False if not owned."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            if not await self._owns_list(db, list_id, user_id):
+                return False
+            await db.execute(
+                "INSERT OR IGNORE INTO list_items (list_id, tmdb_id, title, poster_url) VALUES (?, ?, ?, ?)",
+                (list_id, tmdb_id, title, poster_url)
+            )
+            await db.commit()
+            return True
+
+    async def remove_from_list(self, list_id: int, user_id: int, tmdb_id: int) -> bool:
+        """Remove a movie from a list (only if owned)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            if not await self._owns_list(db, list_id, user_id):
+                return False
+            await db.execute(
+                "DELETE FROM list_items WHERE list_id = ? AND tmdb_id = ?", (list_id, tmdb_id)
+            )
+            await db.commit()
+            return True
 
     # --- Future Plans Methods ---
     async def add_to_future(self, tmdb_id: int, title: str, poster_url: str, priority: int = 0, watch_date: str = None, notes: str = None, user_id: int = 0):

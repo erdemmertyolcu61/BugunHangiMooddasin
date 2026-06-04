@@ -471,6 +471,18 @@ export async function getCommunityRecommendations(tmdbId) {
   }
 }
 
+// Topluluk önerisini geri al (yalnız kendi önerini)
+export async function unrecommendFromCommunity(tmdbId) {
+  const res = await fetch(`${BASE}/community/recommend/${tmdbId}`, {
+    method: 'DELETE', headers: { ...authHeaders() },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Geri alınamadı');
+  }
+  return res.json();
+}
+
 export async function getSurpriseMovie() {
   const res = await fetch(`${BASE}/recommend/surprise`);
   if (!res.ok) throw new Error('Sürpriz film alınamadı');
@@ -647,5 +659,98 @@ export async function dismissShare(shareId) {
     headers: { ...authHeaders() },
   });
   if (!res.ok) return { ok: false };
+  return res.json();
+}
+
+// ─── Film puanı (1-10) + beğeni — giriş zorunlu, backend ───────────────────
+export function isLoggedIn() {
+  return !!(window.__fc_user_token || localStorage.getItem('fc_user_token'));
+}
+
+export async function getRating(movieId) {
+  if (!isLoggedIn()) return { rating: null, reaction: null };
+  try {
+    const res = await fetch(`${BASE}/movies/${movieId}/rating`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { rating: null, reaction: null };
+    return res.json();
+  } catch { return { rating: null, reaction: null }; }
+}
+
+export async function saveRating(movieId, { rating = null, reaction = null } = {}) {
+  if (!isLoggedIn()) return { ok: false };
+  try {
+    const res = await fetch(`${BASE}/movies/${movieId}/rating`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ rating, reaction }),
+    });
+    if (!res.ok) return { ok: false };
+    return res.json();
+  } catch { return { ok: false }; }
+}
+
+// ─── Özel listeler — giriş zorunlu, backend ────────────────────────────────
+export async function getCustomLists() {
+  if (!isLoggedIn()) return { lists: [] };
+  try {
+    const res = await fetch(`${BASE}/custom-lists`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { lists: [] };
+    return res.json();
+  } catch { return { lists: [] }; }
+}
+
+export async function getCustomList(listId) {
+  const res = await fetch(`${BASE}/custom-lists/${listId}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error('Liste yüklenemedi');
+  return res.json();
+}
+
+export async function createCustomList(name, emoji = null) {
+  const res = await fetch(`${BASE}/custom-lists`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ name, emoji }),
+  });
+  if (!res.ok) await _socialError(res, 'Liste oluşturulamadı');
+  return res.json();
+}
+
+export async function renameCustomList(listId, name, emoji = null) {
+  const res = await fetch(`${BASE}/custom-lists/${listId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ name, emoji }),
+  });
+  if (!res.ok) await _socialError(res, 'Liste güncellenemedi');
+  return res.json();
+}
+
+export async function deleteCustomList(listId) {
+  const res = await fetch(`${BASE}/custom-lists/${listId}`, {
+    method: 'DELETE', headers: { ...authHeaders() },
+  });
+  if (!res.ok) await _socialError(res, 'Liste silinemedi');
+  return res.json();
+}
+
+export async function addToCustomList(listId, movie) {
+  const res = await fetch(`${BASE}/custom-lists/${listId}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({
+      tmdb_id: movie.id || movie.tmdb_id,
+      title: movie.title,
+      poster_url: movie.poster_url || (movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null),
+    }),
+  });
+  if (!res.ok) await _socialError(res, 'Listeye eklenemedi');
+  return res.json();
+}
+
+export async function removeFromCustomList(listId, tmdbId) {
+  const res = await fetch(`${BASE}/custom-lists/${listId}/items/${tmdbId}`, {
+    method: 'DELETE', headers: { ...authHeaders() },
+  });
+  if (!res.ok) await _socialError(res, 'Listeden çıkarılamadı');
   return res.json();
 }

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
 import { buildMatcher } from '../utils/personalMatch';
 import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
@@ -431,13 +431,19 @@ export default function Discover() {
     if (!selectedMovie || recommending) return;
     setRecommending(true);
     try {
-      const res = await recommendToCommunity(selectedMovie.id);
-      setRecommenders((prev) => {
-        const without = prev.filter((r) => r.uid !== res.shared_by.uid);
-        return [res.shared_by, ...without];
-      });
+      if (alreadyRecommended) {
+        // Geri al — kendi önerini topluluktan kaldır
+        await unrecommendFromCommunity(selectedMovie.id);
+        setRecommenders((prev) => prev.filter((r) => !(user && r.uid === user.id)));
+      } else {
+        const res = await recommendToCommunity(selectedMovie.id);
+        setRecommenders((prev) => {
+          const without = prev.filter((r) => r.uid !== res.shared_by.uid);
+          return [res.shared_by, ...without];
+        });
+      }
     } catch (err) {
-      console.error('Topluluğa önerilemedi:', err);
+      console.error('Topluluk önerisi güncellenemedi:', err);
     } finally {
       setRecommending(false);
     }
