@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Capacitor iOS WKWebView "Error 153" çözümü: gerçek https origin + strict referrer -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>Fragman</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+    .wrap { position: fixed; inset: 0; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .err { color: #faf7f0; font: 15px/1.5 system-ui, sans-serif; text-align: center; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="wrap"></div>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var v = (params.get('v') || '').trim();
+      // Sadece geçerli YouTube video ID'si (güvenlik: enjeksiyon engeli)
+      var valid = /^[A-Za-z0-9_-]{6,20}$/.test(v);
+      var wrap = document.getElementById('wrap');
+      if (!valid) {
+        wrap.innerHTML = '<p class="err">Fragman bulunamadı.</p>';
+        return;
+      }
+      var origin = encodeURIComponent(window.location.origin);
+      var src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(v) +
+                '?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=' + origin;
+      var ifr = document.createElement('iframe');
+      ifr.setAttribute('src', src);
+      ifr.setAttribute('title', 'Film fragmanı');
+      ifr.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      ifr.setAttribute('allowfullscreen', 'true');
+      ifr.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      wrap.appendChild(ifr);
+    })();
+  </script>
+</body>
+</html>

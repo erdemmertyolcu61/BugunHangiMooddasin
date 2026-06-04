@@ -122,6 +122,17 @@ export async function getSimilarMovies(movieId) {
   }
 }
 
+// Filmin en iyi resmî YouTube fragmanı → { key, name, type, official, site } veya {}
+export async function getMovieVideos(movieId) {
+  try {
+    const res = await fetch(`${BASE}/movies/${movieId}/videos`);
+    if (!res.ok) return {};
+    return res.json();
+  } catch {
+    return {};
+  }
+}
+
 // --- Watchlist (Defterim) API — localStorage primary, backend best-effort ---
 
 export async function getWatchlist() {

@@ -304,6 +304,9 @@ export default function Defterim() {
                                   {pct != null && (
                                     <span className="text-[11px] font-bold text-[#f5f2eb]/40 ml-0.5">%{Math.round(pct)}</span>
                                   )}
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber/15 text-amber border border-amber/20 ml-0.5">
+                                    Sana Özel
+                                  </span>
                                 </span>
                               );
                             })}
@@ -314,38 +317,47 @@ export default function Defterim() {
                       {/* Mood distribution bars */}
                       {tasteMap.mood_pct && Object.keys(tasteMap.mood_pct).length > 0 && (
                         <div className="space-y-2.5">
-                          {Object.entries(tasteMap.mood_pct).slice(0, 4).map(([mid, pct]) => {
-                            const MOOD_COLORS = {
-                              battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
-                              askbahcesi: '#f43f5e', kahkaha: '#10b981', adrenalin: '#ef4444',
-                              yolculuk: '#10b981', zamanyolcusu: '#f59e0b', sessiz: '#a8a29e',
-                              zihin: '#8b5cf6', kalp: '#ec4899', karmakar: '#f97316',
-                              sipsak: '#d4af37', 'deep-chills': '#3b82f6',
-                              'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
-                            };
-                            const moodObj = tasteMap.top_moods?.find(m => m.mood_id === mid);
-                            const label = moodObj?.title || mid.replace('-', ' ');
-                            const barColor = MOOD_COLORS[mid] || '#d4af37';
-                            return (
-                              <div key={mid} className="flex items-center gap-3">
-                                <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-28 truncate capitalize">
-                                  {label}
-                                </span>
-                                <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${Math.min(pct, 100)}%` }}
-                                    transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                                    className="h-full rounded-full"
-                                    style={{ backgroundColor: barColor, opacity: 0.75 }}
-                                  />
+                          {(() => {
+                            const topMoodSet = new Set((tasteMap.top_moods || []).map(m => m.mood_id));
+                            return Object.entries(tasteMap.mood_pct).slice(0, 4).map(([mid, pct]) => {
+                              const MOOD_COLORS = {
+                                battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
+                                askbahcesi: '#f43f5e', kahkaha: '#10b981', adrenalin: '#ef4444',
+                                yolculuk: '#10b981', zamanyolcusu: '#f59e0b', sessiz: '#a8a29e',
+                                zihin: '#8b5cf6', kalp: '#ec4899', karmakar: '#f97316',
+                                sipsak: '#d4af37', 'deep-chills': '#3b82f6',
+                                'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
+                              };
+                              const moodObj = tasteMap.top_moods?.find(m => m.mood_id === mid);
+                              const label = moodObj?.title || mid.replace('-', ' ');
+                              const barColor = MOOD_COLORS[mid] || '#d4af37';
+                              const isTop = topMoodSet.has(mid);
+                              return (
+                                <div key={mid} className="flex items-center gap-3">
+                                  <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-24 sm:w-28 truncate capitalize flex items-center gap-1.5">
+                                    {label}
+                                    {isTop && (
+                                      <span className="text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-full bg-amber/15 text-amber border border-amber/20 shrink-0">
+                                        Sana Özel
+                                      </span>
+                                    )}
+                                  </span>
+                                  <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                                    <motion.div
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${Math.min(pct, 100)}%` }}
+                                      transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                      className="h-full rounded-full"
+                                      style={{ backgroundColor: barColor, opacity: 0.75 }}
+                                    />
+                                  </div>
+                                  <span className="text-[12px] font-bold text-[#f5f2eb]/50 w-10 text-right tabular-nums">
+                                    %{Math.round(pct)}
+                                  </span>
                                 </div>
-                                <span className="text-[12px] font-bold text-[#f5f2eb]/50 w-10 text-right tabular-nums">
-                                  %{Math.round(pct)}
-                                </span>
-                              </div>
-                            );
-                          })}
+                              );
+                            });
+                          })()}
                         </div>
                       )}
 

@@ -115,6 +115,7 @@ _TMDB_CACHE_TTL = {
     "nowplaying":  21600,  # 6h
     "turkish":     43200,  # 12h
     "providers":   86400,  # 24h
+    "videos":      86400,  # 24h — trailer key
 }
 
 async def _cached_tmdb(endpoint: str, params_str: str, fetch_fn, max_age: int = None):
@@ -2627,6 +2628,15 @@ async def get_similar_movies_endpoint(movie_id: int = Path(..., ge=1)):
 
     result = await _cached_tmdb("similar", f"m{movie_id}", _compute)
     return result or {"movies": []}
+
+
+@app.get("/api/movies/{movie_id}/videos", dependencies=[Depends(rate_limit_general)])
+async def get_movie_videos_endpoint(movie_id: int = Path(..., ge=1)):
+    """Filmin en iyi resmî YouTube fragmanı (24h cache). Fragman yoksa {} döner."""
+    async def _compute():
+        return await tmdb_service.get_movie_videos(movie_id)
+    result = await _cached_tmdb("videos", f"m{movie_id}", _compute)
+    return result or {}
 
 
 @app.get("/api/movies/{movie_id}/watch-providers", dependencies=[Depends(rate_limit_general)])

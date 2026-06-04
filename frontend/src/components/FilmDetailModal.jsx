@@ -8,11 +8,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Check, Eye, ExternalLink, Users } from 'lucide-react';
 import { getApiUrl } from '../utils/apiConfig';
 import {
-  proxyImageUrl, getSimilarMovies,
+  proxyImageUrl, getSimilarMovies, getMovieVideos,
   addToWatchlist, removeFromWatchlist, toggleWatched,
 } from '../services/api';
 import { buildWatchUrl, getPlatformInfo } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
+import TrailerPlayer from './TrailerPlayer';
 import UstadLoader from './UstadLoader';
 import UstadinNotu from './UstadinNotu';
 import RecommendToFriendSheet from './RecommendToFriendSheet';
@@ -60,6 +61,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   // sadece eksikleri (ai_analysis, watch_providers vb.) tamamlar.
   const [movie, setMovie] = useState(initialMovie ? { id: movieId, ...initialMovie } : null);
   const [similar, setSimilar] = useState([]);
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [watched, setWatched] = useState(false);
   const [activeId, setActiveId] = useState(movieId);
@@ -90,6 +93,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     track(EVENTS.FILM_INSPECT, { id: activeId }); // aktivasyon sinyali (inspect)
     let active = true;
     setSimilar([]);
+    setTrailerKey(null);
+    setTrailerPlaying(false);
     // Yeni filme geçince (Bunları da Sevebilirsin) önceki filmin durumu sızmasın:
     // saved/watched sıfırlanır, /analyze in_watchlist ile saved'i tekrar set eder.
     setSaved(false);
@@ -106,6 +111,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
       } catch {}
     })();
     getSimilarMovies(activeId).then((d) => { if (active) setSimilar(d.movies || []); });
+    getMovieVideos(activeId).then((d) => { if (active && d && d.key) setTrailerKey(d.key); });
     return () => { active = false; };
   }, [activeId]);
 
@@ -187,37 +193,52 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
               {/* ─── HERO: Landscape backdrop on ALL viewports ─── */}
               <div className="relative w-full overflow-hidden"
                    style={{ height: 'clamp(220px, 45vw, 440px)' }}>
-                <img
-                  src={banner || poster || 'https://via.placeholder.com/1280x720'}
-                  alt={movie.title}
-                  className="w-full h-full object-cover object-[center_20%]"
-                  loading="eager"
-                />
-                {/* Cinematic gradient fade — smooth dissolve into content area */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(26,26,26,0.6) 65%, rgba(26,26,26,0.98) 100%)' }}
-                />
-                {/* Top vignette for close button readability */}
-                <div
-                  className="absolute inset-x-0 top-0 h-24 pointer-events-none"
-                  style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
-                />
-                {/* Title overlay — sits at bottom of landscape banner */}
-                <div className="absolute inset-x-0 bottom-0 px-5 sm:px-12 md:px-14 pb-5 sm:pb-8">
-                  <p
-                    className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] mb-2 sm:mb-3"
-                    style={{ color: '#e8b94a' }}
-                  >
-                    Film Özeti
-                  </p>
-                  <h2
-                    className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words"
-                    style={{ color: '#faf7f0', textShadow: '0 2px 16px rgba(0,0,0,0.95)' }}
-                  >
-                    {movie.title}
-                  </h2>
-                </div>
+                {trailerKey ? (
+                  <TrailerPlayer
+                    youtubeKey={trailerKey}
+                    posterSrc={banner || poster || 'https://via.placeholder.com/1280x720'}
+                    title={movie.title}
+                    onPlayingChange={setTrailerPlaying}
+                  />
+                ) : (
+                  <img
+                    src={banner || poster || 'https://via.placeholder.com/1280x720'}
+                    alt={movie.title}
+                    className="w-full h-full object-cover object-[center_20%]"
+                    loading="eager"
+                  />
+                )}
+                {/* Fragman oynarken dekoratif kaplamalar gizlenir — YouTube
+                    kontrollerinin önüne UI binmesin (YouTube ToS). */}
+                {!trailerPlaying && (
+                  <>
+                    {/* Cinematic gradient fade — smooth dissolve into content area */}
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(26,26,26,0.6) 65%, rgba(26,26,26,0.98) 100%)' }}
+                    />
+                    {/* Top vignette for close button readability */}
+                    <div
+                      className="absolute inset-x-0 top-0 h-24 pointer-events-none"
+                      style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
+                    />
+                    {/* Title overlay — sits at bottom of landscape banner */}
+                    <div className="absolute inset-x-0 bottom-0 px-5 sm:px-12 md:px-14 pb-5 sm:pb-8 pointer-events-none">
+                      <p
+                        className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] mb-2 sm:mb-3"
+                        style={{ color: '#e8b94a' }}
+                      >
+                        Film Özeti
+                      </p>
+                      <h2
+                        className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.05] break-words"
+                        style={{ color: '#faf7f0', textShadow: '0 2px 16px rgba(0,0,0,0.95)' }}
+                      >
+                        {movie.title}
+                      </h2>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* ─── İÇERİK ─── */}

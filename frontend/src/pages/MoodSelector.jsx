@@ -310,6 +310,12 @@ export default function MoodSelector() {
             className="text-[9px] uppercase tracking-[0.3em] text-rose/30 hover:text-amber/70 transition-colors duration-500">
             Gizlilik & KVKK
           </button>
+          {/* TMDB atıfı — TMDB API kullanım şartları gereği zorunlu */}
+          <p className="text-[8px] leading-relaxed text-rose/25 max-w-xs text-center mt-1">
+            Bu ürün TMDB API'sini kullanır ancak TMDB tarafından onaylanmamıştır.
+            <br className="hidden sm:block" />
+            This product uses the TMDB API but is not endorsed or certified by TMDB.
+          </p>
         </motion.footer>
       </div>
 

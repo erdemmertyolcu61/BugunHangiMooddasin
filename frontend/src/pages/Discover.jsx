@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap, getForYou } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
 import { buildMatcher } from '../utils/personalMatch';
 import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
@@ -90,7 +90,6 @@ export default function Discover() {
   });
   const [movies, setMovies] = useState([]);
   const [matcher, setMatcher] = useState(null); // kişisel uyum% (taste map'ten); yoksa null
-  const [forYou, setForYou] = useState([]);     // "Sana Özel" şeridi (kişisel seçki)
   const [loading, setLoading] = useState(true);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -227,14 +226,11 @@ export default function Discover() {
   // Yetersiz veri/yeni kullanıcı → matcher null kalır → sahte yüzde GÖSTERİLMEZ
   // (MovieCard backend mood_score'a düşer).
   useEffect(() => {
-    if (!user) { setMatcher(null); setForYou([]); return; }
+    if (!user) { setMatcher(null); return; }
     let alive = true;
     getTasteMap()
       .then((tm) => { if (alive) setMatcher(() => buildMatcher(tm)); })
       .catch(() => { if (alive) setMatcher(null); });
-    getForYou(18)
-      .then((r) => { if (alive) setForYou(r.movies || []); })
-      .catch(() => { if (alive) setForYou([]); });
     return () => { alive = false; };
   }, [user]);
 
@@ -856,37 +852,6 @@ export default function Discover() {
             </div>
           </div>
         </motion.section>
-
-        {/* ─── Sana Özel — kişisel seçki (zevk profiline göre) ─── */}
-        {forYou.length > 0 && searchResults === null && (
-          <motion.section
-            className="space-y-4 mb-12"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="flex items-end justify-between gap-3 px-1">
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">Sana Özel</h2>
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-amber/60">
-                Zevkine göre seçildi
-              </span>
-            </div>
-            <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-              {forYou.map((m) => (
-                <div key={m.id} className="w-[150px] sm:w-[190px] shrink-0">
-                  <MovieCard
-                    movie={m}
-                    isSaved={quickSavedIds.has(m.id)}
-                    isWatched={quickWatchedIds.has(m.id)}
-                    onQuickSave={handleQuickSave}
-                    onQuickWatched={handleQuickWatched}
-                    onAnalyze={handleAnalyze}
-                  />
-                </div>
-              ))}
-            </div>
-          </motion.section>
-        )}
 
         <motion.section
           className="space-y-12"

@@ -314,6 +314,44 @@ class TMDBService:
         except Exception:
             return {"movies": [], "page": 1, "total_pages": 1}
 
+    async def get_movie_videos(self, movie_id: int) -> dict:
+        """En iyi resmî YouTube fragmanını döndürür. tr-TR boşsa en-US'e düşer.
+        Dönen: {"key", "name", "type", "official", "site"} ya da {}."""
+        def _pick(results):
+            yt = [v for v in results if (v.get("site") == "YouTube" and v.get("key"))]
+            if not yt:
+                return None
+            type_rank = {"Trailer": 0, "Teaser": 1}
+
+            def sort_key(v):
+                return (
+                    0 if v.get("official") else 1,
+                    type_rank.get(v.get("type"), 2),
+                    # published_at DESC → ters çevir (negatif sıralama için string'i tersle)
+                )
+            # Önce official + type'a göre filtrele/sırala, eşitlikte en yeni published_at
+            yt.sort(key=lambda v: (v.get("published_at") or ""), reverse=True)
+            yt.sort(key=sort_key)
+            best = yt[0]
+            return {
+                "key": best.get("key"),
+                "name": best.get("name"),
+                "type": best.get("type"),
+                "official": bool(best.get("official")),
+                "site": "YouTube",
+            }
+        try:
+            for lang in ("tr-TR", "en-US"):
+                data = await self._get(f"{self.base_url}/movie/{movie_id}/videos", {
+                    "api_key": self.api_key, "language": lang,
+                })
+                picked = _pick(data.get("results", []))
+                if picked:
+                    return picked
+            return {}
+        except Exception:
+            return {}
+
     # ──────────────── bulk helpers (parallel) ────────────────
 
     async def get_keywords_batch(self, movie_ids: list) -> dict:
