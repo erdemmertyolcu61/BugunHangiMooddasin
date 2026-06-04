@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Users, Search, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
 import { buildMatcher } from '../utils/personalMatch';
@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
 import UpcomingSlider from '../components/UpcomingSlider';
 import QuizModal from '../components/QuizModal';
-import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import StreamingConsentModal from '../components/StreamingConsentModal';
 import useDocumentMeta from '../utils/useDocumentMeta';
 import SimilarFilmsStrip from '../components/SimilarFilmsStrip';
@@ -480,33 +480,6 @@ export default function Discover() {
     linkPlatform(consentTarget.providerId);
     openWatchUrl(consentTarget.providerId);
     setConsentTarget(null);
-  };
-
-  const [shareCopied, setShareCopied] = useState(false);
-  const handleShare = async () => {
-    if (!selectedMovie) return;
-    const shareUrl = getShareUrl(`/share/${selectedMovie.id}`);
-    const analysis = selectedMovie.ai_analysis?.replace('Üstadın Notu:', '').trim() || '';
-    const shareData = {
-      title: `${selectedMovie.title} — Sinemood`,
-      text: analysis ? `"${analysis.slice(0, 120)}..."` : 'Sinemood\'da keşfet.',
-      url: shareUrl,
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-      }
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        await navigator.clipboard.writeText(shareUrl).catch(() => {});
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-      }
-    }
   };
 
   // Quick actions — card overlay, no modal
@@ -1004,24 +977,18 @@ export default function Discover() {
           ) : null}
           extraActions={(
             <>
-              <button
-                onClick={handleShare}
-                className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap bg-white/5 border border-white/15 text-ivory/70 hover:bg-white/10 hover:text-ivory transition-all active:scale-95"
-              >
-                {shareCopied ? <><Copy size={14} /> Kopyalandı</> : <><Share2 size={14} /> Paylaş</>}
-              </button>
               {user && (
                 <button
                   onClick={handleRecommendToCommunity}
-                  disabled={recommending || alreadyRecommended}
-                  title={alreadyRecommended ? 'Bu filmi zaten topluluğa önerdin' : 'Topluluğa öner'}
+                  disabled={recommending}
+                  title={alreadyRecommended ? 'Öneriyi geri al' : 'Topluluğa öner'}
                   className={`inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap transition-all active:scale-95 ${
                     alreadyRecommended
-                      ? 'bg-emerald-500 text-white border border-emerald-400/70 cursor-default shadow-[0_0_18px_-4px_rgba(16,185,129,0.6)]'
+                      ? 'bg-rose-500/15 border border-rose-400/30 text-rose-300 hover:bg-rose-500/25'
                       : 'bg-amber/12 border border-amber/40 text-amber hover:bg-amber/20'
                   }`}
                 >
-                  {alreadyRecommended ? <><Check size={14} /> Önerdin</> : <><Users size={14} /> Topluluğa Öner</>}
+                  {alreadyRecommended ? <><RotateCcw size={14} /> Öneriyi Geri Al</> : <><Users size={14} /> Topluluğa Öner</>}
                 </button>
               )}
             </>
