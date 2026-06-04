@@ -52,11 +52,12 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   // Fragman durumu — handleEsc'ten ÖNCE tanımlı olmalı (TDZ).
   const [trailerKey, setTrailerKey] = useState(null);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
+  const [trailerLoading, setTrailerLoading] = useState(false);
 
   // Escape tuşuyla kapat (fragman oynarken önce fragmanı kapatır)
   const handleEsc = useCallback((e) => {
     if (e.key !== 'Escape') return;
-    if (trailerPlaying) { setTrailerPlaying(false); return; }
+    if (trailerPlaying) { setTrailerPlaying(false); setTrailerLoading(false); return; }
     onClose();
   }, [onClose, trailerPlaying]);
   useEffect(() => { document.addEventListener('keydown', handleEsc); return () => document.removeEventListener('keydown', handleEsc); }, [handleEsc]);
@@ -101,6 +102,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     setSimilar([]);
     setTrailerKey(null);
     setTrailerPlaying(false);
+    setTrailerLoading(false);
     // Yeni filme geçince (Bunları da Sevebilirsin) önceki filmin durumu sızmasın:
     // saved/watched sıfırlanır, /analyze in_watchlist ile saved'i tekrar set eder.
     setSaved(false);
@@ -193,7 +195,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
               sonraki basışta modalı kapatır. */}
           <button onClick={() => { if (trailerPlaying) setTrailerPlaying(false); else onClose(); }}
             aria-label={trailerPlaying ? 'Fragmanı kapat' : 'Kapat'}
-            className="absolute top-4 right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-ivory/80 hover:text-amber hover:bg-black/80 transition-colors">
+            className="absolute right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-ivory/80 hover:text-amber hover:bg-black/80 transition-colors"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}>
             <X size={24} />
           </button>
 
@@ -208,7 +211,9 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                     posterSrc={banner || poster || 'https://via.placeholder.com/1280x720'}
                     title={movie.title}
                     playing={trailerPlaying}
-                    onStart={() => setTrailerPlaying(true)}
+                    onStart={() => { setTrailerPlaying(true); setTrailerLoading(true); }}
+                    onLoad={() => setTrailerLoading(false)}
+                    onError={() => setTrailerLoading(false)}
                   />
                 ) : (
                   <img
@@ -220,7 +225,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                 )}
                 {/* Fragman oynarken dekoratif kaplamalar gizlenir — YouTube
                     kontrollerinin önüne UI binmesin (YouTube ToS). */}
-                {!trailerPlaying && (
+                {(!trailerPlaying || trailerLoading) && (
                   <>
                     {/* Cinematic gradient fade — smooth dissolve into content area */}
                     <div
