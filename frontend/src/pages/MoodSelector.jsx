@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Book, ChevronRight, Brain, User, Gem } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
-import { getTasteMap } from '../services/api';
+
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
 
@@ -26,8 +26,6 @@ export default function MoodSelector() {
   });
 
   const [hoveredMood, setHoveredMood] = useState(null);
-  const [suggestedMood, setSuggestedMood] = useState(null); // taste map'ten önerilen baskın mood
-
   const [quizOpen, setQuizOpen] = useState(false);
 
   // Skip prefetch/preload on touch devices to avoid spurious API calls
@@ -60,20 +58,6 @@ export default function MoodSelector() {
     setQuizOpen(false);
     navigate('/discover');
   };
-
-  // Zevk haritasından baskın mood'u öner (giriş yapıldıysa, yeterli sinyalde).
-  useEffect(() => {
-    if (!user) { setSuggestedMood(null); return; }
-    let alive = true;
-    getTasteMap()
-      .then((tm) => {
-        if (!alive || !tm || tm.confidence === 'low') return;
-        const topId = tm.top_moods?.[0]?.mood_id;
-        if (topId && MOODS[topId]) setSuggestedMood(MOODS[topId]);
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [user]);
 
   // Preload common route chunks as soon as page loads (idle callback)
   useEffect(() => {
@@ -154,23 +138,6 @@ export default function MoodSelector() {
             Ruh halini seç ve bizimle yolculuğa çıkmaya hazırlan.
           </p>
         </motion.header>
-
-        {/* Zevk haritasına göre kişisel öneri — tıklayınca o mood'a gider */}
-        {suggestedMood && (
-          <motion.button
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            onClick={() => handleMoodClick(suggestedMood)}
-            className="group mb-8 sm:mb-10 inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-amber/10 border border-amber/30 hover:bg-amber/15 hover:border-amber/50 transition-all active:scale-95"
-          >
-            <Gem size={13} className="text-amber/70" />
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.18em] text-amber/85">
-              Sana göre bugün: {suggestedMood.title}
-            </span>
-            <ChevronRight size={14} className="text-amber/60 group-hover:translate-x-0.5 transition-transform" />
-          </motion.button>
-        )}
 
         {/* ═══ Grid: Mood Kartları + Quiz Widget ═══ */}
         <div className="flex flex-col lg:flex-row gap-6 max-w-7xl w-full mb-10">

@@ -49,8 +49,16 @@ const reliableRating = (m) => {
 };
 
 export default function FilmDetailModal({ movieId, onClose, headerBadge = null, extraActions = null, initialMovie = null, onActiveChange = null, hideWatchProviders = false }) {
-  // Escape tuşuyla kapat
-  const handleEsc = useCallback((e) => { if (e.key === 'Escape') onClose(); }, [onClose]);
+  // Fragman durumu — handleEsc'ten ÖNCE tanımlı olmalı (TDZ).
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [trailerPlaying, setTrailerPlaying] = useState(false);
+
+  // Escape tuşuyla kapat (fragman oynarken önce fragmanı kapatır)
+  const handleEsc = useCallback((e) => {
+    if (e.key !== 'Escape') return;
+    if (trailerPlaying) { setTrailerPlaying(false); return; }
+    onClose();
+  }, [onClose, trailerPlaying]);
   useEffect(() => { document.addEventListener('keydown', handleEsc); return () => document.removeEventListener('keydown', handleEsc); }, [handleEsc]);
 
   // Focus trap + odak geri yükleme (a11y)
@@ -61,8 +69,6 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   // sadece eksikleri (ai_analysis, watch_providers vb.) tamamlar.
   const [movie, setMovie] = useState(initialMovie ? { id: movieId, ...initialMovie } : null);
   const [similar, setSimilar] = useState([]);
-  const [trailerKey, setTrailerKey] = useState(null);
-  const [trailerPlaying, setTrailerPlaying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [watched, setWatched] = useState(false);
   const [activeId, setActiveId] = useState(movieId);
@@ -183,7 +189,10 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="relative w-full max-w-4xl my-auto bg-[#1a1a1a]/95 backdrop-blur-md border border-white/10 rounded-none sm:rounded-[2.5rem] overflow-hidden pt-safe pb-24 sm:pb-12 shadow-2xl"
         >
-          <button onClick={onClose} aria-label="Kapat"
+          {/* Tek çarpı: fragman oynarken önce fragmanı kapatır (afişe döner),
+              sonraki basışta modalı kapatır. */}
+          <button onClick={() => { if (trailerPlaying) setTrailerPlaying(false); else onClose(); }}
+            aria-label={trailerPlaying ? 'Fragmanı kapat' : 'Kapat'}
             className="absolute top-4 right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-ivory/80 hover:text-amber hover:bg-black/80 transition-colors">
             <X size={24} />
           </button>
@@ -198,7 +207,8 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                     youtubeKey={trailerKey}
                     posterSrc={banner || poster || 'https://via.placeholder.com/1280x720'}
                     title={movie.title}
-                    onPlayingChange={setTrailerPlaying}
+                    playing={trailerPlaying}
+                    onStart={() => setTrailerPlaying(true)}
                   />
                 ) : (
                   <img

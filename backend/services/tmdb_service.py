@@ -318,18 +318,23 @@ class TMDBService:
         """En iyi resmî YouTube fragmanını döndürür. tr-TR boşsa en-US'e düşer.
         Dönen: {"key", "name", "type", "official", "site"} ya da {}."""
         def _pick(results):
-            yt = [v for v in results if (v.get("site") == "YouTube" and v.get("key"))]
+            # SADECE gerçek fragman/teaser kabul et — "filmle ilgili" rastgele
+            # YouTube videoları (Clip, Featurette, Behind the Scenes vb.) ELENİR.
+            type_rank = {"Trailer": 0, "Teaser": 1}
+            yt = [
+                v for v in results
+                if v.get("site") == "YouTube" and v.get("key")
+                and v.get("type") in type_rank
+            ]
             if not yt:
                 return None
-            type_rank = {"Trailer": 0, "Teaser": 1}
 
             def sort_key(v):
                 return (
-                    0 if v.get("official") else 1,
-                    type_rank.get(v.get("type"), 2),
-                    # published_at DESC → ters çevir (negatif sıralama için string'i tersle)
+                    0 if v.get("official") else 1,   # resmî öncelik
+                    type_rank.get(v.get("type"), 2), # Trailer > Teaser
                 )
-            # Önce official + type'a göre filtrele/sırala, eşitlikte en yeni published_at
+            # Eşitlikte en yeni published_at (stable sort: önce tarihe göre sırala)
             yt.sort(key=lambda v: (v.get("published_at") or ""), reverse=True)
             yt.sort(key=sort_key)
             best = yt[0]

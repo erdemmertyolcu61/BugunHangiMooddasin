@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { useEffect } from 'react';
+import { suspendMoodAudio, resumeMoodAudio } from '../utils/moodAudioManager';
+import LottieAnimation from './LottieAnimation';
 
 /**
  * Fragman facade — afişin/banner'ın yerinde durur.
@@ -7,20 +8,26 @@ import { Play } from 'lucide-react';
  * (KVKK uyumu + performans). Tıklayınca youtube-nocookie iframe'i
  * /youtube.html proxy sayfası üzerinden yüklenir (Capacitor iOS Error 153 çözümü).
  *
+ * Fragman oynarken mood müziği geçici durdurulur, kapanınca devam eder.
+ * Oynatma durumu PARENT tarafından kontrol edilir (tek çarpı: modalın sağ üst
+ * butonu oynarken önce fragmanı kapatır, sonraki basışta modalı kapatır).
+ *
  * Props:
  *   youtubeKey: TMDB'den gelen YouTube video ID'si (zorunlu — yoksa render edilmez)
  *   posterSrc:  facade arka planı (mevcut banner/poster URL'si)
  *   title:      erişilebilirlik etiketi
+ *   playing:    fragman oynuyor mu (parent state)
+ *   onStart:    "Oynat"a basıldığında çağrılır
  */
-export default function TrailerPlayer({ youtubeKey, posterSrc, title = 'Film', onPlayingChange }) {
-  const [playing, setPlaying] = useState(false);
+export default function TrailerPlayer({ youtubeKey, posterSrc, title = 'Film', playing = false, onStart }) {
+  // Fragman oynarken mood müziğini askıya al; kapanınca/unmount olunca devam ettir.
+  useEffect(() => {
+    if (!playing) return;
+    suspendMoodAudio();
+    return () => resumeMoodAudio();
+  }, [playing]);
 
   if (!youtubeKey) return null;
-
-  const startPlaying = () => {
-    setPlaying(true);
-    if (onPlayingChange) onPlayingChange(true);
-  };
 
   if (playing) {
     return (
@@ -38,7 +45,7 @@ export default function TrailerPlayer({ youtubeKey, posterSrc, title = 'Film', o
   return (
     <button
       type="button"
-      onClick={startPlaying}
+      onClick={onStart}
       aria-label={`${title} fragmanını oynat`}
       className="group absolute inset-0 w-full h-full focus:outline-none"
     >
@@ -50,11 +57,18 @@ export default function TrailerPlayer({ youtubeKey, posterSrc, title = 'Film', o
           loading="eager"
         />
       )}
-      {/* Oynat butonu — ortada, hafif koyulaştırma ile */}
-      <span className="absolute inset-0 grid place-items-center bg-black/20 group-hover:bg-black/30 transition-colors">
-        <span className="flex items-center gap-2.5 rounded-full bg-black/65 backdrop-blur-md px-5 py-3 border border-white/15 group-hover:scale-105 transition-transform">
-          <Play size={20} className="text-amber fill-amber" />
-          <span className="text-sm font-semibold tracking-wide text-ivory">Fragmanı Oynat</span>
+      {/* Oynat afiş'i — saydam, film makarası (lottie) + yazı; iki temada da
+          afiş görseli üzerinde okunur (beyaz + gölge). */}
+      <span className="absolute inset-0 grid place-items-center bg-black/10 group-hover:bg-black/20 transition-colors">
+        <span className="flex items-center gap-2 rounded-full bg-black/30 backdrop-blur-md px-4 py-2.5 border border-white/25 shadow-[0_4px_20px_rgba(0,0,0,0.45)] group-hover:bg-black/40 group-hover:scale-105 transition-all">
+          <LottieAnimation
+            path="/lottie/film-reel.json"
+            className="w-7 h-7 shrink-0"
+            speed={1}
+          />
+          <span className="text-sm font-semibold tracking-wide text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+            Fragmanı Oynat
+          </span>
         </span>
       </span>
     </button>

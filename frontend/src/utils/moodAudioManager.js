@@ -3,6 +3,10 @@ let currentMoodId = null;
 let transitionId = 0;
 let targetVolume = 0.35;
 
+// Geçici askıya alma (ör. fragman oynarken): müzik durur ama mood/track korunur,
+// kullanıcı etkileşimi sesi geri DİRİLTMESİN diye tryResume bunu kontrol eder.
+let suspended = false;
+
 // Mobil autoplay kilidi: ilk play() bloklanırsa beklemeye al,
 // kullanıcının ilk dokunuşunda otomatik başlat.
 let pendingMoodId = null;
@@ -13,6 +17,8 @@ function bindAutoUnlock() {
   unlockBound = true;
 
   const tryResume = () => {
+    // Fragman vb. nedeniyle askıya alındıysa hiçbir şeyi diriltme
+    if (suspended) return;
     // Bekleyen bir mood varsa onu başlat
     if (pendingMoodId) {
       const id = pendingMoodId;
@@ -200,6 +206,32 @@ export async function stopMoodAudio() {
 
   // Always pause regardless of whether fade completed or was cancelled
   try { audio.pause(); audio.currentTime = 0; } catch (e) {}
+}
+
+/**
+ * Müziği geçici durdurur (fragman oynarken) — mood/track korunur, currentTime sıfırlanmaz.
+ * Kullanıcı dokunuşu sesi diriltmesin diye `suspended` bayrağı set edilir.
+ */
+export function suspendMoodAudio() {
+  suspended = true;
+  transitionId += 1; // sürmekte olan fade'leri iptal et
+  if (currentAudio && !currentAudio.paused) {
+    try { currentAudio.pause(); } catch (e) {}
+  }
+}
+
+/**
+ * suspendMoodAudio ile durdurulan müziği kaldığı yerden devam ettirir.
+ */
+export function resumeMoodAudio() {
+  if (!suspended) return;
+  suspended = false;
+  if (currentAudio && currentMoodId && targetVolume > 0) {
+    try {
+      currentAudio.volume = targetVolume;
+      currentAudio.play().catch(() => {});
+    } catch (e) {}
+  }
 }
 
 export function setMoodAudioVolume(volume) {
