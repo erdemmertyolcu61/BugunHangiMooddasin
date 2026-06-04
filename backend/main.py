@@ -3710,6 +3710,82 @@ def _confused_ustad_line(intent_type: str, mood_analysis: dict) -> str:
 
 
 # ── TMDB'den kişi adına göre film getiren üst-seviye helper ──────────────────
+async def _resolve_reference_movie(reference_title: str, raw_text: str = ""):
+    """Referans filmi ÖNCE yerel korpustan (tüm ~22K sistem filmi, Türkçe-duyarlı
+    folded indeks) çöz; bulunamazsa TR-alias kanonik adıyla + TMDB başlık-aramasıyla
+    dene. Dönüş: (src_id|None, src_title, src_genres:set)."""
+    from backend.services.chat_engine import TURKISH_TITLE_ALIASES, _normalize
+    ref = (reference_title or raw_text or "").strip()
+    if not ref:
+        return None, ref, set()
+    # 1) Yerel folded indeks — sistemdeki TÜM filmler (92-alias limiti yok)
+    try:
+        hit = await cache.resolve_title(ref)
+        if hit and hit.get("tmdb_id"):
+            return hit["tmdb_id"], hit.get("title", ref), set(hit.get("genre_ids") or [])
+    except Exception:
+        pass
+    # 2) TR-alias kanonik İngilizce ad (yerel indekste İngilizce başlık yoksa)
+    alias = TURKISH_TITLE_ALIASES.get(_normalize(ref))
+    # 3) TMDB başlık araması — belgesel olmayan, en popüler sonucu seç
+    for q in (ref, alias):
+        if not q:
+            continue
+        try:
+            hits = await tmdb_service.search_movies(q, page=1)
+            if hits:
+                best = max((m for m in hits if 99 not in (m.get("genre_ids") or [])),
+                           key=lambda m: (m.get("vote_count") or 0), default=hits[0])
+                return best["id"], best.get("title", ref), set(best.get("genre_ids") or [])
+        except Exception:
+            continue
+    return None, ref, set()
+
+
+async def _build_similar_pool(src_id: int, src_title: str, src_genres: set,
+                              limit: int, exclude_set: set) -> list:
+    """src_id (tmdb) için recommendations + similar havuzu; belgesel/düşük-kalite
+    elenir, genre-overlap + kalite skoruyla sıralanır. (/similar endpoint mantığı.)"""
+    try:
+        rec, sim = await asyncio.gather(
+            tmdb_service.get_recommendations(src_id, page=1),
+            tmdb_service.get_similar_movies(src_id, page=1),
+        )
+    except Exception:
+        return []
+    pool = {}
+    for m in rec.get("movies", []):
+        pool[m["id"]] = m
+    for m in sim.get("movies", []):
+        pool.setdefault(m["id"], m)
+    pool.pop(src_id, None)
+    candidates = []
+    for m in pool.values():
+        mid = m.get("id")
+        if not mid or mid in exclude_set or not m.get("poster_url"):
+            continue
+        if 99 in (m.get("genre_ids") or []):
+            continue
+        if int(m.get("vote_count") or 0) < 60 or float(m.get("vote_average") or 0) < 5.8:
+            continue
+        candidates.append(m)
+
+    def relevance(m):
+        gids = set(m.get("genre_ids") or [])
+        overlap = len(gids & src_genres) if src_genres else 0
+        return (overlap * 3.0 + min((m.get("vote_average") or 0), 9.0) * 0.5
+                + min((m.get("vote_count") or 0) / 1000.0, 5.0) * 0.3)
+
+    candidates.sort(key=relevance, reverse=True)
+    out = []
+    for m in candidates[:limit]:
+        m["mood_score"] = 85.0
+        m["reason"] = f"'{src_title}' sevenler bunu da sevdi."
+        exclude_set.add(m["id"])
+        out.append(m)
+    return out
+
+
 async def _search_person_movies_top(
     person_name: str, person_type: str, count: int,
     min_vote: float, exclude_set: set,
@@ -4807,26 +4883,22 @@ async def _refine_person_pool(person_name: str, role: str, min_vote: float,
 
 
 async def _refine_similar_pool(ref_title: str, exclude_set: set) -> tuple:
-    """Referans filme benzer (recommendations + similar) aday havuzu."""
-    from backend.services.chat_engine import TURKISH_TITLE_ALIASES, _normalize
-    alias = _normalize(ref_title)
-    if alias in TURKISH_TITLE_ALIASES:
-        ref_title = TURKISH_TITLE_ALIASES[alias]
+    """Referans filme benzer (recommendations + similar) aday havuzu.
+    Referansı ÖNCE yerel korpustan çözer (tüm sistem filmleri), yoksa TMDB."""
     try:
-        hits = await tmdb_service.search_movies(ref_title, page=1)
-        if not hits:
+        src_id, src_title, _genres = await _resolve_reference_movie(ref_title)
+        if not src_id:
             return [], ""
-        ref_id = hits[0]["id"]
         rec, sim = await asyncio.gather(
-            tmdb_service.get_recommendations(ref_id, page=1),
-            tmdb_service.get_similar_movies(ref_id, page=1),
+            tmdb_service.get_recommendations(src_id, page=1),
+            tmdb_service.get_similar_movies(src_id, page=1),
         )
         pool = {}
         for m in rec.get("movies", []):
             pool[m["id"]] = m
         for m in sim.get("movies", []):
             pool.setdefault(m["id"], m)
-        pool.pop(ref_id, None)
+        pool.pop(src_id, None)
         out = []
         for m in pool.values():
             mid = m.get("id")
@@ -4835,7 +4907,7 @@ async def _refine_similar_pool(ref_title: str, exclude_set: set) -> tuple:
             m["mood_score"] = 85.0
             m["matched_mood"] = "battaniye"
             out.append(m)
-        return out, hits[0].get("title", ref_title)
+        return out, src_title
     except Exception as e:
         logger.warning("[Refine] similar pool failed: %s", e)
         return [], ""
@@ -5172,9 +5244,27 @@ async def post_confused_recommendation(req: ConfusedRequest):
         except Exception as e:
             logger.warning("[Confused] Actor search failed: %s", e)
 
-    # similar_to_movie → tam orijinal metni koru (modifier'lar korunsun)
-    # Entity boost semantic_search.py'de extract_entities_locally() ile zaten çalışır
+    # ── PATH 2b: "X gibi" → referansı YEREL korpustan çöz (tüm ~22K film) →
+    #    TMDB recommendations/similar. 92-alias limiti yok; Türkçe-duyarlı eşleşme.
     if local_intent.type == "similar_to_movie" and local_intent.reference_title:
+        try:
+            src_id, src_title, src_genres = await _resolve_reference_movie(
+                local_intent.reference_title, text)
+            if src_id:
+                sim_movies = await _build_similar_pool(
+                    src_id, src_title, src_genres, limit, exclude_set)
+                if sim_movies:
+                    return {
+                        "movies": sim_movies[:limit],
+                        "query_understanding": f"'{local_intent.reference_title}' filmine benzer yapımlar.",
+                        "ustad_line": f"'{src_title}' sevenler için bir seçki hazırladım evlat.",
+                        "intent": "similar_to_movie",
+                        "mode": "local_similar",
+                        "is_fallback": False,
+                    }
+        except Exception as e:
+            logger.warning("[Confused] Similar (local) failed: %s", e)
+        # Çözülemezse semantic'e düş (orijinal metni koru, entity boost çalışsın)
         search_text = text
 
     # ── Semantic search (yerel sentence-transformers, <35ms) ──────────────

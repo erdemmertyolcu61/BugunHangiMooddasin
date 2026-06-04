@@ -497,6 +497,13 @@ def _fold(text: str) -> str:
     return _normalize(text).translate(_TR_FOLD)
 
 
+def _title_key(text: str) -> str:
+    """Film başlığı eşleştirme anahtarı — yerel başlık indeksi ile resolver AYNI
+    anahtarı kullanmalı. _fold'a ek olarak Türkçe 'İ'.lower() = 'i̇' birleşik
+    noktasını (U+0307) temizler → 'İstanbul'/'istanbul' tutarlı eşleşir."""
+    return _fold(text).replace(chr(0x0307), "").strip()
+
+
 # Türkçe sondan eklemeli yapı için hafif, kural-tabanlı suffix-stripper.
 # En uzun ekten kısaya doğru tek tur soyar; gövde >= 3 harf kalmalı (aşırı soymayı önler).
 # Aksan-katlanmış (folded) girdi bekler.
@@ -1214,7 +1221,7 @@ class ChatEngine:
                 person_name = text[:idx].strip().strip('"\'')
                 if person_name and _is_plausible_person_name(person_name, allow_single=True):
                     # intent belirlendikten sonra cross-signal'lar toplanır
-                    era_c, time_c, g_hints, ex_g_hints = _collect_signals(text)
+                    era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
                     return Intent("director_recommendation", person_name=person_name,
                                   person_type="director", original_text=text,
                                   platform_filter=platform_filter,
@@ -1229,7 +1236,7 @@ class ChatEngine:
                 idx = text_lower.index(kw)
                 person_name = text[:idx].strip().strip('"\'')
                 if person_name and _is_plausible_person_name(person_name, allow_single=True):
-                    era_c, time_c, g_hints, ex_g_hints = _collect_signals(text)
+                    era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
                     return Intent("actor_recommendation", person_name=person_name,
                                   person_type="actor", original_text=text,
                                   platform_filter=platform_filter,
@@ -1251,7 +1258,7 @@ class ChatEngine:
                     alias_check = ref_norm
                     if alias_check in TURKISH_TITLE_ALIASES:
                         ref_title = TURKISH_TITLE_ALIASES[alias_check]
-                    era_c, time_c, g_hints, ex_g_hints = _collect_signals(text)
+                    era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
                     return Intent("similar_to_movie", reference_title=ref_title, original_text=text,
                                   platform_filter=platform_filter,
                                   era_constraint=era_c, time_constraint=time_c,

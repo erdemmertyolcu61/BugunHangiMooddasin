@@ -1921,6 +1921,74 @@ class MovieCache:
             "mood_id": r[11] if len(r) > 11 else None,
         }
 
+    async def build_title_index(self) -> dict:
+        """movie_repository başlıklarından bir-kez folded indeks (cache'li, bellek-içi).
+        Anahtar: chat_engine._title_key(title) → {tmdb_id,title,genre_ids,vote_count,popularity}.
+        Aynı anahtar çakışırsa popülerliği yüksek olanı tutar. ~22K giriş, hafif.
+        "X gibi" / exact-title sorgularının TÜM sistem filmlerine çözülmesini sağlar."""
+        if getattr(self, "_title_index", None) is not None:
+            return self._title_index
+        import logging
+        from backend.services.chat_engine import _title_key
+        index: dict = {}
+        try:
+            async with _get_connection(self.db_path) as db:
+                cursor = await db.execute(
+                    "SELECT tmdb_id, title, genre_ids, vote_count, popularity FROM movie_repository"
+                )
+                rows = await cursor.fetchall()
+        except Exception as e:
+            logging.getLogger("title_index").warning("[TitleIndex] build failed: %s", e)
+            self._title_index = {}
+            return self._title_index
+        for tmdb_id, title, genre_ids, vote_count, popularity in rows:
+            if not title:
+                continue
+            key = _title_key(title)
+            if not key:
+                continue
+            pop = popularity or 0
+            existing = index.get(key)
+            if existing is not None and (existing.get("popularity") or 0) >= pop:
+                continue
+            try:
+                gids = json.loads(genre_ids) if genre_ids else []
+            except Exception:
+                gids = []
+            index[key] = {
+                "tmdb_id": tmdb_id, "title": title, "genre_ids": gids,
+                "vote_count": vote_count or 0, "popularity": pop,
+            }
+        self._title_index = index
+        logging.getLogger("title_index").info("[TitleIndex] %d başlık indekslendi", len(index))
+        return index
+
+    async def resolve_title(self, text: str, min_ratio: float = 0.85):
+        """Sorgu metnini yerel korpustaki bir filme çöz: önce exact (folded), sonra
+        fuzzy (difflib >= min_ratio). Türkçe-duyarlı; tüm 22K sistem filmini kapsar.
+        Dönüş: {tmdb_id,title,genre_ids,...} veya None."""
+        from backend.services.chat_engine import _title_key
+        key = _title_key(text)
+        if not key or len(key) < 2:
+            return None
+        index = await self.build_title_index()
+        if not index:
+            return None
+        hit = index.get(key)
+        if hit:
+            return hit
+        # Fuzzy: en yakın anahtar (uzunluk-farkı ön filtresiyle hızlandırılır)
+        from difflib import SequenceMatcher
+        best, best_ratio = None, 0.0
+        klen = len(key)
+        for k, v in index.items():
+            if abs(len(k) - klen) > 6:
+                continue
+            r = SequenceMatcher(None, key, k).ratio()
+            if r > best_ratio:
+                best_ratio, best = r, v
+        return best if (best and best_ratio >= min_ratio) else None
+
     async def fetch_movies_by_exact_titles(self, titles: list, limit: int = 20) -> list:
         """
         Fetch movies by exact title match across the entire repository.
