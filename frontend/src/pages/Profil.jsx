@@ -35,6 +35,7 @@ import ProfileSocial from '../components/profile/ProfileSocial';
 import ProfileSettings from '../components/profile/ProfileSettings';
 import ReferralCard from '../components/profile/ReferralCard';
 import MilestonesStrip from '../components/MilestonesStrip';
+import StreakBadge from '../components/StreakBadge';
 import WeeklyReportCard from '../components/WeeklyReportCard';
 import { useAchievements } from '../components/AchievementCelebration';
 
@@ -440,6 +441,11 @@ export default function Profil() {
           onEditProfile={user ? () => setEditProfileOpen(true) : null}
           isPublic={!user}
         />
+
+        {/* ─── Günlük Seri (streak) ─── */}
+        <div className="flex justify-center">
+          <StreakBadge />
+        </div>
 
         {/* ─── Anonim: giriş çağrısı ─── */}
         {!user && (

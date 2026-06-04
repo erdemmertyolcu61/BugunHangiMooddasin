@@ -11,7 +11,6 @@ import useDocumentMeta from '../utils/useDocumentMeta';
 
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
-import StreakBadge from '../components/StreakBadge';
 import MovieCard from '../components/MovieCard';
 import { searchMovies } from '../services/api';
 
@@ -149,7 +148,6 @@ export default function MoodSelector() {
       {/* Streak + Ara (büyüteç) + Profil — sağ üst. mt-safe → çentik/status bar altına kaçmaz.
           chrome-fade: aşağı kaydırınca yumuşakça kaybolur, yukarı/üstte geri gelir. */}
       <div className="chrome-fade fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
-        <StreakBadge />
         {searchOpen ? (
           <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full pl-4 pr-2 border border-white/10" style={{ minHeight: 40 }}>
             <input
