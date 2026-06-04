@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useMood, MOODS } from '../context/MoodContext';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Book, ChevronRight, Brain, User, Gem, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Book, ChevronRight, Brain, User, Gem, Search, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
 
@@ -12,6 +12,8 @@ import useDocumentMeta from '../utils/useDocumentMeta';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
 import StreakBadge from '../components/StreakBadge';
+import MovieCard from '../components/MovieCard';
+import { searchMovies } from '../services/api';
 
 const moodList = Object.values(MOODS);
 
@@ -27,6 +29,54 @@ export default function MoodSelector() {
 
   const [hoveredMood, setHoveredMood] = useState(null);
   const [quizOpen, setQuizOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeout = useRef(null);
+  const lastRequestId = useRef(0);
+  const searchInputRef = useRef(null);
+
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query);
+    clearTimeout(searchTimeout.current);
+    if (!query.trim()) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchResults([]);
+    setSearchLoading(true);
+    const requestId = ++lastRequestId.current;
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const data = await searchMovies(query);
+        if (requestId !== lastRequestId.current) return;
+        setSearchResults(data.movies || []);
+      } catch {
+        if (requestId === lastRequestId.current) setSearchResults([]);
+      } finally {
+        if (requestId === lastRequestId.current) setSearchLoading(false);
+      }
+    }, 400);
+  }, []);
+
+  const handleResultClick = (movie) => {
+    navigate(`/discover?film=${movie.id}`);
+  };
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 100);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults(null);
+    setSearchLoading(false);
+    clearTimeout(searchTimeout.current);
+  };
 
   // Skip prefetch/preload on touch devices to avoid spurious API calls
   const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
@@ -100,14 +150,27 @@ export default function MoodSelector() {
           chrome-fade: aşağı kaydırınca yumuşakça kaybolur, yukarı/üstte geri gelir. */}
       <div className="chrome-fade fixed top-4 right-4 z-50 mt-safe flex items-center gap-2">
         <StreakBadge />
-        <button
-          onClick={() => navigate('/search')}
-          title="Film ara"
-          aria-label="Film ara"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-ivory/55 hover:text-amber hover:border-amber/40 transition-all"
-        >
-          <Search size={17} />
-        </button>
+        {searchOpen ? (
+          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full pl-4 pr-2 border border-white/10" style={{ minHeight: 40 }}>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Film ara..."
+              className="w-44 sm:w-56 bg-transparent text-sm text-ivory placeholder:text-ivory/35 outline-none"
+            />
+            <button onClick={closeSearch} aria-label="Aramayı kapat"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-ivory/50 hover:text-amber hover:bg-white/5 transition-all">
+              <X size={16} />
+            </button>
+          </div>
+        ) : (
+          <button onClick={openSearch} title="Film ara" aria-label="Film ara"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-ivory/55 hover:text-amber hover:border-amber/40 transition-all">
+            <Search size={17} />
+          </button>
+        )}
         <button
           onClick={() => navigate('/profil')}
           title={user ? 'Profilim' : 'Giriş Yap'}
@@ -148,7 +211,46 @@ export default function MoodSelector() {
           </p>
         </motion.header>
 
-        {/* ═══ Grid: Mood Kartları + Quiz Widget ═══ */}
+        {/* ═══ Grid: Mood Kartları + Quiz Widget / Arama Sonuçları ═══ */}
+        {searchOpen ? (
+          <div className="w-full max-w-7xl mb-10">
+            {searchLoading && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="aspect-[2/3] rounded-[2.5rem] animate-pulse overflow-hidden" style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.08)' }}>
+                    <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.06) 0%, rgba(0,0,0,0.3) 50%, rgba(212,175,55,0.06) 100%)', backgroundSize: '200% 200%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {!searchLoading && searchResults !== null && searchResults.length === 0 && (
+              <div className="py-28 text-center">
+                <p className="text-ivory/20 font-serif italic text-2xl sm:text-3xl px-6">"{searchQuery}" için bir şey bulamadım evlat.</p>
+              </div>
+            )}
+            {!searchLoading && searchResults !== null && searchResults.length > 0 && (
+              <div className="space-y-6">
+                <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-ivory/20">
+                  <span className="text-amber/60">{searchResults.length}</span> sonuç
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {searchResults.map((movie) => (
+                    <MovieCard
+                      key={movie.id}
+                      movie={movie}
+                      onAnalyze={handleResultClick}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {!searchLoading && searchResults === null && (
+              <div className="py-28 text-center">
+                <p className="text-ivory/30 font-serif italic text-lg">Bir film adı yaz, bakalım ne çıkacak...</p>
+              </div>
+            )}
+          </div>
+        ) : (<>
         <div className="flex flex-col lg:flex-row gap-6 max-w-7xl w-full mb-10">
           {/* Mood kartları grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
@@ -287,6 +389,7 @@ export default function MoodSelector() {
             Gizlilik & KVKK
           </button>
         </motion.footer>
+        </>)}
       </div>
 
       <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} onComplete={handleQuizComplete} />
