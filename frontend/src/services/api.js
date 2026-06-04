@@ -287,6 +287,14 @@ export async function getTasteMap() {
   return res.json();
 }
 
+// "Sana Özel" — kullanıcının zevk profiline göre kişisel film seçkisi.
+// Yetersiz sinyalde { movies: [], personalized: false } döner.
+export async function getForYou(limit = 18) {
+  const res = await fetch(`${BASE}/movies/for-you?limit=${limit}`, { headers: { ...authHeaders() } });
+  if (!res.ok) return { movies: [], personalized: false };
+  return res.json();
+}
+
 export async function getReferrals() {
   const res = await fetch(`${BASE}/user/referrals`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Davet bilgisi alınamadı (${res.status})`);

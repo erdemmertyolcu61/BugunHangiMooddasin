@@ -101,6 +101,51 @@ _NOTE_NEGATIVE = (
 )
 
 
+def score_movie_for_profile(profile: dict, movie: dict, mood_id: str = None) -> float:
+    """Bir filmin, kullanıcının zevk profiline KİŞİSEL uyum skoru (0..99).
+
+    Frontend `utils/personalMatch.js` ile AYNI mantık (taban mood_score + tür
+    örtüşmesi + mood yakınlığı) — "Sana Özel" şeridi ve Discover uyum% tutarlı
+    olsun diye. Tamamen deterministik, sıfır-maliyet.
+    """
+    base = movie.get("mood_score")
+    if not isinstance(base, (int, float)) or base <= 0:
+        base = 72.0
+
+    genre_weight = {}
+    max_g = 1.0
+    for g in profile.get("top_genres", []) or []:
+        gid = g.get("genre_id")
+        if gid is not None:
+            s = g.get("score") or 0
+            genre_weight[gid] = s
+            if s > max_g:
+                max_g = s
+    mood_pct = profile.get("mood_pct", {}) or {}
+
+    adj = 0.0
+    weighted = False
+
+    gids = movie.get("genre_ids") or []
+    if genre_weight and gids:
+        g = 0.0
+        for gid in gids:
+            if gid in genre_weight:
+                g += genre_weight[gid] / max_g
+        g = min(1.0, g / min(len(gids), 3))
+        adj += (g - 0.4) * 30 * 0.6
+        weighted = True
+
+    mp = mood_pct.get(mood_id) if mood_id else None
+    if mp is not None:
+        adj += (min(1.0, mp / 35.0) - 0.5) * 20 * 0.4
+        weighted = True
+
+    if not weighted:
+        return float(base)
+    return max(60.0, min(99.0, base + adj))
+
+
 class TasteMapEngine:
     """
     Local, deterministic, embedding-independent taste map analyzer.

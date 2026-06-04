@@ -46,11 +46,13 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
           </div>
         )}
 
-        {/* Mood Uyum Overlay — sadece seçki olmayan kartlarda (seçki zaten en uyumlular) */}
-        {movie.mood_match_label !== "Üstad'ın Seçkisi" && (
+        {/* Mood Uyum Overlay — sadece seçki olmayan kartlarda. Kişisel `match`
+            (taste map) öncelikli; yoksa backend mood_score; ikisi de yoksa rozet
+            gizlenir (artık sahte yüzde yok). */}
+        {movie.mood_match_label !== "Üstad'ın Seçkisi" && (movie.match ?? movie.mood_score) != null && (
           <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-black/75 sm:bg-black/60 sm:backdrop-blur-md rounded-full border border-white/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 sm:transform sm:translate-x-4 sm:group-hover:translate-x-0">
             <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber flex items-center gap-1.5 sm:gap-2">
-              <Clapperboard size={10} /> %{movie.mood_score || movie.match}
+              <Clapperboard size={10} /> %{movie.match ?? movie.mood_score}
             </p>
           </div>
         )}

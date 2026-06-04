@@ -29,7 +29,7 @@ from backend.services.embedding_service import embedding_service
 from backend.services.fast_search import fast_search_engine
 from backend.services.semantic_search import semantic_engine
 from backend.services.search import SearchEngine
-from backend.services.taste_map import TasteMapEngine
+from backend.services.taste_map import TasteMapEngine, score_movie_for_profile
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
@@ -5518,6 +5518,70 @@ async def get_user_taste_map(request: Request):
             "confidence": "low",
             "error": str(e),
         }
+
+
+@app.get("/api/movies/for-you", dependencies=[Depends(rate_limit_general)])
+async def get_for_you(request: Request, limit: int = Query(18, ge=6, le=40)):
+    """"Sana Özel" şeridi — kullanıcının zevk profiline göre kişisel film seçkisi.
+
+    Tamamen deterministik/lokal (LLM yok): kullanıcının baskın moodlarından aday
+    filmleri çeker, tür+mood örtüşmesine göre puanlar, ZATEN kaydedilenleri eler.
+    Yetersiz sinyal (yeni kullanıcı) → boş + personalized:false.
+    """
+    try:
+        uid = optional_user_id(request)
+        if uid is None:
+            return {"movies": [], "personalized": False}
+
+        # Profil: cache-first, yoksa hesapla
+        profile = None
+        cached = await cache.get_taste_profile(uid)
+        if cached and cached.get("profile_data"):
+            profile = cached["profile_data"]
+        else:
+            engine = TasteMapEngine(cache=cache, tmdb_service=tmdb_service)
+            profile = await engine.analyze(uid)
+            if profile.get("signals", {}).get("total_movies", 0) >= 3:
+                try:
+                    await cache.save_taste_profile(uid, profile)
+                except Exception:
+                    pass
+
+        if profile.get("signals", {}).get("total_movies", 0) < 3:
+            return {"movies": [], "personalized": False}  # yetersiz sinyal
+
+        # Zaten kaydedilen filmleri ele
+        signals = await cache.get_user_movie_signals(uid)
+        saved_ids = {tid for tid in signals.keys() if isinstance(tid, int)}
+
+        # Baskın moodlardan aday topla
+        top_moods = [m.get("mood_id") for m in profile.get("top_moods", [])[:3] if m.get("mood_id")]
+        candidates = {}
+        for mid in top_moods:
+            try:
+                rows = await cache.get_top_scored_movies_by_mood(mid, limit=40)
+            except Exception:
+                rows = []
+            for mv in rows:
+                if mv["id"] in saved_ids or mv["id"] in candidates:
+                    continue
+                mv["_mood_id"] = mid
+                candidates[mv["id"]] = mv
+
+        scored = [
+            (score_movie_for_profile(profile, mv, mood_id=mv.get("_mood_id")), mv)
+            for mv in candidates.values()
+        ]
+        scored.sort(key=lambda x: -x[0])
+
+        out = []
+        for s, mv in scored[:limit]:
+            mv = {k: v for k, v in mv.items() if k != "_mood_id"}
+            mv["match"] = max(60, min(99, round(s)))
+            out.append(mv)
+        return {"movies": out, "personalized": True}
+    except Exception as e:
+        raise _safe_http_500(e, "for-you")
 
 
 # --- Audio Proxy (CC0 open-lofi müzikler + Pixabay fallback) ---

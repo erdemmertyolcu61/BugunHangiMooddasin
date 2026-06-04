@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Check, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Share2, Copy, Users, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap, getForYou } from '../services/api';
+import { buildMatcher } from '../utils/personalMatch';
 import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';
 import UpcomingSlider from '../components/UpcomingSlider';
@@ -88,6 +89,8 @@ export default function Discover() {
     description: 'Ruh haline ve zevkine göre film keşfet. Üstad’ın seçkileri, mood eşleşmeleri ve binlerce filmlik arşivle ne izleyeceğini bul.',
   });
   const [movies, setMovies] = useState([]);
+  const [matcher, setMatcher] = useState(null); // kişisel uyum% (taste map'ten); yoksa null
+  const [forYou, setForYou] = useState([]);     // "Sana Özel" şeridi (kişisel seçki)
   const [loading, setLoading] = useState(true);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -220,11 +223,20 @@ export default function Discover() {
     setSortOpen(false);
   };
 
-  const getMoodMatch = (movieId, moodId) => {
-    // A stable pseudo-random percentage based on movie and mood IDs
-    const seed = (movieId * 13 + (moodId?.length || 7) * 7) % 100;
-    return Math.max(75, seed); // Gurme always recommends 75% or higher match
-  };
+  // Kişisel "uyum %" için kullanıcının zevk haritasını bir kez çek (giriş yaptıysa).
+  // Yetersiz veri/yeni kullanıcı → matcher null kalır → sahte yüzde GÖSTERİLMEZ
+  // (MovieCard backend mood_score'a düşer).
+  useEffect(() => {
+    if (!user) { setMatcher(null); setForYou([]); return; }
+    let alive = true;
+    getTasteMap()
+      .then((tm) => { if (alive) setMatcher(() => buildMatcher(tm)); })
+      .catch(() => { if (alive) setMatcher(null); });
+    getForYou(18)
+      .then((r) => { if (alive) setForYou(r.movies || []); })
+      .catch(() => { if (alive) setForYou([]); });
+    return () => { alive = false; };
+  }, [user]);
 
   useEffect(() => {
     clearTimeout(searchTimeout.current);
@@ -243,11 +255,9 @@ export default function Discover() {
         setTimeout(() => setCurrentPage(1), 10000);
         return { movies: [], total_pages: 1, seeding: true };
       }
-      const enriched = (moviesData.movies || []).map(m => ({
-        ...m,
-        match: getMoodMatch(m.id, selectedMood.id)
-      }));
-      return { movies: enriched, total_pages: moviesData.total_pages || 1 };
+      // Kişisel uyum% render anında uygulanır (displayMovies) — matcher async
+      // gelse bile filmler doğru güncellenir. Burada ham veriyi koru.
+      return { movies: moviesData.movies || [], total_pages: moviesData.total_pages || 1 };
     },
     { revalidateOnMount: true }
   );
@@ -348,11 +358,7 @@ export default function Discover() {
       try {
         const data = await searchMovies(query);
         if (requestId !== lastRequestId.current) return;
-        const enriched = (data.movies || []).map(m => ({
-            ...m,
-            match: getMoodMatch(m.id, selectedMood?.id)
-        }));
-        setSearchResults(enriched);
+        setSearchResults(data.movies || []);
       } catch {
         if (requestId === lastRequestId.current) setSearchResults([]);
       }
@@ -544,9 +550,16 @@ export default function Discover() {
 
   // [CRITICAL FIX 3] Fortress gate: if user has typed ANYTHING or search is loading,
   // mood/random movies are completely suppressed from the virtual DOM.
-  const displayMovies = searchQuery.trim() !== ''
+  const displayMoviesRaw = searchQuery.trim() !== ''
     ? (searchResults || [])   // During typing/loading: empty array (skeletons shown via searchLoading)
     : movies;                 // Only show mood movies when search input is truly empty
+
+  // Kişisel uyum%: matcher varsa her filme kullanıcıya özel `match` ekle. Yoksa
+  // ham bırak → MovieCard backend mood_score'a düşer (sahte yüzde yok).
+  const displayMovies = useMemo(() => {
+    if (!matcher) return displayMoviesRaw;
+    return displayMoviesRaw.map((m) => ({ ...m, match: matcher(m, selectedMood?.id) }));
+  }, [displayMoviesRaw, matcher, selectedMood?.id]);
 
   // Mobil 2-sütun grid: page 1'de 20 normal + 5 "Üstad'ın Seçkisi" = 25 (tek sayı) →
   // son satırda yalnız bir kart + boş hücre kalıyordu. Tek ise son kartı düşürüp
@@ -843,6 +856,37 @@ export default function Discover() {
             </div>
           </div>
         </motion.section>
+
+        {/* ─── Sana Özel — kişisel seçki (zevk profiline göre) ─── */}
+        {forYou.length > 0 && searchResults === null && (
+          <motion.section
+            className="space-y-4 mb-12"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="flex items-end justify-between gap-3 px-1">
+              <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">Sana Özel</h2>
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-amber/60">
+                Zevkine göre seçildi
+              </span>
+            </div>
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+              {forYou.map((m) => (
+                <div key={m.id} className="w-[150px] sm:w-[190px] shrink-0">
+                  <MovieCard
+                    movie={m}
+                    isSaved={quickSavedIds.has(m.id)}
+                    isWatched={quickWatchedIds.has(m.id)}
+                    onQuickSave={handleQuickSave}
+                    onQuickWatched={handleQuickWatched}
+                    onAnalyze={handleAnalyze}
+                  />
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
 
         <motion.section
           className="space-y-12"
