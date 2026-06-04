@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Play } from 'lucide-react';
 import { suspendMoodAudio, resumeMoodAudio } from '../utils/moodAudioManager';
 import LottieAnimation from './LottieAnimation';
 
@@ -57,15 +58,19 @@ export default function TrailerPlayer({ youtubeKey, posterSrc, title = 'Film', p
           loading="eager"
         />
       )}
-      {/* Oynat afiş'i — saydam, film makarası (lottie) + yazı; iki temada da
-          afiş görseli üzerinde okunur (beyaz + gölge). */}
+      {/* Oynat afiş'i — saydam; klasik ▶ üçgeni + film makarası (lottie) + yazı.
+          İki temada da afiş görseli üzerinde okunur (beyaz + gölge). */}
       <span className="absolute inset-0 grid place-items-center bg-black/10 group-hover:bg-black/20 transition-colors">
-        <span className="flex items-center gap-2 rounded-full bg-black/30 backdrop-blur-md px-4 py-2.5 border border-white/25 shadow-[0_4px_20px_rgba(0,0,0,0.45)] group-hover:bg-black/40 group-hover:scale-105 transition-all">
-          <LottieAnimation
-            path="/lottie/film-reel.json"
-            className="w-7 h-7 shrink-0"
-            speed={1}
-          />
+        <span className="flex items-center gap-2.5 rounded-full bg-black/30 backdrop-blur-md pl-2.5 pr-4 py-2 border border-white/25 shadow-[0_4px_20px_rgba(0,0,0,0.45)] group-hover:bg-black/40 group-hover:scale-105 transition-all">
+          {/* Klasik başlat üçgeni — daire içinde */}
+          <span className="relative grid place-items-center w-9 h-9 rounded-full bg-white/15 border border-white/30 shrink-0">
+            <Play size={16} className="text-white fill-white translate-x-[1px]" />
+            <LottieAnimation
+              path="/lottie/film-reel.json"
+              className="absolute inset-0 w-full h-full opacity-30 pointer-events-none"
+              speed={1}
+            />
+          </span>
           <span className="text-sm font-semibold tracking-wide text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             Fragmanı Oynat
           </span>

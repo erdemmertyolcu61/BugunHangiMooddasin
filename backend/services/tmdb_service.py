@@ -10,6 +10,13 @@ from backend.config import TMDB_API_KEY, TMDB_BASE_URL, TMDB_IMAGE_BASE
 _SEMAPHORE = asyncio.Semaphore(8)
 _RETRY_DELAYS = [0.5, 1.5, 4.0]  # Exponential-ish retry
 
+# Fragman override haritası — TMDB'nin fragmanı eksik/yabancı/yanlış olan
+# (özellikle Türk) filmler için kürasyonlu YouTube key. {tmdb_id: youtube_key}
+# TMDB tüm dünyada Türkçe fragman tutmuyor; bu liste o boşluğu doldurur.
+TRAILER_OVERRIDES = {
+    52556: "tRIi_xSDJwE",  # Yol (1982) — Türkçe fragman (TMDB'de tr videosu yok)
+}
+
 
 class TMDBService:
     def __init__(self):
@@ -317,6 +324,12 @@ class TMDBService:
     async def get_movie_videos(self, movie_id: int) -> dict:
         """En iyi resmî YouTube fragmanını döndürür. tr-TR boşsa en-US'e düşer.
         Dönen: {"key", "name", "type", "official", "site"} ya da {}."""
+        # Kürasyonlu override (TMDB'nin fragmanı yanlış/yabancı olan filmler)
+        override_key = TRAILER_OVERRIDES.get(movie_id)
+        if override_key:
+            return {"key": override_key, "name": "Fragman", "type": "Trailer",
+                    "official": True, "site": "YouTube"}
+
         def _pick(results):
             # SADECE gerçek fragman/teaser kabul et — "filmle ilgili" rastgele
             # YouTube videoları (Clip, Featurette, Behind the Scenes vb.) ELENİR.
