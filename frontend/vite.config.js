@@ -18,7 +18,7 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/share/],
+        navigateFallbackDenylist: [/^\/api/, /^\/share/, /^\/youtube/],
         runtimeCaching: [
           {
             // index.html → her zaman network'ten al, offline'da cache fallback
