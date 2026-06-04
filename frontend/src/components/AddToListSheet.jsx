@@ -90,7 +90,7 @@ export default function AddToListSheet({ movie, onClose }) {
                 <input autoFocus value={newName} onChange={e => setNewName(e.target.value.slice(0, 60))}
                   onKeyDown={e => e.key === 'Enter' && handleCreateAndAdd()}
                   placeholder="Liste adı"
-                  className="flex-1 px-4 py-2.5 bg-black/30 border border-white/10 rounded-full text-sm text-ivory placeholder:text-ivory/30 focus:outline-none focus:border-amber/40" />
+                  className="flex-1 px-4 py-2.5 bg-black/30 border border-white/10 rounded-full text-base text-ivory placeholder:text-ivory/30 focus:outline-none focus:border-amber/40" />
                 <button onClick={handleCreateAndAdd} disabled={createBusy || !newName.trim()}
                   className="px-5 py-2.5 rounded-full bg-amber text-bg text-[11px] font-bold uppercase tracking-wider disabled:opacity-40">
                   {createBusy ? <Loader2 size={14} className="animate-spin" /> : 'Oluştur + Ekle'}

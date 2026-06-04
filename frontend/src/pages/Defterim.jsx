@@ -361,7 +361,7 @@ export default function Defterim() {
                               const isTop = topMoodSet.has(mid);
                               return (
                                 <div key={mid} className="flex items-center gap-3">
-                                  <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-24 sm:w-28 truncate capitalize flex items-center gap-1.5">
+                                  <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-24 sm:w-32 min-w-0 capitalize flex items-center gap-1.5">
                                     {label}
                                     {isTop && (
                                       <span className="text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-full bg-amber/15 text-amber border border-amber/20 shrink-0">

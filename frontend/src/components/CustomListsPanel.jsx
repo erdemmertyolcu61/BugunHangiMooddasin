@@ -155,13 +155,15 @@ export default function CustomListsPanel({ user }) {
               <input autoFocus value={newName} onChange={e => setNewName(e.target.value.slice(0, 60))}
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
                 placeholder="Liste adı (örn. Nolan filmleri)"
-                className="flex-1 px-4 py-3 bg-black/30 border border-white/10 rounded-full text-sm text-ivory placeholder:text-ivory/30 focus:outline-none focus:border-amber/40" />
+                className="flex-1 px-4 py-3 bg-black/30 border border-white/10 rounded-full text-base text-ivory placeholder:text-ivory/30 focus:outline-none focus:border-amber/40" />
               <button onClick={handleCreate} disabled={busy || !newName.trim()}
-                className="px-6 py-3 rounded-full bg-amber text-bg text-[11px] font-bold uppercase tracking-wider disabled:opacity-40 transition-all">
-                {busy ? <Loader2 size={14} className="animate-spin" /> : 'Oluştur'}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-amber text-bg disabled:opacity-40 transition-all shrink-0">
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
               </button>
               <button onClick={() => { setCreating(false); setNewName(''); }}
-                className="px-4 py-3 rounded-full bg-white/5 border border-white/10 text-ivory/50 text-[11px] font-bold uppercase tracking-wider">İptal</button>
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-ivory/50 hover:text-amber transition-all shrink-0">
+                <X size={16} />
+              </button>
             </div>
           </motion.div>
         ) : (

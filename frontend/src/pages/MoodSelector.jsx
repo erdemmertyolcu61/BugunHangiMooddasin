@@ -12,6 +12,7 @@ import useDocumentMeta from '../utils/useDocumentMeta';
 import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
 import MovieCard from '../components/MovieCard';
+import FilmDetailModal from '../components/FilmDetailModal';
 import { searchMovies } from '../services/api';
 
 const moodList = Object.values(MOODS);
@@ -32,6 +33,7 @@ export default function MoodSelector() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
   const searchTimeout = useRef(null);
   const lastRequestId = useRef(0);
   const searchInputRef = useRef(null);
@@ -61,7 +63,7 @@ export default function MoodSelector() {
   }, []);
 
   const handleResultClick = (movie) => {
-    navigate(`/discover?film=${movie.id}`);
+    setSelectedMovie(movie);
   };
 
   const openSearch = () => {
@@ -392,6 +394,13 @@ export default function MoodSelector() {
       </div>
 
       <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} onComplete={handleQuizComplete} />
+      {selectedMovie && (
+        <FilmDetailModal
+          movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          initialMovie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+        />
+      )}
     </div>
   );
 }

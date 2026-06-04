@@ -146,7 +146,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                 const barColor = MOOD_COLORS[mid] || '#d4af37';
                 return (
                   <div key={mid} className="flex items-center gap-3">
-                    <span className="text-[12px] font-semibold text-fg-muted w-28 shrink-0">{label}</span>
+                    <span className="text-[12px] font-semibold text-fg-muted w-28 sm:w-32 shrink-0 min-w-0">{label}</span>
                     <div className="flex-1 h-2 rounded-full bg-fg-subtle/15 overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
@@ -201,7 +201,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                 <div className="space-y-2">
                   {eraBars.map(([era, pct]) => (
                     <div key={era} className="flex items-center gap-3">
-                      <span className="text-[12px] font-semibold text-fg-muted w-24 shrink-0">{ERA_LABELS[era] || humanize(era)}</span>
+                      <span className="text-[12px] font-semibold text-fg-muted w-24 sm:w-28 shrink-0 min-w-0">{ERA_LABELS[era] || humanize(era)}</span>
                       <div className="flex-1 h-1.5 rounded-full bg-fg-subtle/15 overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
@@ -252,7 +252,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                           <div className="h-full bg-amber/70" style={{ width: `${mainPct}%` }} />
                           <div className="h-full bg-purple-400/60" style={{ width: `${indiePct}%` }} />
                         </div>
-                        <div className="flex items-center justify-between text-[10px] font-semibold text-fg-subtle">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-fg-subtle">
                           <span>Ana akım %{mainPct}</span>
                           <span>Bağımsız %{indiePct}</span>
                         </div>
