@@ -447,7 +447,11 @@ export default function Defterim() {
                         <div className="space-y-1.5 sm:space-y-2 min-w-0">
                             <h3 className="text-2xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tighter leading-snug sm:leading-none group-hover:text-amber transition-colors duration-500 break-words">{movie.title}</h3>
                             <div className="flex items-center gap-4 opacity-30">
-                                <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest">{formatDefterDate(movie.added_at)} tarihinde eklendi</span>
+                                <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest">
+                                  {watchedIds.has(movie.tmdb_id) && movie.watched_at
+                                    ? `${formatDefterDate(movie.watched_at)} tarihinde izlendi`
+                                    : `${formatDefterDate(movie.added_at)} tarihinde eklendi`}
+                                </span>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-3 shrink-0">

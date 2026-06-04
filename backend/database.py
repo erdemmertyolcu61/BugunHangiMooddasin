@@ -363,6 +363,12 @@ class MovieCache:
                 await db.execute("ALTER TABLE future_plans_mu RENAME TO future_plans")
 
                 await db.execute("INSERT INTO schema_migrations (key) VALUES ('multiuser_v1')")
+            # watched_at: filmin "izlendi" işaretlendiği an (son-izlenen sıralaması +
+            # zamansal zevk içgörüsü için). Idempotent ALTER — her açılışta garanti.
+            try:
+                await db.execute("ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP")
+            except Exception:
+                pass
             # OMDb Ratings Cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS omdb_cache (
@@ -692,6 +698,7 @@ class MovieCache:
                 poster_url TEXT,
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 watched INTEGER DEFAULT 0,
+                watched_at TIMESTAMP,
                 user_id INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (tmdb_id, user_id)
             )""",
@@ -778,6 +785,7 @@ class MovieCache:
             "ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0",
             "ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18",
             "ALTER TABLE direct_recommendations ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -1355,7 +1363,7 @@ class MovieCache:
         async with _get_connection(self.db_path, user_data=True) as db:
             cursor = await db.execute(
                 """SELECT w.tmdb_id, w.title, w.poster_url, w.added_at, w.watched,
-                          COALESCE(n.note_content, '') as personal_note
+                          COALESCE(n.note_content, '') as personal_note, w.watched_at
                    FROM watchlist w
                    LEFT JOIN movie_notes n ON w.tmdb_id = n.tmdb_id AND n.user_id = w.user_id
                    WHERE w.user_id = ? ORDER BY w.added_at DESC""",
@@ -1365,7 +1373,8 @@ class MovieCache:
             return [
                 {"tmdb_id": r[0], "title": r[1], "poster_url": r[2],
                  "added_at": r[3], "watched": bool(r[4]),
-                 "personal_note": r[5] or ""}
+                 "personal_note": r[5] or "",
+                 "watched_at": r[6] if len(r) > 6 else None}
                 for r in rows
             ]
 
@@ -1379,10 +1388,17 @@ class MovieCache:
             if not row:
                 return False
             new_val = 0 if (row[0] or 0) else 1
-            await db.execute(
-                "UPDATE watchlist SET watched = ? WHERE tmdb_id = ? AND user_id = ?",
-                (new_val, tmdb_id, user_id)
-            )
+            # İzlendi → zaman damgası set (added_at gibi DB-native); geri alınırsa temizle.
+            if new_val:
+                await db.execute(
+                    "UPDATE watchlist SET watched = 1, watched_at = CURRENT_TIMESTAMP WHERE tmdb_id = ? AND user_id = ?",
+                    (tmdb_id, user_id)
+                )
+            else:
+                await db.execute(
+                    "UPDATE watchlist SET watched = 0, watched_at = NULL WHERE tmdb_id = ? AND user_id = ?",
+                    (tmdb_id, user_id)
+                )
             await db.commit()
             return bool(new_val)
 
