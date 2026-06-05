@@ -462,6 +462,14 @@ class TasteMapEngine:
                 if y >= 2021:
                     stats["recent"] += w
 
+        # Normalize to percentages: pre_1990 + mid + post_2000 = 100%
+        era_total = stats["pre_1990"] + stats["mid"] + stats["post_2000"]
+        if era_total > 0:
+            stats["pre_1990"] = round(stats["pre_1990"] / era_total * 100, 1)
+            stats["mid"] = round(stats["mid"] / era_total * 100, 1)
+            stats["post_2000"] = round(stats["post_2000"] / era_total * 100, 1)
+            stats["recent"] = round(stats["recent"] / era_total * 100, 1)
+
         # Mean year for dynamic era description
         mean_year = round(sum(years) / len(years)) if years else None
         stats["mean_year"] = mean_year

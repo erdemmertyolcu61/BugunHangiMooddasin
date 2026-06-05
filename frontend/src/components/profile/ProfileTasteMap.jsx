@@ -67,7 +67,14 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
     );
   }
 
-  const moodPctEntries = tasteMap.mood_pct ? Object.entries(tasteMap.mood_pct).slice(0, 5) : [];
+  // Safety normalize mood_pct to sum to 100
+  const rawMoodPct = tasteMap.mood_pct || {};
+  const rawTotal = Object.values(rawMoodPct).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
+  const normalizedMoodPct = rawTotal > 0
+    ? Object.fromEntries(Object.entries(rawMoodPct).map(([k, v]) => [k, (v / rawTotal) * 100]))
+    : rawMoodPct;
+
+  const moodPctEntries = Object.keys(normalizedMoodPct).length > 0 ? Object.entries(normalizedMoodPct).slice(0, 5) : [];
   const topGenres = tasteMap.top_genres || [];
   const eraPref = tasteMap.era_preferences || {};
   const pacing = tasteMap.pacing_profile || {};
@@ -78,6 +85,14 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
     .filter((k) => typeof eraPref[k] === 'number' && eraPref[k] > 0)
     .map((k) => [k, eraPref[k]])
     .sort(([, a], [, b]) => b - a);
+
+  // Safety normalize era bars to sum to 100 (backend should already normalize)
+  if (eraBars.length > 0) {
+    const eraTotal = eraBars.reduce((s, [, v]) => s + v, 0);
+    if (eraTotal > 0 && eraTotal > 100.5) {
+      eraBars.forEach(e => { e[1] = (e[1] / eraTotal) * 100; });
+    }
+  }
 
   const indiePct = Number(style.indie_pct) || 0;
   const mainPct = Number(style.mainstream_pct) || 0;
@@ -119,7 +134,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
               <div className="flex flex-wrap gap-2.5">
                 {tasteMap.top_moods.slice(0, 5).map(m => {
                   const dotColor = MOOD_COLORS[m.mood_id] || '#d4af37';
-                  const pct = tasteMap.mood_pct?.[m.mood_id];
+                  const pct = normalizedMoodPct[m.mood_id];
                   return (
                     <span key={m.mood_id}
                       className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full

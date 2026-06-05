@@ -168,6 +168,13 @@ export default function Defterim() {
     }
   };
 
+  // Normalize mood_pct to always sum to 100
+  const rawMoodPct = tasteMap?.mood_pct || {};
+  const rawTotal = Object.values(rawMoodPct).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
+  const normalizedMoodPct = rawTotal > 0
+    ? Object.fromEntries(Object.entries(rawMoodPct).map(([k, v]) => [k, (v / rawTotal) * 100]))
+    : rawMoodPct;
+
   return (
     <div className="min-h-screen bg-[#120d0b] text-ivory font-sans relative overflow-hidden">
       <div className="vignette vignette-active" style={{"--vignette-color": "#1c1512"}} />
@@ -319,7 +326,7 @@ export default function Defterim() {
                                 'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
                               };
                               const dotColor = MOOD_COLORS[m.mood_id] || '#d4af37';
-                              const pct = tasteMap.mood_pct?.[m.mood_id];
+                              const pct = normalizedMoodPct[m.mood_id];
                               return (
                                 <span key={m.mood_id}
                                   className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full
@@ -331,9 +338,6 @@ export default function Defterim() {
                                   {pct != null && (
                                     <span className="text-[11px] font-bold text-[#f5f2eb]/40 ml-0.5">%{Math.round(pct)}</span>
                                   )}
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber/15 text-amber border border-amber/20 ml-0.5">
-                                    Sana Özel
-                                  </span>
                                 </span>
                               );
                             })}
@@ -342,11 +346,11 @@ export default function Defterim() {
                       )}
 
                       {/* Mood distribution bars */}
-                      {tasteMap.mood_pct && Object.keys(tasteMap.mood_pct).length > 0 && (
+                      {Object.keys(normalizedMoodPct).length > 0 && (
                         <div className="space-y-2.5">
                           {(() => {
                             const topMoodSet = new Set((tasteMap.top_moods || []).map(m => m.mood_id));
-                            return Object.entries(tasteMap.mood_pct).slice(0, 4).map(([mid, pct]) => {
+                            return Object.entries(normalizedMoodPct).slice(0, 4).map(([mid, pct]) => {
                               const MOOD_COLORS = {
                                 battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
                                 askbahcesi: '#f43f5e', kahkaha: '#10b981', adrenalin: '#ef4444',
@@ -361,13 +365,8 @@ export default function Defterim() {
                               const isTop = topMoodSet.has(mid);
                               return (
                                 <div key={mid} className="flex items-center gap-3">
-                                  <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-24 sm:w-32 min-w-0 capitalize flex items-center gap-1.5">
+                                  <span className="text-[12px] font-semibold text-[#f5f2eb]/60 w-24 sm:w-32 min-w-0 capitalize">
                                     {label}
-                                    {isTop && (
-                                      <span className="text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-full bg-amber/15 text-amber border border-amber/20 shrink-0">
-                                        Sana Özel
-                                      </span>
-                                    )}
                                   </span>
                                   <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
                                     <motion.div
