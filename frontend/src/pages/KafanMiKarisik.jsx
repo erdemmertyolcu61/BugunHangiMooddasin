@@ -503,7 +503,6 @@ export default function KafanMiKarisik() {
         <FilmDetailModal
           movieId={detailMovieId}
           initialMovie={detailInitialMovie}
-          hideWatchProviders
           onClose={() => { setDetailMovieId(null); setDetailInitialMovie(null); }}
         />
       )}
