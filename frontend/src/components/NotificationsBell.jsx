@@ -169,13 +169,24 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
 
   return (
     <>
-      {/* Zil butonu — profil header icinde inline */}
+      {/* Zil butonu — profil header icinde inline. Okunmamış varsa Lottie zili
+          çalar (loop); yoksa sade lucide Bell ikonu gösterilir. */}
       <button
         onClick={openPanel}
         aria-label="Bildirimler"
         className="relative w-10 h-10 shrink-0 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all"
       >
-        <Bell size={17} className="text-[#f5f2eb]/80" />
+        {count > 0 ? (
+          <LottieAnimation
+            key="bell-ring"
+            path="/lottie/notification-bell.json"
+            loop
+            autoplay
+            className="w-6 h-6"
+          />
+        ) : (
+          <Bell size={17} className="text-[#f5f2eb]/80" />
+        )}
         {count > 0 && (
           <motion.span
             initial={{ scale: 0 }}

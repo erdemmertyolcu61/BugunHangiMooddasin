@@ -16,7 +16,7 @@ import {
 import { buildWatchUrl, getPlatformInfo } from '../utils/streamingMemory';
 import SimilarFilmsStrip from './SimilarFilmsStrip';
 import TrailerPlayer from './TrailerPlayer';
-import RatingControl from './RatingControl';
+import ReactionControl from './ReactionControl';
 import UstadLoader from './UstadLoader';
 import UstadinNotu from './UstadinNotu';
 import RecommendToFriendSheet from './RecommendToFriendSheet';
@@ -323,7 +323,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                 <div className="border-t border-white/10 pt-6 space-y-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-amber/70">Beğen</p>
                   {token ? (
-                    <RatingControl reaction={myReaction} onChange={handleReactionChange} />
+                    <ReactionControl reaction={myReaction} onChange={handleReactionChange} />
                   ) : (
                     <p className="text-sm font-serif italic text-ivory/45">
                       Filmleri beğenmek için <span className="text-amber/80">giriş yap</span>.

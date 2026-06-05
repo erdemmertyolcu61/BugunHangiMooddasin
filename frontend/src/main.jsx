@@ -7,7 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './context/ToastContext';
 import { AchievementProvider } from './components/AchievementCelebration';
 import { initAnalytics, track, trackAppOpen, EVENTS } from './utils/analytics';
-import { recordStreakOpen } from './utils/streak';
+import { recordStreakOpen, isStreakMilestone } from './utils/streak';
 import { captureReferral } from './context/AuthContext';
 
 // Gizlilik-dostu analytics (yapılandırılmadıysa no-op)
@@ -18,6 +18,11 @@ trackAppOpen(); // app_open + day_n + D1/D7 retention sinyalleri
 // Günlük açılış serisi (retention) — açılışta bir kez işlenir
 const _streak = recordStreakOpen();
 if (_streak.changed && _streak.current > 1) track('streak_continue', { n: _streak.current });
+// Milestone'a (3/7/14/…) ulaşıldıysa ateş animasyonlu kutlamayı tetikle.
+// React henüz mount olmadığından global'e yaz; StreakCelebration mount'ta okur.
+if (_streak.increased && isStreakMilestone(_streak.current)) {
+  window.__streakMilestone = _streak.current;
+}
 
 // Davet linki ?ref=<username> yakala (kayıt öncesi sakla)
 captureReferral();

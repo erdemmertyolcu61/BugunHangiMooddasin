@@ -25,9 +25,9 @@ export default function UstadLoader() {
     <div className="flex flex-col items-center justify-center min-h-[300px] w-full">
       <div className="relative mb-6">
         <LottieAnimation
-          path="/lottie/film-reel.json"
-          className="w-24 h-24"
-          speed={0.8}
+          path="/lottie/coffee-cup.json"
+          className="w-28 h-28"
+          speed={1}
         />
       </div>
       <p className="text-md font-medium text-zinc-300 tracking-wide text-center max-w-md transition-all duration-500 ease-in-out">

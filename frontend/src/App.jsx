@@ -14,6 +14,7 @@ import GamePeekTab from './components/GamePeekTab';
 import AuraBackground from './components/AuraBackground.jsx';
 import ConsentBanner from './components/ConsentBanner';
 import PushPrompt from './components/PushPrompt';
+import StreakCelebration from './components/StreakCelebration';
 
 // ─── Lazy import with auto-reload on chunk miss ───────────────────
 // Vercel yeni deploy'dan sonra eski chunk hash'leri 404 döner.
@@ -165,6 +166,7 @@ function AppContent() {
       </Suspense>
       <BottomNav />
       <UsernameOnboardingModal />
+      <StreakCelebration />
       <ConsentBanner />
     </>
   );
