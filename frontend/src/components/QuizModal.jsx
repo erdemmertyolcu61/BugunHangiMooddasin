@@ -118,7 +118,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                       }`} />
                     ))}
                     <button onClick={onClose} className="ml-2 p-0.5 text-fg-subtle/40 hover:text-amber transition-colors active:scale-90">
-                      <X size={13} />
+                      <X size={16} />
                     </button>
                   </div>
                 </div>
