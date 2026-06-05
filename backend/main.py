@@ -3083,6 +3083,39 @@ _CONFUSED_KEYWORDS = {
     "erotik": {"gece": 4, "askbahcesi": 2, "deep-chills": 2},
     "yetiskin": {"gece": 4, "deep-chills": 2},
     "cesur": {"gece": 3, "deep-chills": 2, "karmakar": 1},
+    # ─── Eksik türler ───
+    "dram": {"gozyasi": 3, "kalp": 3, "sessiz": 2},
+    "komedi": {"kahkaha": 4},
+    "aksiyon": {"adrenalin": 4, "gece": 1},
+    "suç": {"gece": 3, "deep-chills": 2},
+    "belgesel": {"zihin": 3, "yolculuk": 2},
+    "animasyon": {"battaniye": 3, "kahkaha": 2, "yolculuk": 1},
+    "müzikal": {"kahkaha": 3, "battaniye": 2},
+    # ─── Eksik duygu durumları ───
+    "neşeli": {"kahkaha": 4, "yolculuk": 1},
+    "coşkulu": {"adrenalin": 3, "kahkaha": 2},
+    "gergin": {"deep-chills": 3, "gece": 2},
+    "durgun": {"sessiz": 3, "battaniye": 2},
+    "kırgın": {"gozyasi": 3, "kalp": 2, "sessiz": 1},
+    "memnun": {"battaniye": 3, "yolculuk": 2, "kahkaha": 1},
+    "huzursuz": {"deep-chills": 3, "sessiz": 2, "gece": 1},
+    "şaşkın": {"karmakar": 3, "zihin": 2},
+    # ─── Film özellikleri ───
+    "gerçek hikaye": {"kalp": 4, "gozyasi": 3, "sessiz": 1},
+    "gerçek": {"kalp": 3, "gozyasi": 2, "zihin": 1},
+    "siyah beyaz": {"zamanyolcusu": 3, "kadraj-estetigi": 2},
+    "bağımsız": {"karmakar": 3, "kalp": 2, "sessiz": 1},
+    "güzel": {"battaniye": 1, "kalp": 1, "yolculuk": 1, "sessiz": 1, "zihin": 1, "kahkaha": 1},
+    "harika": {"kalp": 2, "zihin": 2, "sessiz": 1},
+    # ─── Günlük ifadeler ───
+    "kafam güzel": {"battaniye": 3, "kahkaha": 2, "sipsak": 1},
+    "dinlenmek": {"sessiz": 3, "battaniye": 2},
+    "uyku": {"sessiz": 3, "battaniye": 2},
+    "delirmek": {"karmakar": 3, "adrenalin": 2},
+    "deli": {"karmakar": 3, "adrenalin": 2},
+    # ─── Dönem ───
+    "90lar": {"zamanyolcusu": 3, "sipsak": 2},
+    "2000ler": {"sipsak": 2, "zamanyolcusu": 1},
 }
 
 
@@ -3165,7 +3198,12 @@ def _rule_based_confused_analysis(text: str) -> dict:
         msg = messages.get(top_mood, "film")
         message = f"Sana en çok {msg} aradığını söyleyebilirim. Bu gece için birkaç önerim var."
 
-    return {"message": message, "mood_mix": mood_mix}
+    # Year filter: "yeni" tespit edilirse son yıl filmlerine yönlendir
+    filters = {}
+    if "yeni" in text_lower:
+        filters["year_gte"] = 2025
+
+    return {"message": message, "mood_mix": mood_mix, "filters": filters}
 
 
 REASON_MAP = {
@@ -3945,6 +3983,8 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     engine = ChatEngine(db=cache)
     intent = engine.detect_intent(text)
     mood_analysis = _rule_based_confused_analysis(text)
+    year_filters = mood_analysis.get("filters", {})
+    year_gte = year_filters.get("year_gte")
     hints = parse_chat_hints(text)
 
     # ── Intent Enhancer: 4 katmanlı semantic enhancement ────────────────
@@ -3982,7 +4022,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         _min_vc = SIPSAK_MIN_VOTE_COUNT if getattr(hints, "sipsak_mode", False) else 50
         for mid in mood_ids:
             try:
-                rows = await cache.get_top_repository_movies_by_mood(mid, min_vote=min_vote, limit=count * 3)
+                rows = await cache.get_top_repository_movies_by_mood(mid, min_vote=min_vote, limit=count * 3, year_gte=year_gte)
                 for m in rows:
                     m_id = m.get("id") or m.get("tmdb_id")
                     if not m_id or m_id in exclude_set:

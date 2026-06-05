@@ -1757,19 +1757,25 @@ class MovieCache:
                 })
             return movies
 
-    async def get_top_repository_movies_by_mood(self, mood_id: str, min_vote: float = 5.0, limit: int = 30) -> list:
+    async def get_top_repository_movies_by_mood(self, mood_id: str, min_vote: float = 5.0, limit: int = 30, year_gte: int = None) -> list:
         """Fetch top N movies for a mood (LIMIT) — fast path for quick-mix.
-        vote_count >= 50 filters out spam/adult 10-rated films with few votes."""
-        async with _get_connection(self.db_path) as db:
-            cursor = await db.execute(
-                """SELECT tmdb_id, title, poster_url, overview, release_date,
+        vote_count >= 50 filters out spam/adult 10-rated films with few votes.
+        year_gte: optional minimum year filter (e.g. 2025 for recent films)."""
+        query = """SELECT tmdb_id, title, poster_url, overview, release_date,
                           vote_average, genre_ids, backdrop_url, vote_count, original_language, popularity
                    FROM movie_repository
-                   WHERE mood_id = ? AND vote_average >= ? AND vote_count >= 50
-                   ORDER BY vote_average DESC
-                   LIMIT ?""",
-                (mood_id, min_vote, limit)
-            )
+                   WHERE mood_id = ? AND vote_average >= ? AND vote_count >= 50"""
+        params = [mood_id, min_vote]
+
+        if year_gte:
+            query += " AND CAST(SUBSTR(release_date, 1, 4) AS INTEGER) >= ?"
+            params.append(year_gte)
+
+        query += " ORDER BY vote_average DESC LIMIT ?"
+        params.append(limit)
+
+        async with _get_connection(self.db_path) as db:
+            cursor = await db.execute(query, params)
             rows = await cursor.fetchall()
             return [{
                 "id": r[0], "title": r[1], "poster_url": r[2],

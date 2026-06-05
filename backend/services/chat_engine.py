@@ -981,6 +981,10 @@ def _rule_based_confused_analysis(text: str) -> dict:
     # Dil filtresi (kelime-sınırı bazlı, bare sıfatlar dahil)
     lang_filter = _detect_lang_filter(text)
 
+    filters = {}
+    if "yeni" in text_lower:
+        filters["year_gte"] = 2025
+
     if not scored:
         return {
             "mood_mix": [{"mood_id": "zihin", "title": "Zihin", "percentage": 60},
@@ -992,6 +996,7 @@ def _rule_based_confused_analysis(text: str) -> dict:
             "genre_hints": genre_hints,
             "exclude_genre_hints": exclude_genre_hints,
             "lang_filter": lang_filter,
+            "filters": filters,
         }
 
     total = sum(scored.values())
@@ -1021,6 +1026,7 @@ def _rule_based_confused_analysis(text: str) -> dict:
         "genre_hints": genre_hints,
         "exclude_genre_hints": exclude_genre_hints,
         "lang_filter": lang_filter,
+        "filters": filters,
     }
 
 
