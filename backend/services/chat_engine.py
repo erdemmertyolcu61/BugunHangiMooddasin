@@ -134,6 +134,14 @@ SIMILAR_PATTERNS = [
     r"(.+?)\s+vibes?\b",
 ]
 
+# "X ile Y ortası" — iki referanslı karışım (blend) kalıpları
+BLEND_PATTERNS = [
+    r"(.+?)\s+ile\s+(.+?)\s+(?:ortası|ortasında|arası|arasında|karışımı|karması|karısımı)\b",
+    r"(.+?)\s+ve\s+(.+?)\s+(?:karışımı|karması|ortası|arası|karısımı)\b",
+    r"(.+?)\s+ile\s+(.+?)\s+(?:gibi|tarzı|tarzında)\b",
+    r"(?:hem)\s+(.+?)\s+hem\s+(?:de\s+)?(.+?)\s+(?:gibi|tarzı)\b",
+]
+
 PERSON_KEYWORDS = [
     "filmi", "filmleri", "filmlerini", "filmini",
     "oynadığı", "rol aldığı", "çektiği",
@@ -166,6 +174,49 @@ FEEDBACK_PATTERNS = {
     "başka": "diversity",
     "değiştir": "diversity",
 }
+
+# "X gibi ama daha Y" — similar + trailing modifier eşlemesi (sıfır-API)
+# FEEDBACK_PATTERNS ile aynı değer uzayını kullanır (newer/older/...) +
+# tür-yakınlığı modifier'ları (funnier/darker/lighter/heavier/scarier/romantic).
+_SIMILAR_MODIFIER_MAP = {
+    "daha yeni": "newer",
+    "daha guncel": "newer",
+    "daha eski": "older",
+    "daha klasik": "older",
+    "daha kisa": "shorter",
+    "daha uzun": "longer",
+    "daha populer": "more_popular",
+    "daha bilinen": "more_popular",
+    "daha az bilinen": "less_known",
+    "daha az populer": "less_known",
+    "daha kult": "less_known",
+    "daha komik": "funnier",
+    "daha eglenceli": "funnier",
+    "daha karanlik": "darker",
+    "daha agir": "heavier",
+    "daha sert": "heavier",
+    "daha gergin": "darker",
+    "daha hafif": "lighter",
+    "daha aydinlik": "lighter",
+    "daha duygusal": "heavier",
+    "daha dramatik": "heavier",
+    "daha romantik": "romantic",
+    "daha korkutucu": "scarier",
+    "daha urpertici": "scarier",
+}
+
+
+def _extract_similar_modifier(text: str):
+    """'X gibi ama daha Y' içindeki Y modifier'ını döndürür (yoksa None)."""
+    t = _fold(text)
+    best = None
+    best_len = 0
+    for phrase, mod in _SIMILAR_MODIFIER_MAP.items():
+        if phrase in t and len(phrase) > best_len:
+            best = mod
+            best_len = len(phrase)
+    return best
+
 
 MOOD_KEYWORDS = {
     "istiyorum", "istemiyorum", "olsun", "olmasın", "arıyorum",
@@ -452,11 +503,40 @@ NEGATIVE_WORDS = [
 # İçerik bazlı reddetme: tür adı geçmeden "şiddet/kan/korkutma" gibi içerik
 # kısıtları → ilgili türleri hariç tut. (phrase → exclude genre_ids)
 _CONTENT_NEGATION = {
+    # ── Şiddet / kan / vahşet ──
     "şiddet içermesin": [27, 53, 10752, 80], "şiddet olmasın": [27, 53, 10752, 80],
-    "şiddetsiz": [27, 53, 10752, 80], "kan olmasın": [27, 53], "kanlı olmasın": [27, 53],
-    "korkutmasın": [27], "ürkütmesin": [27], "korkutucu olmasın": [27],
-    "ağlatmasın": [],  # tür değil, mood ile ele alınır
-    "ağır olmasın": [], "kasvetli olmasın": [],
+    "şiddetsiz": [27, 53, 10752, 80], "aşırı şiddet olmasın": [27, 53, 10752, 80],
+    "şiddet yok": [27, 53, 10752, 80], "kavga olmasın": [28, 53],
+    "kan olmasın": [27, 53], "kanlı olmasın": [27, 53], "kan revan olmasın": [27, 53],
+    "gore olmasın": [27], "gore yok": [27], "vahşet olmasın": [27, 53, 80],
+    "vahşi olmasın": [27, 53], "işkence olmasın": [27, 53],
+    # ── Korku / gerilim / ürperti ──
+    "korkutmasın": [27, 53], "ürkütmesin": [27, 53], "korkutucu olmasın": [27, 53],
+    "korku olmasın": [27], "korku içermesin": [27], "ürkütücü olmasın": [27, 53],
+    "gerilim olmasın": [53], "dehşet olmasın": [27], "tedirgin etmesin": [27, 53],
+    "jump scare olmasın": [27],
+    # ── Rahatsız edici / iğrenç / tiksindirici ──
+    "rahatsız edici olmasın": [27, 53], "rahatsız edici sahne olmasın": [27, 53],
+    "rahatsız etmesin": [27, 53], "iğrenç olmasın": [27, 53], "iğrenç sahne olmasın": [27, 53],
+    "tiksindirici olmasın": [27, 53], "mide bulandırıcı olmasın": [27, 53],
+    "mide bulandırmasın": [27, 53], "tüyler ürpertici olmasın": [27, 53],
+    "travmatik olmasın": [27, 53], "rahatsız edici içerik olmasın": [27, 53],
+    # ── Cinsel / erotik / müstehcen içerik (güvenilir tür yok → mood guard ile;
+    #    yine de tanınır ve pozitif "erotik/şehvet" boost'u bastırılır) ──
+    "cinsel içerik olmasın": [], "cinsellik olmasın": [], "cinsel sahne olmasın": [],
+    "cinsel içermesin": [], "şehvet olmasın": [], "şehvet içermesin": [],
+    "erotik olmasın": [], "erotik içermesin": [], "erotizm olmasın": [],
+    "müstehcen olmasın": [], "müstehcenlik olmasın": [], "çıplaklık olmasın": [],
+    "çıplak sahne olmasın": [], "seks sahnesi olmasın": [], "sex sahnesi olmasın": [],
+    "tecavüz olmasın": [], "tecavüz sahnesi olmasın": [], "taciz sahnesi olmasın": [],
+    "yetişkin içeriği olmasın": [], "+18 olmasın": [], "18+ olmasın": [],
+    # ── Madde / küfür / dil ──
+    "uyuşturucu olmasın": [], "madde bağımlılığı olmasın": [],
+    "küfür olmasın": [], "küfürlü olmasın": [], "argo olmasın": [],
+    # ── Duygu/ton (tür değil, mood ile ele alınır) ──
+    "ağlatmasın": [], "ağır olmasın": [], "kasvetli olmasın": [],
+    "üzücü olmasın": [], "depresif olmasın": [], "karamsar olmasın": [],
+    "deprese etmesin": [], "ağır bir şey olmasın": [],
 }
 
 # Türkçe dil/ülke adları → ISO 639-1 kodları
@@ -471,6 +551,31 @@ LANGUAGE_KEYWORDS = {
     "amerikan filmi": "en", "ingiliz filmi": "en",
     "ingilizce": "en",
 }
+
+# Kelime-sınırı bazlı dil/ulus tespiti (folded). Bare sıfatlar ("kore korku",
+# "japon animasyon") da yakalanır; substring tuzakları (salman→de, virüs→ru)
+# \b sınırıyla önlenir. Form listesi → ISO kodu.
+_LANG_FORMS = {
+    "tr": ["turk", "turkce", "yerli", "yesilcam", "turkiye"],
+    "ja": ["japon", "japonca", "japonya"],
+    "ko": ["kore", "koreli", "korece", "guney kore"],
+    "fr": ["fransiz", "fransizca", "fransa"],
+    "it": ["italyan", "italyanca", "italya"],
+    "de": ["alman", "almanca", "almanya"],
+    "es": ["ispanyol", "ispanyolca", "ispanya"],
+    "en": ["amerikan", "ingiliz", "ingilizce", "hollywood", "britanya"],
+    "ru": ["rus", "rusca", "rusya", "sovyet"],
+    "hi": ["hint", "hintli", "hindistan", "bollywood"],
+    "zh": ["cin", "cinli", "cince"],
+    "sv": ["isvec", "isvecli"],
+    "fa": ["iran", "iranli", "farsca", "fars"],
+}
+# Daha uzun (spesifik) formlar önce → "guney kore" "kore"den önce denenir.
+_LANG_PATTERNS = sorted(
+    ((re.compile(r"\b" + re.escape(form) + r"\b"), code)
+     for code, forms in _LANG_FORMS.items() for form in forms),
+    key=lambda x: -len(x[0].pattern),
+)
 
 # "ama/fakat" ile ayrılmış karmaşık cümlelerde negation tespiti
 _CLAUSE_SPLITTER = re.compile(r"\b(?:ama|fakat|ancak|lakin|yalnız)\b", re.IGNORECASE)
@@ -671,6 +776,60 @@ def _looks_like_person_name(text: str) -> bool:
     return _is_plausible_person_name(text, allow_single=False)
 
 
+def _fold_keep(s: str) -> str:
+    """Aksan-katlama + lowercase, UZUNLUĞU korur (indeks hizalaması için)."""
+    return s.lower().translate(_TR_FOLD)
+
+
+# "İsim + tür/dönem" ifadesinde isimden sonra gelen kısıt-tetikleyiciler
+_PERSON_SPLIT_FILLERS = (
+    "filmi", "filmleri", "filmlerini", "filmini", "yapimi", "yapimlari",
+    "tarzi", "gibi", "klasigi", "klasikleri",
+)
+_YEAR_DECADE_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{2,4}\s*(?:lar|ler)\b|\bsonrasi\b|\boncesi\b")
+
+
+def _extract_leading_person(text: str):
+    """'Nolan bilim kurgu' / 'Tom Hanks komedi' / 'Tarantino 90lar suç' →
+    (isim, 'director'|'actor') veya (None, None). İsimden SONRA tür/dil/dönem/
+    filler kısıtı gelen kalıpları yakalar (PERSON_KEYWORD bağlamı olmadan)."""
+    if not text or len(text.strip()) < 3:
+        return None, None
+    folded = _fold_keep(text)
+    cut = len(folded)
+    # En erken kısıt-tetikleyici konumu (kelime-sınırı bazlı) → öncesi aday isim
+    triggers = [_fold_keep(gw) for gw in GENRE_KEYWORDS]
+    triggers += [form for forms in _LANG_FORMS.values() for form in forms]
+    triggers += list(_PERSON_SPLIT_FILLERS)
+    for trig in triggers:
+        m = re.search(r"\b" + re.escape(trig), folded)
+        if m and m.start() > 0:
+            cut = min(cut, m.start())
+    my = _YEAR_DECADE_RE.search(folded)
+    if my and my.start() > 0:
+        cut = min(cut, my.start())
+    if cut >= len(folded):
+        return None, None
+    candidate = text[:cut].strip().strip('"\'').rstrip(",.")
+    if len(candidate) < 2:
+        return None, None
+    # Aday salt ulus/dil sıfatıysa kişi DEĞİL ("japon animasyon"→"japon" reddi)
+    if _normalize(candidate) not in _KNOWN_PERSONS_NORM and _detect_lang_filter(candidate):
+        return None, None
+    # Aday çok-kelimeli ve TANINMIŞ değilse, bilinen-kişi önekine kırp
+    # ("Scorsese gangster" → "Scorsese"); aksi halde tam adayı dene.
+    if _normalize(candidate) not in _KNOWN_PERSONS_NORM:
+        words = candidate.split()
+        for n in range(len(words), 0, -1):
+            pref = " ".join(words[:n])
+            if _normalize(pref) in _KNOWN_PERSONS_NORM:
+                return pref, "director"
+    if not _is_plausible_person_name(candidate, allow_single=True):
+        return None, None
+    ptype = "director" if _normalize(candidate) in _KNOWN_PERSONS_NORM else "actor"
+    return candidate, ptype
+
+
 # ═══════════════════════════════════════════════════════════════
 # INTENT RESULT
 # ═══════════════════════════════════════════════════════════════
@@ -678,6 +837,8 @@ class Intent:
     def __init__(self, intent_type: str, **kwargs):
         self.type = intent_type
         self.reference_title = kwargs.get("reference_title", None)
+        self.reference_title2 = kwargs.get("reference_title2", None)  # "X ile Y ortası"
+        self.similar_modifier = kwargs.get("similar_modifier", None)  # "X gibi ama daha Y"
         self.person_name = kwargs.get("person_name", None)
         self.person_type = kwargs.get("person_type", None)
         self.feedback_type = kwargs.get("feedback_type", None)
@@ -802,7 +963,8 @@ def _rule_based_confused_analysis(text: str) -> dict:
     text_lower = text.lower().strip()
     scored = {}
     for triggers, mood_id in _RULE_MOOD_MAP.items():
-        score = sum(2 for t in triggers if t in text_lower)
+        score = sum(2 for t in triggers
+                    if t in text_lower and not _kw_is_negated(text_lower, t))
         if score > 0:
             scored[mood_id] = score * _MOOD_WEIGHTS.get(mood_id, 0.10) * 100
 
@@ -816,12 +978,8 @@ def _rule_based_confused_analysis(text: str) -> dict:
     for phrase, ex_ids in _CONTENT_NEGATION.items():
         if phrase in text_lower and ex_ids:
             exclude_genre_hints = list(set(exclude_genre_hints + ex_ids))
-    # Dil filtresi
-    lang_filter = None
-    for phrase, code in LANGUAGE_KEYWORDS.items():
-        if phrase in text_lower:
-            lang_filter = code
-            break
+    # Dil filtresi (kelime-sınırı bazlı, bare sıfatlar dahil)
+    lang_filter = _detect_lang_filter(text)
 
     if not scored:
         return {
@@ -1003,10 +1161,17 @@ def _fuzzy_title_match(text: str, min_ratio: float = 0.85) -> tuple[str | None, 
 # ═══════════════════════════════════════════════════════════════
 
 def _detect_lang_filter(text: str) -> str | None:
-    """Metinde dil/ülke adı geçiyorsa ISO kodu döndür."""
+    """Metinde dil/ülke adı geçiyorsa ISO kodu döndür (kelime-sınırı bazlı,
+    aksan-duyarsız). 'kore korku', 'japon animasyon', 'fransız dram' yakalanır."""
+    # Önce çok-kelimeli özgün ifadeler (substring, hızlı)
     tl = text.lower()
     for phrase, code in LANGUAGE_KEYWORDS.items():
         if phrase in tl:
+            return code
+    # Sonra kelime-sınırı bazlı bare sıfatlar (folded)
+    folded = _fold(text)
+    for pat, code in _LANG_PATTERNS:
+        if pat.search(folded):
             return code
     return None
 
@@ -1206,10 +1371,14 @@ class ChatEngine:
         text_lower = text.lower().strip()
         text_norm = _normalize(text)
 
-        # ── Önce feedback ──
-        for pattern, fb_type in FEEDBACK_PATTERNS.items():
-            if pattern in text_lower:
-                return Intent("feedback", feedback_type=fb_type, original_text=text)
+        # ── "X gibi ama daha Y" → feedback'ten ÖNCE tespit; feedback hijack'ini engelle ──
+        _has_similar_pat = any(re.search(p, text_lower) for p in SIMILAR_PATTERNS)
+
+        # ── Önce feedback (similar pattern varsa atla; "X gibi ama daha kısa" feedback değil) ──
+        if not _has_similar_pat:
+            for pattern, fb_type in FEEDBACK_PATTERNS.items():
+                if pattern in text_lower:
+                    return Intent("feedback", feedback_type=fb_type, original_text=text)
 
         # ── Platform filter (text'te streaming platform adı geçiyorsa) ──
         platform_filter = _detect_platform_filter(text)
@@ -1245,6 +1414,31 @@ class ChatEngine:
                                   mood_signals=_rule_based_confused_analysis(text).get("mood_mix", []),
                                   lang_filter=_detect_lang_filter(text))
 
+        # ── Blend: "X ile Y ortası" — iki referanslı karışım (tek similar'dan ÖNCE) ──
+        for pat in BLEND_PATTERNS:
+            mb = re.search(pat, text_lower)
+            if mb:
+                r1 = mb.group(1).strip().strip('"\'')
+                r2 = mb.group(2).strip().strip('"\'')
+                if len(r1) >= 2 and len(r2) >= 2:
+                    r1n, r2n = _normalize(r1), _normalize(r2)
+                    # İkisi de mood/şey phrase'i değilse blend say
+                    _junk = ("bir şey", "birsey", "film", "sey", "bisey", "şey")
+                    if any(j in r1n for j in _junk) or any(j in r2n for j in _junk):
+                        break
+                    # İki referans da SALT tür adıysa bu bir film blend'i değil
+                    # ("komedi ile dram ortası") → tür akışına bırak
+                    if r1n in GENRE_KEYWORDS and r2n in GENRE_KEYWORDS:
+                        break
+                    ref1 = TURKISH_TITLE_ALIASES.get(r1n, r1)
+                    ref2 = TURKISH_TITLE_ALIASES.get(r2n, r2)
+                    era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
+                    return Intent("blend_movies", reference_title=ref1,
+                                  reference_title2=ref2, original_text=text,
+                                  platform_filter=platform_filter,
+                                  era_constraint=era_c, time_constraint=time_c,
+                                  genres=g_hints, exclude_genres=ex_g_hints)
+
         # ── Similar-to patterns ("X gibi", "X tarzı") — GUARD: mood phrase'i yakalama ──
         for pat in SIMILAR_PATTERNS:
             m = re.search(pat, text_lower)
@@ -1258,9 +1452,11 @@ class ChatEngine:
                     alias_check = ref_norm
                     if alias_check in TURKISH_TITLE_ALIASES:
                         ref_title = TURKISH_TITLE_ALIASES[alias_check]
+                    # "X gibi ama daha Y" → modifier'ı çıkar
+                    sim_mod = _extract_similar_modifier(text)
                     era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
                     return Intent("similar_to_movie", reference_title=ref_title, original_text=text,
-                                  platform_filter=platform_filter,
+                                  platform_filter=platform_filter, similar_modifier=sim_mod,
                                   era_constraint=era_c, time_constraint=time_c,
                                   genres=g_hints, exclude_genres=ex_g_hints)
 
@@ -1327,6 +1523,19 @@ class ChatEngine:
                           exclude_genres=genres_excluded,
                           mood_signals=cross_mood,
                           lang_filter=_detect_lang_filter(text))
+
+        # ── "İsim + tür/dönem" (PERSON_KEYWORD'süz): "Nolan bilim kurgu",
+        #    "Tom Hanks komedi", "Tarantino 90lar suç" → oyuncu/yönetmen + tür ──
+        if genres_wanted or era_constraint or _detect_lang_filter(text):
+            _pname, _ptype = _extract_leading_person(text)
+            if _pname:
+                return Intent(
+                    f"{_ptype}_recommendation", person_name=_pname,
+                    person_type=_ptype, original_text=text,
+                    platform_filter=platform_filter,
+                    era_constraint=era_constraint, time_constraint=time_constraint,
+                    genres=genres_wanted, exclude_genres=genres_excluded,
+                    mood_signals=cross_mood, lang_filter=_detect_lang_filter(text))
 
         if _is_short_title_like(text):
             return Intent("exact_movie_search", reference_title=text.strip(),
@@ -1590,6 +1799,28 @@ _HIDDEN_GEM_KWS = [
 ]
 
 
+# Olumsuzlama ipuçları — bir anahtar kelimenin reddedildiğini gösterir
+# ("korku olmasın", "erotik istemiyorum", "şehvet içermesin", "komik değil").
+_NEG_AFTER = ("olmasın", "olmasin", "istemiyorum", "istemem", "içermesin",
+              "icermesin", "yok", "hariç", "haric", "değil", "degil", "istemiyom")
+_NEG_BEFORE = ("hariç", "haric", "olmadan", "dışında", "disinda")
+
+
+def _kw_is_negated(text_lower: str, kw: str) -> bool:
+    """kw anahtar kelimesi metinde olumsuzlanmış mı? ('erotik olmasın' → True).
+    kw'den SONRA ~20 karakter içinde olumsuzluk eki ya da ÖNCE 'hariç/olmadan'."""
+    idx = text_lower.find(kw)
+    if idx < 0:
+        return False
+    after = text_lower[idx + len(kw): idx + len(kw) + 22]
+    if any(nc in after for nc in _NEG_AFTER):
+        return True
+    before = text_lower[max(0, idx - 14): idx]
+    if any(nc in before for nc in _NEG_BEFORE):
+        return True
+    return False
+
+
 def parse_chat_hints(text: str) -> ParsedHints:
     """
     Chat metnini embedding modeline göndermeden önce hafif string analizinden geçir.
@@ -1617,6 +1848,10 @@ def parse_chat_hints(text: str) -> ParsedHints:
     # ── Kategori/tema anahtar kelimeleri → mood/tür bonus ────────────────────
     for kw, data in _CATEGORY_HINT_MAP.items():
         if kw in tl:
+            # Olumsuzlanmışsa ("korku olmasın", "erotik istemiyorum") pozitif
+            # boost'u UYGULAMA — yanlış mood/tür sinyalini engelle.
+            if _kw_is_negated(tl, kw):
+                continue
             for mood_id, bonus in data["mood_boost"].items():
                 current = hints.mood_bonuses.get(mood_id, 0.0)
                 hints.mood_bonuses[mood_id] = min(_MAX_BONUS, current + bonus)

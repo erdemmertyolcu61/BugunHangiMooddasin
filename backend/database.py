@@ -1960,6 +1960,15 @@ class MovieCache:
                 "vote_count": vote_count or 0, "popularity": pop,
             }
         self._title_index = index
+        # Token ters-indeksi (kelime-bazlı typo fallback için): token → o token'ı
+        # içeren başlık anahtarları. Sadece >=3 harfli token'lar (gürültüyü azalt).
+        token_index: dict = {}
+        for k in index:
+            for tok in k.split():
+                if len(tok) >= 3:
+                    token_index.setdefault(tok, []).append(k)
+        self._title_token_index = token_index
+        self._title_vocab = list(token_index.keys())
         logging.getLogger("title_index").info("[TitleIndex] %d başlık indekslendi", len(index))
         return index
 
@@ -1987,7 +1996,47 @@ class MovieCache:
             r = SequenceMatcher(None, key, k).ratio()
             if r > best_ratio:
                 best_ratio, best = r, v
-        return best if (best and best_ratio >= min_ratio) else None
+        if best and best_ratio >= min_ratio:
+            return best
+
+        # ── Kelime-bazlı typo fallback ──
+        # Tam-string fuzzy başarısızsa (kelime sırası farklı / fazla-eksik kelime /
+        # tek kelime bozuk) token örtüşmesiyle dene. Çok-kelimeli sorgular için.
+        q_tokens = [t for t in key.split() if len(t) >= 3]
+        if len(q_tokens) < 2:
+            return None
+        tok_index = getattr(self, "_title_token_index", None) or {}
+        vocab = getattr(self, "_title_vocab", None) or []
+        # Her sorgu token'ı için eşleşen başlık token'larını bul (exact + fuzzy)
+        cand_counts: dict = {}
+        for qt in q_tokens:
+            matched_keys = set(tok_index.get(qt, ()))
+            # Token exact yoksa, vocab içinde yakın token ara (tek bozuk kelime)
+            if not matched_keys:
+                qlen = len(qt)
+                for vt in vocab:
+                    if abs(len(vt) - qlen) > 2:
+                        continue
+                    if SequenceMatcher(None, qt, vt).ratio() >= 0.82:
+                        matched_keys.update(tok_index.get(vt, ()))
+            for mk in matched_keys:
+                cand_counts[mk] = cand_counts.get(mk, 0) + 1
+        if not cand_counts:
+            return None
+        # En çok token örtüşen aday; eşitlikte tam-string fuzzy'si yüksek olan
+        need = max(2, (len(q_tokens) + 1) // 2)  # token'ların en az yarısı
+        best_k, best_score = None, 0.0
+        for mk, cnt in cand_counts.items():
+            if cnt < need:
+                continue
+            coverage = cnt / len(q_tokens)
+            sim = SequenceMatcher(None, key, mk).ratio()
+            score = coverage * 0.7 + sim * 0.3
+            if score > best_score:
+                best_score, best_k = score, mk
+        if best_k and best_score >= 0.6:
+            return index.get(best_k)
+        return None
 
     async def fetch_movies_by_exact_titles(self, titles: list, limit: int = 20) -> list:
         """

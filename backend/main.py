@@ -3786,6 +3786,43 @@ async def _build_similar_pool(src_id: int, src_title: str, src_genres: set,
     return out
 
 
+async def _build_blend_pool(src1: int, src2: int, g1: set, g2: set,
+                            t1: str, t2: str, limit: int, exclude_set: set) -> list:
+    """İki referans filmin benzer havuzlarını harmanlar. ÖNCE iki havuzun
+    kesişimi (her ikisine de benzeyenler), sonra birleşimi sıralanır."""
+    try:
+        p1, p2 = await asyncio.gather(
+            _build_similar_pool(src1, t1, g1, limit * 4, set(exclude_set)),
+            _build_similar_pool(src2, t2, g2, limit * 4, set(exclude_set)),
+        )
+    except Exception:
+        return []
+    ids1 = {m.get("id"): m for m in p1}
+    ids2 = {m.get("id"): m for m in p2}
+    blend_genres = (g1 or set()) | (g2 or set())
+    inter, union = [], []
+    seen = set()
+    # Kesişim: her iki havuzda da olan filmler (en güçlü blend sinyali)
+    for mid, m in ids1.items():
+        if mid in ids2 and mid not in exclude_set:
+            m["mood_score"] = 90.0
+            m["reason"] = f"'{t1}' ile '{t2}' ortası."
+            inter.append(m); seen.add(mid)
+    # Birleşim: kalanlar, tür-örtüşmesine göre sıralı
+    def _ov(m):
+        return len(set(m.get("genre_ids") or []) & blend_genres)
+    rest = [m for mid, m in {**ids1, **ids2}.items()
+            if mid not in seen and mid not in exclude_set]
+    rest.sort(key=lambda m: (_ov(m), float(m.get("vote_average") or 0)), reverse=True)
+    for m in rest:
+        m["mood_score"] = 84.0
+        m["reason"] = f"'{t1}' ile '{t2}' karışımı."
+    out = inter + rest
+    for m in out[:limit]:
+        exclude_set.add(m.get("id"))
+    return out[:limit]
+
+
 async def _search_person_movies_top(
     person_name: str, person_type: str, count: int,
     min_vote: float, exclude_set: set,
@@ -3935,9 +3972,10 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         hidden_gem: bool,
         count: int,
         tmdb_keywords: list = None,
+        lang_code: str = None,
     ) -> list:
-        # genre_ids zorunlu değil — runtime/era/hidden_gem tek başına yeterli
-        if not genre_ids and not runtime_lte and not era_c and not hidden_gem:
+        # genre_ids zorunlu değil — runtime/era/hidden_gem/lang tek başına yeterli
+        if not genre_ids and not runtime_lte and not era_c and not hidden_gem and not lang_code:
             return []
         try:
             kwargs = {
@@ -3945,6 +3983,8 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                 "min_vote_average": min_vote,
                 "min_vote_count": 150,
             }
+            if lang_code:
+                kwargs["with_original_language"] = lang_code
             if era_c and isinstance(era_c, dict):
                 if era_c.get("min_year"):
                     kwargs["primary_release_date_gte"] = f"{era_c['min_year']}-01-01"
@@ -4368,6 +4408,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
                 hints.hidden_gem_mode,
                 limit * 2,
                 tmdb_kws or None,
+                lang_code=mood_analysis.get("lang_filter"),
             )
             seen = {m.get("id") or m.get("tmdb_id") for m in movies}
             for m in tmdb_movies:
@@ -4492,8 +4533,16 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     else:
         _ustad = _confused_ustad_line(intent.type, mood_analysis)
 
+    # Kullanıcı açıkça Doğu Asya dili istediyse (kore/japon/çin) o filmleri sona itme
+    _lang = mood_analysis.get("lang_filter")
+    if _lang in _EAST_ASIAN_LANGS:
+        from backend.mood_scoring import is_low_quality_asian
+        _final_movies = [m for m in movies if not is_low_quality_asian(m)]
+    else:
+        _final_movies = _sort_east_asian_to_end(movies)
+
     return {
-        "ok": bool(movies),
+        "ok": bool(_final_movies),
         "mode": "rule_fallback",
         "is_fallback": True,
         "ustad_notu": "Üstad şu anda derin düşüncelere dalmış durumda, ancak yine de sana en uygun filmleri bulmaya çalıştı.",
@@ -4502,7 +4551,7 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
         "ustad_line": _ustad,
         "message": mood_analysis.get("message", ""),
         "mood_mix": [],
-        "movies": _sort_east_asian_to_end(movies),
+        "movies": _final_movies,
     }
 
 
@@ -4842,6 +4891,44 @@ def _apply_refine_modifier(movies: list, refine: str, limit: int) -> list:
     return pool[:limit]
 
 
+# "X gibi ama daha Y" — benzer havuzuna uygulanan modifier (tür-yakınlığı + meta).
+_SIMILAR_MOD_GENRES = {
+    "funnier": {35},            # komedi
+    "darker": {27, 53, 80},     # korku, gerilim, suç
+    "lighter": {35, 10751},     # komedi, aile
+    "heavier": {18, 10752},     # dram, savaş
+    "scarier": {27, 53},        # korku, gerilim
+    "romantic": {10749},        # romantik
+}
+
+
+def _apply_similar_modifier(movies: list, modifier: str, limit: int) -> list:
+    """'X gibi ama daha Y' havuzuna modifier uygular. newer/older/popular/
+    less_known meta-bazlı; funnier/darker/... tür-yakınlığıyla öne çeker."""
+    if not modifier:
+        return movies[:limit]
+    def _vc(m):  return int(m.get("vote_count") or 0)
+    def _va(m):  return float(m.get("vote_average") or 0)
+    def _pop(m): return float(m.get("popularity") or 0)
+    def _yr(m):  return _extract_year(m.get("release_date")) or 0
+    pool = list(movies)
+    if modifier in ("more_popular", "newer", "less_known", "different"):
+        return _apply_refine_modifier(pool, modifier, limit)
+    if modifier == "older":
+        dated = [m for m in pool if _yr(m) > 0]
+        dated.sort(key=_yr)
+        rest = [m for m in pool if _yr(m) == 0]
+        return (dated + rest)[:limit]
+    target = _SIMILAR_MOD_GENRES.get(modifier)
+    if target:
+        matched = [m for m in pool if target & set(m.get("genre_ids") or [])]
+        rest = [m for m in pool if not (target & set(m.get("genre_ids") or []))]
+        matched.sort(key=lambda m: (_va(m), _vc(m)), reverse=True)
+        return (matched + rest)[:limit]
+    # shorter/longer: liste sonuçlarında runtime yok → sıra korunur (best-effort)
+    return pool[:limit]
+
+
 def _genres_from_mood(mood_analysis: dict) -> list:
     """mood_mix'in baskın mood'undan tür listesi üretir (saf mood sorgularında)."""
     try:
@@ -5134,7 +5221,7 @@ async def post_confused_recommendation(req: ConfusedRequest):
     # ── PATH 2: Serbest chat → yerel intent detection + semantic + hibrit rerank
     from backend.services.chat_engine import (
         ChatEngine, parse_chat_hints, _extract_era_constraint,
-        NEGATIVE_WORDS, GENRE_KEYWORDS,
+        NEGATIVE_WORDS, GENRE_KEYWORDS, _detect_lang_filter,
     )
 
     hints  = parse_chat_hints(text)
@@ -5246,17 +5333,69 @@ async def post_confused_recommendation(req: ConfusedRequest):
 
     # ── PATH 2b: "X gibi" → referansı YEREL korpustan çöz (tüm ~22K film) →
     #    TMDB recommendations/similar. 92-alias limiti yok; Türkçe-duyarlı eşleşme.
+    # ── PATH 2a: Blend "X ile Y ortası" — iki referansın harmanı ──
+    if (local_intent.type == "blend_movies" and local_intent.reference_title
+            and getattr(local_intent, "reference_title2", None)):
+        try:
+            (s1, t1, g1), (s2, t2, g2) = await asyncio.gather(
+                _resolve_reference_movie(local_intent.reference_title, text),
+                _resolve_reference_movie(local_intent.reference_title2, text),
+            )
+            if s1 and s2:
+                blend = await _build_blend_pool(s1, s2, g1, g2, t1, t2, limit, exclude_set)
+                if blend:
+                    return {
+                        "movies": blend[:limit],
+                        "query_understanding": f"'{t1}' ile '{t2}' ortası yapımlar.",
+                        "ustad_line": f"'{t1}' ve '{t2}' sevenler için ortak bir seçki hazırladım evlat.",
+                        "intent": "blend_movies",
+                        "mode": "local_blend",
+                        "is_fallback": False,
+                    }
+            elif s1 or s2:
+                # Tek referans çözülebildiyse onu similar gibi işle
+                _sid, _st, _sg = (s1, t1, g1) if s1 else (s2, t2, g2)
+                bm = await _build_similar_pool(_sid, _st, _sg, limit, exclude_set)
+                if bm:
+                    return {
+                        "movies": bm[:limit],
+                        "query_understanding": f"'{_st}' filmine benzer yapımlar.",
+                        "ustad_line": f"'{_st}' sevenler için bir seçki hazırladım evlat.",
+                        "intent": "similar_to_movie",
+                        "mode": "local_similar",
+                        "is_fallback": False,
+                    }
+        except Exception as e:
+            logger.warning("[Confused] Blend failed: %s", e)
+        search_text = text
+
     if local_intent.type == "similar_to_movie" and local_intent.reference_title:
         try:
             src_id, src_title, src_genres = await _resolve_reference_movie(
                 local_intent.reference_title, text)
             if src_id:
+                sim_mod = getattr(local_intent, "similar_modifier", None)
+                # Modifier varsa daha geniş havuz çek, sonra modifier'ı uygula
+                pool_size = limit * 4 if sim_mod else limit
                 sim_movies = await _build_similar_pool(
-                    src_id, src_title, src_genres, limit, exclude_set)
+                    src_id, src_title, src_genres, pool_size, exclude_set)
                 if sim_movies:
+                    if sim_mod:
+                        sim_movies = _apply_similar_modifier(sim_movies, sim_mod, limit)
+                        _mod_tr = {
+                            "newer": "daha yeni", "older": "daha eski",
+                            "more_popular": "daha popüler", "less_known": "daha az bilinen",
+                            "funnier": "daha komik", "darker": "daha karanlık",
+                            "lighter": "daha hafif", "heavier": "daha ağır",
+                            "scarier": "daha korkutucu", "romantic": "daha romantik",
+                            "shorter": "daha kısa", "longer": "daha uzun",
+                        }.get(sim_mod, sim_mod)
+                        qu = f"'{local_intent.reference_title}' gibi ama {_mod_tr} yapımlar."
+                    else:
+                        qu = f"'{local_intent.reference_title}' filmine benzer yapımlar."
                     return {
                         "movies": sim_movies[:limit],
-                        "query_understanding": f"'{local_intent.reference_title}' filmine benzer yapımlar.",
+                        "query_understanding": qu,
                         "ustad_line": f"'{src_title}' sevenler için bir seçki hazırladım evlat.",
                         "intent": "similar_to_movie",
                         "mode": "local_similar",
@@ -5320,6 +5459,19 @@ async def post_confused_recommendation(req: ConfusedRequest):
                     return True
                 movies = [m for m in movies if _year_ok(m)]
 
+        # Yerel dil kısıtı: "kore korku", "japon animasyon", "fransız dram" →
+        # original_language eşleşmeyenleri ele (yeterli sonuç kalıyorsa hard-filter).
+        lang_filter = _detect_lang_filter(text)
+        if lang_filter:
+            lang_matched = [m for m in movies
+                            if (m.get("original_language") or "").lower() == lang_filter]
+            if len(lang_matched) >= 3:
+                movies = lang_matched
+            elif lang_matched:
+                # Az ama var: eşleşenleri öne al, kalanları koru
+                rest = [m for m in movies if m not in lang_matched]
+                movies = lang_matched + rest
+
         # Hibrit harmanlama: %40 vektör + %40 metadata + %20 kalite
         ranked = _hybrid_rerank(movies, hints, limit)
 
@@ -5329,7 +5481,13 @@ async def post_confused_recommendation(req: ConfusedRequest):
             for m in ranked:
                 if not m.get("reason"):
                     m["reason"] = dyn_reason
-        result["movies"] = _sort_east_asian_to_end(ranked)
+        # Kullanıcı açıkça bir Doğu Asya dili istediyse o filmleri sona İTME
+        # (aksi halde "kore korku" sonuçları en alta düşerdi).
+        if lang_filter in _EAST_ASIAN_LANGS:
+            from backend.mood_scoring import is_low_quality_asian
+            result["movies"] = [m for m in ranked if not is_low_quality_asian(m)]
+        else:
+            result["movies"] = _sort_east_asian_to_end(ranked)
         result["mode"]   = "semantic_hybrid"
         result["is_fallback"] = False
         if local_intent.type not in ("mood_recommendation",):
