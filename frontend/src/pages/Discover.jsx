@@ -454,16 +454,15 @@ export default function Discover() {
 
   const openWatchUrl = (providerId) => {
     const url = buildWatchUrl(providerId, selectedMovie?.title, selectedMovie?.watch_providers?.link);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.location.href = url;
   };
 
   const handleProviderClick = (e, provider) => {
     e.preventDefault();
     const info = getPlatformInfo(provider.provider_id);
     if (!info) {
-      // Eşleşmeyen platform — TMDB toplu linkine düş
       const fallback = selectedMovie?.watch_providers?.link;
-      if (fallback) window.open(fallback, '_blank', 'noopener,noreferrer');
+      if (fallback) window.location.href = fallback;
       return;
     }
     if (isPlatformLinked(provider.provider_id)) {

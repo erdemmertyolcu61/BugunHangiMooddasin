@@ -372,13 +372,11 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   if (uniq.length === 0 && !wp.link) return null;
 
                   const openProvider = (provider) => {
-                    // buildWatchUrl: bilinen platform → deep-link;
-                    // bilinmeyen → TMDB/JustWatch toplu linkine (wp.link) düşer.
                     const url = buildWatchUrl(provider.provider_id, movie.title, wp.link);
                     if (url && url !== '#') {
-                      window.open(url, '_blank', 'noopener,noreferrer');
+                      window.location.href = url;
                     } else if (wp.link) {
-                      window.open(wp.link, '_blank', 'noopener,noreferrer');
+                      window.location.href = wp.link;
                     }
                   };
 
