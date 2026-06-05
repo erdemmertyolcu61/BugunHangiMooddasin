@@ -3116,6 +3116,22 @@ _CONFUSED_KEYWORDS = {
     # ─── Dönem ───
     "90lar": {"zamanyolcusu": 3, "sipsak": 2},
     "2000ler": {"sipsak": 2, "zamanyolcusu": 1},
+    # ─── Yeni tema/tür keywordleri ───
+    "tarih": {"zamanyolcusu": 3, "gozyasi": 2},
+    "tarihi film": {"zamanyolcusu": 3, "gozyasi": 2},
+    "western": {"zamanyolcusu": 3, "yolculuk": 2},
+    "kovboy": {"zamanyolcusu": 3, "yolculuk": 2},
+    "fantazi": {"karmakar": 3, "zihin": 1},
+    "gençlik": {"kahkaha": 3, "askbahcesi": 2, "yolculuk": 1},
+    "teen": {"kahkaha": 3, "askbahcesi": 2},
+    "spor": {"adrenalin": 3, "yolculuk": 2},
+    "korku komedi": {"karmakar": 3, "kahkaha": 3, "deep-chills": 1},
+    "kült": {"karmakar": 3, "zamanyolcusu": 2, "zihin": 1},
+    "sanat filmi": {"kadraj-estetigi": 3, "sessiz": 2, "karmakar": 1},
+    "oscar": {"kalp": 2, "zihin": 1, "kadraj-estetigi": 1},
+    "ödüllü film": {"kalp": 2, "zihin": 1},
+    "gişe rekoru": {"adrenalin": 3, "gece": 2},
+    "blockbuster": {"adrenalin": 3, "gece": 2},
 }
 
 

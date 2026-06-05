@@ -38,6 +38,7 @@ THEMES = [
     {"key": "tasra", "triggers": ["tasra", "kasaba", "anadolu", "koy "], "terms": ["small town", "village"], "genres": [18], "label": "Taşra/kasaba temalı filmler", "ustad": "Yavaş akan, sessiz ama derin — taşranın kasveti ve şiiri."},
     # ── Olay / konu ──
     {"key": "savas", "triggers": ["savas", "cephe", "asker", "war"], "terms": ["war"], "genres": [10752], "label": "Savaş filmleri", "ustad": "Cephede yitenler ve insanlığın en ağır sınavı — sarsıcı yapımlar."},
+    {"key": "tarih", "triggers": ["tarih filmi", "tarihi film", "tarih temali", "tarihi donem"], "terms": ["history", "historical", "period"], "genres": [36], "label": "Tarihi dönem filmleri", "ustad": "Geçmişin tozlu sayfalarından kopup gelen destanlar — bir çağın tanıklığı."},
     {"key": "salgin", "triggers": ["salgin", "pandemi", "virus", "veba"], "terms": ["pandemic", "virus", "epidemic"], "genres": [], "label": "Salgın temalı filmler", "ustad": "Görünmez bir düşman ve dağılan dünya — tüyler ürperten bir gerçeklik."},
     {"key": "zaman", "triggers": ["zaman yolculugu", "zamanda yolculuk", "zaman makinesi"], "terms": ["time travel"], "genres": [878], "label": "Zaman yolculuğu filmleri", "ustad": "Geçmiş, gelecek ve aradaki paradokslar — zihnini bükmeye hazır ol."},
     {"key": "soygun", "triggers": ["soygun", "soygunu", "vurgun"], "terms": ["heist"], "genres": [80, 53], "label": "Soygun filmleri", "ustad": "Kusursuz plan, son saniye sürprizi — adrenalin dolu vurgunlar."},

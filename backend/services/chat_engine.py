@@ -916,7 +916,16 @@ _RULE_MOOD_MAP = {
     ("estetik", "görsel", "sinematografi", "kompozisyon", "kadraj",
      "aesthetic", "cinematography", "visually"):                                     "kadraj-estetigi",
     ("itiraf", "konuşma", "diyalog", "sohbet", "samimi", "gece yarısı",
-     "dialogue", "conversation"):                                                    "geceyarisi-itirafi",
+      "dialogue", "conversation"):                                                    "geceyarisi-itirafi",
+    ("tarih", "tarihi film", "tarihsel", "tarihi dönem"):                             "zamanyolcusu",
+    ("western", "kovboy", "vahşi batı", "cowboy"):                                     "zamanyolcusu",
+    ("fantazi",):                                                                       "karmakar",
+    ("gençlik", "teen", "gençlik filmi"):                                               "kahkaha",
+    ("spor", "spor filmi", "sport"):                                                    "adrenalin",
+    ("korku komedi", "korku komik", "horror comedy"):                                   "karmakar",
+    ("sanat filmi", "arthouse"):                                                        "kadraj-estetigi",
+    ("oscar", "ödüllü", "ödüllü film", "award winning"):                                "kalp",
+    ("gişe rekoru", "blockbuster", "popüler film"):                                     "adrenalin",
 }
 
 
@@ -1774,6 +1783,16 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     "distopik":    {"mood_boost": {"zihin": 0.40, "deep-chills": 0.30},   "genre_ids": [878], "tmdb_keywords": ["4565"]},   # dystopia
     "distopya":    {"mood_boost": {"zihin": 0.40, "deep-chills": 0.30},   "genre_ids": [878], "tmdb_keywords": ["4565"]},
     "sanat filmi": {"mood_boost": {"kadraj-estetigi": 0.45, "sessiz": 0.25}, "genre_ids": [18]},
+    # ── Tema/tür eklemeleri ──
+    "tarih":       {"mood_boost": {"zamanyolcusu": 0.40, "gozyasi": 0.20}, "genre_ids": [36]},
+    "western":     {"mood_boost": {"zamanyolcusu": 0.40, "yolculuk": 0.20}, "genre_ids": [37]},
+    "kovboy":      {"mood_boost": {"zamanyolcusu": 0.40, "yolculuk": 0.20}, "genre_ids": [37]},
+    "fantazi":     {"mood_boost": {"karmakar": 0.40},                       "genre_ids": [14]},
+    "gençlik":     {"mood_boost": {"kahkaha": 0.30, "askbahcesi": 0.25},    "genre_ids": []},
+    "spor":        {"mood_boost": {"adrenalin": 0.40, "yolculuk": 0.20},    "genre_ids": []},
+    "korku komedi":{"mood_boost": {"karmakar": 0.35, "kahkaha": 0.35},      "genre_ids": [35, 27]},
+    "oscar":       {"mood_boost": {"kalp": 0.25, "zihin": 0.15},            "genre_ids": []},
+    "gişe rekoru": {"mood_boost": {"adrenalin": 0.35, "gece": 0.25},        "genre_ids": [28, 12]},
 }
 
 
