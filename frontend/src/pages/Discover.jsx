@@ -533,7 +533,7 @@ export default function Discover() {
         navigate('/', { replace: true });
       }
     }
-  }, [selectedMood, selectedMovie, navigate, searchParams]);
+  }, [selectedMood, selectedMovie, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!selectedMood && !selectedMovie) {
     const pendingAnalyze = searchParams.get('analyze') || autoAnalyzeTriggered.current;
     if (pendingAnalyze) {
