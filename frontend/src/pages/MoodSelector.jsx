@@ -140,10 +140,10 @@ export default function MoodSelector() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
       className="min-h-screen bg-bg text-ivory relative overflow-hidden font-sans">
 
       {/* Dinamik Aura — single GPU-friendly gradient */}
@@ -264,15 +264,16 @@ export default function MoodSelector() {
         ) : (<>
         <div className="flex flex-col lg:flex-row gap-6 max-w-7xl w-full mb-10">
           {/* Mood kartları grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
             {moodList.map((mood, i) => {
               const isHovered = hoveredMood === mood.id;
               return (
                 <motion.div key={mood.id}
-                  initial={{ opacity: 0, y: 25 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: isTouchDevice ? 0 : 0.65 + i * 0.015, ease: [0.16, 1, 0.3, 1] }}
-                  whileHover={{ y: -5 }} whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.3, delay: isTouchDevice ? 0 : 0.55 + i * 0.012, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={isTouchDevice ? {} : { y: -4 }}
+                  whileTap={{ scale: 0.96, opacity: 0.88, transition: { duration: 0.08 } }}
                   onClick={() => handleMoodClick(mood)}
                   onMouseEnter={() => handleHover(mood)} onMouseLeave={handleHoverEnd}
                   className="relative group cursor-pointer"
@@ -325,7 +326,7 @@ export default function MoodSelector() {
                       />
 
                       {/* Intro */}
-                        <p className="font-sans text-[13px] sm:text-[13px] leading-relaxed text-ivory/75 group-hover:text-ivory transition-colors duration-500 flex-1">
+                        <p className="font-sans text-[12px] sm:text-[13px] leading-relaxed text-ivory/75 group-hover:text-ivory transition-colors duration-500 flex-1 line-clamp-4 sm:line-clamp-none">
                           {mood.intro}
                         </p>
 

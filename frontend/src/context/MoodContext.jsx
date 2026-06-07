@@ -233,6 +233,33 @@ export const MOODS = {
   },
 };
 
+// ── Her mood'a canlı bir VURGU RENGİ (accentHex) ──────────────────────────
+// Ana sayfa kartının hover glow/border'ı ve Discover backdrop blur katmanı
+// bu rengi kullanır. Tanımlı olmadığında HEPSİ amber'a (#ffbf00) düşüyordu →
+// her mood aynı renkte açılıyor, kimliği kayboluyordu. Aşağıdaki eşleme her
+// mood'a koyu zeminde belirgin, kendine özgü bir renk verir.
+const MOOD_ACCENTS = {
+  battaniye: '#f59e0b',
+  yolculuk: '#38bdf8',
+  gece: '#818cf8',
+  kahkaha: '#34d399',
+  gozyasi: '#94a3b8',
+  adrenalin: '#ef4444',
+  askbahcesi: '#f472b6',
+  zamanyolcusu: '#d6a85a',
+  sessiz: '#a8a29e',
+  zihin: '#a78bfa',
+  kalp: '#fb7185',
+  karmakar: '#c084fc',
+  sipsak: '#facc15',
+  'deep-chills': '#2dd4bf',
+  'kadraj-estetigi': '#d4a373',
+  'geceyarisi-itirafi': '#8b9eff',
+};
+for (const _id in MOODS) {
+  if (!MOODS[_id].accentHex) MOODS[_id].accentHex = MOOD_ACCENTS[_id] || '#ffbf00';
+}
+
 
 // Global cache for movies to avoid redundant API calls
 // Each entry: { data, cachedAt: number, ttl: number }

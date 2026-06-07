@@ -137,7 +137,7 @@ function AppContent() {
       <PushPrompt />
 
       <Suspense fallback={<DiscoverSkeleton />}>
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="sync">
           <Routes location={location} key={location.pathname}>
             {/* Main Flow */}
             <Route path="/" element={<MoodSelector />} />

@@ -38,29 +38,30 @@ export default function MoodBackdrop({ selectedMood }) {
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
 
       {/* ═══ MOOD GEÇİŞ ANİMASYONLARI ═══ */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         <motion.div
           key={`wash-${selectedMood.id}`}
-          initial={{ opacity: 0.7, scale: 1.2 }}
+          initial={{ opacity: 0.75, scale: 1.04 }}
           animate={{ opacity: 0, scale: 1 }}
-          transition={{ duration: 2, ease: 'easeOut' }}
+          transition={{ duration: 1.1, ease: [0.25, 1, 0.5, 1] }}
           className={`fixed inset-0 z-30 pointer-events-none bg-gradient-to-br ${selectedMood.color}`}
         />
       </AnimatePresence>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         <motion.div
           key={`icon-${selectedMood.id}`}
-          initial={{ opacity: 0.9, scale: 2.5 }}
-          animate={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0.85, scale: 2.2 }}
+          animate={{ opacity: 0, scale: 0.9 }}
+          transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center"
         >
           {selectedMood.icon && (
             <selectedMood.icon
               size={160}
               strokeWidth={0.8}
-              className="text-amber/40 drop-shadow-[0_0_60px_rgba(255,191,0,0.3)]"
+              style={{ color: selectedMood.accentHex || '#ffbf00' }}
+              className="drop-shadow-[0_0_60px_rgba(255,191,0,0.25)]"
             />
           )}
         </motion.div>
