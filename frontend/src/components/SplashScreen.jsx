@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/SplashScreen.css';
-import sinemoodLogo from '../assets/sinemod_logo.png';
+const sinemoodLogo = '/sinemod-mark.png';
 
 const SplashScreen = ({ onFinish }) => {
   const [isVisible, setIsVisible] = useState(true);

@@ -62,7 +62,6 @@ const Gizlilik = lazyRetry(() => import('./pages/Gizlilik'));
 const MoodOracle = lazyRetry(() => import('./pages/MoodOracle'));
 
 import { useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 
 function CardSkeleton() {
