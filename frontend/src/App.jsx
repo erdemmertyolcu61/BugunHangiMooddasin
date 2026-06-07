@@ -1,7 +1,7 @@
-import React, { Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { MoodProvider, useMood } from './context/MoodContext';
+import { MoodProvider } from './context/MoodContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import SplashScreen from './components/SplashScreen';
@@ -122,16 +122,7 @@ function ScrollToTop() {
 }
 
 function AppContent() {
-  const { selectMood } = useMood();
   const location = useLocation();
-
-  // Ana sayfaya dönünce modu temizle (böylece müzik fade-out ile durur)
-  useEffect(() => {
-    if (location.pathname === '/') {
-      selectMood(null);
-    }
-  }, [location.pathname, selectMood]);
-
   const [showSplash, setShowSplash] = useState(true);
 
   return (

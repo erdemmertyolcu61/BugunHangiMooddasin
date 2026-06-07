@@ -27,6 +27,11 @@ export default function MoodSelector() {
     description: 'Bugün hangi mooddasın? Ruh haline göre film keşfet, Üstad’ın seçkilerini ve sürpriz filmleri dene. Yapay zeka destekli sinematik öneri.',
   });
 
+  // Ana sayfaya dönünce modu temizle (böylece müzik fade-out ile durur)
+  useEffect(() => {
+    selectMood(null);
+  }, [selectMood]);
+
   const [hoveredMood, setHoveredMood] = useState(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);

@@ -539,7 +539,13 @@ export default function Discover() {
     }
     console.warn("[Discover] No mood selected.");
     return (
-      <div className="min-h-screen bg-[#120d0b] flex flex-col items-center justify-center gap-8">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="min-h-screen bg-[#120d0b] flex flex-col items-center justify-center gap-8"
+      >
         <p className="text-amber text-2xl font-serif italic">Atmosfer kaybolmuş gibi görünüyor...</p>
         <button
           onClick={() => navigate('/')}
@@ -547,7 +553,7 @@ export default function Discover() {
         >
           Anasayfaya Dön ve Tekrar Seç
         </button>
-      </div>
+      </motion.div>
     );
   }
 
