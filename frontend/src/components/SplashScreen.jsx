@@ -76,16 +76,19 @@ const DUST = makeDust(10);
 
 // ── Bileşen ─────────────────────────────────────────────────────────
 export default function SplashScreen() {
-  const [show, setShow] = useState(false);
-
-  // Session kontrolü — oturum başına bir kez göster
-  useEffect(() => {
-    if (sessionStorage.getItem(SPLASH_KEY)) return;
+  // sessionStorage kontrolü useState içinde — StrictMode'da bile tek çalışır
+  const [show, setShow] = useState(() => {
+    if (sessionStorage.getItem(SPLASH_KEY)) return false;
     sessionStorage.setItem(SPLASH_KEY, '1');
-    setShow(true);
+    return true;
+  });
+
+  // Timer — StrictMode'da effect çift çalışsa bile cleanup+re-run güvenli
+  useEffect(() => {
+    if (!show) return;
     const timer = setTimeout(() => setShow(false), SHOW_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [show]);
 
   // Dalga SVG path'leri hesapla
   const wavePaths = useMemo(() =>
@@ -114,8 +117,8 @@ export default function SplashScreen() {
         <motion.div
           key="splash-liquid"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.7, ease: 'easeInOut' }}
+          exit={{ opacity: 0, scale: 1.02 }}
+          transition={{ duration: 0.85, ease: [0.25, 1, 0.5, 1] }}
           className="fixed inset-0 z-[9999]"
           style={{ backgroundColor: '#0a0605' }}
         >
@@ -140,49 +143,53 @@ export default function SplashScreen() {
             .splsh-liquid {
               position:absolute; left:0; right:0; bottom:0; height:100%;
               transform:translateY(102%);
-              animation:splshLiquidRise ${dur} cubic-bezier(0.22,1,0.36,1) forwards;
+              animation:splshLiquidRise ${dur} cubic-bezier(0.16,1,0.3,1) forwards;
+              will-change:transform;
             }
             @keyframes splshLiquidRise {
               0%   { transform:translateY(102%); }
-              28%  { transform:translateY(48%); }
-              42%  { transform:translateY(56%); }
-              100% { transform:translateY(54%); }
+              26%  { transform:translateY(52%); }
+              40%  { transform:translateY(58%); }
+              60%  { transform:translateY(56%); }
+              100% { transform:translateY(57%); }
             }
 
             /* Wave layers */
-            .splsh-wave { position:absolute; left:0; bottom:0; width:200%; will-change:transform; }
-            .splsh-wave-back  { height:92vh; opacity:0.85; animation:splshDrift1 19s linear infinite; }
-            .splsh-wave-mid   { height:84vh; opacity:0.95; animation:splshDrift2 14s linear infinite; }
-            .splsh-wave-front { height:74vh; animation:splshDrift1 11s linear infinite; }
+            .splsh-wave { position:absolute; left:0; bottom:0; width:200%; will-change:transform; transform:translateZ(0); }
+            .splsh-wave-back  { height:92vh; opacity:0.85; animation:splshDrift1 22s linear infinite; }
+            .splsh-wave-mid   { height:84vh; opacity:0.95; animation:splshDrift2 17s linear infinite; }
+            .splsh-wave-front { height:74vh; animation:splshDrift1 13s linear infinite; }
             @keyframes splshDrift1 { from{transform:translateX(0)} to{transform:translateX(-50%)} }
             @keyframes splshDrift2 { from{transform:translateX(-50%)} to{transform:translateX(0)} }
 
             /* Logo rise */
             .splsh-logo {
-              position:absolute; left:50%; top:50%;
-              width:min(34vmin,168px);
+              position:absolute; left:50%; top:42%;
+              width:min(42vmin,200px);
               transform:translate(-50%,-50%);
               z-index:6;
             }
-            @media(min-width:900px){ .splsh-logo{width:min(20vmin,200px)} }
+            @media(min-width:900px){ .splsh-logo{top:45%;width:min(22vmin,220px)} }
             .splsh-rise {
               display:block; transform-origin:50% 70%;
-              animation:splshLogoRise ${dur} cubic-bezier(0.18,1,0.3,1) forwards;
+              animation:splshLogoRise ${dur} cubic-bezier(0.16,1,0.3,1) forwards;
+              will-change:transform,opacity;
             }
             @keyframes splshLogoRise {
-              0%,20% { opacity:0; transform:translateY(46%) scale(0.86); }
-              38%    { opacity:1; transform:translateY(-5%) scale(1.04); }
-              50%    { opacity:1; transform:translateY(0) scale(1); }
+              0%,18% { opacity:0; transform:translateY(55%) scale(0.82); }
+              36%    { opacity:1; transform:translateY(-4%) scale(1.05); }
+              52%    { opacity:1; transform:translateY(0) scale(1); }
               100%   { opacity:1; transform:translateY(-1%) scale(1.002); }
             }
 
             .splsh-mark-clip {
-              border-radius:22%; overflow:hidden;
+              border-radius:50%; overflow:hidden;
             }
             .splsh-mark {
               display:block; width:100%; height:auto;
               filter:drop-shadow(0 0 40px rgba(255,180,90,0.45)) drop-shadow(0 0 80px rgba(255,150,60,0.2));
               user-select:none; -webkit-user-select:none;
+              transform:scale(1.15);
             }
 
             /* Shine overlay */
@@ -253,13 +260,14 @@ export default function SplashScreen() {
             /* Wordmark */
             .splsh-wordmark {
               position:absolute; left:0; right:0; text-align:center; z-index:7;
-              top:calc(50% + min(20vmin,132px));
+              top:calc(42% + min(24vmin,140px));
               opacity:0; animation:splshWordIn ${dur} ease-out forwards;
             }
-            @media(min-width:900px){ .splsh-wordmark{top:calc(50% + min(14vmin,150px))} }
+            @media(min-width:900px){ .splsh-wordmark{top:calc(45% + min(14vmin,150px))} }
             @keyframes splshWordIn {
-              0%,52% { opacity:0; transform:translateY(10px); letter-spacing:0.5em; }
-              68%    { opacity:1; transform:translateY(0); letter-spacing:0.34em; }
+              0%,48% { opacity:0; transform:translateY(14px); letter-spacing:0.5em; }
+              65%    { opacity:0.85; transform:translateY(2px); letter-spacing:0.36em; }
+              80%    { opacity:1; transform:translateY(0); letter-spacing:0.34em; }
               100%   { opacity:1; transform:translateY(0); letter-spacing:0.34em; }
             }
             .splsh-name {

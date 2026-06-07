@@ -511,6 +511,17 @@ export default function Discover() {
     ? displayMovies.slice(0, -1)
     : displayMovies;
 
+  // 2. Missing Mood State — redirect to home
+  // (Hook MUST be called before any early return to obey Rules of Hooks)
+  useEffect(() => {
+    if (!selectedMood && !selectedMovie) {
+      const pendingAnalyze = searchParams.get('analyze') || autoAnalyzeTriggered.current;
+      if (!pendingAnalyze) {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [selectedMood, selectedMovie, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 1. Loading State (Initial)
   if (loading && movies.length === 0 && !error && selectedMood) {
     return (
@@ -524,16 +535,6 @@ export default function Discover() {
       </div>
     );
   }
-
-  // 2. Missing Mood State — redirect to home
-  useEffect(() => {
-    if (!selectedMood && !selectedMovie) {
-      const pendingAnalyze = searchParams.get('analyze') || autoAnalyzeTriggered.current;
-      if (!pendingAnalyze) {
-        navigate('/', { replace: true });
-      }
-    }
-  }, [selectedMood, selectedMovie, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!selectedMood && !selectedMovie) {
     const pendingAnalyze = searchParams.get('analyze') || autoAnalyzeTriggered.current;
     if (pendingAnalyze) {

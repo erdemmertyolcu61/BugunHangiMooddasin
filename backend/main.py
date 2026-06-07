@@ -1526,6 +1526,8 @@ CURATED_TITLES_BY_MOOD = {
     "battaniye": [
         "Little Forest (2018)", "Our Little Sister (2015)", "Kikujiro (1999)",
         "Paterson (2016)", "Vizontele (2001)",
+        "My Neighbor Totoro (1988)", "Spirited Away (2001)", "Klaus (2019)",
+        "Soul (2020)", "Ratatouille (2007)",
     ],
     "yolculuk": [
         "The Motorcycle Diaries (2004)", "The Straight Story (1999)", "Tracks (2013)",
