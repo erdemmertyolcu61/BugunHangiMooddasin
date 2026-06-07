@@ -132,8 +132,11 @@ function AppContent() {
     }
   }, [location.pathname, selectMood]);
 
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <>
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       <ScrollToTop />
       <ScrollChrome />
       <AuraBackground />
