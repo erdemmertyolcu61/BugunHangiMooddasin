@@ -413,6 +413,14 @@ class MovieCache:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # TMDB Response Cache (videos, similar, search, etc.)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS tmdb_response_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    data TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             # Movie Repository - (tmdb_id, mood_id) composite PK
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS movie_repository (
