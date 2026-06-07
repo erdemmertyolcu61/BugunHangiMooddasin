@@ -31,7 +31,7 @@ const IMG_LG = 'https://image.tmdb.org/t/p/original';
 
 // "Üstad düşünüyor" kahve animasyonunun garanti minimum süresi (kahve döngüsü
 // ve loader mesaj temposuyla uyumlu). MAX = ağ hatasında sonsuz spinner valfi.
-const MIN_THINK_MS = 2200;
+const MIN_THINK_MS = 1500;
 const MAX_THINK_MS = 9000;
 
 // Marka rengi çok koyuysa (Apple #000, MUBI #001E3C) koyu temada görünmez —
@@ -365,7 +365,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                     movieName={movie.title}
                   />
                 ) : (
-                  <UstadLoader />
+                  <UstadLoader duration={1500} onComplete={() => setThinkingDone(true)} />
                 )}
 
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 border-t border-white/5 pt-7">
