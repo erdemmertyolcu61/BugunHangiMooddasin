@@ -430,5 +430,15 @@ export default function Listeler() {
     title: slug ? 'Ödüllü Filmler | Sinemood' : 'Ödüllü Filmler — Festival Kazananları | Sinemood',
     description: 'Oscar, Cannes, Altın Küre, BAFTA, Venedik, Berlin ve daha fazlasının en güncel kazananları. Hangi film hangi ödülü aldı, Sinemood’da keşfet.',
   });
-  return slug ? <ListeDetay /> : <ListelerAnasayfa />;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen"
+    >
+      {slug ? <ListeDetay /> : <ListelerAnasayfa />}
+    </motion.div>
+  );
 }

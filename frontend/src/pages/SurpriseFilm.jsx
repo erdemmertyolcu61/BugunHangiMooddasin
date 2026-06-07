@@ -99,7 +99,12 @@ export default function SurpriseFilm() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans relative overflow-hidden flex flex-col surprise-film-root">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen bg-black text-white font-sans relative overflow-hidden flex flex-col surprise-film-root">
       <style>{SURPRISE_STYLE}</style>
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#1a0533] via-[#2d1b69] to-[#1a0a2e]">
@@ -237,6 +242,6 @@ export default function SurpriseFilm() {
           onClose={() => setShowDetail(false)}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -176,7 +176,12 @@ export default function Defterim() {
     : rawMoodPct;
 
   return (
-    <div className="min-h-screen bg-[#120d0b] text-ivory font-sans relative overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen bg-[#120d0b] text-ivory font-sans relative overflow-hidden">
       <div className="vignette vignette-active" style={{"--vignette-color": "#1c1512"}} />
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay" 
            style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
@@ -590,6 +595,6 @@ export default function Defterim() {
           </>
         )}
       </main>
-    </div>
+    </motion.div>
   );
 }

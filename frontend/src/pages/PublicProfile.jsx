@@ -38,7 +38,7 @@ export default function PublicProfile() {
   const profileUrl = getShareUrl(`/share/u/${username}`);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="min-h-screen bg-[#120d0b] text-ivory font-sans relative">
 
       <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03] mix-blend-overlay"

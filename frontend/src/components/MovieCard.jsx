@@ -20,7 +20,7 @@ const reliableRating = (movie) => {
 
 function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onAnalyze }) {
   return (
-    <div className="group cursor-pointer relative" role="button" tabIndex={0} aria-label={`${movie.title} detaylarını aç`} onClick={() => onAnalyze(movie)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAnalyze(movie); } }}>
+    <div className="poster-container movie-grid-item group cursor-pointer relative" role="button" tabIndex={0} aria-label={`${movie.title} detaylarını aç`} onClick={() => onAnalyze(movie)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAnalyze(movie); } }}>
       <div className="ticket-card aspect-[2/3] group-hover:scale-[1.03] group-hover:-translate-y-4">
         {movie.poster_url || movie.poster_path
           ? <OptimizedImage

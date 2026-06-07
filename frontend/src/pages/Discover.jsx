@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { Users, RotateCcw } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
 import { buildMatcher } from '../utils/personalMatch';
 import { useAuth } from '../context/AuthContext';
@@ -601,17 +601,24 @@ export default function Discover() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] font-sans mood-${selectedMood.id}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] font-sans mood-${selectedMood.id}`}>
       <MoodBackdrop selectedMood={selectedMood} />
 
-      {/* ═══ İÇERİK (fade-in animasyonlu) ═══ */}
-      <motion.div
-        key={selectedMood.id}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="relative"
-      >
+      {/* ═══ İÇERİK (fade-in/out animasyonlu) ═══ */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={selectedMood.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative"
+        >
         <DiscoverHeader
           selectedMood={selectedMood}
           user={user}
@@ -808,7 +815,8 @@ export default function Discover() {
 
       <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} onComplete={handleQuizComplete} />
 
-      </motion.div>
-    </div>
+        </motion.div>
+      </AnimatePresence>
+    </motion.div>
   );
 }

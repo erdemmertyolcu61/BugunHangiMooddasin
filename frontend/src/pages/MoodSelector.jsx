@@ -134,7 +134,12 @@ export default function MoodSelector() {
   const activeMood = hoveredMood ? MOODS[hoveredMood] : null;
 
   return (
-    <div className="min-h-screen bg-bg text-ivory relative overflow-hidden font-sans">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen bg-bg text-ivory relative overflow-hidden font-sans">
 
       {/* Dinamik Aura — single GPU-friendly gradient */}
       {activeMood && (
@@ -401,6 +406,6 @@ export default function MoodSelector() {
           onClose={() => setSelectedMovie(null)}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

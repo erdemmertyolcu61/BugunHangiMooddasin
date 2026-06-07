@@ -303,7 +303,12 @@ export default function TasteMapCollision() {
   }, [step, collidingPhrases.length]);
 
   return (
-    <div className="min-h-screen text-ivory font-sans relative">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen text-ivory font-sans relative">
       <CollisionAura merged={merged} />
 
       {/* Üst bar */}
@@ -734,6 +739,6 @@ export default function TasteMapCollision() {
 
         </AnimatePresence>
       </main>
-    </div>
+    </motion.div>
   );
 }

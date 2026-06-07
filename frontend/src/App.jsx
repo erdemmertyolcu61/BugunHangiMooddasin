@@ -63,6 +63,7 @@ const MoodOracle = lazyRetry(() => import('./pages/MoodOracle'));
 
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 
 function CardSkeleton() {
   return (
@@ -142,27 +143,29 @@ function AppContent() {
       <PushPrompt />
 
       <Suspense fallback={<DiscoverSkeleton />}>
-        <Routes>
-          {/* Main Flow */}
-          <Route path="/" element={<MoodSelector />} />
-          <Route path="/moodlar" element={<MoodSelector />} />
-          <Route path="/discover" element={<Discover />} />
-          <Route path="/defterim" element={<Defterim />} />
-          <Route path="/kafan-mi-karisik" element={<KafanMiKarisik />} />
-          <Route path="/surprise" element={<SurpriseFilm />} />
-          <Route path="/listeler" element={<Listeler />} />
-          <Route path="/listeler/:slug" element={<Listeler />} />
-          <Route path="/profil" element={<Profil />} />
-          <Route path="/u/:username" element={<PublicProfile />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/carpistir" element={<TasteMapCollision />} />
-          <Route path="/gunun-filmi" element={<DailyFilm />} />
-          <Route path="/gizlilik" element={<Gizlilik />} />
-          <Route path="/oyun" element={<MoodOracle />} />
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            {/* Main Flow */}
+            <Route path="/" element={<MoodSelector />} />
+            <Route path="/moodlar" element={<MoodSelector />} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/defterim" element={<Defterim />} />
+            <Route path="/kafan-mi-karisik" element={<KafanMiKarisik />} />
+            <Route path="/surprise" element={<SurpriseFilm />} />
+            <Route path="/listeler" element={<Listeler />} />
+            <Route path="/listeler/:slug" element={<Listeler />} />
+            <Route path="/profil" element={<Profil />} />
+            <Route path="/u/:username" element={<PublicProfile />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/carpistir" element={<TasteMapCollision />} />
+            <Route path="/gunun-filmi" element={<DailyFilm />} />
+            <Route path="/gizlilik" element={<Gizlilik />} />
+            <Route path="/oyun" element={<MoodOracle />} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AnimatePresence>
       </Suspense>
       <BottomNav />
       <UsernameOnboardingModal />

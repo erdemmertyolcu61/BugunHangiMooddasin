@@ -137,7 +137,12 @@ export default function MoodOracle() {
   };
 
   return (
-    <div className="min-h-screen text-ivory font-sans">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen text-ivory font-sans">
       <header className="sticky top-0 z-40 backdrop-blur-md bg-[#120d0b]/70 border-b border-white/5 pt-safe">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <button onClick={() => navigate('/')}
@@ -402,6 +407,6 @@ export default function MoodOracle() {
 
         </AnimatePresence>
       </main>
-    </div>
+    </motion.div>
   );
 }
