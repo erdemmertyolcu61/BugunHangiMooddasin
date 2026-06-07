@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useCallback, useState, useEffect, Suspense, lazy } from 'react';
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MoodProvider } from './context/MoodContext';
@@ -123,10 +123,11 @@ function ScrollToTop() {
 function AppContent() {
   const location = useLocation();
   const [showSplash, setShowSplash] = useState(true);
+  const handleSplashFinish = useCallback(() => setShowSplash(false), []);
 
   return (
     <>
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
       <ScrollToTop />
       <ScrollChrome />
       <AuraBackground />
