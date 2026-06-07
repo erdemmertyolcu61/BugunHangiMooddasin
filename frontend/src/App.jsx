@@ -171,7 +171,6 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <SplashScreen />
       <ThemeProvider>
         <AuthProvider>
           <AppReadyNotifier />

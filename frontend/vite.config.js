@@ -9,7 +9,6 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['sinemod-mark.png', 'audio/*.mp3'],
       manifest: false, // public/manifest.json'u kullan
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,avif,webp}'],
