@@ -264,7 +264,7 @@ export default function MoodSelector() {
         ) : (<>
         <div className="flex flex-col lg:flex-row gap-6 max-w-7xl w-full mb-10">
           {/* Mood kartları grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 flex-1">
             {moodList.map((mood, i) => {
               const isHovered = hoveredMood === mood.id;
               return (

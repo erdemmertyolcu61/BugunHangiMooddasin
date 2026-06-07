@@ -177,14 +177,14 @@ export default function SplashScreen() {
             }
 
             .splsh-mark {
-              display:block; width:100%; height:auto; border-radius:22%;
+              display:block; width:100%; height:auto;
               filter:drop-shadow(0 0 40px rgba(255,180,90,0.45)) drop-shadow(0 0 80px rgba(255,150,60,0.2));
               user-select:none; -webkit-user-select:none;
             }
 
             /* Shine overlay */
             .splsh-shine {
-              position:absolute; inset:0; border-radius:22%; overflow:hidden;
+              position:absolute; inset:0; overflow:hidden;
               opacity:0; mix-blend-mode:screen; pointer-events:none;
               animation:splshShineOp ${dur} ease-in-out forwards;
             }

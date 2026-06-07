@@ -525,7 +525,15 @@ export default function Discover() {
     );
   }
 
-  // 2. Missing Mood State — ama ?analyze parametresi varsa film yükleniyor demektir, bekle
+  // 2. Missing Mood State — redirect to home
+  useEffect(() => {
+    if (!selectedMood && !selectedMovie) {
+      const pendingAnalyze = searchParams.get('analyze') || autoAnalyzeTriggered.current;
+      if (!pendingAnalyze) {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [selectedMood, selectedMovie, navigate, searchParams]);
   if (!selectedMood && !selectedMovie) {
     const pendingAnalyze = searchParams.get('analyze') || autoAnalyzeTriggered.current;
     if (pendingAnalyze) {
@@ -537,23 +545,14 @@ export default function Discover() {
         </div>
       );
     }
-    console.warn("[Discover] No mood selected.");
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="min-h-screen bg-[#120d0b] flex flex-col items-center justify-center gap-8"
-      >
-        <p className="text-amber text-2xl font-serif italic">Atmosfer kaybolmuş gibi görünüyor...</p>
-        <button
-          onClick={() => navigate('/')}
-          className="px-8 py-4 bg-amber text-bg rounded-full font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-[0_10px_30px_rgba(255,191,0,0.2)]"
-        >
-          Anasayfaya Dön ve Tekrar Seç
-        </button>
-      </motion.div>
+        transition={{ duration: 0.0001 }}
+        className="min-h-screen bg-[#120d0b]"
+      />
     );
   }
 
