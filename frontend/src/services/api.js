@@ -12,6 +12,30 @@ function authHeaders() {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
+// ─── Ortak GET yardımcısı: in-flight dedup + opsiyonel iptal ──────────────
+// Aynı URL'ye eşzamanlı GET'ler tek ağ isteğini paylaşır (dedup) → mood çift
+// seçimi/hızlı sayfa geçişlerinde fazladan istek ve race önlenir.
+// `signal` verilirse istek iptal edilebilir (örn. bayatlamış arama) ve dedup
+// atlanır — her çağıran kendi iptal edilebilir isteğini ister.
+const _inflightGets = new Map();
+
+async function getJson(url, { errorMsg, signal, dedup = true } = {}) {
+  const canDedup = dedup && !signal;
+  if (canDedup && _inflightGets.has(url)) return _inflightGets.get(url);
+
+  const run = (async () => {
+    const res = await fetch(url, signal ? { signal } : undefined);
+    if (!res.ok) throw new Error(errorMsg ? `${errorMsg} (${res.status})` : `İstek başarısız (${res.status})`);
+    return res.json();
+  })();
+
+  if (canDedup) {
+    _inflightGets.set(url, run);
+    run.finally(() => { if (_inflightGets.get(url) === run) _inflightGets.delete(url); });
+  }
+  return run;
+}
+
 // ─── E-posta + Şifre Auth ───────────────────────────────────────────────
 export async function registerEmail(email, password, name = '') {
   const res = await fetch(`${BASE}/auth/register`, {
@@ -55,15 +79,11 @@ export function proxyImageUrl(url) {
 }
 
 export async function getMovies(page = 1) {
-  const res = await fetch(`${BASE}/movies?page=${page}`);
-  if (!res.ok) throw new Error(`Filmler yüklenemedi (${res.status})`);
-  return res.json();
+  return getJson(`${BASE}/movies?page=${page}`, { errorMsg: 'Filmler yüklenemedi' });
 }
 
 export async function getUpcomingMovies() {
-  const res = await fetch(`${BASE}/movies/upcoming`);
-  if (!res.ok) throw new Error(`Yaklaşan filmler yüklenemedi (${res.status})`);
-  return res.json();
+  return getJson(`${BASE}/movies/upcoming`, { errorMsg: 'Yaklaşan filmler yüklenemedi' });
 }
 
 export async function analyzeMovie(movieId) {
@@ -74,15 +94,11 @@ export async function analyzeMovie(movieId) {
 
 export async function discoverMovies(genreIds, page = 1, sortBy = "popularity.desc") {
   const genres = genreIds.join(",");
-  const res = await fetch(`${BASE}/movies/discover?genres=${genres}&page=${page}&sort_by=${sortBy}`);
-  if (!res.ok) throw new Error(`Keşfet yüklenemedi (${res.status})`);
-  return res.json();
+  return getJson(`${BASE}/movies/discover?genres=${genres}&page=${page}&sort_by=${sortBy}`, { errorMsg: 'Keşfet yüklenemedi' });
 }
 
 export async function repositoryMovies(moodId, page = 1, minVote = 5.0, sortBy = "recommended", minMoodScore = 0) {
-  const res = await fetch(`${BASE}/repository/movies/${moodId}?page=${page}&min_vote=${minVote}&sort_by=${sortBy}&min_mood_score=${minMoodScore}`);
-  if (!res.ok) throw new Error(`Repository yüklenemedi (${res.status})`);
-  return res.json();
+  return getJson(`${BASE}/repository/movies/${moodId}?page=${page}&min_vote=${minVote}&sort_by=${sortBy}&min_mood_score=${minMoodScore}`, { errorMsg: 'Repository yüklenemedi' });
 }
 
 export async function seedRepository(moodId = null) {
@@ -106,10 +122,10 @@ export async function getTurkishMovies(page = 1, sortBy = "popularity.desc", min
   return data;
 }
 
-export async function searchMovies(query) {
-  const res = await fetch(`${BASE}/movies/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) throw new Error(`Arama başarısız (${res.status})`);
-  return res.json();
+// `signal` ile bayatlamış arama istekleri iptal edilebilir (her tuş vuruşunda
+// öncekini AbortController ile durdur → yarış ve gereksiz trafik önlenir).
+export async function searchMovies(query, { signal } = {}) {
+  return getJson(`${BASE}/movies/search?q=${encodeURIComponent(query)}`, { errorMsg: 'Arama başarısız', signal });
 }
 
 export async function getSimilarMovies(movieId) {

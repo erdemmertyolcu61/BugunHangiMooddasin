@@ -302,7 +302,7 @@ class TasteMapEngine:
             try:
                 mood_map = await self.cache.get_mood_classifications_batch(tmdb_ids)
             except Exception:
-                pass
+                logger.warning("[TasteMap] get_mood_classifications_batch failed for %d movies", len(tmdb_ids))
 
         # 2) Batch movie_repository data (mood_id, genre_ids, year, popularity)
         repo_data = {}
@@ -310,7 +310,7 @@ class TasteMapEngine:
             try:
                 repo_data = await self.cache.get_movies_from_repository_batch(tmdb_ids)
             except Exception:
-                pass
+                logger.warning("[TasteMap] get_movies_from_repository_batch failed for %d movies", len(tmdb_ids))
 
         # 3) Batch movie_cache data for genre_ids fallback + year + runtime
         cache_data = {}
@@ -321,7 +321,7 @@ class TasteMapEngine:
                     if movie:
                         cache_data[tid] = movie
             except Exception:
-                pass
+                logger.warning("[TasteMap] batch get_movie failed during enrich")
 
         enriched = []
         for tid in tmdb_ids:

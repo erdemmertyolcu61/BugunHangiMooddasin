@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, ChevronRight, Star, Bookmark, Book, BookOpen, X, Plus, Brain, Heart, ArrowUpDown, BookmarkPlus, Eye, Users, Search, RotateCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Users, RotateCcw } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
 import { buildMatcher } from '../utils/personalMatch';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,9 @@ import FilmDetailModal from '../components/FilmDetailModal';
 import MovieCard from '../components/MovieCard';
 import { isPlatformLinked, linkPlatform, getPlatformInfo, buildWatchUrl } from '../utils/streamingMemory';
 import { useCache } from '../hooks/useCache';
+import MoodBackdrop from '../components/discover/MoodBackdrop';
+import DiscoverHeader from '../components/discover/DiscoverHeader';
+import SortControl from '../components/discover/SortControl';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
 const IMG_BASE_LG = 'https://image.tmdb.org/t/p/original';  // Modal detail poster (tam kalite)
@@ -97,8 +100,6 @@ export default function Discover() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState('recommended');
-  const [sortOpen, setSortOpen] = useState(false);
-  const sortRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -106,14 +107,6 @@ export default function Discover() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [quizOpen, setQuizOpen] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const mobileSearchRef = useRef(null);
-
-  useEffect(() => {
-    if (mobileSearchOpen && mobileSearchRef.current) {
-      mobileSearchRef.current.focus();
-    }
-  }, [mobileSearchOpen]);
 
   const searchTimeout = useRef(null);
   const lastRequestId = useRef(0);
@@ -188,38 +181,14 @@ export default function Discover() {
     }
   };
 
-  // Sort dropdown click-outside handler
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
-    };
-    const handleEsc = (e) => { if (e.key === 'Escape') setSortOpen(false); };
-    if (sortOpen) {
-      document.addEventListener('mousedown', handleClick);
-      document.addEventListener('keydown', handleEsc);
-    }
-    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleEsc); };
-  }, [sortOpen]);
-
   // Cleanup debounce timer on unmount
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
-  const SORT_OPTIONS = [
-    { value: 'recommended', label: 'Önerilen' },
-    { value: 'rating_desc', label: 'Puan: Yüksekten Düşüğe' },
-    { value: 'rating_asc', label: 'Puan: Düşükten Yükseğe' },
-    { value: 'mood_desc', label: "Mood'a Uyum: Yüksekten Düşüğe" },
-    { value: 'mood_asc', label: "Mood'a Uyum: Düşükten Yükseğe" },
-    { value: 'newest', label: 'En Yeni' },
-    { value: 'oldest', label: 'En Eski' },
-  ];
-
   const handleSortSelect = (value) => {
     setSortBy(value);
     setCurrentPage(1);
-    setSortOpen(false);
   };
 
   // Kişisel "uyum %" için kullanıcının zevk haritasını bir kez çek (giriş yaptıysa).
@@ -633,62 +602,7 @@ export default function Discover() {
 
   return (
     <div className={`min-h-screen bg-[#120d0b] text-[#f5f2eb] font-sans mood-${selectedMood.id}`}>
-      {/* ═══ FIXED ARKAPLAN KATMANLARI (motion.div DIŞINDA — Safari fix) ═══ */}
-      {/* Kalıcı blur arkaplan */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div
-          className="absolute -top-30 -left-30 w-[450px] h-[450px] rounded-full opacity-[0.30]"
-          style={{ background: selectedMood.accentHex || '#ffbf00', filter: 'blur(80px)', willChange: 'filter' }}
-        />
-        <div
-          className="absolute -bottom-30 -right-30 w-[350px] h-[350px] rounded-full opacity-[0.20]"
-          style={{ background: selectedMood.vignette || '#000', filter: 'blur(60px)', willChange: 'filter' }}
-        />
-      </div>
-
-      <div className="vignette vignette-active" />
-
-      {/* Sürekli Vignette — mood rengine göre kenarlarda hafif gölge */}
-      <div
-        className="fixed inset-0 pointer-events-none z-10 transition-opacity duration-1000"
-        style={{
-          background: `radial-gradient(circle, transparent 20%, ${selectedMood.vignette || '#000'} 150%)`,
-          opacity: 0.35,
-        }}
-      />
-
-      {/* Paper texture */}
-      <div className="fixed inset-0 pointer-events-none z-[999] opacity-[0.03]"
-           style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/natural-paper.png')" }} />
-
-      {/* ═══ MOOD GEÇİŞ ANİMASYONLARI ═══ */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`wash-${selectedMood.id}`}
-          initial={{ opacity: 0.7, scale: 1.2 }}
-          animate={{ opacity: 0, scale: 1 }}
-          transition={{ duration: 2, ease: 'easeOut' }}
-          className={`fixed inset-0 z-30 pointer-events-none bg-gradient-to-br ${selectedMood.color}`}
-        />
-      </AnimatePresence>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`icon-${selectedMood.id}`}
-          initial={{ opacity: 0.9, scale: 2.5 }}
-          animate={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center"
-        >
-          {selectedMood.icon && (
-            <selectedMood.icon
-              size={160}
-              strokeWidth={0.8}
-              className="text-amber/40 drop-shadow-[0_0_60px_rgba(255,191,0,0.3)]"
-            />
-          )}
-        </motion.div>
-      </AnimatePresence>
+      <MoodBackdrop selectedMood={selectedMood} />
 
       {/* ═══ İÇERİK (fade-in animasyonlu) ═══ */}
       <motion.div
@@ -698,98 +612,13 @@ export default function Discover() {
         transition={{ duration: 0.6 }}
         className="relative"
       >
-        <header className="sticky top-0 z-[60] bg-[#120d0b]/75 backdrop-blur-xl border-b border-white/5 shadow-lg pt-safe">
-        <div className="w-full px-4 sm:px-8 lg:px-12 py-3 sm:py-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
-          <div className="flex items-center gap-3 sm:gap-6 md:shrink-0">
-            <button onClick={() => navigate('/')} className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
-              <ChevronLeft size={24} />
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-[#e8d3d3]/30 mb-0.5 sm:mb-1">ŞU ANKİ MODUN</p>
-              <h1 className="font-serif text-lg sm:text-xl font-bold flex items-center gap-2 sm:gap-3 truncate">
-                <span className="text-amber-500 shrink-0">{selectedMood.icon && <selectedMood.icon size={24} strokeWidth={1.5} />}</span>
-                <span className="truncate">{selectedMood.title}</span>
-              </h1>
-            </div>
-            {/* Mobile: search toggle + profile */}
-            <div className="flex md:hidden items-center gap-1 ml-auto">
-              <button
-                onClick={() => {
-                  if (mobileSearchOpen) handleSearch('');
-                  setMobileSearchOpen(prev => !prev);
-                }}
-                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all shrink-0"
-                aria-label={mobileSearchOpen ? 'Aramayı kapat' : 'Ara'}
-              >
-                {mobileSearchOpen ? <X size={18} className="text-[#e8d3d3]/60" /> : <Search size={18} className="text-[#e8d3d3]/60" />}
-              </button>
-              <button
-                onClick={() => navigate('/profil')}
-                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center overflow-hidden transition-all shrink-0"
-                aria-label="Profil"
-              >
-                {user?.picture
-                  ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  : <Users size={18} className="text-[#e8d3d3]/60" />}
-              </button>
-            </div>
-          </div>
-
-          <div className={`flex items-center gap-3 w-full md:contents ${mobileSearchOpen ? '' : 'hidden'} md:flex`}>
-          <div className="relative flex-1 min-w-0 md:flex-1 flex items-center gap-2">
-            <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Arşivde ara..."
-                ref={mobileSearchRef}
-                className="w-full px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm max-sm:text-[16px] text-[#f5f2eb] placeholder:text-white/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/60 transition-all"
-            />
-            <button
-              onClick={() => { handleSearch(''); setMobileSearchOpen(false); }}
-              className="md:hidden w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all shrink-0"
-              aria-label="Kapat"
-            >
-              <X size={18} className="text-[#e8d3d3]/60" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 md:gap-4 md:shrink-0">
-            <button onClick={() => navigate('/kafan-mi-karisik')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-bg">Kafan mı Karışık?</span>
-            </button>
-            <button onClick={() => setQuizOpen(true)}
-              title="Bugünkü Ruh Halim"
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
-              <Brain size={16} className="text-bg/80 shrink-0" />
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugünkü Ruh Halim</span>
-            </button>
-            <button onClick={() => navigate('/listeler')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-              <BookOpen size={16} className="text-amber group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Listeler</span>
-            </button>
-            <button onClick={() => navigate('/defterim')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-              <Book size={16} className="text-amber group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Defterim</span>
-            </button>
-            <button
-              onClick={() => navigate('/profil')}
-              title={user ? 'Profilim' : 'Giriş Yap'}
-              className="hidden md:flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
-            >
-              <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
-                {user?.picture
-                  ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  : <Users size={13} className="text-amber/60" />}
-              </span>
-              <span className="font-sans text-[11px] font-semibold text-ivory/60 max-w-[100px] truncate">
-                {user?.username || user?.name || 'Giriş Yap'}
-              </span>
-            </button>
-          </div>
-          </div>
-        </div>
-      </header>
+        <DiscoverHeader
+          selectedMood={selectedMood}
+          user={user}
+          searchQuery={searchQuery}
+          onSearch={handleSearch}
+          onOpenQuiz={() => setQuizOpen(true)}
+        />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-14 sm:space-y-24 pb-nav md:pb-32">
         {/* Gelecek Program Slider */}
@@ -852,34 +681,7 @@ export default function Discover() {
             </div>
             {/* Sort controls - custom dropdown */}
             {searchResults === null && (
-              <div className="relative ml-auto" ref={sortRef}>
-                <button
-                  onClick={() => setSortOpen(!sortOpen)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-amber-400/45 bg-black/45 backdrop-blur-sm text-amber-100/80 hover:text-amber-50 hover:border-amber-300/60 hover:bg-amber-950/20 transition-all text-[10px] font-bold uppercase tracking-[0.14em] focus:outline-none focus:ring-2 focus:ring-amber-400/30 shadow-[0_0_20px_rgba(245,158,11,0.08)]"
-                >
-                  <ArrowUpDown size={13} className="text-amber-400/60 shrink-0" />
-                  <span className="truncate max-w-[100px] sm:max-w-none">{SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Önerilen'}</span>
-                  <ChevronRight size={12} className={`text-amber-400/50 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-90' : ''}`} />
-                </button>
-
-                {sortOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-60 sm:w-64 overflow-hidden rounded-2xl border border-amber-400/30 bg-[#120d0a]/98 backdrop-blur-md shadow-2xl shadow-black/50">
-                    {SORT_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => handleSortSelect(opt.value)}
-                        className={`w-full px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] transition-all ${
-                          sortBy === opt.value
-                            ? 'bg-amber-500/18 text-amber-200 font-semibold'
-                            : 'text-stone-400 hover:bg-amber-500/10 hover:text-amber-100'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <SortControl sortBy={sortBy} onSelect={handleSortSelect} />
             )}
           </div>
           {/* Frosted glass container — tıpkı Gurme kartı gibi, blur efektini scroll boyunca sürdürür */}

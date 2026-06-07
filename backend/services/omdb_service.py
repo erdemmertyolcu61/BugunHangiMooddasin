@@ -1,8 +1,11 @@
 """
 OMDb Service - Fetches aggregated ratings (IMDb, Rotten Tomatoes, Metacritic).
 """
+import logging
 import httpx
 from backend.config import OMDB_API_KEY, OMDB_BASE_URL
+
+logger = logging.getLogger("omdb_service")
 
 
 class OMDbService:
@@ -60,7 +63,9 @@ class OMDbService:
                     "director": data.get("Director"),
                 }
         except Exception as e:
-            print(f"OMDb error for '{title}': {e}")
+            # logger kullan — print() Windows konsol encoding'inde (cp1254)
+            # UnicodeEncodeError fırlatıp ele alınmış OMDb hatasını 500'e çeviriyordu.
+            logger.warning("OMDb error for %r: %s", title, e)
             return self._empty_ratings()
 
     @staticmethod

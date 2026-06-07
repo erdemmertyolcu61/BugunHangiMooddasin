@@ -22,7 +22,10 @@ import contextlib
 from collections import deque
 import httpx
 from typing import Optional
+import logging
 from backend.config import DATABASE_PATH
+
+logger = logging.getLogger("film_elestirimeni")
 
 # ── SQLite Connection Pool ───────────────────────────────────────────────────
 # Prevents ~30ms open/close overhead on every database operation.
@@ -282,12 +285,12 @@ class MovieCache:
                 try:
                     await db.execute(f"ALTER TABLE {tbl} ADD COLUMN user_id INTEGER DEFAULT 0")
                 except Exception:
-                    pass  # column already exists
+                    logger.warning("[DB] ALTER TABLE %s ADD user_id failed (likely exists)", tbl)
             # watchlist.watched kolonu da garanti olsun (eski şemada lazy ekleniyordu)
             try:
                 await db.execute("ALTER TABLE watchlist ADD COLUMN watched INTEGER DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER TABLE watchlist ADD watched failed (likely exists)")
 
             # ── Çok-kullanıcılı izolasyon: PRIMARY KEY'i (tmdb_id, user_id)'ye taşı ──
             # Eski şemada tmdb_id tek PK olduğu için aynı filmi iki kullanıcı
@@ -368,7 +371,7 @@ class MovieCache:
             try:
                 await db.execute("ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER TABLE watchlist ADD watched_at failed (likely exists)")
             # Kullanıcı film puanı (1-10) + beğeni (like/dislike) — giriş zorunlu.
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS movie_ratings (
@@ -435,7 +438,7 @@ class MovieCache:
                     CREATE INDEX IF NOT EXISTS idx_repo_mood_vote ON movie_repository(mood_id, vote_average)
                 """)
             except Exception:
-                pass
+                logger.warning("[DB] CREATE INDEX idx_repo_mood_vote failed")
             # Mood classifications from Claude (AI-classified mood per movie)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS mood_classifications (
@@ -458,42 +461,42 @@ class MovieCache:
             try:
                 await db.execute("ALTER TABLE movie_repository ADD COLUMN vote_count INTEGER DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER movie_repository ADD vote_count failed")
             try:
                 await db.execute("ALTER TABLE movie_cache ADD COLUMN vote_count INTEGER DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER movie_cache ADD vote_count failed")
             # original_language column for Turkish film detection
             try:
                 await db.execute("ALTER TABLE movie_repository ADD COLUMN original_language TEXT DEFAULT ''")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER movie_repository ADD original_language failed")
             # popularity column for better sorting
             try:
                 await db.execute("ALTER TABLE movie_repository ADD COLUMN popularity REAL DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER movie_repository ADD popularity failed")
             # Pre-computed mood_score for fast SQL-level filtering/sorting
             try:
                 await db.execute("ALTER TABLE movie_repository ADD COLUMN mood_score REAL DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER movie_repository ADD mood_score failed")
             try:
                 await db.execute("""
                     CREATE INDEX IF NOT EXISTS idx_repo_mood_score
                     ON movie_repository(mood_id, mood_score DESC)
                 """)
             except Exception:
-                pass
+                logger.warning("[DB] CREATE INDEX idx_repo_mood_score failed")
             # omdb_cache migration (imdb_votes, imdb_id)
             try:
                 await db.execute("ALTER TABLE omdb_cache ADD COLUMN imdb_votes INTEGER DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER omdb_cache ADD imdb_votes failed")
             try:
                 await db.execute("ALTER TABLE omdb_cache ADD COLUMN imdb_id TEXT")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER omdb_cache ADD imdb_id failed")
             # Watch provider cache
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS watch_provider_cache (
@@ -563,7 +566,7 @@ class MovieCache:
             try:
                 await db.execute("ALTER TABLE movie_fast_search ADD COLUMN original_language TEXT DEFAULT ''")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER movie_fast_search ADD original_language failed")
             # TMDB API response cache — reduces latency for repeated queries
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS tmdb_response_cache (
@@ -578,25 +581,25 @@ class MovieCache:
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN username TEXT")
             except Exception:
-                pass  # kolon zaten var
+                logger.warning("[DB] ALTER users ADD username failed (likely exists)")
 
             # avatar_data kolonu — BLOB, filesystem'siz kalıcı avatar depolama
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN avatar_data BLOB")
             except Exception:
-                pass  # kolon zaten var
+                logger.warning("[DB] ALTER users ADD avatar_data failed (likely exists)")
 
             # password_hash kolonu — e-posta+şifre girişi (Google kullanıcılarında NULL)
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
             except Exception:
-                pass  # kolon zaten var
+                logger.warning("[DB] ALTER users ADD password_hash failed (likely exists)")
 
             # last_active kolonu — pasif kullanıcı re-engagement push'u için
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMP")
             except Exception:
-                pass  # kolon zaten var
+                logger.warning("[DB] ALTER users ADD last_active failed (likely exists)")
 
             # Eski /uploads yollarını temizle (ephemeral filesystem'de dosya yok)
             try:
@@ -618,13 +621,13 @@ class MovieCache:
                     WHERE username IS NULL OR username = ''
                 """)
             except Exception:
-                pass
+                logger.warning("[DB] UPDATE users SET username (auto-generate) failed")
             try:
                 await db.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)"
                 )
             except Exception:
-                pass
+                logger.warning("[DB] CREATE UNIQUE INDEX idx_users_username failed")
 
             # friendships — iki yönlü arkadaşlık + engelleme matrisi
             await db.execute("""
@@ -662,7 +665,7 @@ class MovieCache:
             try:
                 await db.execute("ALTER TABLE direct_recommendations ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER direct_recommendations ADD dismissed failed")
             # Ek performans index'leri
             await db.execute("CREATE INDEX IF NOT EXISTS idx_watchlist_user_date ON watchlist(user_id, added_at DESC)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_future_priority ON future_plans(user_id, priority DESC, added_at DESC)")
@@ -708,12 +711,12 @@ class MovieCache:
             try:
                 await db.execute("ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER push_subscriptions ADD is_pwa failed")
             # notify_hour migration (kullanıcı-ayarlı bildirim saati; varsayılan 18:00)
             try:
                 await db.execute("ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18")
             except Exception:
-                pass
+                logger.warning("[DB] ALTER push_subscriptions ADD notify_hour failed")
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -860,7 +863,7 @@ class MovieCache:
                 WHERE username IS NULL OR username = ''
             """)
         except Exception:
-            pass
+            logger.warning("[DB] Turso UPDATE username auto-generate failed")
 
     async def get_movie(self, tmdb_id: int) -> Optional[dict]:
         """Retrieve cached movie analysis by TMDB ID."""
@@ -2629,7 +2632,7 @@ class MovieCache:
                 try:
                     result[r[0]] = json.loads(r[1])
                 except Exception:
-                    pass
+                    logger.warning("[DB] Failed to parse movie_cache JSON for tmdb_id=%s", r[0])
             return result
         finally:
             conn.close()
@@ -2998,7 +3001,7 @@ class MovieCache:
             try:
                 genre_ids = json.loads(r[9]) if r[9] else []
             except Exception:
-                pass
+                logger.warning("[DB] Failed to parse genre_ids JSON for fast_search tmdb_id=%s", r[0])
             result.append({
                 "tmdb_id":         r[0],
                 "embedding_data":  r[1],
@@ -3049,7 +3052,7 @@ class MovieCache:
             try:
                 genre_ids = json.loads(r[7]) if r[7] else []
             except Exception:
-                pass
+                logger.warning("[DB] Failed to parse genre_ids JSON for unembedded movie tmdb_id=%s", r[0])
             result.append({
                 "tmdb_id":      r[0],
                 "title":        r[1] or "",

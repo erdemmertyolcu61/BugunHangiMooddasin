@@ -46,21 +46,21 @@ BETA_PASSWORD = os.getenv("BETA_PASSWORD", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 _jwt_secret = os.getenv("JWT_SECRET")
 if not _jwt_secret:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "JWT_SECRET environment variable is required in production. "
+            "Generate with: openssl rand -hex 32"
+        )
     _secret_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jwt_secret.key")
     if os.path.exists(_secret_file):
         with open(_secret_file, "r") as f:
             _jwt_secret = f.read().strip()
-    else:
-        # Deterministic fallback (Railway cold start'ta key kaybolmaz)
-        import hashlib
-        _base_url = os.getenv("FRONTEND_BASE_URL", "https://bug-n-hangi-mooddas-n.vercel.app")
-        _app_path = os.path.dirname(os.path.abspath(__file__))
-        _stable_input = f"sinemood-jwt-v1|{_base_url}|{_app_path}".encode()
-        _jwt_secret = hashlib.sha256(_stable_input).hexdigest()
+    if not _jwt_secret:
+        _jwt_secret = secrets.token_hex(32)
         import logging as _log
         _log.getLogger(__name__).warning(
-            "[Config] JWT_SECRET env var not set! Using deterministic fallback "
-            "(ok for dev, set JWT_SECRET on Railway for production)"
+            "[Config] JWT_SECRET env var not set! Generated random key for this session. "
+            "Set JWT_SECRET in production for persistent tokens."
         )
 JWT_SECRET = _jwt_secret
 # .strip(): Render/panel'e yapıştırırken araya kaçan boşluk/yeni satır

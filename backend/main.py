@@ -30,6 +30,11 @@ from backend.services.fast_search import fast_search_engine
 from backend.services.semantic_search import semantic_engine
 from backend.services.search import SearchEngine
 from backend.services.taste_map import TasteMapEngine, score_movie_for_profile
+from backend.auth_utils import (
+    _safe_http_500, _create_token, _verify_token, _auth_response,
+    USER_TOKEN_HOURS, optional_user_id, verify_user,
+    verify_beta, verify_admin,
+)
 from fastapi import FastAPI, HTTPException, Query, Path, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
@@ -47,6 +52,7 @@ from backend.services.streaming_links import build_streaming_availability
 from backend.services.tmdb_service import tmdb_service
 from backend.services.omdb_service import omdb_service
 from backend.services.claude_service import claude_service, ANALYSIS_VERSION
+from backend.services import ustad_note
 from backend.mood_profiles import MOOD_PROFILES, get_tmdb_params, get_positive_genres, GENRE_NAMES
 
 # Unified search engine with 4-tier fallback (semantic → vector → regex → curated)
@@ -142,8 +148,13 @@ async def lifespan(app: FastAPI):
     await cache.init_db()
     from backend.database import init_pool as _init_pool
     await _init_pool(cache.db_path)
-    await cache.prune_tmdb_cache()
-    await cache.prune_mood_query_cache()
+    # Cache budama kritik DEĞİL — DB kilitli/erişilemezse (ör. başka bir backend
+    # örneği yazıyorsa) startup'ı çökertme; uyar ve devam et.
+    try:
+        await cache.prune_tmdb_cache()
+        await cache.prune_mood_query_cache()
+    except Exception as e:
+        logger.warning(f"[Startup] Cache budama atlandı (DB meşgul olabilir): {e}")
     logger.info("🎬 [Backend] Film Connoisseur API starting...")
     logger.info("📡 [Health] http://127.0.0.1:8002/health")
     logger.info("🎵 [AudioDebug] http://127.0.0.1:8002/api/audio/debug")
@@ -226,8 +237,10 @@ async def lifespan(app: FastAPI):
                 logger.info(f"[Seed] Tüm mood'lar dolu (~{total_all} film), seed atlanıyor.")
                 return
             logger.info(f"[Seed] Repository kısmen dolu (~{total_all} film), sadece eksik mood'lar doldurulacak.")
-        except Exception:
-            pass
+        except Exception as e:
+            # Hızlı kontrol başarısız olursa tam seed'e düşeriz; ama sessiz kalma —
+            # sürekli başarısızlık repository'nin hiç dolmadığını gizleyebilir.
+            logger.warning(f"[Seed] Doluluk ön-kontrolü başarısız, tam seed denenecek: {e}", exc_info=True)
 
         # Phase 1: Discover-based seeding — 3 moods at a time (parallel)
         mood_items = list(MOOD_GENRE_MAP.items())
@@ -431,7 +444,7 @@ async def lifespan(app: FastAPI):
                     runtime = details.get("runtime")
                     if runtime and runtime > 90:
                         return m["id"]
-                except:
+                except Exception:
                     pass
                 return None
             results = await asyncio.gather(*[_check(m) for m in to_check])
@@ -668,11 +681,15 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Admin-Password", "X-Beta-Token"],
 )
 
-# ── Sosyal ağ rotaları: Arkadaşlık + Doğrudan Film Paylaşımı ──
+# ── Modüler router'lar ──
 from backend.routers.social import router as social_router
 app.include_router(social_router)
 from backend.routers.lists_user import router as user_content_router
 app.include_router(user_content_router)
+from backend.routers.push import router as push_router
+app.include_router(push_router)
+from backend.routers.admin import router as admin_router
+app.include_router(admin_router)
 
 # ── Statik dosyalar: Avatar yüklemeleri ──
 import os
@@ -708,21 +725,6 @@ async def production_error_handler(request: Request, call_next):
         logger.error(f"[{err_id}] Unhandled error on {request.method} {request.url.path}: {type(e).__name__}: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"detail": "Internal server error", "error_id": err_id})
 
-
-def _safe_http_500(e: Exception, context: str = "") -> HTTPException:
-    """500 için güvenli HTTPException üretir.
-
-    Prod'da iç hata detayını (SQLite mesajı, dosya yolu vb.) client'a SIZDIRMAZ —
-    sunucuda tam traceback'i loglar ve takip için bir error_id döndürür. Dev'de
-    ham mesajı gösterir. `raise _safe_http_500(e)` olarak kullanılır.
-    """
-    global _error_counter
-    _error_counter += 1
-    err_id = f"E{_error_counter:04d}"
-    logger.error(f"[{err_id}] {context or 'handler'} error: {type(e).__name__}: {e}", exc_info=True)
-    if IS_PRODUCTION:
-        return HTTPException(status_code=500, detail=f"Sunucu hatası ({err_id})")
-    return HTTPException(status_code=500, detail=str(e))
 
 
 # ─── Cache-Control Middleware ────────────────────────────────
@@ -803,77 +805,9 @@ def _slim_movie_list(movies: list[dict]) -> list[dict]:
 
 # ─── Rate Limiter (paylaşılan modül — social.py vb. de aynı limiter'ı kullanır) ───
 from backend.services.rate_limit import (
-    rate_limit_general, rate_limit_ai, rate_limit_strict,
+    rate_limit_general, rate_limit_ai,
 )
 
-
-# ─── Beta Auth ───
-USER_TOKEN_HOURS = 24 * 90  # kullanıcı oturumu ~90 gün (kapat-aç sonrası re-login şikayetleri için)
-def _create_token(payload: dict, expires_hours: int = 24) -> str:
-    payload["exp"] = datetime.utcnow() + timedelta(hours=expires_hours)
-    return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
-
-def _verify_token(token: str) -> dict:
-    try:
-        return pyjwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    except pyjwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except pyjwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-def _auth_response(data: dict, token: str):
-    """JSON yanıtı + kalıcı cookie'ler ile döndürür. iOS PWA localStorage kaybına karşı."""
-    import json as _json
-    resp = JSONResponse(data)
-    resp.set_cookie(
-        key="fc_user_token",
-        value=token,
-        max_age=7776000,
-        path="/",
-        secure=IS_PRODUCTION,
-        httponly=False,
-        samesite="lax",
-    )
-    user_data = data.get("user")
-    if user_data:
-        resp.set_cookie(
-            key="fc_user_info",
-            value=_json.dumps(user_data),
-            max_age=7776000,
-            path="/",
-            secure=IS_PRODUCTION,
-            httponly=False,
-            samesite="lax",
-        )
-    return resp
-
-def verify_beta(request: Request):
-    """Verify beta access. In development mode, skip auth."""
-    if not IS_PRODUCTION or not BETA_PASSWORD:
-        return  # No beta gate in dev mode or if no password set
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Beta access required")
-    token = auth.replace("Bearer ", "")
-    payload = _verify_token(token)
-    if payload.get("type") not in ("beta", "admin"):
-        raise HTTPException(status_code=401, detail="Invalid access type")
-
-def verify_admin(request: Request):
-    """Verify admin access for sensitive endpoints."""
-    if not IS_PRODUCTION and not ADMIN_PASSWORD:
-        return  # No admin gate in dev without password
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        token = auth.replace("Bearer ", "")
-        payload = _verify_token(token)
-        if payload.get("type") == "admin":
-            return
-    # Also accept X-Admin-Password header
-    admin_pw = request.headers.get("X-Admin-Password", "")
-    if admin_pw and ADMIN_PASSWORD and admin_pw == ADMIN_PASSWORD:
-        return
-    raise HTTPException(status_code=403, detail="Admin access required")
 
 
 # ─── Auth Endpoints ───
@@ -888,7 +822,7 @@ async def beta_login(request: Request):
     password = body.get("password", "")
     if not BETA_PASSWORD:
         raise HTTPException(status_code=403, detail="Beta erişim yapılandırılmamış")
-    if password == BETA_PASSWORD:
+    if hmac.compare_digest(password, BETA_PASSWORD):
         token = _create_token({"type": "beta"}, expires_hours=168)
         return _auth_response({"token": token, "expires_in": 604800}, token)
     raise HTTPException(status_code=401, detail="Invalid beta password")
@@ -903,7 +837,7 @@ async def admin_login(request: Request):
     password = body.get("password", "")
     if not ADMIN_PASSWORD:
         raise HTTPException(status_code=403, detail="Admin access not configured")
-    if password == ADMIN_PASSWORD:
+    if hmac.compare_digest(password, ADMIN_PASSWORD):
         token = _create_token({"type": "admin"}, expires_hours=4)
         return _auth_response({"token": token, "expires_in": 14400}, token)
     raise HTTPException(status_code=401, detail="Invalid admin password")
@@ -1196,55 +1130,6 @@ async def email_login(request: Request):
     return _auth_response({"token": token, "user": {"id": user_id, "username": username or "", "email": email, "name": name, "picture": picture or "", "created_at": created_at}, "is_new": False}, token)
 
 
-@app.get("/api/admin/users", dependencies=[Depends(verify_admin)])
-async def admin_list_users():
-    """Kayıtlı kullanıcı sayısı + listesi (sadece admin).
-
-    Erişim: Authorization: Bearer <admin_token>  veya
-            X-Admin-Password: <ADMIN_PASSWORD> header'ı.
-    """
-    async with _db_conn(cache.db_path, user_data=True) as db:
-        cur = await db.execute(
-            "SELECT id, email, name, created_at FROM users ORDER BY id DESC"
-        )
-        rows = await cur.fetchall()
-    users = [
-        {"id": r[0], "email": r[1], "name": r[2], "created_at": r[3]}
-        for r in rows
-    ]
-    return {"total": len(users), "users": users}
-
-
-@app.post("/api/admin/fix-avatar-column", dependencies=[Depends(verify_admin)])
-async def admin_fix_avatar_column():
-    """Turso'da eksik kalan avatar_data kolonunu oluşturmayı dener."""
-    from backend.database import _turso_client as _tc
-    if _tc is None:
-        raise HTTPException(503, "Turso client aktif değil — belki local SQLite kullanılıyor")
-    try:
-        await _tc.execute("ALTER TABLE users ADD COLUMN avatar_data BLOB")
-        return {"ok": True, "message": "avatar_data kolonu eklendi"}
-    except Exception as e:
-        err = f"{type(e).__name__}: {e}"
-        if "duplicate" in str(e).lower():
-            return {"ok": True, "message": "avatar_data kolonu zaten var"}
-        raise HTTPException(500, f"Migration başarısız: {err}")
-
-
-@app.post("/api/admin/warm-ustad", dependencies=[Depends(verify_admin)])
-async def admin_warm_ustad(limit: int = Query(10, ge=1, le=50)):
-    """Cache'lenmemiş repository filmleri için Üstad Notu'nu ön-üretir.
-
-    Maliyet kontrolü: çağrı başına max 50 film (her biri 1 Claude çağrısı).
-    Admin tekrar tekrar çağırarak havuzu kademeli ısıtır. Başlangıçta
-    otomatik çalışmaz — maliyet sürprizi olmaz.
-
-    Erişim: Authorization: Bearer <admin_token> veya X-Admin-Password.
-    """
-    from backend.tasks.ustad_pipeline import warm_ustad_notes
-    summary = await warm_ustad_notes(limit=limit)
-    return summary
-
 
 @app.get("/api/auth/verify")
 async def verify_token_endpoint(request: Request):
@@ -1259,20 +1144,6 @@ async def verify_token_endpoint(request: Request):
     payload = _verify_token(token)
     return {"valid": True, "type": payload.get("type"), "exp": payload.get("exp")}
 
-
-def verify_user(request: Request) -> dict:
-    """Bearer token veya cookie'den giriş yapmış kullanıcıyı çözer (type='user')."""
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        payload = _verify_token(auth.replace("Bearer ", ""))
-    else:
-        token = request.cookies.get("fc_user_token", "")
-        if not token:
-            raise HTTPException(status_code=401, detail="Giriş gerekli")
-        payload = _verify_token(token)
-    if payload.get("type") != "user":
-        raise HTTPException(status_code=403, detail="Bu işlem için hesabınla giriş yapmalısın")
-    return payload
 
 
 @app.get("/api/user/referrals")
@@ -1301,64 +1172,6 @@ async def get_my_referrals(request: Request, user=Depends(verify_user)):
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# WEB PUSH — VAPID bildirimleri (anahtar yoksa tamamen no-op)
-# ═══════════════════════════════════════════════════════════════════════════
-from backend.services.push_service import PUSH_ENABLED, send_push_to_user
-
-
-@app.get("/api/push/public-key")
-async def push_public_key():
-    """Frontend'in aboneliği için VAPID public key. Boşsa özellik kapalı demektir."""
-    return {"enabled": PUSH_ENABLED, "public_key": VAPID_PUBLIC_KEY if PUSH_ENABLED else ""}
-
-
-class PushSubscribeBody(BaseModel):
-    endpoint: str
-    keys: dict
-    is_pwa: bool = False
-
-
-@app.post("/api/push/subscribe", dependencies=[Depends(rate_limit_strict)])
-async def push_subscribe(body: PushSubscribeBody, user=Depends(verify_user)):
-    """Cihaz push aboneliğini kaydeder."""
-    if not PUSH_ENABLED:
-        return {"ok": False, "enabled": False}
-    keys = body.keys or {}
-    ok = await cache.save_push_subscription(
-        user["user_id"], body.endpoint, keys.get("p256dh", ""), keys.get("auth", ""), is_pwa=int(body.is_pwa),
-    )
-    return {"ok": ok, "enabled": True}
-
-
-class PushUnsubscribeBody(BaseModel):
-    endpoint: str
-
-
-@app.post("/api/push/unsubscribe")
-async def push_unsubscribe(body: PushUnsubscribeBody, user=Depends(verify_user)):
-    await cache.delete_push_subscription(body.endpoint)
-    return {"ok": True}
-
-
-class NotifyTimeBody(BaseModel):
-    hour: int
-
-
-@app.get("/api/push/notify-time")
-async def get_notify_time(user=Depends(verify_user)):
-    """Kullanıcının seçtiği günlük bildirim saatini döndürür (yoksa varsayılan 18)."""
-    hour = await cache.get_notify_hour(user["user_id"])
-    return {"hour": hour}
-
-
-@app.post("/api/push/notify-time")
-async def set_notify_time(body: NotifyTimeBody, user=Depends(verify_user)):
-    """Günlük bildirim saatini ayarlar (8–23 arası; gece bildirimi engellenir)."""
-    hour = max(8, min(23, int(body.hour)))
-    ok = await cache.set_notify_hour(user["user_id"], hour)
-    return {"ok": ok, "hour": hour}
-
 
 @app.post("/api/users/ping")
 async def user_ping(request: Request):
@@ -1368,30 +1181,6 @@ async def user_ping(request: Request):
         await cache.update_last_active(uid)
     return {"ok": True}
 
-
-def optional_user_id(request: Request) -> int:
-    """Geçerli bir 'user' token'ı varsa kullanıcı id'sini döndürür, yoksa 0.
-    Authorization header veya fc_user_token cookie'den okur.
-
-    Hesapla giriş yapan kullanıcı kendi verisini (user_id) görür; sadece beta
-    şifresiyle giren anonim kullanıcı paylaşımlı havuzu (user_id=0) kullanır.
-    Asla hata fırlatmaz — anonim kullanım bozulmaz.
-    """
-    auth = request.headers.get("Authorization", "")
-    token = ""
-    if auth.startswith("Bearer "):
-        token = auth.replace("Bearer ", "")
-    else:
-        token = request.cookies.get("fc_user_token", "")
-    if not token:
-        return 0
-    try:
-        payload = _verify_token(token)
-        if payload.get("type") == "user":
-            return int(payload.get("user_id") or 0)
-    except Exception:
-        pass
-    return 0
 
 
 # ─── Topluluk Önerileri (Community Sharing) ───
@@ -2427,6 +2216,28 @@ async def save_movie_note(movie_id: int, req: NoteRequest, request: Request):
         raise _safe_http_500(e)
 
 
+async def _resolve_mood_id(movie_id: int, details: dict) -> str:
+    """Filmin mood_id'sini Claude'suz çöz: önce mevcut sınıflandırma, yoksa kural-tabanlı."""
+    try:
+        existing = await cache.get_mood_classification(movie_id)
+        if existing:
+            return existing
+    except Exception:
+        pass
+    try:
+        from backend.mood_scoring import classify_movie
+        result = classify_movie(
+            details.get("genre_ids", []),
+            vote_average=details.get("vote_average"),
+            tmdb_id=movie_id,
+            overview=details.get("overview"),
+            release_date=details.get("release_date"),
+        )
+        return result.get("bestMood") or "battaniye"
+    except Exception:
+        return "battaniye"
+
+
 @app.get("/api/movies/{movie_id}/analyze", dependencies=[Depends(rate_limit_ai)])
 async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
     """
@@ -2470,6 +2281,33 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
             cached_data.get("title"),
             cached_data.get("release_date"),
         )
+
+        # Eski ŞABLON notunu sıfır maliyetle güncel sürüme yükselt.
+        # Gerçek Claude notlarına (note_source != "template") ASLA dokunma.
+        try:
+            ver = cached_data.get("analysis_version")
+            is_template = cached_data.get("note_source") == "template" or ver == "v4-template"
+            if is_template and ver != ustad_note.TEMPLATE_VERSION:
+                seed_details = {
+                    "id": movie_id,
+                    "title": cached_data.get("title"),
+                    "genre_ids": cached_data.get("genre_ids") or [],
+                    "genres": cached_data.get("genres") or [],
+                    "release_date": cached_data.get("release_date"),
+                    "vote_average": cached_data.get("vote_average"),
+                }
+                rgen = {"imdb_rating": cached_data.get("imdb_rating"), "director": cached_data.get("director")}
+                mood_for_note = cached_data.get("mood") or await _resolve_mood_id(movie_id, seed_details)
+                cached_data["ai_analysis"] = ustad_note.generate_note(seed_details, rgen, mood_for_note)
+                cached_data["analysis_version"] = ustad_note.TEMPLATE_VERSION
+                cached_data["note_source"] = "template"
+                try:
+                    await cache.save_movie(movie_id, cached_data.get("title") or "", cached_data)
+                except Exception as e:
+                    logger.warning(f"[analyze] template not yükseltme kaydı atlandı ({movie_id}): {e}")
+        except Exception as e:
+            logger.warning(f"[analyze] template not yükseltme atlandı ({movie_id}): {e}")
+
         return _with_layout(cached_data)
 
     # 2. Fetch movie details from TMDB
@@ -2485,15 +2323,15 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
     year = details.get("release_date", "")[:4] if details.get("release_date") else None
     ratings = await omdb_service.get_ratings(details["title"], year=year)
 
-    # 5. Get Claude AI analysis
-    analysis = await claude_service.analyze_movie(
-        title=details["title"],
-        overview=details["overview"],
-        ratings=ratings,
-        genres=details.get("genres", []),
-        year=year,
-        vote_average=details.get("vote_average"),
-    )
+    # 5. Üstad notu — SIFIR MALİYET (kural-tabanlı şablon motoru).
+    #    Claude artık kullanıcı akışında çağrılmıyor; yalnız admin "warm-ustad"
+    #    yolu seçili filmleri Claude kalitesine yükseltebilir (claude_service).
+    details.setdefault("id", movie_id)  # not seed'i deterministik + regen ile tutarlı kalsın
+    mood_id = await _resolve_mood_id(movie_id, details)
+    analysis = {
+        "mood": MOOD_ID_LABELS.get(mood_id, mood_id),
+        "analysis": ustad_note.generate_note(details, ratings, mood_id),
+    }
 
     # 6. Build the enriched result
     enriched = {
@@ -2509,21 +2347,21 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
         "awards": ratings["awards"],
         "mood": analysis["mood"],
         "ai_analysis": analysis["analysis"],
-        "analysis_version": ANALYSIS_VERSION,
+        "analysis_version": ustad_note.TEMPLATE_VERSION,
+        "note_source": "template",
         "analyzed": True,
         "in_watchlist": in_watchlist,
         "personal_note": personal_note
     }
 
-    # 7. Save Claude's mood classification
-    raw_mood = analysis.get("mood", "")
-    mood_id_from_claude = None
-    for mid, label in MOOD_ID_LABELS.items():
-        if label.lower() in raw_mood.lower():
-            mood_id_from_claude = mid
-            break
-    if mood_id_from_claude:
-        await cache.save_mood_classification(movie_id, mood_id_from_claude)
+    # 7. Mood sınıflandırmasını kaydet (mood_id zaten kesin biliniyor).
+    #    DB kilitliyse (ör. açılışta eşzamanlı indeks yazımı) isteği DÜŞÜRME —
+    #    not deterministik; bir sonraki istekte aynısı üretilir.
+    if mood_id:
+        try:
+            await cache.save_mood_classification(movie_id, mood_id)
+        except Exception as e:
+            logger.warning(f"[analyze] mood sınıflandırma kaydı atlandı ({movie_id}): {e}")
 
     # 8. Add watch providers (lazy, non-blocking on error)
     try:
@@ -2541,8 +2379,11 @@ async def analyze_movie(request: Request, movie_id: int = Path(..., ge=1)):
         enriched.get("release_date"),
     )
 
-    # 9. Cache result
-    await cache.save_movie(movie_id, details["title"], enriched)
+    # 9. Cache result (DB kilitliyse sessizce geç — not deterministik, yeniden üretilebilir)
+    try:
+        await cache.save_movie(movie_id, details["title"], enriched)
+    except Exception as e:
+        logger.warning(f"[analyze] film cache kaydı atlandı ({movie_id}): {e}")
 
     return _with_layout(enriched)
 

@@ -88,7 +88,7 @@ export function preloadMoodAudio(moodId) {
   audio.src = url;
   audio.volume = 0;
   preloadedAudios.set(normalized, audio);
-  console.log("[MoodAudioPreload] Preloading:", normalized);
+  // Preloading
 }
 
 /**
@@ -154,7 +154,7 @@ export async function playMoodAudio(moodId) {
   // 2. Setup new audio (Check preload cache first)
   let audio;
   if (preloadedAudios.has(normalizedMoodId)) {
-    console.log("[MoodAudio] Using preloaded instance for:", normalizedMoodId);
+    // Using preloaded instance
     audio = preloadedAudios.get(normalizedMoodId);
     preloadedAudios.delete(normalizedMoodId); // Move out of preloaded cache
   } else {

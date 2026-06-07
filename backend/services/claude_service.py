@@ -12,7 +12,7 @@ logger = logging.getLogger("claude_service")
 
 # Üstad'ın Notu sürümü — prompt güncellendikçe artar. Cache'li notların hangi
 # sürümle üretildiğini damgalar; toplu yenileme scripti eski sürümleri tespit eder.
-ANALYSIS_VERSION = "v3-kisa"
+ANALYSIS_VERSION = "v4-template"
 
 # En fazla 3 eşzamanlı Claude API çağrısı (429 hatası ve maliyet patlamasını önler)
 CLAUDE_SEMAPHORE = asyncio.Semaphore(3)
@@ -53,6 +53,10 @@ class ClaudeService:
                             genres: list = None, year: str = None, vote_average: float = None,
                             model: str = None) -> dict:
         """Send movie data to Claude and get mood + connoisseur analysis.
+        NOT: Kullanıcı akışında ARTIK çağrılmaz (maliyet 0). Yalnız admin
+        "warm-ustad" / toplu yenileme yolları seçili filmleri Claude kalitesine
+        yükseltmek için kullanır. Kullanıcı /analyze yolu sıfır-maliyet
+        ustad_note.generate_note() kullanır.
         model: opsiyonel model override (toplu yenileme ucuz Haiku ile koşabilsin)."""
 
         ratings_lines = []

@@ -514,7 +514,8 @@ _CONTENT_NEGATION = {
     "korkutmasın": [27, 53], "ürkütmesin": [27, 53], "korkutucu olmasın": [27, 53],
     "korku olmasın": [27], "korku içermesin": [27], "ürkütücü olmasın": [27, 53],
     "gerilim olmasın": [53], "dehşet olmasın": [27], "tedirgin etmesin": [27, 53],
-    "jump scare olmasın": [27],
+    "jump scare olmasın": [27], "korkutmayan": [27, 53], "ürkütmeyen": [27, 53],
+    "korkutmaz": [27], "korkmadan": [27], "gerilimsiz": [53],
     # ── Rahatsız edici / iğrenç / tiksindirici ──
     "rahatsız edici olmasın": [27, 53], "rahatsız edici sahne olmasın": [27, 53],
     "rahatsız etmesin": [27, 53], "iğrenç olmasın": [27, 53], "iğrenç sahne olmasın": [27, 53],
@@ -551,6 +552,38 @@ LANGUAGE_KEYWORDS = {
     "amerikan filmi": "en", "ingiliz filmi": "en",
     "ingilizce": "en",
 }
+
+# Çocuk/aile-güvenli (yaş-uygun) içerik tespiti — bu sorgularda korku/gerilim/
+# şiddet/savaş/suç TÜRLERİ hariç tutulur, aile+animasyon türleri öne çıkar.
+_CHILD_SAFE_GENRES = [10751, 16]          # Aile, Animasyon
+_CHILD_EXCLUDE_GENRES = [27, 53, 80, 10752, 10749]  # Korku, Gerilim, Suç, Savaş, Romantik(yetişkin)
+_CHILD_SAFE_CUES = (
+    "cocuk icin", "cocuga uygun", "cocuga gore", "cocukla izle", "cocukla beraber",
+    "cocuklarla", "cocuklar icin", "cocuklara uygun", "cocuk filmi", "cocuk filmleri",
+    "cocugum icin", "cocuguma", "cocuguma uygun", "minik icin", "ufaklik icin",
+    "cocugumla", "cocugumun", "cocuguyla", "cocuklarimla", "cocuk icin uygun",
+    "aile dostu", "aileyle izle", "ailece izle", "ailecek", "aile filmi", "tum aile",
+    "butun aile", "yas uygun", "yasa uygun", "yas dostu", " cocuk ", "ailecek izle",
+)
+
+# Yetişkin/yaş sınırı ipuçları — kesin certification filtresi (TMDB) yok; en azından
+# anlamsız exact-search'e düşmesin, genel mood önerisine yönlensin.
+_AGE_ADULT_CUES = (
+    "yetiskin", "yetiskinlere", "yetiskinler icin", "18 yas", "+18", "18 +", "18+",
+    "yas ustu", "yas uzeri", "ergen", "olgun izleyici", "yas siniri",
+)
+
+
+def _detect_age_query(text: str) -> bool:
+    """Yaş/yetişkin sınırı ifadesi mi? (çocuk-güvenli DEĞİL; genel öneriye yönlenir)"""
+    t = f" {_fold(text)} "
+    return any(cue in t for cue in _AGE_ADULT_CUES)
+
+
+def _detect_child_safe(text: str) -> bool:
+    """Sorgu çocuk/aile-güvenli içerik mi istiyor? (folded, kelime-grubu bazlı)"""
+    t = f" {_fold(text)} "
+    return any(cue in t for cue in _CHILD_SAFE_CUES)
 
 # Kelime-sınırı bazlı dil/ulus tespiti (folded). Bare sıfatlar ("kore korku",
 # "japon animasyon") da yakalanır; substring tuzakları (salman→de, virüs→ru)
@@ -713,6 +746,17 @@ _NON_NAME_WORDS = {
     "çocuğu", "aile", "ailesi", "dönem", "dönemi", "sinema", "sineması",
     "yıl", "yılın", "yılı", "tarz", "tarzı", "güçlü", "yaşlı", "genç", "dahi",
     "deli", "modern", "klasik", "eski", "yeni", "veren", "alacak", "yapan", "eden",
+    # Soru / seçim kelimeleri (kişi adı değil)
+    "hangi", "hangisi", "hangisini", "hangimiz", "ne", "neyi", "nasıl", "kim",
+    "kimi", "kimin", "nerede", "neden", "niye", "kaç", "öner", "önersene",
+    "tavsiye", "izlesem", "izleyeyim", "bakayım", "seçsem",
+    # Yaş / içerik / uygunluk betimleyicileri (kişi adı değil)
+    "özel", "uygun", "yetişkin", "yetişkinler", "yetişkinlere", "yetişkinlik",
+    "çocuklar", "çocuklara", "çocuğumla", "çocuğa", "yaş", "yaşa", "yaşında",
+    "üstü", "altı", "izleyebileceğim", "izlenebilir", "seyredilebilir",
+    # "X filmi/filmleri" bare ifadesinde takı (PERSON_KEYWORD yolu zaten önce
+    # çalışır; bu yalnız bare _looks_like_person_name yolunu korur)
+    "filmi", "filmler", "filmleri", "filmini", "filmleriyle", "filmiyle",
 }
 
 # Türkçe fiil/ek sonları — kişi adları (neredeyse) hiç bu eklerle bitmez.
@@ -723,6 +767,10 @@ _NAME_VERB_SUFFIXES = (
     "mak", "mek", "ecek", "acak", "yacak", "yecek",
     "miş", "muş", "mış", "müş", "ması", "mesi",
     "makta", "mekte", "malı", "meli", "masin", "mesin",
+    # Dilek/istek/yeterlilik kipleri ("izlesem", "bakayım", "izleyebileceğim")
+    "sem", "sam", "eyim", "ayim", "ayım", "elim", "alim", "alım",
+    "ebilir", "abilir", "ebilecek", "abilecek", "egim", "agim",
+    "ecegim", "acagim", "eceğim", "acağım", "ebileceğim", "abileceğim",
 )
 
 
@@ -759,6 +807,17 @@ def _is_plausible_person_name(name: str, allow_single: bool = False) -> bool:
     for gw in GENRE_KEYWORDS:
         if gw in nl:
             return False
+    # Tek kelimelik aday bir tür adının TYPO'su ise kişi DEĞİL ("korko"→korku,
+    # "komeedi"→komedi). KNOWN_PERSONS dışındaki tek kelimeler için fuzzy kontrol;
+    # gerçek tek-kelime soyadları (DiCaprio, Pitt) türlere benzemediği için korunur.
+    if len(words) == 1 and len(nl) >= 4:
+        nf = _fold(nl)
+        for gw in GENRE_KEYWORDS:
+            gwf = _fold(gw)
+            if " " in gwf or len(gwf) < 4:
+                continue
+            if SequenceMatcher(None, nf, gwf).ratio() >= 0.80:
+                return False
     for w in words:
         wl = w.lower()
         wf = _fold(wl)
@@ -987,6 +1046,11 @@ def _rule_based_confused_analysis(text: str) -> dict:
     for phrase, ex_ids in _CONTENT_NEGATION.items():
         if phrase in text_lower and ex_ids:
             exclude_genre_hints = list(set(exclude_genre_hints + ex_ids))
+    # Çocuk/aile-güvenli içerik → korku/gerilim/şiddet türlerini hariç tut,
+    # aile+animasyon türlerini öne çıkar (discover/rerank yolu için tutarlılık).
+    if _detect_child_safe(text):
+        exclude_genre_hints = list(set(exclude_genre_hints + _CHILD_EXCLUDE_GENRES))
+        genre_hints = list((set(genre_hints) | set(_CHILD_SAFE_GENRES)) - set(exclude_genre_hints))
     # Dil filtresi (kelime-sınırı bazlı, bare sıfatlar dahil)
     lang_filter = _detect_lang_filter(text)
 
@@ -1515,6 +1579,38 @@ class ChatEngine:
                     genres_excluded = list(set(genres_excluded + genre_ids))
                 else:
                     genres_wanted = list(set(genres_wanted + genre_ids))
+
+        # Kelime-içi olumsuzlama ("korkutmayan", "gerilimsiz") — "korku/gerilim"
+        # substring'i yanlışlıkla wanted'a eklenmiş olabilir; exclude'a taşı.
+        _NEG_SUFFIX_GENRE = {
+            "korkutmayan": [27, 53], "korkutmaz": [27], "ürkütmeyen": [27, 53],
+            "korkmadan": [27], "gerilimsiz": [53], "kan içermeyen": [27],
+        }
+        for _w, _gids in _NEG_SUFFIX_GENRE.items():
+            if _fold(_w) in _fold(text_lower):
+                genres_excluded = list(set(genres_excluded + _gids))
+                genres_wanted = [g for g in genres_wanted if g not in _gids]
+
+        # ── Çocuk / aile-güvenli içerik: korku/gerilim/şiddet HARİÇ, aile+animasyon ──
+        # "çocuk için uygun film", "korkutmayan çocuk filmi", "aile dostu", "ailecek"
+        if _detect_child_safe(text):
+            _excl = set(_CHILD_EXCLUDE_GENRES) | set(genres_excluded)
+            _genres = list((set(_CHILD_SAFE_GENRES) | set(genres_wanted)) - _excl)
+            return Intent("genre_recommendation", genres=_genres,
+                          exclude_genres=list(_excl), original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_constraint,
+                          time_constraint=time_constraint,
+                          mood_signals=cross_mood)
+
+        # ── Yaş/yetişkin sorgusu → genel mood önerisi (anlamsız exact-search'i önle) ──
+        if _detect_age_query(text):
+            return Intent("mood_recommendation", original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_constraint,
+                          time_constraint=time_constraint,
+                          genres=genres_wanted, exclude_genres=genres_excluded,
+                          mood_signals=cross_mood)
 
         # Tümce düzeyinde ruh hali kontrolü — alias/kişi eşleşmeyen metinlerde
         for phrase in MOOD_PHRASES:

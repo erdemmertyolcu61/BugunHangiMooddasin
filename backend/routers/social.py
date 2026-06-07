@@ -376,6 +376,7 @@ async def get_public_profile(username: str):
     try:
         watchlist = await cache.get_watchlist(uid)
     except Exception:
+        logger.warning("[Profile] get_watchlist failed for uid=%d", uid)
         watchlist = []
 
     watched = [m for m in watchlist if m.get("watched")]
@@ -392,7 +393,7 @@ async def get_public_profile(username: str):
             if d.month == now.month and d.year == now.year:
                 this_month_count += 1
         except Exception:
-            pass
+            logger.warning("[Profile] invalid added_at for watchlist item, skipping")
 
     # Recent watched (last 4)
     recent_watched = watched[:4]
@@ -404,7 +405,7 @@ async def get_public_profile(username: str):
         if cached_profile and cached_profile.get("profile_data"):
             taste_map = cached_profile["profile_data"]
     except Exception:
-        pass
+        logger.warning("[Profile] get_taste_profile failed for uid=%d", uid)
 
     # Avatar URL — saklı picture'ı (sürümlü /api/.../avatar?v= veya Google URL) doğrudan kullan
     avatar_url = user_info.get("picture") or ""

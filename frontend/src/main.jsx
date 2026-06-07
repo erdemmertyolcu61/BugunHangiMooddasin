@@ -9,6 +9,10 @@ import { AchievementProvider } from './components/AchievementCelebration';
 import { initAnalytics, track, trackAppOpen, EVENTS } from './utils/analytics';
 import { recordStreakOpen, isStreakMilestone } from './utils/streak';
 import { captureReferral } from './context/AuthContext';
+import { initMonitoring } from './utils/monitoring';
+
+// Hata izleme (VITE_SENTRY_DSN yoksa no-op) — olabildiğince erken başlat
+initMonitoring();
 
 // Gizlilik-dostu analytics (yapılandırılmadıysa no-op)
 initAnalytics();

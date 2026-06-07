@@ -27,19 +27,26 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const debounce = useRef(null);
   const inputRef = useRef(null);
+  const abortRef = useRef(null);
 
   const runSearch = useCallback((q) => {
     clearTimeout(debounce.current);
+    // Bayatlamış aramayı iptal et (her yeni sorgu öncekini durdurur)
+    if (abortRef.current) abortRef.current.abort();
     if (!q.trim()) { setResults(null); setLoading(false); return; }
     setLoading(true);
     debounce.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
       try {
-        const data = await searchMovies(q);
+        const data = await searchMovies(q, { signal: ctrl.signal });
         setResults(data.movies || []);
-      } catch {
-        setResults([]);
+      } catch (e) {
+        // İptal edilen istek bir hata değildir — sonuçları silme
+        if (e?.name !== 'AbortError') setResults([]);
       } finally {
-        setLoading(false);
+        // Yalnızca hâlâ güncel istek isek loading'i kapat
+        if (abortRef.current === ctrl) setLoading(false);
       }
     }, 400);
   }, []);

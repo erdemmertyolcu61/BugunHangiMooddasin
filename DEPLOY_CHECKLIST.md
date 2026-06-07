@@ -9,10 +9,11 @@ Bu liste, sistemi canlıya alırken Render (veya benzeri) ortamında yapılması
       tüm kullanıcı oturumları (token) geçersiz olur. **Mutlaka sabit ata.**
 - [ ] **`BETA_PASSWORD`** — **boş bırak / tanımlama** → beta kapısı kapanır, site herkese açılır.
       (Dolu olursa tüm organik ziyaretçiler şifre ekranına takılır.)
-- [ ] **`ALLOWED_ORIGINS`** — bayat `https://bug-n-hangi-mooddas-n.vercel.app`'i çıkar;
-      gerçek frontend domain'ini ekle (örn. `https://sinemood.onrender.com`).
-- [ ] **`FRONTEND_BASE_URL`** = `https://sinemood.onrender.com` (veya bağladığın özel alan adı).
-      OG/paylaşım kartları ve referral linkleri bunu kullanır.
+- [ ] **`ALLOWED_ORIGINS`** — güncel frontend domain'ini içermeli. ŞU AN canlı domain
+      `https://bug-n-hangi-mooddas-n.vercel.app` (Vercel) ve `backend/config.py` default'unda
+      zaten var. Yalnızca özel alan adına (ör. `sinemood.app`) geçince güncelle.
+- [ ] **`FRONTEND_BASE_URL`** = `https://bug-n-hangi-mooddas-n.vercel.app` (veya bağladığın
+      özel alan adı). OG/paylaşım kartları ve referral linkleri bunu kullanır.
 - [ ] **API anahtarları** tanımlı mı: `TMDB_API_KEY`, `OMDB_API_KEY`, `ANTHROPIC_API_KEY`,
       `GEMINI_API_KEY`.
 - [ ] **`ADMIN_PASSWORD`** — günlük push / yönetim uçları için güçlü bir değer ata.

@@ -29,6 +29,11 @@ import { track, EVENTS } from '../utils/analytics';
 
 const IMG_LG = 'https://image.tmdb.org/t/p/original';
 
+// "Üstad düşünüyor" kahve animasyonunun garanti minimum süresi (kahve döngüsü
+// ve loader mesaj temposuyla uyumlu). MAX = ağ hatasında sonsuz spinner valfi.
+const MIN_THINK_MS = 2200;
+const MAX_THINK_MS = 9000;
+
 // Marka rengi çok koyuysa (Apple #000, MUBI #001E3C) koyu temada görünmez —
 // okunur bir altın tona düşür. İki temada da canlı kalsın.
 const safeBrandColor = (hex) => {
@@ -83,6 +88,11 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   const [showShareCard, setShowShareCard] = useState(false);
   const [sentRecIds, setSentRecIds] = useState([]); // bu filmi önerdiğin kayıt id'leri
   const [myReaction, setMyReaction] = useState(null);
+  // Niyetli "Üstad düşünüyor" anı: not anında hazır olsa bile kahve animasyonunu
+  // garanti MIN_THINK_MS gösterir. giveUp = ağ hatası gibi durumda sonsuz
+  // spinner'ı önleyen güvenlik valfi.
+  const [thinkingDone, setThinkingDone] = useState(false);
+  const [giveUp, setGiveUp] = useState(false);
   const { token } = useAuth();
 
   const handleReactionChange = useCallback((next) => {
@@ -138,6 +148,11 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     if (!activeId) return;
     track(EVENTS.FILM_INSPECT, { id: activeId }); // aktivasyon sinyali (inspect)
     let active = true;
+    // Her yeni filmde niyetli düşünme penceresini sıfırla + zamanlayıcıları kur.
+    setThinkingDone(false);
+    setGiveUp(false);
+    const thinkTimer = setTimeout(() => { if (active) setThinkingDone(true); }, MIN_THINK_MS);
+    const giveUpTimer = setTimeout(() => { if (active) setGiveUp(true); }, MAX_THINK_MS);
     setSimilar([]);
     setTrailerKey(null);
     setTrailerPlaying(false);
@@ -163,7 +178,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
     loadSentForMovie(activeId);
     setMyReaction(null);
     if (isLoggedIn()) getRating(activeId).then((r) => { if (active && r) setMyReaction(r.reaction ?? null); });
-    return () => { active = false; };
+    return () => { active = false; clearTimeout(thinkTimer); clearTimeout(giveUpTimer); };
   }, [activeId, loadSentForMovie]);
 
   const handleSave = async () => {
@@ -331,11 +346,22 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   )}
                 </div>
 
-                {movie.ai_analysis ? (
+                {movie.ai_analysis && thinkingDone ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  >
+                    <UstadinNotu
+                      noteText={movie.ai_analysis
+                        .replace(/^Üstadın Notu:?\s*/i, '')
+                        .trim()}
+                      movieName={movie.title}
+                    />
+                  </motion.div>
+                ) : (giveUp && thinkingDone) ? (
                   <UstadinNotu
-                    noteText={movie.ai_analysis
-                      .replace(/^Üstadın Notu:?\s*/i, '')
-                      .trim()}
+                    noteText="Üstad bu film için kısa bir kahve molası verdi — birazdan tekrar dene."
                     movieName={movie.title}
                   />
                 ) : (
