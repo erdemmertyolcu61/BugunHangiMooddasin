@@ -176,6 +176,9 @@ export default function SplashScreen() {
               100%   { opacity:1; transform:translateY(-1%) scale(1.002); }
             }
 
+            .splsh-mark-clip {
+              border-radius:22%; overflow:hidden;
+            }
             .splsh-mark {
               display:block; width:100%; height:auto;
               filter:drop-shadow(0 0 40px rgba(255,180,90,0.45)) drop-shadow(0 0 80px rgba(255,150,60,0.2));
@@ -358,13 +361,15 @@ export default function SplashScreen() {
           <div className="splsh-logo">
             <div className="splsh-meniscus" />
             <div className="splsh-rise">
-              <img
-                className="splsh-mark"
-                src={MARK_SRC}
-                alt="Sinemood"
-                draggable={false}
-              />
-              <div className="splsh-shine" />
+              <div className="splsh-mark-clip">
+                <img
+                  className="splsh-mark"
+                  src={MARK_SRC}
+                  alt="Sinemood"
+                  draggable={false}
+                />
+                <div className="splsh-shine" />
+              </div>
             </div>
           </div>
 
