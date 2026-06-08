@@ -66,6 +66,8 @@
 }
 /* Yüzeyler / modallar / paneller / popover'lar → açık bej */
 [data-theme="light"] [class*="bg-[#1c1512]"],
+[data-theme="light"] [class*="bg-[#1a1310]"],
+[data-theme="light"] [class*="bg-[#1a1210]"],
 [data-theme="light"] [class*="bg-[#1a1a1a]"],
 [data-theme="light"] [class*="bg-[#1a1410]"],
 [data-theme="light"] [class*="bg-[#1a1816]"],
@@ -171,6 +173,7 @@
 /* Arka plan metinleri (buton içi) → koyu espresso, aynı kalsın */
 [data-theme="light"] [class*="text-[#120d0b]"] { color: #2a2017 !important; }
 [data-theme="light"] [class*="fill-[#120d0b]"] { fill: #2a2017 !important; }
+[data-theme="light"] [class*="border-[#120d0b]"] { border-color: #2a2017 !important; }
 
 /* Listeler & kart koyu gradyanları → düz açık bej (okunur olsun) */
 [data-theme="light"] [class*="bg-gradient-to"][class*="to-black"],
@@ -397,6 +400,15 @@ nav.sticky,
 
   .gurme-border {
     border: 1px solid rgba(255, 191, 0, 0.1);
+  }
+
+  .avatar-ring-conic {
+    background: conic-gradient(from 0deg,
+      var(--color-amber),
+      color-mix(in srgb, var(--color-amber) 75%, black),
+      color-mix(in srgb, var(--color-amber) 55%, black),
+      color-mix(in srgb, var(--color-amber) 75%, black),
+      var(--color-amber));
   }
 }
 

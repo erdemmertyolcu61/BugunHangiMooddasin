@@ -64,7 +64,7 @@ export default function PublicProfile() {
           <div className="flex items-center justify-center py-20">
             <div className="flex gap-2">
               {[0, 1, 2].map(i => (
-                <motion.div key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#d4af37' }}
+                <motion.div key={i} className="w-2.5 h-2.5 rounded-full bg-[#d4af37]"
                   animate={{ opacity: [0.2, 1, 0.2] }}
                   transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.25 }} />
               ))}

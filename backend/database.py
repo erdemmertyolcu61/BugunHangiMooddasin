@@ -32,10 +32,10 @@ logger = logging.getLogger("film_elestirimeni")
 # Initialized once at startup via MovieCache.init_pool(), closed via close_pool().
 _sqlite_pool: deque = deque()
 _pool_init: bool = False
-_POOL_SIZE: int = 3
+_POOL_SIZE: int = 8
 
 
-async def init_pool(db_path: str, size: int = 3):
+async def init_pool(db_path: str, size: int = 8):
     """Create persistent SQLite connections (call once after init_db)."""
     global _sqlite_pool, _pool_init, _POOL_SIZE
     if _pool_init:

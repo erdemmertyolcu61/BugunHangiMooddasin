@@ -1244,12 +1244,13 @@ async def my_community_recommendations(user=Depends(verify_user)):
     user_id = user.get("user_id", 0)
     async with _db_conn(cache.db_path, user_data=True) as db:
         cur = await db.execute("""
-            SELECT cr.tmdb_id, cr.created_at,
+            SELECT cr.tmdb_id, MAX(cr.created_at) as created_at,
                    mr.title, mr.poster_url, mr.vote_average, mr.release_date, mr.genre_ids
             FROM community_recommendations cr
             LEFT JOIN movie_repository mr ON mr.tmdb_id = cr.tmdb_id
             WHERE cr.user_id = ?
-            ORDER BY cr.created_at DESC
+            GROUP BY cr.tmdb_id
+            ORDER BY created_at DESC
             LIMIT 50
         """, (user_id,))
         rows = await cur.fetchall()

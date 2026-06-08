@@ -161,6 +161,7 @@ class ClaudeService:
                     model=model or self.model,
                     max_tokens=280,
                     messages=[{"role": "user", "content": prompt}],
+                    timeout=30.0,
                 )
 
                 response_text = message.content[0].text.strip()
@@ -300,6 +301,7 @@ SADECE geçerli JSON döndür (başka hiçbir şey yazma):
                     message = await self.client.messages.create(
                     model=model, max_tokens=900,
                     messages=[{"role": "user", "content": prompt}],
+                    timeout=30.0,
                 )
 
                 response_text = message.content[0].text.strip()
@@ -421,6 +423,7 @@ SADECE geçerli JSON döndür:
                 message = await self.client.messages.create(
                     model=self.model, max_tokens=1200,
                     messages=[{"role": "user", "content": prompt}],
+                    timeout=30.0,
                 )
 
             response_text = message.content[0].text.strip()

@@ -28,8 +28,7 @@ export default function ProfileHeader({ user, avatar, displayName, initials, onE
     >
       {/* Avatar with conic-gradient ring */}
       <div className="relative">
-        <div className="w-28 h-28 rounded-full p-[3px]"
-          style={{ background: 'conic-gradient(from 0deg, #ffbf00, #f59e0b, #d97706, #f59e0b, #ffbf00)' }}>
+        <div className="w-28 h-28 rounded-full p-[3px] avatar-ring-conic">
           <div className="w-full h-full rounded-full overflow-hidden bg-[#120d0b] flex items-center justify-center">
             {showImg
               ? <img src={avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer"
@@ -38,7 +37,7 @@ export default function ProfileHeader({ user, avatar, displayName, initials, onE
           </div>
         </div>
         <div className="absolute inset-0 rounded-full opacity-20 blur-xl -z-10"
-          style={{ background: 'radial-gradient(circle, #ffbf00 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, var(--color-amber) 0%, transparent 70%)' }} />
       </div>
 
       {/* Name + username */}

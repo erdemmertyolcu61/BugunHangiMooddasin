@@ -19,6 +19,7 @@ import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
   getRecommendationHistory, retractRecommendation, getMe,
+  getMyCommunityRecommendations,
 } from '../services/api';
 import { resolveAvatarUrl, getApiUrl, getShareUrl } from '../utils/apiConfig';
 import useDocumentMeta from '../utils/useDocumentMeta';
@@ -43,6 +44,12 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
+
+const dedupeRecs = (arr) =>
+  (arr || []).reduce((acc, r) => {
+    if (!acc.some(a => a.tmdb_id === r.tmdb_id)) acc.push(r);
+    return acc;
+  }, []);
 
 /* ═══════════════════════════════════════════════════════════════════
    PROFIL
@@ -109,6 +116,7 @@ export default function Profil() {
   /* ─── Social ───────────────────────────────────────────────────── */
   const [friends, setFriends] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [communityRecs, setCommunityRecs] = useState([]);
   const [socialLoading, setSocialLoading] = useState(true);
   const [socialError, setSocialError] = useState('');
   const [respondLoading, setRespondLoading] = useState(null);
@@ -136,18 +144,20 @@ export default function Profil() {
     (async () => {
       try {
         setSocialError('');
-        const [fr, rq, hist] = await Promise.all([
+        const [fr, rq, hist, comm] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
           getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
+          getMyCommunityRecommendations().catch(() => ({ recommendations: [] })),
         ]);
         if (alive) {
           setFriends(fr.friends || []);
           setRequests(rq.requests || []);
           setShares(hist.received || []);
           setSentShares(hist.sent || []);
+          setCommunityRecs(dedupeRecs(comm.recommendations));
           // NOT: burada otomatik markSharesRead ÇAĞRILMAZ. Aksi halde kullanıcı
-          // zile tıklamadan rozet sıfırlanıp bildirim "yokmuş gibi" görünüyordu.
+          // zile tıklamadan rozet sıfırlanıp bildirim "yokmuş" gibi görünüyordu.
           // Okundu işaretleme yalnız zil paneli açılınca yapılır (NotificationsBell).
         }
       } finally {
@@ -164,15 +174,17 @@ export default function Profil() {
       if (document.visibilityState !== 'visible') return;
       try {
         setSocialError('');
-        const [fr, rq, hist] = await Promise.all([
+        const [fr, rq, hist, comm] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
           getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
+          getMyCommunityRecommendations().catch(() => ({ recommendations: [] })),
         ]);
         setFriends(fr.friends || []);
         setRequests(rq.requests || []);
         setShares(hist.received || []);
         setSentShares(hist.sent || []);
+        setCommunityRecs(dedupeRecs(comm.recommendations));
         // Otomatik markSharesRead kaldırıldı (bkz. mount effect notu).
       } catch {}
     };
@@ -524,6 +536,8 @@ export default function Profil() {
               <ProfileSocial
                 friends={friends}
                 requests={requests}
+                communityRecs={communityRecs}
+                setCommunityRecs={setCommunityRecs}
                 shares={shares}
                 sent={sentShares}
                 socialLoading={socialLoading || sharesLoading}

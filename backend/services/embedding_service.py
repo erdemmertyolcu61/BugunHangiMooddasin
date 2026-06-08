@@ -11,6 +11,7 @@ Thread-safety: google-generativeai's genai.embed_content is thread-safe
 and uses its own connection pooling under the hood.
 """
 
+import asyncio
 import logging
 import struct
 import time
@@ -94,7 +95,8 @@ class GeminiEmbeddingService:
                 import google.generativeai as genai
             except ImportError:
                 raise RuntimeError("google.generativeai package not installed")
-            response = genai.embed_content(
+            response = await asyncio.to_thread(
+                genai.embed_content,
                 model=EMBEDDING_MODEL,
                 content=sanitized,
                 task_type="retrieval_query",
