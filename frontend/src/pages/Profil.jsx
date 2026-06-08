@@ -229,14 +229,19 @@ export default function Profil() {
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
           getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
-          getMyCommunityRecommendations().catch(() => ({ recommendations: [] })),
+          getMyCommunityRecommendations().catch((e) => {
+            console.error('[DEBUG Profil] mount getMyCommunityRecommendations error:', e);
+            return { recommendations: [] };
+          }),
         ]);
         if (alive) {
           setFriends(fr.friends || []);
           setRequests(rq.requests || []);
           setShares(hist.received || []);
           setSentShares(hist.sent || []);
-          setCommunityRecs(dedupeRecs(comm.recommendations));
+          const recs = dedupeRecs(comm?.recommendations || []);
+          console.log('[DEBUG Profil] mount communityRecs count:', recs.length);
+          setCommunityRecs(recs);
           // NOT: burada otomatik markSharesRead ÇAĞRILMAZ. Aksi halde kullanıcı
           // zile tıklamadan rozet sıfırlanıp bildirim "yokmuş" gibi görünüyordu.
           // Okundu işaretleme yalnız zil paneli açılınca yapılır (NotificationsBell).
@@ -259,13 +264,18 @@ export default function Profil() {
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
           getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
-          getMyCommunityRecommendations().catch(() => ({ recommendations: [] })),
+          getMyCommunityRecommendations().catch((e) => {
+            console.error('[DEBUG Profil] poll getMyCommunityRecommendations error:', e);
+            return { recommendations: [] };
+          }),
         ]);
         setFriends(fr.friends || []);
         setRequests(rq.requests || []);
         setShares(hist.received || []);
         setSentShares(hist.sent || []);
-        setCommunityRecs(dedupeRecs(comm.recommendations));
+        const pr = dedupeRecs(comm?.recommendations || []);
+        console.log('[DEBUG Profil] poll communityRecs count:', pr.length);
+        setCommunityRecs(pr);
         // Otomatik markSharesRead kaldırıldı (bkz. mount effect notu).
       } catch {}
     };

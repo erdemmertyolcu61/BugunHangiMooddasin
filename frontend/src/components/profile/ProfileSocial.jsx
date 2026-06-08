@@ -98,8 +98,13 @@ export default function ProfileSocial({
     if (activeTab !== 'community') return;
     let alive = true;
     (async () => {
-      const res = await getMyCommunityRecommendations().catch(() => ({ recommendations: [] }));
-      if (alive && setCommunityRecs) setCommunityRecs(res.recommendations || []);
+      const res = await getMyCommunityRecommendations();
+      console.log('[DEBUG] community fetch result:', res);
+      if (alive && setCommunityRecs) {
+        const recs = res?.recommendations || [];
+        console.log('[DEBUG] setting communityRecs count:', recs.length);
+        setCommunityRecs(recs);
+      }
     })();
     return () => { alive = false; };
   }, [activeTab, setCommunityRecs]);
@@ -450,15 +455,24 @@ export default function ProfileSocial({
                   </div>
                 </div>
               ) : communityRecs.length === 0 ? (
-                <EmptyState
-                  icon={UsersRound}
-                  text="Henüz topluluk önerin yok"
-                  sub="Bir filmi beğendiğinde 'Topluluğa Öner' ile herkese tavsiye et."
-                />
+                <>
+                  <EmptyState
+                    icon={UsersRound}
+                    text="Henüz topluluk önerin yok"
+                    sub="Bir filmi beğendiğinde 'Topluluğa Öner' ile herkese tavsiye et."
+                  />
+                  <div className="text-[10px] text-rose-400/60 text-center font-mono">
+                    [DEBUG] communityRecs.length={communityRecs.length}
+                  </div>
+                </>
               ) : (
-                <AnimatePresence initial={false}>
-                  <div className="space-y-2 sm:grid sm:grid-cols-3 sm:gap-2.5 sm:space-y-0">
-                    {communityRecs.map((rec, i) => (
+                <>
+                  <div className="text-[10px] text-emerald-400/60 text-center font-mono">
+                    [DEBUG] communityRecs.length={communityRecs.length}
+                  </div>
+                  <AnimatePresence initial={false}>
+                    <div className="space-y-2 sm:grid sm:grid-cols-3 sm:gap-2.5 sm:space-y-0">
+                      {communityRecs.map((rec, i) => (
                       <motion.div key={rec.tmdb_id}
                         layout
                         initial={{ opacity: 0, y: 10 }}
@@ -507,6 +521,7 @@ export default function ProfileSocial({
                     ))}
                   </div>
                 </AnimatePresence>
+                </>
               )}
             </motion.div>
           )}
