@@ -99,10 +99,8 @@ export default function ProfileSocial({
     let alive = true;
     (async () => {
       const res = await getMyCommunityRecommendations();
-      console.log('[DEBUG] community fetch result:', res);
       if (alive && setCommunityRecs) {
         const recs = res?.recommendations || [];
-        console.log('[DEBUG] setting communityRecs count:', recs.length);
         setCommunityRecs(recs);
       }
     })();
@@ -461,15 +459,9 @@ export default function ProfileSocial({
                     text="Henüz topluluk önerin yok"
                     sub="Bir filmi beğendiğinde 'Topluluğa Öner' ile herkese tavsiye et."
                   />
-                  <div className="text-[10px] text-rose-400/60 text-center font-mono">
-                    [DEBUG] communityRecs.length={communityRecs.length}
-                  </div>
                 </>
               ) : (
                 <>
-                  <div className="text-[10px] text-emerald-400/60 text-center font-mono">
-                    [DEBUG] communityRecs.length={communityRecs.length}
-                  </div>
                   <AnimatePresence initial={false}>
                     <div className="space-y-2 sm:grid sm:grid-cols-3 sm:gap-2.5 sm:space-y-0">
                       {communityRecs.map((rec, i) => (
