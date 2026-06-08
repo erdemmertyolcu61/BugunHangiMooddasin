@@ -34,7 +34,7 @@ MOOD_PROFILES = {
         "music_style": "Lo-Fi & Coffee Shop Jazz",
         "description": "Dışarıda yağmur yağıyor, elinde sıcak bir çay var ve pijamalarını giydin.",
         "intent": "Cozy, sıcak, güvenli, rahat. Feel-good, aile, yumuşak komedi, tatlı romantik, sıcak dram. Kullanıcıyı yormayan, korkutmayan, germeyen filmler.",
-        "positive_genres": [10751, 35, 18, 10749, 16, 10402],
+        "positive_genres": [10751, 35, 18, 10749, 16, 14],
         "negative_genres": [27, 53, 80, 28, 10752, 9648],
         "positive_keywords": ["cozy", "warm", "family", "home", "comfort", "heartwarming", "feel-good", "gentle", "soft",
                               "friendship", "reunion", "holiday", "christmas", "childhood", "puppy", "dog", "cat",
@@ -696,9 +696,10 @@ MOOD_SEED_STRATEGIES = {
         {"genres": [10749, 18]},
         {"genres": [10751, 18]},           # Aile dramı (live-action)
         {"genres": [35, 10749]},           # Rom-com
-        {"genres": [18, 10402]},           # Müzikli dram
+        {"genres": [16, 14]},              # Animasyon + Fantezi (konser yerine)
         {"genres": [10751, 35, 10749], "with_origin_country": "TR", "with_original_language": "tr"},
         {"genres": [35, 18], "with_origin_country": "TR", "with_original_language": "tr"},
+        {"genres": [10751, 18], "with_origin_country": "TR", "with_original_language": "tr"},
     ],
     "yolculuk": [
         {"genres": [12, 14]},

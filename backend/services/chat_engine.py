@@ -574,6 +574,42 @@ _AGE_ADULT_CUES = (
 )
 
 
+_LIST_LIMIT_RE = re.compile(r"\b(?:top|ilk|en\s+iyi|en\s+guzel|en\s+sevilen|en\s+populer)\s*(\d{1,2})\b")
+_LIST_COUNT_RE = re.compile(r"\b(\d{1,2})\s*(?:film|tane|adet|oneri|yapim|movie|movies)\b")
+_RATING_KW_RE = re.compile(r"\b(?:imdb|rating|puani|puan)\s*(\d{1,2}(?:[.,]\d)?)")
+_RATING_SUFFIX_RE = re.compile(r"\b(\d{1,2}(?:[.,]\d)?)\s*(?:ustu|uzeri|\+|ve\s+ustu|ve\s+uzeri)")
+_HIGH_RATED_CUES = ("en yuksek puan", "en iyi puan", "en kaliteli", "yuksek puanli",
+                    "kaliteli film", "en cok begenilen", "basyapit")
+
+
+def parse_list_controls(text: str) -> dict:
+    """'top 10', 'en iyi 5', '3 film öner', 'imdb 8 üstü', 'en yüksek puanlı'
+    → {limit, min_vote, high_rated} (yoksa None). Sıfır-API, regex."""
+    t = _fold_keep(text)  # ondalık (8.5) ve noktalama korunur, TR aksanı katlanır
+    out = {"limit": None, "min_vote": None, "high_rated": False}
+    # Limit / adet
+    m = _LIST_LIMIT_RE.search(t) or _LIST_COUNT_RE.search(t)
+    if m:
+        try:
+            n = int(m.group(1))
+            if 1 <= n <= 50:
+                out["limit"] = n
+        except ValueError:
+            pass
+    # Puan eşiği (imdb 8 / 8 üstü) — yalnızca 1-10 aralığı geçerli
+    rm = _RATING_KW_RE.search(t) or _RATING_SUFFIX_RE.search(t)
+    if rm:
+        try:
+            v = float(rm.group(1).replace(",", "."))
+            if 1.0 <= v <= 10.0:
+                out["min_vote"] = v
+        except ValueError:
+            pass
+    if any(cue in t for cue in _HIGH_RATED_CUES):
+        out["high_rated"] = True
+    return out
+
+
 def _detect_age_query(text: str) -> bool:
     """Yaş/yetişkin sınırı ifadesi mi? (çocuk-güvenli DEĞİL; genel öneriye yönlenir)"""
     t = f" {_fold(text)} "
@@ -589,19 +625,19 @@ def _detect_child_safe(text: str) -> bool:
 # "japon animasyon") da yakalanır; substring tuzakları (salman→de, virüs→ru)
 # \b sınırıyla önlenir. Form listesi → ISO kodu.
 _LANG_FORMS = {
-    "tr": ["turk", "turkce", "yerli", "yesilcam", "turkiye"],
-    "ja": ["japon", "japonca", "japonya"],
-    "ko": ["kore", "koreli", "korece", "guney kore"],
-    "fr": ["fransiz", "fransizca", "fransa"],
-    "it": ["italyan", "italyanca", "italya"],
-    "de": ["alman", "almanca", "almanya"],
-    "es": ["ispanyol", "ispanyolca", "ispanya"],
-    "en": ["amerikan", "ingiliz", "ingilizce", "hollywood", "britanya"],
-    "ru": ["rus", "rusca", "rusya", "sovyet"],
-    "hi": ["hint", "hintli", "hindistan", "bollywood"],
-    "zh": ["cin", "cinli", "cince"],
-    "sv": ["isvec", "isvecli"],
-    "fa": ["iran", "iranli", "farsca", "fars"],
+    "tr": ["turk", "turkce", "yerli", "yesilcam", "turkiye", "turkish"],
+    "ja": ["japon", "japonca", "japonya", "japanese"],
+    "ko": ["kore", "koreli", "korece", "guney kore", "korean"],
+    "fr": ["fransiz", "fransizca", "fransa", "french"],
+    "it": ["italyan", "italyanca", "italya", "italian"],
+    "de": ["alman", "almanca", "almanya", "german"],
+    "es": ["ispanyol", "ispanyolca", "ispanya", "spanish"],
+    "en": ["amerikan", "ingiliz", "ingilizce", "hollywood", "britanya", "british", "american"],
+    "ru": ["rus", "rusca", "rusya", "sovyet", "russian", "soviet"],
+    "hi": ["hint", "hintli", "hindistan", "bollywood", "indian"],
+    "zh": ["cin", "cinli", "cince", "chinese"],
+    "sv": ["isvec", "isvecli", "swedish"],
+    "fa": ["iran", "iranli", "farsca", "fars", "iranian", "persian"],
 }
 # Daha uzun (spesifik) formlar önce → "guney kore" "kore"den önce denenir.
 _LANG_PATTERNS = sorted(
@@ -840,6 +876,268 @@ def _fold_keep(s: str) -> str:
     return s.lower().translate(_TR_FOLD)
 
 
+# ═══════════════════════════════════════════════════════════════
+# FUZZY TÜR / KİŞİ TYPO DÜZELTİCİ
+# ═══════════════════════════════════════════════════════════════
+# detect_intent'ten ÖNCE çalışır; "komeedi"→"komedi", "nollan"→"nolan" gibi
+# typo'ları düzeltir. Yalnız yeterince uzun (≥4 harf) kelimelere bakar.
+
+# Tek-kelime genre adları (fold edilmiş) → orijinal genre adı
+_GENRE_SINGLES_FOLDED: dict[str, str] = {}
+for _gn in GENRE_KEYWORDS:
+    _gnf = _fold(_gn)
+    if " " not in _gnf and len(_gnf) >= 4:
+        _GENRE_SINGLES_FOLDED[_gnf] = _gn
+
+# KNOWN_PERSONS tek-kelime girişleri (fold edilmiş) → orijinal
+_PERSON_SINGLES_FOLDED: dict[str, str] = {}
+for _p in KNOWN_PERSONS:
+    _pf = _fold(_p)
+    if " " not in _pf and len(_pf) >= 4:
+        _PERSON_SINGLES_FOLDED[_pf] = _p
+
+# Çok-kelimeli KNOWN_PERSONS (fold edilmiş) → orijinal
+_PERSON_MULTI_FOLDED: dict[str, str] = {}
+for _p in KNOWN_PERSONS:
+    _pf = _fold(_p)
+    if " " in _pf:
+        _PERSON_MULTI_FOLDED[_pf] = _p
+
+
+# Fonetik / yaygın typo → doğru tür adı (fuzzy'nin yakalayamadığı durumlar)
+_GENRE_TYPO_DIRECT: dict[str, str] = {
+    "siyfi": "sci-fi", "sayfi": "sci-fi", "scifi": "sci-fi",
+    "sifi": "sci-fi", "bilimkurgu": "bilim kurgu",
+    "korko": "korku", "horor": "korku",
+    "triller": "thriller", "triler": "thriller",
+    "romcom": "komedi",  # already in GENRE_KEYWORDS but as separate entry
+    "komdei": "komedi", "koemdi": "komedi",
+    "macrea": "macera", "maecra": "macera",
+    "drma": "dram", "daram": "dram",
+    "animasyn": "animasyon", "animayon": "animasyon",
+    "belgesle": "belgesel", "belgsle": "belgesel",
+    "westrn": "western", "westn": "western",
+}
+
+
+def _fuzzy_correct_genre(word_folded: str) -> str | None:
+    """Tek kelime (fold edilmiş) bir tür adının typo'su mu? ≥0.80 eşik.
+    Önce direkt typo haritasına bakar, sonra fuzzy dener.
+    Dönüş: düzeltilmiş tür adı veya None."""
+    if word_folded in _GENRE_SINGLES_FOLDED:
+        return None  # zaten exact match, düzeltme yok
+    # Direkt typo haritası
+    if word_folded in _GENRE_TYPO_DIRECT:
+        return _GENRE_TYPO_DIRECT[word_folded]
+    # Fuzzy eşleştirme
+    best, best_r = None, 0.0
+    for gf, gname in _GENRE_SINGLES_FOLDED.items():
+        r = SequenceMatcher(None, word_folded, gf).ratio()
+        if r >= 0.80 and r > best_r:
+            best, best_r = gname, r
+    return best
+
+
+# Yaygın kişi adı typo'ları (fuzzy'nin kaçırabileceği)
+_PERSON_TYPO_DIRECT: dict[str, str] = {
+    "noland": "nolan", "nollan": "nolan",
+    "taratino": "tarantino", "tarentino": "tarantino", "tarintino": "tarantino",
+    "scorscese": "scorsese", "scorcese": "scorsese", "skorsese": "scorsese",
+    "spielberk": "spielberg", "spilberg": "spielberg",
+    "kubrik": "kubrick",
+    "hiccock": "hitchcock", "hickok": "hitchcock",
+    "dikabrio": "dicaprio", "dicapro": "dicaprio",
+    "vilnov": "villeneuve", "vilnev": "villeneuve",
+    "vilnove": "villeneuve", "vileneuve": "villeneuve",
+    "fincir": "fincher",
+}
+
+
+def _fuzzy_correct_person(word_folded: str) -> str | None:
+    """Tek kelime (fold edilmiş) bir bilinen kişi adının typo'su mu? ≥0.80 eşik.
+    Önce direkt typo haritasına bakar, sonra fuzzy dener.
+    Dönüş: düzeltilmiş kişi adı veya None."""
+    if word_folded in _PERSON_SINGLES_FOLDED:
+        return None  # zaten exact match
+    # Direkt typo haritası
+    if word_folded in _PERSON_TYPO_DIRECT:
+        return _PERSON_TYPO_DIRECT[word_folded]
+    # Fuzzy eşleştirme
+    best, best_r = None, 0.0
+    for pf, pname in _PERSON_SINGLES_FOLDED.items():
+        r = SequenceMatcher(None, word_folded, pf).ratio()
+        if r >= 0.80 and r > best_r:
+            best, best_r = pname, r
+    return best
+
+
+# Fuzzy düzeltmeden muaf kelimeler — sıradan Türkçe/İngilizce kelimeler
+# bir kişi/tür adına yanlışlıkla düzeltilmesin.
+_FUZZY_STOP_WORDS = _NON_NAME_WORDS | {
+    "adam", "kadın", "benim", "senin", "onun", "seni", "beni", "onu",
+    "neler", "neden", "bence", "sence", "biraz", "bayağı", "böyle", "şöyle",
+    "ilginç", "garip", "güzel", "hoş", "sıkıcı", "harika", "mükemmel",
+    "tamam", "evet", "hayır", "olsun", "olabilir", "öner", "önerir",
+    "izle", "seyret", "baksam", "izledim", "gördüm", "film", "filmi",
+    "filmleri", "filmler", "dizisi", "dizi", "serisi", "seri",
+    "sahne", "sahip", "senaryo", "müzik", "oyuncu",
+}
+_FUZZY_STOP_FOLDED = {_fold(w) for w in _FUZZY_STOP_WORDS}
+
+
+def _fuzzy_preprocess(text: str) -> str:
+    """Metin ön-işleme: tür ve kişi typo'larını düzeltir.
+    Örn: 'komeedi film' → 'komedi film', 'nollan filmi' → 'nolan filmi',
+         'siyfi filmi' → 'sci-fi filmi', 'gerilm öner' → 'gerilim öner'."""
+    words = text.lower().split()
+    corrected = list(words)
+    changed = False
+
+    for i, w in enumerate(words):
+        wf = _fold(w)
+        if len(wf) < 4:
+            continue
+        # Stop-word → atla (sıradan kelimeler düzeltilmesin)
+        if wf in _FUZZY_STOP_FOLDED:
+            continue
+        # Exact genre/person match → atla (düzeltme gereksiz)
+        if wf in _GENRE_SINGLES_FOLDED or wf in _PERSON_SINGLES_FOLDED:
+            continue
+        # Tür typo'su dene
+        gc = _fuzzy_correct_genre(wf)
+        if gc:
+            corrected[i] = gc
+            changed = True
+            logger.debug("Fuzzy genre correction: '%s' → '%s'", w, gc)
+            continue
+        # Kişi typo'su dene
+        pc = _fuzzy_correct_person(wf)
+        if pc:
+            corrected[i] = pc
+            changed = True
+            logger.debug("Fuzzy person correction: '%s' → '%s'", w, pc)
+            continue
+
+    # Çok-kelimeli kişi adı typo'ları (bigram): "del taro" → "del toro"
+    if len(words) >= 2:
+        for i in range(len(words) - 1):
+            bigram_f = _fold(words[i]) + " " + _fold(words[i + 1])
+            if bigram_f in _PERSON_MULTI_FOLDED:
+                continue  # exact match
+            best_mp, best_r = None, 0.0
+            for mpf, mpname in _PERSON_MULTI_FOLDED.items():
+                r = SequenceMatcher(None, bigram_f, mpf).ratio()
+                if r >= 0.80 and r > best_r:
+                    best_mp, best_r = mpname, r
+            if best_mp:
+                parts = best_mp.split()
+                corrected[i] = parts[0]
+                corrected[i + 1] = parts[1] if len(parts) > 1 else corrected[i + 1]
+                changed = True
+                logger.debug("Fuzzy person bigram correction: '%s %s' → '%s'",
+                             words[i], words[i + 1], best_mp)
+
+    return " ".join(corrected) if changed else text
+
+
+# ═══════════════════════════════════════════════════════════════
+# ARGO / KISALTMA NORMALİZER
+# ═══════════════════════════════════════════════════════════════
+# Türkçe internet argosunu / kısaltmalarını standart forma çevirir.
+# detect_intent'ten ÖNCE çalışır → downstream kurallar temiz metin görür.
+# Kelime sınırı (\b) kullanılır: "bi" → "bir" ama "bilim" dokunulmaz.
+
+# Sözlük: kısaltma/argo → standart form
+# Sıralama önemli: uzun ifadeler önce (çoklu kelime ifadeleri word-level'dan önce)
+_SLANG_PHRASES: list[tuple[str, str]] = [
+    # Çoklu-kelime ifadeler (phrase-level replacement, regex ile)
+    ("bi tane", "bir tane"),
+    ("bi film", "bir film"),
+    ("bi tık", "biraz"),
+    ("bi kaç", "birkaç"),
+    ("baya iyi", "bayağı iyi"),
+    ("baya güzel", "bayağı güzel"),
+    ("fln fşt", "falan fiştan"),
+    ("fln fln", "falan falan"),
+]
+
+# Tek kelime eşleşmeleri — word boundary ile
+_SLANG_WORDS: dict[str, str] = {
+    # Kısaltmalar
+    "knk": "arkadaş",
+    "krdş": "kardeş",
+    "krdsm": "kardeşim",
+    "kanka": "arkadaş",
+    "bi": "bir",
+    "bişi": "bir şey",
+    "bişey": "bir şey",
+    "bisi": "bir şey",
+    "fln": "falan",
+    "falan": "falan",  # keep as is (already standard)
+    "fşt": "fiştan",
+    "slm": "selam",
+    "nbr": "ne haber",
+    "tmm": "tamam",
+    "tşk": "teşekkür",
+    # Yoğunlaştırıcılar / argo sıfatlar
+    "baya": "bayağı",
+    "bayaa": "bayağı",
+    "aşşırı": "aşırı",
+    "cok": "çok",       # Türkçe ç olmadan yazılmış
+    "coook": "çok",
+    "cooook": "çok",
+    "çoook": "çok",
+    "çooook": "çok",
+    "müq": "mükemmel",
+    "muq": "mükemmel",
+    "mq": "mükemmel",
+    # Film/istek argo
+    "izliyim": "izleyeyim",
+    "izlim": "izleyeyim",
+    "baksam": "izlesem",
+    "bakim": "izleyeyim",
+    "bakıyım": "izleyeyim",
+    "atsana": "öner",
+    "at": "öner",        # "film at" → "film öner"
+    "atsaniza": "önerir misiniz",
+    "sölesene": "söylesene",
+    "sölesen": "söylesen",
+    # Duygu / betimleyici argo
+    "efsane": "harika",
+    "süper": "harika",
+    "sarar": "iyi",
+    "sarıyo": "iyi",
+    "sarmıyo": "sıkıcı",
+    "bomba": "harika",
+}
+
+# Ön-derlenmiş regex'ler (performans)
+_SLANG_PHRASE_RES: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE), repl)
+    for phrase, repl in _SLANG_PHRASES
+]
+_SLANG_WORD_RES: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE), repl)
+    for word, repl in _SLANG_WORDS.items()
+    if word != repl  # skip identity mappings
+]
+
+
+def _normalize_slang(text: str) -> str:
+    """Argo/kısaltma normalizer. Kelime sınırı bazlı, güvenli.
+    'knk film at' → 'arkadaş film öner'
+    'baya iyi bi film' → 'bayağı iyi bir film'
+    'fln film sölesene' → 'falan film söylesene'"""
+    result = text
+    # Önce çoklu-kelime ifadeleri
+    for pat, repl in _SLANG_PHRASE_RES:
+        result = pat.sub(repl, result)
+    # Sonra tek-kelime
+    for pat, repl in _SLANG_WORD_RES:
+        result = pat.sub(repl, result)
+    return result
+
+
 # "İsim + tür/dönem" ifadesinde isimden sonra gelen kısıt-tetikleyiciler
 _PERSON_SPLIT_FILLERS = (
     "filmi", "filmleri", "filmlerini", "filmini", "yapimi", "yapimlari",
@@ -889,6 +1187,44 @@ def _extract_leading_person(text: str):
     return candidate, ptype
 
 
+# "A ve B birlikte / aynı filmde" — iki oyuncunun ortak filmi
+_MULTI_PERSON_SPLIT = re.compile(r"\s+(?:ve|ile|&|,)\s+", re.IGNORECASE)
+_MULTI_PERSON_CUES = ("birlikte", "beraber", "ayni filmde", "aynı filmde", "bir arada",
+                      "ortak film", "ikisi", "ikisinin", "birlikte oynad", "kadrosunda",
+                      "filmi", "filmleri", "film")
+
+
+def _detect_multi_person(text: str):
+    """'Al Pacino ve De Niro birlikte' → (isim1, isim2) ya da (None, None).
+    İki taraf da makul kişi adı olmalı + bir 'birlikte/aynı film' ipucu bulunmalı."""
+    t = text.strip()
+    tl = _fold(t)
+    if not any(cue in tl for cue in (_fold(c) for c in _MULTI_PERSON_CUES)):
+        return None, None
+    # Ayraçtan ÖNCEKİ ipucu/takıları temizle, böl
+    parts = _MULTI_PERSON_SPLIT.split(t, maxsplit=1)
+    if len(parts) != 2:
+        return None, None
+    a = parts[0].strip().strip('"\'')
+    b = parts[1].strip().strip('"\'')
+    # İkinci taraftan trailing ipucu kelimelerini at ("... birlikte", "... filmi")
+    for cue in ("birlikte oynadığı", "birlikte", "beraber", "aynı filmde", "ayni filmde",
+                "bir arada", "ortak filmi", "ortak film", "filmleri", "filmi", "film",
+                "ikisinin", "ikisi", "kadrosunda"):
+        b = re.sub(r"\s*\b" + re.escape(cue) + r"\b\s*$", "", b, flags=re.IGNORECASE).strip()
+    a = re.sub(r"^(?:hem)\s+", "", a, flags=re.IGNORECASE).strip()
+    if len(a) < 2 or len(b) < 2:
+        return None, None
+    # İki taraf da kişi adı gibi olmalı (tür/mood/şey değil)
+    if _is_plausible_person_name(a, allow_single=True) and _is_plausible_person_name(b, allow_single=True):
+        # En az biri 2 kelimelik tam ad ya da KNOWN olsun (yanlış pozitifi azalt)
+        strong = (len(a.split()) >= 2 or len(b.split()) >= 2
+                  or _normalize(a) in _KNOWN_PERSONS_NORM or _normalize(b) in _KNOWN_PERSONS_NORM)
+        if strong:
+            return a, b
+    return None, None
+
+
 # ═══════════════════════════════════════════════════════════════
 # INTENT RESULT
 # ═══════════════════════════════════════════════════════════════
@@ -899,6 +1235,7 @@ class Intent:
         self.reference_title2 = kwargs.get("reference_title2", None)  # "X ile Y ortası"
         self.similar_modifier = kwargs.get("similar_modifier", None)  # "X gibi ama daha Y"
         self.person_name = kwargs.get("person_name", None)
+        self.person_name2 = kwargs.get("person_name2", None)  # "A ve B birlikte"
         self.person_type = kwargs.get("person_type", None)
         self.feedback_type = kwargs.get("feedback_type", None)
         self.genres = kwargs.get("genres", [])
@@ -1447,6 +1784,20 @@ class ChatEngine:
     # ─────────── INTENT DETECTION ───────────
     def detect_intent(self, text: str) -> Intent:
         """Rule-based intent classification (fully local)."""
+        # ── Argo/kısaltma normalizasyonu ──
+        # "knk film at" → "arkadaş film öner", "baya iyi bi film" → "bayağı iyi bir film"
+        text_slang = _normalize_slang(text)
+        if text_slang != text:
+            logger.info("Slang normalize: '%s' → '%s'", text, text_slang)
+            text = text_slang
+
+        # ── Fuzzy ön-düzeltme: tür/kişi typo'larını düzelt ──
+        # "komeedi"→"komedi", "nollan"→"nolan", "siyfi"→"sci-fi" vb.
+        text_corrected = _fuzzy_preprocess(text)
+        if text_corrected != text.lower().strip():
+            logger.info("Fuzzy preprocess: '%s' → '%s'", text, text_corrected)
+            text = text_corrected  # downstream'de düzeltilmiş metin kullanılır
+
         text_lower = text.lower().strip()
         text_norm = _normalize(text)
 
@@ -1461,6 +1812,16 @@ class ChatEngine:
 
         # ── Platform filter (text'te streaming platform adı geçiyorsa) ──
         platform_filter = _detect_platform_filter(text)
+
+        # ── Çoklu oyuncu birlikte: "Al Pacino ve De Niro birlikte" ──
+        _mp1, _mp2 = _detect_multi_person(text)
+        if _mp1 and _mp2:
+            era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
+            return Intent("multi_person", person_name=_mp1, person_name2=_mp2,
+                          person_type="actor", original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_c, time_constraint=time_c,
+                          genres=g_hints, exclude_genres=ex_g_hints)
 
         # ── Yönetmen keyword'leri (yüksek güven) ──
         for kw in DIRECTOR_KEYWORDS:
@@ -1889,6 +2250,28 @@ _CATEGORY_HINT_MAP: dict[str, dict] = {
     "korku komedi":{"mood_boost": {"karmakar": 0.35, "kahkaha": 0.35},      "genre_ids": [35, 27]},
     "oscar":       {"mood_boost": {"kalp": 0.25, "zihin": 0.15},            "genre_ids": []},
     "gişe rekoru": {"mood_boost": {"adrenalin": 0.35, "gece": 0.25},        "genre_ids": [28, 12]},
+
+    # ── İngilizce sıfat/ifade köprüleri (serbest İngilizce sorgular) ──────────
+    "witty":       {"mood_boost": {"kahkaha": 0.40, "zihin": 0.20},         "genre_ids": [35]},
+    "feel good":   {"mood_boost": {"battaniye": 0.45, "kahkaha": 0.20},     "genre_ids": [35, 10751]},
+    "feel-good":   {"mood_boost": {"battaniye": 0.45, "kahkaha": 0.20},     "genre_ids": [35, 10751]},
+    "heartwarming":{"mood_boost": {"battaniye": 0.40, "gozyasi": 0.20},     "genre_ids": [18, 10751]},
+    "uplifting":   {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.20},     "genre_ids": [18]},
+    "dark":        {"mood_boost": {"gece": 0.40, "deep-chills": 0.25},      "genre_ids": [80, 53]},
+    "gritty":      {"mood_boost": {"gece": 0.40, "gercekci": 0.25},         "genre_ids": [80, 18]},
+    "gripping":    {"mood_boost": {"adrenalin": 0.40, "gece": 0.20},        "genre_ids": [53]},
+    "suspenseful": {"mood_boost": {"gece": 0.40, "adrenalin": 0.25},        "genre_ids": [53]},
+    "slow burn":   {"mood_boost": {"sessiz": 0.40, "gece": 0.25},           "genre_ids": [18, 53]},
+    "thought provoking": {"mood_boost": {"zihin": 0.45},                    "genre_ids": [18]},
+    "thought-provoking": {"mood_boost": {"zihin": 0.45},                    "genre_ids": [18]},
+    "art house":   {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.25},  "genre_ids": [18]},
+    "arthouse":    {"mood_boost": {"kalp": 0.40, "kadraj-estetigi": 0.25},  "genre_ids": [18]},
+    "cozy":        {"mood_boost": {"battaniye": 0.45},                      "genre_ids": [35, 10751]},
+    "wholesome":   {"mood_boost": {"battaniye": 0.40, "kahkaha": 0.15},     "genre_ids": [10751, 35]},
+    "mind bending":{"mood_boost": {"zihin": 0.50, "karmakar": 0.25},        "genre_ids": [878, 53]},
+    "mind-bending":{"mood_boost": {"zihin": 0.50, "karmakar": 0.25},        "genre_ids": [878, 53]},
+    "tearjerker":  {"mood_boost": {"gozyasi": 0.50},                        "genre_ids": [18]},
+    "heist":       {"mood_boost": {"adrenalin": 0.40, "gece": 0.25},        "genre_ids": [80, 53]},
 }
 
 

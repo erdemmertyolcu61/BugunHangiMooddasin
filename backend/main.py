@@ -1524,10 +1524,10 @@ async def classify_repository_movies(
 # çözülmesi için kullanılır (bkz. _parse_curated_title / _pick_movie_by_year).
 CURATED_TITLES_BY_MOOD = {
     "battaniye": [
-        "Little Forest (2018)", "Our Little Sister (2015)", "Kikujiro (1999)",
-        "Paterson (2016)", "Vizontele (2001)",
-        "My Neighbor Totoro (1988)", "Spirited Away (2001)", "Klaus (2019)",
-        "Soul (2020)", "Ratatouille (2007)",
+        "Gülen Gözler (1977)", "Hababam Sınıfı (1975)", "Süt Kardeşler (1976)",
+        "Tosun Paşa (1976)", "Vizontele (2001)",
+        "My Neighbor Totoro (1988)", "Klaus (2019)", "Ratatouille (2007)",
+        "Our Little Sister (2015)", "Little Forest (2018)",
     ],
     "yolculuk": [
         "The Motorcycle Diaries (2004)", "The Straight Story (1999)", "Tracks (2013)",
@@ -3772,6 +3772,47 @@ async def _build_blend_pool(src1: int, src2: int, g1: set, g2: set,
     return out[:limit]
 
 
+async def _search_two_cast_movies(
+    name1: str, name2: str, count: int, min_vote: float, exclude_set: set,
+    genre_ids: list = None, era_constraint: dict = None,
+) -> tuple:
+    """İki oyuncunun AYNI filmde birlikte olduğu yapımlar (TMDB discover with_cast=AND).
+    Döner: (movies, resolved_name1, resolved_name2)."""
+    try:
+        p1, p2 = await asyncio.gather(
+            tmdb_service.search_person(name1),
+            tmdb_service.search_person(name2),
+        )
+    except Exception:
+        return [], name1, name2
+    if not p1 or not p2:
+        return [], name1, name2
+    id1, id2 = p1[0]["id"], p2[0]["id"]
+    rn1, rn2 = p1[0].get("name", name1), p2[0].get("name", name2)
+    kwargs = {"sort_by": "vote_average.desc", "min_vote_count": 40,
+              "min_vote_average": max(min_vote, 5.5),
+              "with_cast": f"{id1},{id2}"}  # virgül = AND
+    if era_constraint:
+        if era_constraint.get("min_year"):
+            kwargs["primary_release_date_gte"] = f"{era_constraint['min_year']}-01-01"
+        if era_constraint.get("max_year"):
+            kwargs["primary_release_date_lte"] = f"{era_constraint['max_year']}-12-31"
+    try:
+        res = await tmdb_service.discover_movies(list(genre_ids or []), **kwargs)
+    except Exception:
+        return [], rn1, rn2
+    out = []
+    for m in res.get("movies", []):
+        mid = m.get("id")
+        if not mid or mid in exclude_set or not m.get("poster_url"):
+            continue
+        m["mood_score"] = 88.0
+        m["reason"] = f"{rn1} ve {rn2} birlikte."
+        out.append(m)
+        exclude_set.add(mid)
+    return out[:count], rn1, rn2
+
+
 async def _search_person_movies_top(
     person_name: str, person_type: str, count: int,
     min_vote: float, exclude_set: set,
@@ -5091,6 +5132,19 @@ async def post_confused_recommendation(req: ConfusedRequest):
     min_vote   = max(4.0, min(req.min_vote, 10.0))
     exclude_ids = [int(x) for x in req.exclude_ids if str(x).isdigit()] if req.exclude_ids else []
     text       = req.text.strip()
+
+    # ── Liste/limit/puan-eşiği parse ("top 10", "3 film", "imdb 8 üstü") ──
+    try:
+        from backend.services.chat_engine import parse_list_controls as _plc
+        _lc = _plc(text)
+        if _lc.get("limit"):
+            limit = max(3, min(_lc["limit"], 12))
+        if _lc.get("min_vote"):
+            min_vote = max(min_vote, min(_lc["min_vote"], 10.0))
+        elif _lc.get("high_rated"):
+            min_vote = max(min_vote, 7.0)
+    except Exception:
+        pass
     override   = (req.forced_mood_override or "").strip().lower()
     refine     = (req.refine or "").strip().lower()
     from backend.services.chat_engine import _detect_platform_filter, STREAMING_PLATFORMS as _SP, parse_chat_hints as _pch
@@ -5242,6 +5296,27 @@ async def post_confused_recommendation(req: ConfusedRequest):
 
     logger.info("[Confused] Local intent: type=%s, person=%s, ref=%s",
                 local_intent.type, local_intent.person_name, local_intent.reference_title)
+
+    # ── PATH 2a-0: Çoklu oyuncu birlikte ("A ve B birlikte") → ortak filmler ──
+    if local_intent.type == "multi_person" and local_intent.person_name and getattr(local_intent, "person_name2", None):
+        try:
+            duo, rn1, rn2 = await _search_two_cast_movies(
+                local_intent.person_name, local_intent.person_name2, limit, min_vote,
+                exclude_set, genre_ids=local_intent.genres,
+                era_constraint=local_intent.era_constraint)
+            if duo:
+                return {
+                    "movies": duo[:limit],
+                    "query_understanding": f"{rn1} ve {rn2}'nin birlikte oynadığı filmler.",
+                    "ustad_line": f"{rn1} ile {rn2}'yi aynı karede buluşturan yapımlar — işte seçkim evlat.",
+                    "intent": "multi_person",
+                    "mode": "two_cast_discover",
+                    "is_fallback": False,
+                }
+            # Ortak film yoksa: ilk oyuncunun filmografisine düş (boş ekran yerine)
+            logger.info("[Confused] İki oyuncu ortak film yok (%s + %s), tekli akışa düşülüyor", rn1, rn2)
+        except Exception as e:
+            logger.warning("[Confused] Multi-person failed: %s", e)
 
     # ── PATH 2a: Yerel yönetmen/oyuncu tespiti → TMDB filmografisi ────────
     if local_intent.type == "director_recommendation" and local_intent.person_name:

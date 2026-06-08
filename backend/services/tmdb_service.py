@@ -176,7 +176,8 @@ class TMDBService:
                                 with_runtime_lte: int = None,
                                 with_companies: str = None,
                                 with_watch_providers: str = None,
-                                watch_region: str = None) -> dict:
+                                watch_region: str = None,
+                                with_cast: str = None) -> dict:
         params = {
             "api_key": self.api_key, "language": "tr-TR",
             "sort_by": sort_by,
@@ -210,6 +211,9 @@ class TMDBService:
             params["with_watch_providers"] = with_watch_providers
         if watch_region:
             params["watch_region"] = watch_region
+        if with_cast:
+            # Virgül = AND (aynı filmde TÜM oyuncular birlikte)
+            params["with_cast"] = with_cast
 
         data = await self._get(f"{self.base_url}/discover/movie", params)
         return {

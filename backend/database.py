@@ -1397,19 +1397,61 @@ class MovieCache:
             return cur.rowcount > 0
 
     async def get_movies_meta_by_ids(self, movie_ids: list) -> dict:
-        """movie_repository'den toplu başlık/afiş çek (bildirim zenginleştirme)."""
+        """Toplu başlık/afiş çek: önce movie_repository, eksikler için movie_cache fallback."""
         if not movie_ids:
             return {}
+        result: dict = {}
         placeholders = ",".join("?" for _ in movie_ids)
+
+        # 1) movie_repository — küratörlü mood filmleri (poster_url direkt sütun)
         async with _get_connection(self.db_path) as db:
             cur = await db.execute(
                 f"""SELECT tmdb_id, title, poster_url, vote_average, release_date
                     FROM movie_repository WHERE tmdb_id IN ({placeholders})""",
                 tuple(movie_ids),
             )
-            rows = await cur.fetchall()
-            return {r[0]: {"title": r[1], "poster_url": r[2],
-                           "vote_average": r[3], "release_date": r[4]} for r in rows}
+            for r in await cur.fetchall():
+                result[r[0]] = {"title": r[1], "poster_url": r[2],
+                                "vote_average": r[3], "release_date": r[4]}
+
+        # 2) movie_cache fallback — analiz edilmiş filmler (data JSON içinde poster_url)
+        missing = [mid for mid in movie_ids if mid not in result]
+        if missing:
+            ph2 = ",".join("?" for _ in missing)
+            async with _get_connection(self.db_path) as db:
+                cur2 = await db.execute(
+                    f"SELECT tmdb_id, title, data FROM movie_cache WHERE tmdb_id IN ({ph2})",
+                    tuple(missing),
+                )
+                for r in await cur2.fetchall():
+                    try:
+                        data = json.loads(r[2]) if isinstance(r[2], str) else r[2]
+                    except Exception:
+                        data = {}
+                    result[r[0]] = {
+                        "title": data.get("title") or r[1],
+                        "poster_url": data.get("poster_url"),
+                        "vote_average": data.get("vote_average"),
+                        "release_date": data.get("release_date"),
+                    }
+
+        # 3) watchlist fallback — kullanıcı defterine eklenmiş filmler
+        still_missing = [mid for mid in movie_ids if mid not in result]
+        if still_missing:
+            ph3 = ",".join("?" for _ in still_missing)
+            async with _get_connection(self.db_path, user_data=True) as db:
+                cur3 = await db.execute(
+                    f"""SELECT DISTINCT tmdb_id, title, poster_url
+                        FROM watchlist WHERE tmdb_id IN ({ph3})""",
+                    tuple(still_missing),
+                )
+                for r in await cur3.fetchall():
+                    result[r[0]] = {
+                        "title": r[1], "poster_url": r[2],
+                        "vote_average": None, "release_date": None,
+                    }
+
+        return result
 
     # --- Watchlist (Defterim) Methods ---
     async def add_to_watchlist(self, tmdb_id: int, title: str, poster_url: str, user_id: int = 0):

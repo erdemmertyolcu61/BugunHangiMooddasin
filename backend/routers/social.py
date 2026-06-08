@@ -27,6 +27,29 @@ from backend.services.rate_limit import rate_limit_strict
 
 logger = logging.getLogger("social")
 
+
+async def _fill_missing_posters(meta: dict, movie_ids: list) -> None:
+    """DB'de bulunamayan filmler için TMDB'den poster çek (lazy fallback)."""
+    missing = [mid for mid in movie_ids if mid not in meta or not meta.get(mid, {}).get("poster_url")]
+    if not missing:
+        return
+    try:
+        from backend.services.tmdb_service import tmdb_service
+        for mid in missing:
+            try:
+                details = await tmdb_service.get_movie_details(mid)
+                if details:
+                    meta[mid] = {
+                        "title": details.get("title"),
+                        "poster_url": details.get("poster_url"),
+                        "vote_average": details.get("vote_average"),
+                        "release_date": details.get("release_date"),
+                    }
+            except Exception:
+                logger.debug("[social] TMDB fallback failed for movie_id=%s", mid)
+    except ImportError:
+        logger.warning("[social] tmdb_service import failed for poster fallback")
+
 router = APIRouter(prefix="/api", tags=["social"])
 
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_ğüşıöçĞÜŞİÖÇ]{3,20}$")
@@ -206,6 +229,7 @@ async def get_shares(user: dict = Depends(get_current_user)):
     shares = await cache.get_unread_shares(user["user_id"])
     movie_ids = list({s["movie_id"] for s in shares})
     meta = await cache.get_movies_meta_by_ids(movie_ids) if movie_ids else {}
+    await _fill_missing_posters(meta, movie_ids)
     for s in shares:
         m = meta.get(s["movie_id"], {})
         s["movie_title"] = m.get("title")
@@ -232,6 +256,7 @@ async def get_recommendation_history(user: dict = Depends(get_current_user)):
     sent = await cache.get_sent_recommendations(uid)
     movie_ids = list({s["movie_id"] for s in (received + sent)})
     meta = await cache.get_movies_meta_by_ids(movie_ids) if movie_ids else {}
+    await _fill_missing_posters(meta, movie_ids)
     for s in (received + sent):
         m = meta.get(s["movie_id"], {})
         s["movie_title"] = m.get("title")
