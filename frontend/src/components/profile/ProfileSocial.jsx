@@ -5,7 +5,7 @@ import {
   Send, RotateCcw, MessageCircle, ChevronRight, Info, UsersRound,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
-import { proxyImageUrl, unrecommendFromCommunity } from '../../services/api';
+import { proxyImageUrl, unrecommendFromCommunity, getMyCommunityRecommendations } from '../../services/api';
 
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
@@ -92,6 +92,17 @@ export default function ProfileSocial({
     setCommunityRecs(prev => prev.filter(r => r.tmdb_id !== tmdbId));
     unrecommendFromCommunity(tmdbId).catch(() => {});
   }, []);
+
+  /* Community tab aktifleşince taze fetch (mobilde parent polling atlayabilir) */
+  useEffect(() => {
+    if (activeTab !== 'community') return;
+    let alive = true;
+    (async () => {
+      const res = await getMyCommunityRecommendations().catch(() => ({ recommendations: [] }));
+      if (alive && setCommunityRecs) setCommunityRecs(res.recommendations || []);
+    })();
+    return () => { alive = false; };
+  }, [activeTab, setCommunityRecs]);
 
   const filteredFriends = useMemo(() =>
     friendSearch.trim()
