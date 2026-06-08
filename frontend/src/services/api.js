@@ -499,6 +499,17 @@ export async function unrecommendFromCommunity(tmdbId) {
   return res.json();
 }
 
+// Kullanıcının topluluğa önerdiği filmler
+export async function getMyCommunityRecommendations() {
+  try {
+    const res = await fetch(`${BASE}/community/my-recommendations`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { recommendations: [], count: 0 };
+    return res.json();
+  } catch {
+    return { recommendations: [], count: 0 };
+  }
+}
+
 export async function getSurpriseMovie() {
   const res = await fetch(`${BASE}/recommend/surprise`);
   if (!res.ok) throw new Error('Sürpriz film alınamadı');

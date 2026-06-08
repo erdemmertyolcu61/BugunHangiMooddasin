@@ -1,19 +1,68 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon, Send, RotateCcw,
+  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon,
+  Send, RotateCcw, Heart, MessageCircle, ChevronRight, Clock,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
-import { proxyImageUrl } from '../../services/api';
+import { proxyImageUrl, getMyCommunityRecommendations, unrecommendFromCommunity } from '../../services/api';
 import LottieAnimation from '../LottieAnimation';
-import { useTheme } from '../../context/ThemeContext';
 
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
 
-/**
- * Tabbed social panel — Arkadaşlar / İstekler / Öneriler
- */
+const IMG_BASE = 'https://image.tmdb.org/t/p/w200';
+
+/* ── Zaman etiketleri ────────────────────────────────────────── */
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(String(dateStr).replace(' ', 'T'));
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'Az önce';
+  if (diff < 3600) return `${Math.floor(diff / 60)}dk`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}sa`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}g`;
+  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short' }).format(d);
+}
+
+/* ── Avatar bileşeni ─────────────────────────────────────────── */
+function Avatar({ src, name, size = 40, ring = false, failedAvatars, onError, id }) {
+  const s = `${size}px`;
+  const hasSrc = src && !failedAvatars?.has(id);
+  return (
+    <div
+      className="rounded-full overflow-hidden shrink-0 flex items-center justify-center"
+      style={{
+        width: s, height: s,
+        background: ring
+          ? 'conic-gradient(from 0deg, #ffbf00, #f59e0b, #d97706, #f59e0b, #ffbf00)'
+          : 'rgba(255,191,0,0.08)',
+        padding: ring ? '2px' : 0,
+      }}
+    >
+      <div className="w-full h-full rounded-full overflow-hidden bg-[#1c1512] flex items-center justify-center">
+        {hasSrc ? (
+          <img
+            src={resolveAvatarUrl(src)}
+            alt={name || ''}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={() => onError?.(id)}
+          />
+        ) : (
+          <span className="font-bold text-amber/60" style={{ fontSize: `${size * 0.32}px` }}>
+            {(name || '?')[0].toUpperCase()}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ProfileSocial — Modern mobil-app tasarımı
+   Sekmeler: Arkadaşlar / İstekler / Öneriler / Topluluğa Önerilerim
+   ══════════════════════════════════════════════════════════════════ */
 export default function ProfileSocial({
   friends = [],
   requests = [],
@@ -28,18 +77,35 @@ export default function ProfileSocial({
   onRetractSent,
   onDetailMovie,
 }) {
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
   const [activeTab, setActiveTab] = useState('friends');
-  const [shareDir, setShareDir] = useState('received'); // received | sent
+  const [shareDir, setShareDir] = useState('received');
   const [addUsername, setAddUsername] = useState('');
   const [addMsg, setAddMsg] = useState(null);
   const [addBusy, setAddBusy] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
   const [failedAvatars, setFailedAvatars] = useState(new Set());
+  const [communityRecs, setCommunityRecs] = useState([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
 
   const onAvatarError = useCallback((id) => {
     setFailedAvatars(prev => { const n = new Set(prev); n.add(id); return n; });
+  }, []);
+
+  // Topluluk önerilerimi çek
+  useEffect(() => {
+    if (activeTab !== 'community') return;
+    let alive = true;
+    setCommunityLoading(true);
+    getMyCommunityRecommendations()
+      .then(d => { if (alive) setCommunityRecs(d.recommendations || []); })
+      .catch(() => {})
+      .finally(() => { if (alive) setCommunityLoading(false); });
+    return () => { alive = false; };
+  }, [activeTab]);
+
+  const handleRemoveCommunityRec = useCallback(async (tmdbId) => {
+    setCommunityRecs(prev => prev.filter(r => r.tmdb_id !== tmdbId));
+    unrecommendFromCommunity(tmdbId).catch(() => {});
   }, []);
 
   const filteredFriends = useMemo(() =>
@@ -57,7 +123,7 @@ export default function ProfileSocial({
     setAddBusy(true);
     try {
       const result = await onAddFriend(u);
-      setAddMsg({ ok: true, text: result === 'ACCEPTED' ? 'Arkadaş eklendi!' : 'İstek gönderildi, onay bekliyor.' });
+      setAddMsg({ ok: true, text: result === 'ACCEPTED' ? 'Arkadaş eklendi!' : 'İstek gönderildi!' });
       setAddUsername('');
     } catch (err) {
       setAddMsg({ ok: false, text: err.message || 'Gönderilemedi' });
@@ -67,309 +133,517 @@ export default function ProfileSocial({
   }, [addUsername, addBusy, onAddFriend]);
 
   const tabs = [
-    { id: 'friends', label: 'Arkadaşlar', icon: Users, count: friends.length },
-    { id: 'requests', label: 'İstekler', icon: UserPlus, count: requests.length },
-    { id: 'shares', label: 'Öneriler', icon: Bell, count: shares.length + sent.length },
+    { id: 'friends', icon: Users, count: friends.length },
+    { id: 'requests', icon: UserPlus, count: requests.length, pulse: requests.length > 0 },
+    { id: 'shares', icon: Bell, count: shares.length + sent.length },
+    { id: 'community', icon: Heart, count: communityRecs.length },
   ];
+
+  const tabLabels = {
+    friends: 'Arkadaşlar',
+    requests: 'İstekler',
+    shares: 'Öneriler',
+    community: 'Topluluğa',
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.30, ease: [0.16, 1, 0.3, 1] }}
-      className="space-y-4">
+      className="space-y-5">
 
-      {/* Tab bar */}
-      <div className="flex gap-1 p-1 rounded-full bg-[#1c1512]/90 border border-white/[0.06]">
-        {tabs.map(tab => (
-          <button key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
-              activeTab === tab.id
-                ? 'bg-amber/15 text-amber border border-amber/20'
-                : 'text-ivory/40 hover:text-ivory/60'
-            }`}>
-            <tab.icon size={13} />
-            <span className="hidden sm:inline">{tab.label}</span>
-            {tab.count > 0 && (
-              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                activeTab === tab.id ? 'bg-amber/25 text-amber' : 'bg-white/10 text-ivory/40'
-              }`}>{tab.count}</span>
-            )}
-          </button>
-        ))}
+      {/* ── Tab bar — iOS segment control style ── */}
+      <div className="flex gap-0.5 p-[3px] rounded-2xl bg-[#1a1310] border border-white/[0.05] overflow-hidden">
+        {tabs.map(tab => {
+          const active = activeTab === tab.id;
+          return (
+            <button key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex-1 relative flex flex-col items-center gap-1 py-2.5 rounded-[13px] transition-all duration-300"
+              style={{
+                background: active ? 'rgba(255,191,0,0.1)' : 'transparent',
+                boxShadow: active ? 'inset 0 0 0 1px rgba(255,191,0,0.18)' : 'none',
+              }}
+            >
+              <div className="relative">
+                <tab.icon size={16} className={active ? 'text-amber' : 'text-ivory/30'} style={{ transition: 'color 0.3s' }} />
+                {tab.pulse && (
+                  <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                )}
+              </div>
+              <span className={`text-[9px] font-bold uppercase tracking-[0.08em] transition-colors duration-300 ${
+                active ? 'text-amber' : 'text-ivory/30'
+              }`}>
+                {tabLabels[tab.id]}
+              </span>
+              {tab.count > 0 && active && (
+                <motion.span
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  className="absolute top-1 right-1.5 min-w-[16px] h-[16px] px-1 rounded-full
+                    flex items-center justify-center text-[8px] font-bold bg-amber/20 text-amber"
+                >
+                  {tab.count}
+                </motion.span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {socialError && (
-        <p className="px-1 text-[12px] font-serif italic text-rose-400">{socialError}</p>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="px-3 py-2 text-[12px] font-serif italic text-rose-300 bg-rose-500/5 rounded-xl border border-rose-500/10">
+          {socialError}
+        </motion.p>
       )}
 
       {socialLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex gap-1.5">
             {[0, 1, 2].map(i => (
-              <motion.div key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: '#d4af37' }}
-                animate={{ opacity: [0.2, 1, 0.2] }}
-                transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.25 }} />
+              <motion.div key={i}
+                className="w-1.5 h-1.5 rounded-full bg-amber"
+                animate={{ y: [0, -6, 0], opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
+              />
             ))}
           </div>
         </div>
       ) : (
-        <>
-          {/* ─── FRIENDS TAB ─── */}
+        <AnimatePresence mode="wait">
+          {/* ═══════════════ FRIENDS ═══════════════ */}
           {activeTab === 'friends' && (
-            <div className="space-y-3">
-              {/* Search + Add */}
-              <div className="flex gap-2">
-                {friends.length > 0 && (
-                  <div className="relative flex-1">
-                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input value={friendSearch} onChange={e => setFriendSearch(e.target.value)}
-                      placeholder="Arkadaş Ara..."
-                      className="w-full pl-8 pr-3 py-2.5 bg-white/5 border border-white/[0.08] rounded-full
-                        text-sm text-ivory placeholder:text-white/45 focus:outline-none focus:border-amber/30 transition-all" />
-                  </div>
-                )}
-                <div className="flex gap-1.5">
+            <motion.div key="friends"
+              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-3"
+            >
+              {/* Add friend input — floating card */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber/[0.06] to-transparent border border-amber/10">
+                <div className="flex gap-2">
                   <input value={addUsername}
                     onChange={e => { setAddUsername(e.target.value); setAddMsg(null); }}
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                    placeholder="kullanıcı_adı"
-                    className="w-28 sm:w-36 px-3 py-2.5 bg-white/5 border border-white/[0.08] rounded-full
-                      text-sm text-ivory placeholder:text-white/45 focus:outline-none focus:border-amber/30 transition-all font-mono" />
-                  <button onClick={handleAdd} disabled={addBusy}
-                    className="flex items-center gap-1 px-3 py-2.5 bg-amber text-[#120d0b] rounded-full text-[11px] font-bold
-                      hover:bg-amber-400 transition-all disabled:opacity-40 shrink-0" title="Ekle">
+                    placeholder="Kullanıcı adı ile ekle..."
+                    className="flex-1 px-4 py-2.5 bg-black/20 border border-white/[0.06] rounded-xl
+                      text-[13px] text-ivory placeholder:text-white/30 focus:outline-none focus:border-amber/30
+                      transition-all font-mono"
+                  />
+                  <button onClick={handleAdd} disabled={addBusy || !addUsername.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-amber text-[#120d0b] rounded-xl text-[11px] font-bold
+                      uppercase tracking-wider hover:brightness-110 transition-all disabled:opacity-30
+                      active:scale-[0.96] shrink-0"
+                  >
                     <UserPlus size={13} />
+                    <span className="hidden sm:inline">Ekle</span>
                   </button>
                 </div>
+                {addMsg && (
+                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                    className={`mt-2 text-[11px] font-medium px-1 ${addMsg.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {addMsg.text}
+                  </motion.p>
+                )}
               </div>
-              {addMsg && (
-                <p className={`text-xs font-serif px-1 ${addMsg.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {addMsg.text}
-                </p>
+
+              {/* Search (if friends exist) */}
+              {friends.length > 3 && (
+                <div className="relative">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
+                  <input value={friendSearch} onChange={e => setFriendSearch(e.target.value)}
+                    placeholder="Arkadaşlarında ara..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#1a1310] border border-white/[0.05] rounded-xl
+                      text-[13px] text-ivory placeholder:text-white/30 focus:outline-none focus:border-amber/20 transition-all" />
+                </div>
               )}
 
+              {/* Friends list */}
               {friends.length === 0 ? (
-                <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-3">
-                  <LottieAnimation path="/lottie/empty-state.json" className="w-16 h-16 mx-auto opacity-40" speed={0.6} />
-                  <p className="font-serif text-sm italic text-ivory/70 leading-relaxed">
-                    Henüz sinema arkadaşın yok. Üstad'ın dünyasına arkadaşlarını davet et!
-                  </p>
+                <div className="py-10 rounded-2xl bg-[#1a1310]/80 border border-white/[0.04] text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-amber/[0.06] flex items-center justify-center">
+                    <Users size={24} className="text-amber/30" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="font-serif text-[15px] font-semibold text-ivory/60">Henüz arkadaşın yok</p>
+                    <p className="text-[12px] text-ivory/35 max-w-[220px] mx-auto leading-relaxed">
+                      Kullanıcı adı ile arkadaş ekle, birlikte film keşfedin.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <AnimatePresence>
+                    {filteredFriends.map((f, i) => (
+                      <motion.div key={f.id}
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -60, transition: { duration: 0.25 } }}
+                        transition={{ delay: i * 0.03 }}
+                        className="group flex items-center gap-3 p-3 rounded-xl
+                          hover:bg-white/[0.03] transition-all duration-200 cursor-default"
+                      >
+                        <Avatar
+                          src={f.avatar} name={f.username || f.name} size={42} ring
+                          failedAvatars={failedAvatars} onError={onAvatarError} id={f.id}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-[14px] text-ivory truncate leading-tight">
+                            {f.username || f.name}
+                          </p>
+                          <p className="text-[11px] text-white/35 truncate">@{f.username}</p>
+                        </div>
+                        <button onClick={() => onRemoveFriend(f.id)}
+                          className="w-8 h-8 rounded-full flex items-center justify-center
+                            text-white/15 hover:text-rose-400 hover:bg-rose-500/8
+                            opacity-0 group-hover:opacity-100 sm:opacity-100 transition-all" title="Kaldır">
+                          <X size={14} />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {friendSearch && filteredFriends.length === 0 && (
+                    <p className="text-center text-[13px] font-serif italic text-white/40 py-6">
+                      "{friendSearch}" ile eşleşen yok.
+                    </p>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══════════════ REQUESTS ═══════════════ */}
+          {activeTab === 'requests' && (
+            <motion.div key="requests"
+              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-2"
+            >
+              {requests.length === 0 ? (
+                <div className="py-10 rounded-2xl bg-[#1a1310]/80 border border-white/[0.04] text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-amber/[0.06] flex items-center justify-center">
+                    <UserPlus size={24} className="text-amber/30" />
+                  </div>
+                  <p className="font-serif text-[15px] text-ivory/50">Bekleyen istek yok</p>
                 </div>
               ) : (
                 <AnimatePresence>
-                  {filteredFriends.length === 0 ? (
-                    <p className="text-center text-sm font-serif italic text-white/60 py-4">
-                      &ldquo;{friendSearch}&rdquo; ile eşleşen arkadaş yok.
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {filteredFriends.map(f => (
-                        <motion.div key={f.id} layout exit={{ opacity: 0, x: -40 }}
-                          transition={{ duration: 0.3 }}
-                          className="flex items-center gap-3 p-3 rounded-xl bg-[#1c1512]/90 border border-white/[0.06] hover:border-white/10 transition-all">
-                          <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
-                            {f.avatar && !failedAvatars.has(f.id)
-                              ? <img src={resolveAvatarUrl(f.avatar)} alt={f.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
-                                  onError={() => onAvatarError(f.id)} />
-                              : <span className="font-bold text-[11px] text-amber/60">{(f.username || f.name || '?')[0].toUpperCase()}</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-[13px] text-ivory truncate">{f.username || f.name}</p>
-                            <p className="text-[12px] text-white/45 truncate">@{f.username}</p>
-                          </div>
-                          <button onClick={() => onRemoveFriend(f.id)}
-                            className="w-7 h-7 rounded-full flex items-center justify-center
-                              text-white/30 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Kaldır">
-                            <Trash2 size={13} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
+                  {requests.map((r, i) => (
+                    <motion.div key={r.request_id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center gap-3 p-4 rounded-2xl bg-[#1a1310] border border-white/[0.05]
+                        hover:border-amber/10 transition-all"
+                    >
+                      <Avatar
+                        src={r.avatar} name={r.username || r.name} size={44}
+                        failedAvatars={failedAvatars} onError={onAvatarError} id={r.request_id}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[14px] text-ivory truncate">{r.username || r.name}</p>
+                        <p className="text-[11px] text-white/35">Arkadaşlık isteği gönderdi</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => onRespondRequest(r.request_id, 'ACCEPT')}
+                          disabled={!!respondLoading}
+                          className="h-9 px-4 rounded-xl bg-emerald-500/15 border border-emerald-500/25
+                            flex items-center gap-1.5 text-emerald-400 text-[11px] font-bold uppercase tracking-wider
+                            hover:bg-emerald-500/25 transition-all disabled:opacity-30 active:scale-[0.96]">
+                          <Check size={13} /> Kabul
+                        </button>
+                        <button onClick={() => onRespondRequest(r.request_id, 'DECLINE')}
+                          disabled={!!respondLoading}
+                          className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.06]
+                            flex items-center justify-center text-white/30 hover:text-rose-400
+                            hover:border-rose-400/20 transition-all disabled:opacity-30">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
                 </AnimatePresence>
               )}
-            </div>
+            </motion.div>
           )}
 
-          {/* ─── REQUESTS TAB ─── */}
-          {activeTab === 'requests' && (
-            <div className="space-y-1.5">
-              {requests.length === 0 ? (
-                <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
-                  <p className="font-serif text-sm italic text-ivory/65">Bekleyen istek yok.</p>
-                </div>
-              ) : (
-                requests.map(r => (
-                  <motion.div key={r.request_id} layout exit={{ opacity: 0, x: -40 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-amber/10 shrink-0 flex items-center justify-center">
-                      {r.avatar && !failedAvatars.has(r.request_id)
-                        ? <img src={resolveAvatarUrl(r.avatar)} alt={r.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"
-                            onError={() => onAvatarError(r.request_id)} />
-                        : <span className="font-bold text-[11px] text-amber/60">{(r.username || r.name || '?')[0].toUpperCase()}</span>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-[13px] text-ivory truncate">{r.username || r.name}</p>
-                      <p className="text-[11px] text-white/45 truncate">@{r.username}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button onClick={() => onRespondRequest(r.request_id, 'ACCEPT')}
-                        disabled={!!respondLoading}
-                        className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20
-                          flex items-center justify-center hover:bg-emerald-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="Onayla">
-                        <Check size={14} className="text-emerald-400" />
-                      </button>
-                      <button onClick={() => onRespondRequest(r.request_id, 'DECLINE')}
-                        disabled={!!respondLoading}
-                        className="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/20
-                          flex items-center justify-center hover:bg-rose-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="Reddet">
-                        <X size={14} className="text-rose-400" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* ─── SHARES TAB ─── */}
+          {/* ═══════════════ SHARES (Öneriler) ═══════════════ */}
           {activeTab === 'shares' && (
-            <div className="space-y-2.5">
-              {/* Gelen / Gönderdiğim alt-toggle */}
-              <div className={`flex gap-1 p-1 rounded-full w-full max-w-[280px] mx-auto ${
-                  isLight
-                    ? 'bg-amber/10 border border-amber/20'
-                    : 'bg-[#221913]/80 border border-white/[0.05]'
-                }`}>
+            <motion.div key="shares"
+              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-3"
+            >
+              {/* Gelen / Gönderdiğim toggle */}
+              <div className="flex gap-0.5 p-[3px] rounded-xl bg-[#1a1310] border border-white/[0.04] max-w-[260px] mx-auto">
                 {[
                   { id: 'received', label: 'Gelen', n: shares.length },
                   { id: 'sent', label: 'Gönderdiğim', n: sent.length },
                 ].map(d => (
                   <button key={d.id} onClick={() => setShareDir(d.id)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.12em] transition-all ${
-                      shareDir === d.id ? 'bg-amber/15 text-amber border border-amber/20' : 'text-ivory/40 hover:text-ivory/60'
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg
+                      text-[11px] font-bold uppercase tracking-[0.1em] transition-all duration-200 ${
+                      shareDir === d.id
+                        ? 'bg-amber/12 text-amber shadow-[inset_0_0_0_1px_rgba(255,191,0,0.15)]'
+                        : 'text-ivory/30 hover:text-ivory/50'
                     }`}>
                     {d.label}
-                    {d.n > 0 && <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${shareDir === d.id ? 'bg-amber/25 text-amber' : `${isLight ? 'bg-black/5' : 'bg-white/10'} text-ivory/40`}`}>{d.n}</span>}
+                    {d.n > 0 && (
+                      <span className={`min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center text-[8px] font-bold ${
+                        shareDir === d.id ? 'bg-amber/20 text-amber' : 'bg-white/[0.06] text-ivory/30'
+                      }`}>{d.n}</span>
+                    )}
                   </button>
                 ))}
               </div>
 
-              {/* ── GÖNDERDİĞİM ── */}
+              {/* Gönderdiğim */}
               {shareDir === 'sent' ? (
                 sent.length === 0 ? (
-                  <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center space-y-2">
-                    <LottieAnimation path="/lottie/film-reel.json" className="w-14 h-14 mx-auto opacity-50" speed={0.7} />
-                    <p className="font-serif text-sm italic text-ivory/65">Henüz arkadaşına film önermedin.</p>
-                  </div>
+                  <EmptyState icon={Send} text="Henüz film önermedin" sub="Filmleri arkadaşlarınla paylaş." />
                 ) : (
                   <AnimatePresence initial={false}>
-                  {sent.map(s => (
-                    <motion.div key={`sent-${s.id}`} layout
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -40, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
-                      className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden">
-                      <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
-                        {s.poster_url
-                          ? <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
-                          : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>}
-                      </div>
-                      <div className="flex-1 min-w-0 flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-[12px]">
-                          <Send size={11} className="text-amber/70 shrink-0" />
-                          <span className="text-ivory/45">Önerdiğin:</span>
-                          {s.receiver?.avatar && (
-                            <img src={resolveAvatarUrl(s.receiver.avatar)} alt="" className="w-4 h-4 rounded-full object-cover" referrerPolicy="no-referrer" />
-                          )}
-                          <span className="text-amber/75 font-semibold truncate">@{s.receiver?.username || s.receiver?.name || 'arkadaş'}</span>
-                        </div>
-                        <h4 className="text-[15px] font-serif font-bold text-ivory line-clamp-1">
-                          {s.movie_title || `Film #${s.movie_id}`}
-                        </h4>
-                        {s.user_note && (
-                          <p className="text-[13px] font-serif italic text-white/65 line-clamp-3 leading-relaxed">
-                            &ldquo;{sanitize(s.user_note)}&rdquo;
-                          </p>
-                        )}
-                        <div className="mt-auto flex items-center gap-2 pt-1">
-                          <button
-                            onClick={() => onDetailMovie({
-                              id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
-                              vote_average: s.vote_average, release_date: s.release_date,
-                            })}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
-                              bg-white/5 border border-amber/20 text-amber text-[10px] font-bold uppercase tracking-wider
-                              hover:bg-amber/10 transition-all active:scale-95">
-                            <Play size={10} /> Filme Bak
-                          </button>
-                          <button
-                            onClick={() => onRetractSent?.(s.id)}
-                            title="Bu öneriyi geri al"
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full
-                              bg-white/5 border border-rose-400/25 text-rose-300/80 text-[10px] font-bold uppercase tracking-wider
-                              hover:bg-rose-500/10 hover:text-rose-300 transition-all active:scale-95">
-                            <RotateCcw size={10} /> Geri Al
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                    {sent.map(s => (
+                      <ShareCard key={`sent-${s.id}`} share={s} direction="sent"
+                        onDetail={onDetailMovie} onRetract={onRetractSent}
+                        failedAvatars={failedAvatars} onAvatarError={onAvatarError}
+                      />
+                    ))}
                   </AnimatePresence>
                 )
               ) : shares.length === 0 ? (
-                <div className="p-6 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] text-center">
-                  <p className="font-serif text-sm italic text-ivory/65">Henüz gelen öneri yok.</p>
-                </div>
+                <EmptyState icon={Bell} text="Gelen öneri yok" sub="Arkadaşlarının film önerileri burada görünecek." />
               ) : (
-                shares.map(s => (
-                  <motion.div key={s.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-3.5 p-4 rounded-xl bg-[#1c1512]/90 border border-white/[0.06]">
-                    <div className="w-16 sm:w-20 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
-                      {s.poster_url
-                        ? <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎬</div>}
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        {s.sender?.avatar && (
-                          <img src={resolveAvatarUrl(s.sender.avatar)} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
-                        )}
-                        <span className="text-[12px] text-amber/75 font-semibold truncate">
-                          {s.sender?.username || s.sender?.name || 'Arkadaş'}
-                        </span>
-                      </div>
-                      <h4 className="text-[15px] font-serif font-bold text-ivory line-clamp-1">
-                        {s.movie_title || `Film #${s.movie_id}`}
-                      </h4>
-                      {s.vote_average > 0 && (
-                        <span className="flex items-center gap-1 text-[11px] text-amber font-bold">
-                          <StarIcon size={9} className="fill-amber" /> {s.vote_average.toFixed(1)}
-                        </span>
-                      )}
-                      {s.user_note && (
-                        <p className="text-[13px] font-serif italic text-white/65 line-clamp-3 leading-relaxed">
-                          &ldquo;{sanitize(s.user_note)}&rdquo;
-                        </p>
-                      )}
-                      <button
-                        onClick={() => onDetailMovie({
-                          id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
-                          vote_average: s.vote_average, release_date: s.release_date,
-                        })}
-                        className="mt-auto self-start flex items-center gap-1.5 px-5 py-1.5 rounded-full
-                          bg-amber text-[#120d0b] text-[10px] font-bold uppercase tracking-wider
-                          hover:bg-amber-400 transition-all active:scale-95">
-                        <Play size={10} className="fill-[#120d0b]" /> Hemen İzle
-                      </button>
-                    </div>
-                  </motion.div>
-                ))
+                <AnimatePresence initial={false}>
+                  {shares.map(s => (
+                    <ShareCard key={`recv-${s.id}`} share={s} direction="received"
+                      onDetail={onDetailMovie}
+                      failedAvatars={failedAvatars} onAvatarError={onAvatarError}
+                    />
+                  ))}
+                </AnimatePresence>
               )}
-            </div>
+            </motion.div>
           )}
-        </>
+
+          {/* ═══════════════ COMMUNITY (Topluluğa Önerilerim) ═══════════════ */}
+          {activeTab === 'community' && (
+            <motion.div key="community"
+              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-2 px-1">
+                <Heart size={13} className="text-rose-400/70" />
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ivory/40">
+                  Topluluğa önerdiğin filmler
+                </p>
+              </div>
+
+              {communityLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="flex gap-1.5">
+                    {[0, 1, 2].map(i => (
+                      <motion.div key={i}
+                        className="w-1.5 h-1.5 rounded-full bg-amber"
+                        animate={{ y: [0, -6, 0], opacity: [0.3, 1, 0.3] }}
+                        transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : communityRecs.length === 0 ? (
+                <EmptyState
+                  icon={Heart}
+                  text="Henüz topluluk önerin yok"
+                  sub="Bir filmi beğendiğinde 'Topluluğa Öner' ile herkese tavsiye et."
+                />
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <AnimatePresence>
+                    {communityRecs.map((rec, i) => (
+                      <motion.div key={rec.tmdb_id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2 } }}
+                        transition={{ delay: i * 0.04 }}
+                        className="group relative rounded-2xl overflow-hidden bg-[#1a1310] border border-white/[0.05]
+                          hover:border-amber/15 transition-all duration-300 cursor-pointer"
+                        onClick={() => onDetailMovie?.({
+                          id: rec.tmdb_id, title: rec.title, poster_url: rec.poster_url,
+                          vote_average: rec.vote_average, release_date: rec.release_date,
+                        })}
+                      >
+                        {/* Poster */}
+                        <div className="aspect-[2/3] bg-white/[0.03] relative overflow-hidden">
+                          {rec.poster_url ? (
+                            <img src={proxyImageUrl(rec.poster_url)} alt={rec.title}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-3xl opacity-20">
+                              🎬
+                            </div>
+                          )}
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                          {/* Rating badge */}
+                          {rec.vote_average > 0 && (
+                            <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1
+                              rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
+                              <StarIcon size={9} className="text-amber fill-amber" />
+                              <span className="text-[10px] font-bold text-amber tabular-nums">
+                                {Number(rec.vote_average).toFixed(1)}
+                              </span>
+                            </div>
+                          )}
+                          {/* Remove button */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRemoveCommunityRec(rec.tmdb_id); }}
+                            className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm
+                              border border-white/10 flex items-center justify-center
+                              opacity-0 group-hover:opacity-100 sm:opacity-60 hover:!opacity-100
+                              hover:bg-rose-500/20 hover:border-rose-500/30 transition-all"
+                            title="Öneriyi geri al"
+                          >
+                            <X size={12} className="text-white/60 hover:text-rose-400" />
+                          </button>
+                        </div>
+                        {/* Info */}
+                        <div className="p-3 space-y-1">
+                          <h4 className="text-[13px] font-serif font-bold text-ivory leading-tight line-clamp-2">
+                            {rec.title}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-[10px] text-ivory/30">
+                            <Clock size={9} />
+                            <span>{timeAgo(rec.recommended_at)}</span>
+                            {rec.release_date && (
+                              <>
+                                <span className="text-white/10">·</span>
+                                <span>{String(rec.release_date).slice(0, 4)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
+    </motion.div>
+  );
+}
+
+/* ── Boş durum bileşeni ──────────────────────────────────────── */
+function EmptyState({ icon: Icon, text, sub }) {
+  return (
+    <div className="py-10 rounded-2xl bg-[#1a1310]/80 border border-white/[0.04] text-center space-y-4">
+      <div className="w-16 h-16 mx-auto rounded-full bg-amber/[0.06] flex items-center justify-center">
+        <Icon size={24} className="text-amber/30" />
+      </div>
+      <div className="space-y-1.5">
+        <p className="font-serif text-[15px] font-semibold text-ivory/60">{text}</p>
+        {sub && <p className="text-[12px] text-ivory/35 max-w-[240px] mx-auto leading-relaxed">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Paylaşım kartı (gelen/gönderilen) ───────────────────────── */
+function ShareCard({ share: s, direction, onDetail, onRetract, failedAvatars, onAvatarError }) {
+  const isSent = direction === 'sent';
+  const person = isSent ? s.receiver : s.sender;
+  const personLabel = person?.username || person?.name || 'Arkadaş';
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -50, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
+      className="flex gap-3 p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05]
+        hover:border-white/[0.08] transition-all overflow-hidden"
+    >
+      {/* Poster thumbnail */}
+      <div className="w-[60px] sm:w-[72px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative cursor-pointer"
+        onClick={() => onDetail?.({
+          id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
+          vote_average: s.vote_average, release_date: s.release_date,
+        })}
+      >
+        {s.poster_url ? (
+          <img src={proxyImageUrl(s.poster_url)} alt={s.movie_title} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xl opacity-20">🎬</div>
+        )}
+        {!s.is_read && !isSent && (
+          <div className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-amber shadow-[0_0_6px_rgba(255,191,0,0.6)]" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        {/* Person line */}
+        <div className="flex items-center gap-2">
+          {person?.avatar && (
+            <img src={resolveAvatarUrl(person.avatar)} alt=""
+              className="w-5 h-5 rounded-full object-cover border border-white/10" referrerPolicy="no-referrer" />
+          )}
+          <span className="text-[11px] text-ivory/45">
+            {isSent ? 'Önerdiğin →' : ''} <span className="text-amber/70 font-semibold">@{personLabel}</span>
+          </span>
+        </div>
+
+        {/* Title */}
+        <h4 className="text-[14px] font-serif font-bold text-ivory line-clamp-1 leading-tight">
+          {s.movie_title || `Film #${s.movie_id}`}
+        </h4>
+
+        {/* Rating */}
+        {s.vote_average > 0 && (
+          <span className="flex items-center gap-1 text-[10px] text-amber/80 font-bold">
+            <StarIcon size={9} className="fill-amber/80" /> {Number(s.vote_average).toFixed(1)}
+          </span>
+        )}
+
+        {/* Note */}
+        {s.user_note && (
+          <p className="text-[12px] font-serif italic text-white/50 line-clamp-2 leading-relaxed">
+            "{sanitize(s.user_note)}"
+          </p>
+        )}
+
+        {/* Actions */}
+        <div className="mt-auto flex items-center gap-2 pt-1.5">
+          <button
+            onClick={() => onDetail?.({
+              id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
+              vote_average: s.vote_average, release_date: s.release_date,
+            })}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg
+              bg-amber/12 border border-amber/20 text-amber text-[10px] font-bold uppercase tracking-wider
+              hover:bg-amber/20 transition-all active:scale-[0.96]"
+          >
+            <Play size={10} /> Bak
+          </button>
+          {isSent && onRetract && (
+            <button
+              onClick={() => onRetract(s.id)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg
+                bg-white/[0.03] border border-white/[0.06] text-white/40 text-[10px] font-bold uppercase tracking-wider
+                hover:text-rose-400 hover:border-rose-400/20 transition-all active:scale-[0.96]"
+            >
+              <RotateCcw size={10} /> Geri Al
+            </button>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }

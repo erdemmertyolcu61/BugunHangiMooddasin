@@ -45,6 +45,8 @@ frontend/build/
 *.sqlite3
 # Exception: include the pre-seeded movie repository (47MB, needed for deployment)
 !movie_cache.db
+# DB backup / recovery artifacts
+movie_cache.db.*
 
 # ============================================
 # IDE & OS

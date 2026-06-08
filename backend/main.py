@@ -1238,6 +1238,58 @@ async def community_unrecommend(tmdb_id: int = Path(..., ge=1), user=Depends(ver
     return {"success": True}
 
 
+@app.get("/api/community/my-recommendations", dependencies=[Depends(rate_limit_general)])
+async def my_community_recommendations(user=Depends(verify_user)):
+    """Kullanıcının topluluğa önerdiği filmler (poster + puan dahil)."""
+    user_id = user.get("user_id", 0)
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute("""
+            SELECT cr.tmdb_id, cr.created_at,
+                   mr.title, mr.poster_url, mr.vote_average, mr.release_date, mr.genre_ids
+            FROM community_recommendations cr
+            LEFT JOIN movie_repository mr ON mr.tmdb_id = cr.tmdb_id
+            WHERE cr.user_id = ?
+            ORDER BY cr.created_at DESC
+            LIMIT 50
+        """, (user_id,))
+        rows = await cur.fetchall()
+
+    # movie_repository'de yoksa movie_cache'e bak
+    results = []
+    missing_ids = []
+    for r in rows:
+        if r[2]:  # title var → repo'da bulundu
+            results.append({
+                "tmdb_id": r[0], "recommended_at": r[1],
+                "title": r[2], "poster_url": r[3],
+                "vote_average": r[4], "release_date": r[5],
+                "genre_ids": json.loads(r[6]) if r[6] else [],
+            })
+        else:
+            missing_ids.append((r[0], r[1]))
+
+    if missing_ids:
+        ids_str = ",".join(str(mid) for mid, _ in missing_ids)
+        async with _db_conn(cache.db_path, user_data=True) as db:
+            cur2 = await db.execute(f"""
+                SELECT tmdb_id, title, poster_url, vote_average, release_date
+                FROM movie_cache WHERE tmdb_id IN ({ids_str})
+            """)
+            cache_rows = {r[0]: r for r in await cur2.fetchall()}
+        for mid, rec_at in missing_ids:
+            cr = cache_rows.get(mid)
+            results.append({
+                "tmdb_id": mid, "recommended_at": rec_at,
+                "title": cr[1] if cr else f"Film #{mid}",
+                "poster_url": cr[2] if cr else None,
+                "vote_average": cr[3] if cr else 0,
+                "release_date": cr[4] if cr else None,
+                "genre_ids": [],
+            })
+
+    return {"recommendations": results, "count": len(results)}
+
+
 @app.get("/api/perf-test", dependencies=[Depends(verify_admin)])
 async def perf_test():
     """Raw DB performance test — bypasses all background task contention."""
