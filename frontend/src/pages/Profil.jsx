@@ -51,6 +51,87 @@ const dedupeRecs = (arr) =>
     return acc;
   }, []);
 
+/* ═══ Sign-in CTA ═══════════════════════════════════════════════════ */
+const SignInCTA = ({ compact, emailForm, setEmailForm, emailMode, setEmailMode, authBusy, authError, setAuthError, handleEmailSubmit, googleClientId, onCredential, onDevLogin }) => (
+  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+    className={`w-full max-w-sm mx-auto text-center ${compact ? 'space-y-5 py-6' : 'space-y-8'}`}>
+    {!compact && (
+      <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center mx-auto">
+        <User size={30} className="text-amber/50" />
+      </div>
+    )}
+    <div className="space-y-3">
+      <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ivory tracking-tight">
+        {compact ? 'Arkadaşlarınla bağlan' : 'Giriş yap, her cihazda seni bekleyelim'}
+      </h2>
+      <p className="font-sans text-sm text-ivory/45 leading-relaxed">
+        {compact
+          ? 'Sosyal özellikler için giriş yapman gerek — arkadaş ekle, film paylaş, zevkini karşılaştır.'
+          : 'Şu an kayıtların bu cihazda tutuluyor. Giriş yaparsan izleme geçmişin, notların ve listelerin her yerde seninle.'}
+      </p>
+    </div>
+    <div className="space-y-3">
+      {googleClientId && (
+        <div className={`flex justify-center transition-opacity ${authBusy ? 'opacity-40 pointer-events-none' : ''}`}>
+          <GoogleSignInButton clientId={googleClientId} onCredential={onCredential} width={280} />
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 max-w-[280px] mx-auto pt-1">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/30 whitespace-nowrap">veya e-posta ile</span>
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+
+      <form onSubmit={handleEmailSubmit} className="space-y-2.5 max-w-[280px] mx-auto text-left">
+        {emailMode === 'register' && (
+          <input
+            type="text" value={emailForm.name} autoComplete="name"
+            onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value.slice(0, 50) }))}
+            placeholder="Adın"
+            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
+          />
+        )}
+        <input
+          type="email" value={emailForm.email} autoComplete="email" inputMode="email"
+          onChange={(e) => setEmailForm((f) => ({ ...f, email: e.target.value }))}
+          placeholder="E-posta"
+          className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
+        />
+        <input
+          type="password" value={emailForm.password}
+          autoComplete={emailMode === 'register' ? 'new-password' : 'current-password'}
+          onChange={(e) => setEmailForm((f) => ({ ...f, password: e.target.value }))}
+          placeholder="Şifre (en az 6 karakter)"
+          className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
+        />
+        <button
+          type="submit" disabled={authBusy}
+          className="w-full py-2.5 rounded-xl bg-amber text-[#120d0b] font-bold text-[13px] uppercase tracking-wider hover:bg-amber-400 transition-all disabled:opacity-40 active:scale-[0.98]">
+          {authBusy ? 'Lütfen bekle...' : (emailMode === 'register' ? 'Kayıt Ol' : 'Giriş Yap')}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        onClick={() => { setEmailMode((m) => (m === 'login' ? 'register' : 'login')); setAuthError(''); }}
+        className="text-[11px] font-semibold text-amber/60 hover:text-amber transition-colors">
+        {emailMode === 'login' ? 'Hesabın yok mu? Kayıt ol' : 'Zaten hesabın var mı? Giriş yap'}
+      </button>
+
+      {authError && <p className="font-sans text-xs text-rose-400 max-w-xs mx-auto">{authError}</p>}
+
+      {import.meta.env.DEV && (
+        <button onClick={onDevLogin} disabled={authBusy}
+          className="mx-auto block text-[10px] font-bold uppercase tracking-[0.2em] text-amber/60 hover:text-amber border border-amber/20 hover:border-amber/40 rounded-full px-4 py-2 transition-colors disabled:opacity-40">
+          Geliştirici Girişi (yerel)
+        </button>
+      )}
+    </div>
+  </motion.div>
+);
+
 /* ═══════════════════════════════════════════════════════════════════
    PROFIL
    ═══════════════════════════════════════════════════════════════════ */
@@ -323,89 +404,7 @@ export default function Profil() {
     setTimeout(() => setProfileLinkCopied(false), 2000);
   };
 
-  /* ═══ Sign-in CTA (anonim kullanıcıya gösterilir) ═══════════════════ */
-  const SignInCTA = ({ compact = false }) => (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className={`w-full max-w-sm mx-auto text-center ${compact ? 'space-y-5 py-6' : 'space-y-8'}`}>
-      {!compact && (
-        <div className="w-20 h-20 rounded-full bg-amber/10 border border-amber/20 flex items-center justify-center mx-auto">
-          <User size={30} className="text-amber/50" />
-        </div>
-      )}
-      <div className="space-y-3">
-        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ivory tracking-tight">
-          {compact ? 'Arkadaşlarınla bağlan' : 'Giriş yap, her cihazda seni bekleyelim'}
-        </h2>
-        <p className="font-sans text-sm text-ivory/45 leading-relaxed">
-          {compact
-            ? 'Sosyal özellikler için giriş yapman gerek — arkadaş ekle, film paylaş, zevkini karşılaştır.'
-            : 'Şu an kayıtların bu cihazda tutuluyor. Giriş yaparsan izleme geçmişin, notların ve listelerin her yerde seninle.'}
-        </p>
-      </div>
-      <div className="space-y-3">
-        {/* Google */}
-        {GOOGLE_CLIENT_ID && (
-          <div className={`flex justify-center transition-opacity ${authBusy ? 'opacity-40 pointer-events-none' : ''}`}>
-            <GoogleSignInButton clientId={GOOGLE_CLIENT_ID} onCredential={handleCredential} width={280} />
-          </div>
-        )}
 
-        {/* Ayraç */}
-        <div className="flex items-center gap-3 max-w-[280px] mx-auto pt-1">
-          <span className="h-px flex-1 bg-white/10" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ivory/30 whitespace-nowrap">veya e-posta ile</span>
-          <span className="h-px flex-1 bg-white/10" />
-        </div>
-
-        {/* E-posta + şifre formu */}
-        <form onSubmit={handleEmailSubmit} className="space-y-2.5 max-w-[280px] mx-auto text-left">
-          {emailMode === 'register' && (
-            <input
-              type="text" value={emailForm.name} autoComplete="name"
-              onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value.slice(0, 50) }))}
-              placeholder="Adın"
-              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
-            />
-          )}
-          <input
-            type="email" value={emailForm.email} autoComplete="email" inputMode="email"
-            onChange={(e) => setEmailForm((f) => ({ ...f, email: e.target.value }))}
-            placeholder="E-posta"
-            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
-          />
-          <input
-            type="password" value={emailForm.password}
-            autoComplete={emailMode === 'register' ? 'new-password' : 'current-password'}
-            onChange={(e) => setEmailForm((f) => ({ ...f, password: e.target.value }))}
-            placeholder="Şifre (en az 6 karakter)"
-            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
-          />
-          <button
-            type="submit" disabled={authBusy}
-            className="w-full py-2.5 rounded-xl bg-amber text-[#120d0b] font-bold text-[13px] uppercase tracking-wider hover:bg-amber-400 transition-all disabled:opacity-40 active:scale-[0.98]">
-            {authBusy ? 'Lütfen bekle...' : (emailMode === 'register' ? 'Kayıt Ol' : 'Giriş Yap')}
-          </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => { setEmailMode((m) => (m === 'login' ? 'register' : 'login')); setAuthError(''); }}
-          className="text-[11px] font-semibold text-amber/60 hover:text-amber transition-colors">
-          {emailMode === 'login' ? 'Hesabın yok mu? Kayıt ol' : 'Zaten hesabın var mı? Giriş yap'}
-        </button>
-
-        {authError && <p className="font-sans text-xs text-rose-400 max-w-xs mx-auto">{authError}</p>}
-
-        {import.meta.env.DEV && (
-          <button onClick={handleDevLogin} disabled={authBusy}
-            className="mx-auto block text-[10px] font-bold uppercase tracking-[0.2em] text-amber/60 hover:text-amber border border-amber/20 hover:border-amber/40 rounded-full px-4 py-2 transition-colors disabled:opacity-40">
-            Geliştirici Girişi (yerel)
-          </button>
-        )}
-      </div>
-    </motion.div>
-  );
 
   /* ═══ PROFIL (anonim + giriş yapmış birleşik) ═══════════════════════ */
   return (
@@ -462,7 +461,15 @@ export default function Profil() {
         {/* ─── Anonim: giriş çağrısı ─── */}
         {!user && (
           <div className="rounded-2xl bg-amber/[0.06] border border-amber/15 px-5 py-6">
-            <SignInCTA />
+            <SignInCTA
+  emailForm={emailForm} setEmailForm={setEmailForm}
+  emailMode={emailMode} setEmailMode={setEmailMode}
+  authBusy={authBusy} authError={authError} setAuthError={setAuthError}
+  handleEmailSubmit={handleEmailSubmit}
+  googleClientId={GOOGLE_CLIENT_ID}
+  onCredential={handleCredential}
+  onDevLogin={handleDevLogin}
+/>
           </div>
         )}
 
@@ -551,7 +558,15 @@ export default function Profil() {
               />
             </div>
           ) : (
-            <SignInCTA compact />
+            <SignInCTA compact
+  emailForm={emailForm} setEmailForm={setEmailForm}
+  emailMode={emailMode} setEmailMode={setEmailMode}
+  authBusy={authBusy} authError={authError} setAuthError={setAuthError}
+  handleEmailSubmit={handleEmailSubmit}
+  googleClientId={GOOGLE_CLIENT_ID}
+  onCredential={handleCredential}
+  onDevLogin={handleDevLogin}
+/>
           )
         )}
 
