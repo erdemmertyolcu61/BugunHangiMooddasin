@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { BookOpen } from 'lucide-react';
 import { proxyImageUrl } from '../../services/api';
 
 const MOOD_DOT_COLORS = {
@@ -65,9 +66,16 @@ export default function ProfileTimeline({ recentWatched = [], topMoods = [] }) {
                   <p className="font-serif text-sm font-semibold text-ivory/85 truncate">
                     {sanitize(movie.title)}
                   </p>
-                  <p className="font-sans text-[11px] text-ivory/45">
-                    {formatDate(movie.added_at)}
-                  </p>
+                  {movie.personal_note?.trim() ? (
+                    <p className="flex items-center gap-1 text-[11px] font-serif italic text-white/40 truncate mt-0.5">
+                      <BookOpen size={9} className="shrink-0 text-amber/40" />
+                      <span className="truncate">"{sanitize(movie.personal_note.slice(0, 60))}"</span>
+                    </p>
+                  ) : (
+                    <p className="font-sans text-[11px] text-ivory/45">
+                      {formatDate(movie.added_at)}
+                    </p>
+                  )}
                 </div>
               </div>
             );

@@ -103,6 +103,8 @@ async def get_me(user: dict = Depends(get_current_user)):
         picture = f"/api/users/{uid}/avatar?v={int(time.time())}"
         await cache.update_user_picture(uid, picture)
 
+    hide_activity = await cache.get_hide_activity(uid)
+
     return {
         "id": uid,
         "username": info.get("username", "") if info else "",
@@ -110,6 +112,7 @@ async def get_me(user: dict = Depends(get_current_user)):
         "email": info.get("email", "") if info else user.get("email", ""),
         "picture": picture,
         "has_custom_username": not is_auto,
+        "hide_activity": hide_activity,
     }
 
 
@@ -435,6 +438,38 @@ async def get_public_profile(username: str):
     # Avatar URL — saklı picture'ı (sürümlü /api/.../avatar?v= veya Google URL) doğrudan kullan
     avatar_url = user_info.get("picture") or ""
 
+    # Topluluk önerileri: kullanıcının önerdiği filmler (poster + title)
+    community_recs = []
+    try:
+        from backend.database import _get_connection as _db_conn
+        async with _db_conn(cache.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT tmdb_id FROM community_recommendations
+                   WHERE user_id = ? GROUP BY tmdb_id
+                   ORDER BY MAX(created_at) DESC LIMIT 8""",
+                (uid,),
+            )
+            rec_ids = [r[0] for r in await cur.fetchall()]
+        if rec_ids:
+            meta = await cache.get_movies_meta_by_ids(rec_ids)
+            await _fill_missing_posters(meta, rec_ids)
+            for tid in rec_ids:
+                m = meta.get(tid)
+                if m and m.get("poster_url"):
+                    community_recs.append({
+                        "tmdb_id": tid,
+                        "title": m.get("title", ""),
+                        "poster_url": m["poster_url"],
+                        "vote_average": m.get("vote_average"),
+                    })
+    except Exception:
+        logger.warning("[PublicProfile] community_recs failed for uid=%d", uid)
+
+    # Top moods: taste map'ten çıkar
+    top_moods = []
+    if taste_map and isinstance(taste_map, dict):
+        top_moods = taste_map.get("top_moods", [])
+
     return {
         "id": uid,
         "username": user_info.get("username", ""),
@@ -446,6 +481,8 @@ async def get_public_profile(username: str):
         "this_month_count": this_month_count,
         "recent_watched": recent_watched,
         "taste_map": taste_map,
+        "community_recs": community_recs,
+        "top_moods": top_moods,
     }
 
 
@@ -477,3 +514,25 @@ async def get_user_avatar(user_id: int):
         media_type=content_type,
         headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
+
+
+# ─── Arkadaş Aktivite Akışı ─────────────────────────────────────────────────
+
+@router.get("/activity/friends")
+async def friends_activity(user: dict = Depends(get_current_user)):
+    """Arkadaşların son 14 günde eklediği/izlediği filmler."""
+    uid = user["user_id"]
+    activities = await cache.get_friends_activity(uid, limit=20)
+    return {"activities": activities}
+
+
+class ActivityVisibilityBody(BaseModel):
+    hide_activity: bool = False
+
+
+@router.patch("/user/activity-visibility")
+async def set_activity_visibility(body: ActivityVisibilityBody, user: dict = Depends(get_current_user)):
+    """Kullanıcının aktivitesini arkadaşlarından gizle/göster."""
+    uid = user["user_id"]
+    await cache.set_hide_activity(uid, body.hide_activity)
+    return {"ok": True, "hide_activity": body.hide_activity}

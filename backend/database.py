@@ -609,6 +609,12 @@ class MovieCache:
             except Exception:
                 logger.warning("[DB] ALTER users ADD last_active failed (likely exists)")
 
+            # hide_activity kolonu — arkadaş aktivite akışında görünürlük kontrolü
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN hide_activity INTEGER NOT NULL DEFAULT 0")
+            except Exception:
+                logger.warning("[DB] ALTER users ADD hide_activity failed (likely exists)")
+
             # Eski /uploads yollarını temizle (ephemeral filesystem'de dosya yok)
             try:
                 await db.execute("""
@@ -856,6 +862,7 @@ class MovieCache:
             "ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP",
             "CREATE INDEX IF NOT EXISTS idx_user_lists_user ON user_lists(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id)",
+            "ALTER TABLE users ADD COLUMN hide_activity INTEGER NOT NULL DEFAULT 0",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -1396,6 +1403,51 @@ class MovieCache:
             )
             await db.commit()
             return cur.rowcount > 0
+
+    async def get_friends_activity(self, user_id: int, limit: int = 20) -> list:
+        """Son 14 günde arkadaşların izlediği/kaydettiği filmler (hide_activity=0 olanlar)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute("""
+                SELECT u.id, u.username, u.name, u.picture as avatar,
+                       w.tmdb_id, w.title, w.poster_url,
+                       w.watched,
+                       COALESCE(w.watched_at, w.added_at) as action_at,
+                       CASE WHEN w.watched = 1 THEN 'watched' ELSE 'saved' END as action_type
+                FROM friendships f
+                JOIN users u ON u.id = f.friend_id
+                JOIN watchlist w ON w.user_id = f.friend_id
+                WHERE f.user_id = ? AND f.status = 'ACCEPTED'
+                  AND COALESCE(u.hide_activity, 0) = 0
+                  AND w.added_at > datetime('now', '-14 days')
+                ORDER BY action_at DESC
+                LIMIT ?
+            """, (user_id, limit))
+            rows = await cursor.fetchall()
+            return [
+                {
+                    "user_id": r[0], "username": r[1], "name": r[2], "avatar": r[3],
+                    "tmdb_id": r[4], "title": r[5], "poster_url": r[6],
+                    "watched": bool(r[7]), "action_at": r[8], "action_type": r[9],
+                }
+                for r in rows
+            ]
+
+    async def set_hide_activity(self, user_id: int, hide: bool) -> None:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "UPDATE users SET hide_activity = ? WHERE id = ?",
+                (1 if hide else 0, user_id),
+            )
+            await db.commit()
+
+    async def get_hide_activity(self, user_id: int) -> bool:
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute(
+                "SELECT COALESCE(hide_activity, 0) FROM users WHERE id = ?",
+                (user_id,),
+            )
+            row = await cursor.fetchone()
+            return bool(row[0]) if row else False
 
     async def get_movies_meta_by_ids(self, movie_ids: list) -> dict:
         """Toplu başlık/afiş çek: önce movie_repository, eksikler için movie_cache fallback."""

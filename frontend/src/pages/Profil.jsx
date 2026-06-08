@@ -19,7 +19,7 @@ import {
   getWatchlist, getTasteMap, getFriends, getFriendRequests,
   respondFriendRequest, removeFriend, sendFriendRequest,
   getRecommendationHistory, retractRecommendation, getMe,
-  getMyCommunityRecommendations,
+  getMyCommunityRecommendations, getFriendsActivity,
 } from '../services/api';
 import { resolveAvatarUrl, getApiUrl, getShareUrl } from '../utils/apiConfig';
 import useDocumentMeta from '../utils/useDocumentMeta';
@@ -202,6 +202,9 @@ export default function Profil() {
   const [socialError, setSocialError] = useState('');
   const [respondLoading, setRespondLoading] = useState(null);
 
+  /* ─── Friend Activity ──────────────────────────────────────────── */
+  const [friendActivity, setFriendActivity] = useState([]);
+
   /* ─── Shares ───────────────────────────────────────────────────── */
   const [shares, setShares] = useState([]);
   const [sentShares, setSentShares] = useState([]);
@@ -260,22 +263,20 @@ export default function Profil() {
       if (document.visibilityState !== 'visible') return;
       try {
         setSocialError('');
-        const [fr, rq, hist, comm] = await Promise.all([
+        const [fr, rq, hist, comm, act] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
           getFriendRequests().catch(() => ({ requests: [] })),
           getRecommendationHistory().catch(() => ({ received: [], sent: [] })),
-          getMyCommunityRecommendations().catch((e) => {
-            console.error('[DEBUG Profil] poll getMyCommunityRecommendations error:', e);
-            return { recommendations: [] };
-          }),
+          getMyCommunityRecommendations().catch(() => ({ recommendations: [] })),
+          getFriendsActivity().catch(() => ({ activities: [] })),
         ]);
         setFriends(fr.friends || []);
         setRequests(rq.requests || []);
         setShares(hist.received || []);
         setSentShares(hist.sent || []);
         const pr = dedupeRecs(comm?.recommendations || []);
-        console.log('[DEBUG Profil] poll communityRecs count:', pr.length);
         setCommunityRecs(pr);
+        setFriendActivity(act.activities || []);
         // Otomatik markSharesRead kaldırıldı (bkz. mount effect notu).
       } catch {}
     };
@@ -557,6 +558,7 @@ export default function Profil() {
                 setCommunityRecs={setCommunityRecs}
                 shares={shares}
                 sent={sentShares}
+                friendActivity={friendActivity}
                 socialLoading={socialLoading || sharesLoading}
                 socialError={socialError}
                 onRespondRequest={handleRespondRequest}

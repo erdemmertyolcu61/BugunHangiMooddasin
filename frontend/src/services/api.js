@@ -330,9 +330,9 @@ export async function getReferrals() {
 
 // ─── Günün Filmi ───
 export async function getDailyFilm() {
-  const res = await fetch(`${BASE}/daily/film`);
+  const res = await fetch(`${BASE}/daily/film`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Günün filmi alınamadı (${res.status})`);
-  return res.json(); // { date, movie, ustad_line, title }
+  return res.json(); // { date, movie, ustad_line, title, personalized }
 }
 
 // ─── Ödül takvimi (Listeler banner'ı) ───
@@ -508,6 +508,24 @@ export async function getMyCommunityRecommendations() {
   } catch {
     return { recommendations: [], count: 0 };
   }
+}
+
+export async function getFriendsActivity() {
+  try {
+    const res = await fetch(`${BASE}/activity/friends`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { activities: [] };
+    return res.json();
+  } catch { return { activities: [] }; }
+}
+
+export async function setActivityVisibility(hideActivity) {
+  try {
+    await fetch(`${BASE}/user/activity-visibility`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ hide_activity: hideActivity }),
+    });
+  } catch {}
 }
 
 export async function getSurpriseMovie() {

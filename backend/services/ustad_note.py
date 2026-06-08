@@ -23,9 +23,10 @@ notlarını görüntülenince sıfır maliyetle yeniler (Claude notlarına dokun
 Hafif tutuldu: numpy/SDK gibi ağır bağımlılık import EDİLMEZ.
 """
 import hashlib
+import re
 
 # Bu üretici her anlamlı değişiklikte artır → eski template notları otomatik yenilenir.
-TEMPLATE_VERSION = "ustad-2"
+TEMPLATE_VERSION = "ustad-3"
 
 # TMDB tür ID → Türkçe ad.
 _GENRE_NAMES = {
@@ -163,6 +164,172 @@ _CRAFT = [
     "{director} filmin tonunu kurmayı ihmal etmemiş.",
 ]
 
+# ── Ünlü yönetmen tanıma: genel _CRAFT yerine kişiye özel cümle ──
+# Anahtar: soyadı (küçük harf). Birden fazla cümle → hash ile seçilir.
+_KNOWN_DIRECTORS: dict[str, list[str]] = {
+    "kubrick": [
+        "Kubrick'in kadrajlarında tesadüf diye bir şey yoktur; her kare bir tablo gibi düşünülmüş.",
+        "Kubrick titizliğiyle ünlüdür — burada da o inatçı mükemmeliyetçilik kendini ele veriyor.",
+    ],
+    "scorsese": [
+        "Scorsese'nin sokağın ritmini sinemaya taşıma ustalığı burada da baskın.",
+        "Scorsese bu işi yılların verdiği güvenle kotarıyor; müzik seçimleri bile başlı başına bir anlatı.",
+    ],
+    "nolan": [
+        "Nolan'ın zamanla oynama merakı burada da devrede; kurguyu bir bulmacaya çeviriyor.",
+        "Nolan alışıldık anlatıyı parçalayıp yeniden inşa ediyor; izleyiciyi pasif bırakmıyor.",
+    ],
+    "tarantino": [
+        "Tarantino'nun diyalog yazarlığı burada da sivri; konuşmalar aksiyonun kendisi.",
+        "Tarantino'nun müzik kullanımı ve şiddet estetiği bir kez daha imzasını atıyor.",
+    ],
+    "villeneuve": [
+        "Villeneuve devasa ölçeği insani duyguyla dengelemeyi başaran ender yönetmenlerden.",
+        "Villeneuve'ün görsel dili konuşmadan önce gelir; sessizlik burada bir tercih.",
+    ],
+    "spielberg": [
+        "Spielberg'in büyük hikâyeleri sıcak tutma yeteneği burada da devrede.",
+        "Spielberg duygusallığı hesaplı kullanır; tam dozajında, abartıya kaçmadan.",
+    ],
+    "fincher": [
+        "Fincher'ın soğukkanlı görsel dili gerilimi lafla değil, kadrajla kuruyor.",
+        "Fincher detaya gömülmüş bir yönetmen; arka plandaki ipuçları bile bilinçli.",
+    ],
+    "coppola": [
+        "Coppola'nın büyük anlatıları küçük anlara sığdırma ustalığı burada kendini gösteriyor.",
+        "Coppola operatik bir sinema dili kurar; sessizliği bile bir crescendo gibi işler.",
+    ],
+    "hitchcock": [
+        "Hitchcock gerilimi nerede tutacağını iyi bilir; kadraja girmeyen şey seni tedirgin eder.",
+        "Hitchcock'un 'suspense ustası' sıfatı boşuna değil — burada da izleyiciyi avucunda tutuyor.",
+    ],
+    "lynch": [
+        "Lynch'in dünyasına adım attığında mantık kuralları askıya alınır; rüya ile kabus iç içe.",
+        "Lynch'in bilinçaltı estetiği burada da tavan yapmış; rahatsız ama büyüleyici.",
+    ],
+    "anderson": [
+        "Wes Anderson'ın simetrik kadraja olan takıntısı burada da müze kıvamında.",
+        "Anderson'ın renk paleti ve tipografi fetişi filmi hareketli bir illüstrasyona çeviriyor.",
+    ],
+    "wong kar-wai": [
+        "Wong Kar-wai'nin bulanık ışıklarla örülmüş melankolisi burada da nefes alıyor.",
+        "Wong Kar-wai zamanı dondurmaz, eritir; her kare bir anının son titreşimi gibi.",
+    ],
+    "tarkovsky": [
+        "Tarkovsky'nin uzun planları sabır ister ama ödülü büyüktür; sinema burada şiire dönüyor.",
+        "Tarkovsky su, rüzgâr ve sessizlikle konuşur; burada da kelimeye ihtiyaç duymadan anlatıyor.",
+    ],
+    "kurosawa": [
+        "Kurosawa'nın epik ölçeği ile insani detay arasındaki dengesi burada da hayranlık uyandırıyor.",
+        "Kurosawa'nın hareket yönetimi bir dans koreografisi kadar hesaplı ve büyüleyici.",
+    ],
+    "bergman": [
+        "Bergman yüz okur; yakın çekimleri bir psikanaliz seansından daha açıklayıcı.",
+        "Bergman'ın varoluşsal sorguları burada da geçerliliğini koruyor; sinema felsefe oluyor.",
+    ],
+    "ceylan": [
+        "Nuri Bilge Ceylan'ın sakin ritmine alışkınsan burada da kendini evinde hissedersin.",
+        "Ceylan Anadolu'nun sessizliğini sinemaya döken ender isimlerden; burada da o huzur ve hüzün bir arada.",
+        "Ceylan'ın uzun planları acele etmez; peyzaj bir karakter gibi konuşur.",
+    ],
+    "demirkubuz": [
+        "Demirkubuz'un karanlık psikolojik portrelerinde teselli aramak boşuna; ama dürüstlüğü çarpıcı.",
+        "Demirkubuz insanın karanlık tarafını amansızca sergiler; izlemesi zor ama kalıcı.",
+    ],
+    "turgul": [
+        "Yavuz Turgul Türk sinemasının hikâye anlatma ustası; karakterleri sokaklardan çıkıp geliyor.",
+        "Turgul'un kahramanları tanıdık gelir; mahallenden, çarşından, belki evinden birini izliyorsun.",
+    ],
+    "akin": [
+        "Fatih Akın iki kültür arasındaki gerilimi yüreğe dokunan bir sinema diline çeviriyor.",
+        "Fatih Akın'ın filmleri sınırları aşar; İstanbul ve Hamburg aynı hikâyenin iki yüzü.",
+    ],
+    "miyazaki": [
+        "Miyazaki'nin dünyaları hayal gücünün sınırlarını zorluyor; her kare elle çizilmiş bir mucize.",
+        "Miyazaki doğayla insanın barışını araştırır; çocuklara anlatır gibi yapıp yetişkinleri düşündürür.",
+    ],
+    "bong": [
+        "Bong Joon-ho tür sınırlarını tanımaz; komedi, gerilim ve toplum eleştirisi aynı pota eritiyor.",
+        "Bong'un sınıf bilinci sinemaya sinmiş; hikâye eğlendirirken alttan alta bir şey diyor.",
+    ],
+    "park chan-wook": [
+        "Park Chan-wook'un estetize edilmiş şiddeti rahatsız eder ama gözünü alamazsın.",
+        "Park Chan-wook intikamı bir operaya çevirir; güzellik ve acımasızlık yan yana.",
+    ],
+    "denis": [
+        "Denis Villeneuve büyük ölçekli bilim kurguyu felsefi bir derinlikle harmanlıyor.",
+    ],
+    "coen": [
+        "Coen Kardeşler'in kara mizahı burada da iş başında; absürt ve acımasız ama komik.",
+        "Coen'lerin diyalogları kulağa yapışır; her replik hem gülümsetir hem düşündürür.",
+    ],
+    "refn": [
+        "Refn'in neon estetiği ve minimal diyalogları burada da hipnotik bir atmosfer yaratıyor.",
+    ],
+    "malick": [
+        "Malick'in şiirsel görsel dili burada da doğayla insanı iç içe geçiriyor.",
+    ],
+    "kieslowski": [
+        "Kieślowski'nin ahlaki ikilemleri burada da izleyiciyi rahatsız edecek kadar samimi.",
+    ],
+    "fellini": [
+        "Fellini'nin karnaval estetiği burada da gerçekle düşü birbirine karıştırıyor.",
+    ],
+    "wenders": [
+        "Wenders yalnızlığı ve yol hikâyelerini kimsenin yapamadığı kadar güzel anlatır.",
+    ],
+}
+
+# ── Ödül katmanı: awards string'inden anahtar kelime yakala → kısa cümle ──
+_AWARD_PATTERNS: list[tuple[re.Pattern, list[str]]] = [
+    (re.compile(r"Won \d+ Oscar|Academy Award", re.I), [
+        "Oscar'lı bir yapım; Akademi'nin vitrinine girmiş olması tesadüf değil.",
+        "Oscar kazanmış bir film; o heykelin arkasında gerçek bir zanaat var.",
+        "Akademi Ödülü sahibi; eleştirmenlerin değil, endüstrinin de onayını almış.",
+    ]),
+    (re.compile(r"Palme d.Or|Cannes|palme", re.I), [
+        "Cannes'ın kapılarından geçmiş bir film; festival sinemasının rafında yeri var.",
+        "Cannes vitrini görmüş; sanat sinemasının seçkin kulübünden.",
+    ]),
+    (re.compile(r"Golden Bear|Berlin", re.I), [
+        "Berlin'den ödülle dönmüş; Avrupa sinemasının nabzını tutan bir yapım.",
+    ]),
+    (re.compile(r"Golden Lion|Venice|Venezia", re.I), [
+        "Venedik'ten ödülle çıkmış; dünyanın en eski festivalinin onayı hafife alınmaz.",
+    ]),
+    (re.compile(r"Alt[ıi]n Portakal|Antalya", re.I), [
+        "Altın Portakal sahibi; Türk sinemasının kendi terazisinde ağırlığını koymuş.",
+        "Antalya'dan ödülle dönmüş; yerli sinemanın vitrinine hak ederek girmiş.",
+    ]),
+    (re.compile(r"BAFTA", re.I), [
+        "BAFTA ödüllü; İngiliz eleştirmenlerin beğenisini kazanmış bir yapım.",
+    ]),
+    (re.compile(r"Nominated for \d+ Oscar|Oscar nomin", re.I), [
+        "Oscar adayı olmuş; yarışa girmeyi hak etmiş demek zaten bir şey.",
+        "Akademi'nin radarına girmiş; adaylığın kendisi bile bir kalite işareti.",
+    ]),
+    (re.compile(r"Golden Globe", re.I), [
+        "Altın Küre'nin radarında; Hollywood'un prestij liginde adı geçiyor.",
+    ]),
+]
+
+# ── Türk sineması bağlam cümleleri: Türk filmi algılandığında eklenir ──
+_TURKISH_DIRECTORS = {
+    "ceylan", "demirkubuz", "turgul", "akin", "özpetek", "kaplanoglu",
+    "erdem", "ustaoğlu", "kaplanoğlu", "bilge", "sorak", "erdoğan",
+    "çelik", "şerif gören", "güney", "ağaoğlu", "tabak", "alper",
+    "irmak", "tuna", "yılmaz", "kızıltan", "zaim", "karabey",
+}
+
+_TURKISH_CONTEXT = [
+    "Türk sinemasının bu damarını tanıyanlar için tanıdık ama taze bir ses.",
+    "Yerli sinemanın kendi hikâyesini anlatma cesaretini burada bir kez daha görüyorsun.",
+    "Anadolu'nun ışığı ve sessizliği perdeye taşınmış; bu toprakların hikâyesi.",
+    "Türk sinemasının son dönem olgunlaşmasının güzel bir örneği.",
+    "Yerel dokusu güçlü; evrensel bir hikâyeyi kendi toprağından anlatıyor.",
+    "Türkiye'den çıkan bu sesin uluslararası festivallerde yer bulması boşuna değil.",
+]
+
 # ── Kapanış: PUAN KADEMESİNE göre öneri gücü ──
 _CLOSE_HIGH = [
     "Kısacası: fırsatın olduğunda sakın kaçırma.", "Bir akşamını gönül rahatlığıyla buna ayır.",
@@ -232,6 +399,37 @@ def _idx(seed_key: str, slot: str, n: int) -> int:
     return int(h, 16) % n
 
 
+def _match_known_director(director: str) -> str | None:
+    """Yönetmen adını _KNOWN_DIRECTORS'ta ara (soyadı veya tam ad eşleşmesi)."""
+    if not director:
+        return None
+    low = director.lower()
+    for key in _KNOWN_DIRECTORS:
+        if key in low:
+            return key
+    return None
+
+
+def _detect_turkish(director: str, title: str) -> bool:
+    """Basit sezgisel: Türk yönetmen soyadı veya Türkçe karakter yoğunluğu."""
+    low_dir = (director or "").lower()
+    for surname in _TURKISH_DIRECTORS:
+        if surname in low_dir:
+            return True
+    turkish_chars = sum(1 for c in title if c in "çğıöşüÇĞİÖŞÜ")
+    return turkish_chars >= 2
+
+
+def _pick_award_line(awards_str: str, seed_key: str) -> str | None:
+    """Awards string'inden en prestijli ödülü yakala, cümle döndür."""
+    if not awards_str or awards_str == "N/A":
+        return None
+    for pattern, lines in _AWARD_PATTERNS:
+        if pattern.search(awards_str):
+            return lines[_idx(seed_key, "award", len(lines))]
+    return None
+
+
 def generate_note(details: dict, ratings: dict = None, mood_id: str = None) -> str:
     """Sıfır-maliyet, deterministik, puana-duyarlı ama PUANI GÖSTERMEYEN Üstad notu.
 
@@ -251,11 +449,23 @@ def generate_note(details: dict, ratings: dict = None, mood_id: str = None) -> s
     opening = _OPENINGS[_idx(seed_key, "open", len(_OPENINGS))].format(**fmt)
     verdict = _VERDICTS[tier][_idx(seed_key, "verdict", len(_VERDICTS[tier]))].format(**fmt)
 
-    # Üçüncü cümle: yönetmen biliniyorsa zanaat, değilse tier-dokusu → her film dolu.
-    if director:
+    # Üçüncü cümle: ünlü yönetmen → kişiye özel, yoksa genel zanaat / doku.
+    known_key = _match_known_director(director)
+    if known_key:
+        pool = _KNOWN_DIRECTORS[known_key]
+        middle = pool[_idx(seed_key, "craft", len(pool))]
+    elif director:
         middle = _CRAFT[_idx(seed_key, "craft", len(_CRAFT))].format(director=director)
     else:
         middle = _TEXTURES[tier][_idx(seed_key, "texture", len(_TEXTURES[tier]))].format(**fmt)
+
+    # Ödül katmanı: yalnız tanınmış ödülse eklenir.
+    award_line = _pick_award_line(ratings.get("awards"), seed_key)
+
+    # Türk sineması bağlamı: yönetmen veya başlık Türk ise, tier high/mid ise.
+    turkish_line = None
+    if tier in ("high", "mid") and _detect_turkish(director, title):
+        turkish_line = _TURKISH_CONTEXT[_idx(seed_key, "turkish", len(_TURKISH_CONTEXT))]
 
     closing = _CLOSINGS[tier][_idx(seed_key, "close", len(_CLOSINGS[tier]))]
     if tier in ("high", "mid"):
@@ -263,4 +473,5 @@ def generate_note(details: dict, ratings: dict = None, mood_id: str = None) -> s
         if reason:
             closing = f"{closing} {reason}"
 
-    return " ".join(p for p in (opening, verdict, middle, closing) if p).strip()
+    parts = [opening, verdict, middle, award_line, turkish_line, closing]
+    return " ".join(p for p in parts if p).strip()

@@ -1596,66 +1596,82 @@ CURATED_TITLES_BY_MOOD = {
         "Tosun Paşa (1976)", "Vizontele (2001)",
         "My Neighbor Totoro (1988)", "Klaus (2019)", "Ratatouille (2007)",
         "Our Little Sister (2015)", "Little Forest (2018)",
+        "Chef (2014)", "When Harry Met Sally (1989)", "Amelie (2001)",
     ],
     "yolculuk": [
         "The Motorcycle Diaries (2004)", "The Straight Story (1999)", "Tracks (2013)",
         "The Way (2010)", "Yol (1982)",
+        "Into the Wild (2007)", "Wild (2014)", "Vizontele Tuuba (2004)",
     ],
     "gece": [
         "Good Time (2017)", "Nightcrawler (2014)", "Kyua (1997)",
         "Memories of Murder (2003)", "Masumiyet (1997)",
+        "Drive (2011)", "Collateral (2004)", "Thief (1981)",
     ],
     "kahkaha": [
         "What We Do in the Shadows (2014)", "Hunt for the Wilderpeople (2016)",
         "The Nice Guys (2016)", "In Bruges (2008)", "G.O.R.A. (2004)",
+        "Four Lions (2010)", "The Grand Budapest Hotel (2014)", "Organize İşler (2005)",
     ],
     "gozyasi": [
         "The Broken Circle Breakdown (2012)", "Okuribito (2008)", "Still Walking (2008)",
         "A Monster Calls (2016)", "Babam ve Oğlum (2005)",
+        "Manchester by the Sea (2016)", "Capernaum (2018)", "Ayla (2017)",
     ],
     "adrenalin": [
         "The Raid: Redemption (2012)", "Victoria (2015)", "13 Assassins (2010)",
         "Headhunters (2011)", "Nefes: Vatan Sağolsun (2009)",
+        "Mad Max: Fury Road (2015)", "Heat (1995)", "Leon: The Professional (1994)",
     ],
     "askbahcesi": [
         "Past Lives (2023)", "Like Crazy (2011)", "Weekend (2011)",
         "5 Centimeters per Second (2007)", "Issız Adam (2008)",
+        "Her (2013)", "Eternal Sunshine of the Spotless Mind (2004)", "Aşk Tesadüfleri Sever (2011)",
     ],
     "zamanyolcusu": [
         "Cinema Paradiso (1988)", "Tokyo Story (1953)", "Le Samouraï (1967)",
         "Il conformista (1971)", "Susuz Yaz (1963)",
+        "Amarcord (1973)", "The Godfather (1972)", "Eşkıya (1996)",
     ],
     "sessiz": [
         "Le Quattro Volte (2010)", "The Turin Horse (2011)", "Silent Light (2007)",
         "Uncle Boonmee Who Can Recall His Past Lives (2010)", "Bal (2010)",
+        "Ida (2013)", "Paterson (2016)", "Tabiat-ı Alem (2018)",
     ],
     "zihin": [
         "Coherence (2014)", "Primer (2004)", "The Man from Earth (2007)",
         "Triangle (2009)", "Vavien (2009)",
+        "Arrival (2016)", "The Prestige (2006)", "Exam (2009)",
     ],
     "kalp": [
         "Aftersun (2022)", "The Florida Project (2017)", "Columbus (2017)",
         "A Ghost Story (2017)", "Uzak (2002)",
+        "Beasts of the Southern Wild (2012)", "Moonrise Kingdom (2012)", "Sivas (2014)",
     ],
     "karmakar": [
         "Holy Motors (2012)", "Songs from the Second Floor (2000)", "The Holy Mountain (1973)",
         "Hausu (1977)", "Kosmos (2009)",
+        "Dogtooth (2009)", "The Lobster (2015)", "Titane (2021)",
     ],
     "sipsak": [
         "La Jetée (1962)", "The Red Balloon (1956)", "World of Tomorrow (2015)",
         "Two Cars, One Night (2004)", "Sessiz / Bê Deng (2012)",
+        "Paperman (2012)", "Fresh Guacamole (2012)", "Logorama (2009)",
     ],
     "deep-chills": [
         "Lake Mungo (2008)", "The Wailing (2016)", "Kill List (2011)",
         "Saint Maud (2019)", "Baskın (2015)",
+        "Hereditary (2018)", "The Witch (2015)", "It Follows (2014)",
     ],
     "kadraj-estetigi": [
         "In the Mood for Love (2000)", "The Fall (2006)", "Nie Yinniang (2015)",
         "The Color of Pomegranates (1969)", "Bir Zamanlar Anadolu'da (2011)",
+        "The Grand Budapest Hotel (2014)", "Stalker (1979)", "Hero (2002)",
     ],
     "geceyarisi-itirafi": [
         "Before Sunrise (1995)", "Before Sunset (2004)", "Before Midnight (2013)",
         "My Dinner with Andre (1981)", "Kış Uykusu (2014)",
+        "Boyhood (2014)", "A Separation (2011)", "Bir Başkadır (2020)",
     ],
 }
 
@@ -3266,52 +3282,93 @@ async def get_surprise_movie(exclude_ids: str = Query("")):
 # GÜNÜN FİLMİ — "Üstad'ın Bugünkü Filmi" (retention + dağıtım içeriği)
 # Tarihe göre deterministik: gün boyu aynı film döner, gece yarısı yenilenir.
 # ═══════════════════════════════════════════════════════════════════════════
-_daily_film_cache: dict = {}  # { "YYYY-MM-DD": {film payload} }
+_daily_film_cache: dict = {}  # { "YYYY-MM-DD_uid": {film payload} }
 
 
-async def _compute_daily_film(date_key: str) -> Optional[dict]:
-    """O güne özel bir film seç (deterministik seed = tarih). Posterli, puanı iyi."""
+def _extract_top_moods(profile_data: dict, top_n: int = 3) -> list:
+    if not profile_data:
+        return []
+    pd = profile_data.get("profile_data") or profile_data
+    mood_dist = pd.get("mood_distribution") or pd.get("moods") or {}
+    if isinstance(mood_dist, list):
+        return [m.get("mood_id") or m.get("id") for m in mood_dist[:top_n] if m]
+    return sorted(mood_dist, key=lambda k: mood_dist[k], reverse=True)[:top_n]
+
+
+async def _compute_daily_film(date_key: str, user_id: int = None) -> Optional[dict]:
+    """O güne özel bir film seç. Giriş yapmış kullanıcıya mood profiline göre kişisel seçim."""
     import random as rnd
     seed = int(date_key.replace("-", ""))
-    best = None
-    for _ in range(25):
-        candidate = await cache.get_random_repository_movie()
-        if not candidate or not candidate.get("poster_url"):
-            continue
-        if is_low_quality_asian(candidate):
-            continue
-        vote = candidate.get("vote_average", 0) or 0
-        if vote >= 7.0:
-            best = candidate
-            break
-        if best is None:
-            best = candidate
-    if not best:
+    rng = rnd.Random(seed + (user_id or 0))
+
+    candidate_pool = []
+    personalized = False
+
+    if user_id:
+        try:
+            profile = await cache.get_taste_profile(user_id)
+            top_moods = _extract_top_moods(profile, top_n=3)
+            if top_moods:
+                wl = await cache.get_watchlist(user_id=user_id)
+                watched_ids = {m["tmdb_id"] for m in wl if m.get("watched")}
+                for mood_id in top_moods:
+                    result = await cache.get_repository_movies_by_mood(mood_id, page=1, per_page=30, min_vote=6.0)
+                    films = result.get("movies") or []
+                    candidate_pool.extend(
+                        f for f in films
+                        if f.get("poster_url") and f.get("id") not in watched_ids
+                    )
+                if candidate_pool:
+                    personalized = True
+        except Exception:
+            pass
+
+    if not candidate_pool:
+        for _ in range(25):
+            candidate = await cache.get_random_repository_movie()
+            if not candidate or not candidate.get("poster_url"):
+                continue
+            if is_low_quality_asian(candidate):
+                continue
+            candidate_pool.append(candidate)
+            vote = candidate.get("vote_average", 0) or 0
+            if vote >= 7.0:
+                break
+
+    if not candidate_pool:
         return None
-    ustad_line = rnd.Random(seed).choice(SURPRISE_USTAD_LINES)
+
+    best = rng.choice(candidate_pool)
+    ustad_line = rng.choice(SURPRISE_USTAD_LINES)
     return {
         "date": date_key,
         "movie": best,
         "ustad_line": ustad_line,
         "title": "Üstad'ın Bugünkü Filmi",
+        "personalized": personalized,
     }
 
 
-async def _get_daily_film() -> Optional[dict]:
+async def _get_daily_film(user_id: int = None) -> Optional[dict]:
     date_key = datetime.utcnow().strftime("%Y-%m-%d")
-    if date_key in _daily_film_cache:
-        return _daily_film_cache[date_key]
-    payload = await _compute_daily_film(date_key)
+    cache_key = f"{date_key}_{user_id or 'anon'}"
+    if cache_key in _daily_film_cache:
+        return _daily_film_cache[cache_key]
+    payload = await _compute_daily_film(date_key, user_id=user_id)
     if payload:
-        _daily_film_cache.clear()  # eski günleri at
-        _daily_film_cache[date_key] = payload
+        today_prefix = f"{date_key}_"
+        stale = [k for k in _daily_film_cache if not k.startswith(today_prefix)]
+        for k in stale:
+            del _daily_film_cache[k]
+        _daily_film_cache[cache_key] = payload
     return payload
 
 
 @app.get("/api/daily/film")
-async def daily_film():
-    """Günün filmi — gün boyu sabit, paylaşılabilir kart + push için kaynak."""
-    payload = await _get_daily_film()
+async def daily_film(request: Request):
+    """Günün filmi — giriş yapana kişisel, anonime genel. Gün boyu sabit."""
+    uid = optional_user_id(request)
+    payload = await _get_daily_film(user_id=uid)
     if not payload:
         return {"movie": None, "message": "Bugünün filmi henüz hazır değil."}
     return payload

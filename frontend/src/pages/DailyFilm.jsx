@@ -111,6 +111,12 @@ export default function DailyFilm() {
                 <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-amber/60">
                   Üstad'ın {dateLabel} Filmi
                 </p>
+                {data?.personalized && (
+                  <span className="px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.15em]
+                    bg-amber/10 border border-amber/20 text-amber rounded-full">
+                    Sana Özel
+                  </span>
+                )}
               </div>
 
               <div className="relative z-10 flex flex-col sm:flex-row gap-6">

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Settings, Bell, Palette, Database, AlertTriangle, ChevronRight, Clock,
+  Settings, Bell, Palette, Database, AlertTriangle, ChevronRight, Clock, EyeOff,
 } from 'lucide-react';
-import { getWatchlist, getNotifyTime, setNotifyTime } from '../../services/api';
+import { getWatchlist, getNotifyTime, setNotifyTime, setActivityVisibility } from '../../services/api';
 import { getApiUrl } from '../../utils/apiConfig';
 import { isPushSubscribed } from '../../utils/push';
 
@@ -68,6 +68,56 @@ function NotifyTimeRow() {
 /**
  * Settings shortcuts panel.
  */
+function ActivityToggleRow() {
+  const [hide, setHide] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const token = window.__fc_user_token;
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/auth/me'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          if (alive) { setHide(!!d.hide_activity); setLoaded(true); }
+        }
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  if (!loaded) return null;
+
+  const toggle = async () => {
+    const next = !hide;
+    setHide(next);
+    await setActivityVisibility(next);
+  };
+
+  return (
+    <button onClick={toggle}
+      className="w-full flex items-center gap-3.5 px-5 py-4 text-left transition-all hover:bg-white/[0.04]">
+      <EyeOff size={17} className="text-ivory/65" />
+      <div className="flex-1 min-w-0">
+        <p className="font-sans text-[14px] font-semibold text-ivory/80">Aktivite Gizliliği</p>
+        <p className="font-sans text-[12px] text-ivory/60 mt-0.5">
+          {hide ? 'Aktiviten arkadaşlarından gizli' : 'Aktiviten arkadaşlarına görünür'}
+        </p>
+      </div>
+      <span className={`px-2.5 py-1 rounded-full border font-sans text-[11px] font-bold uppercase tracking-wide shrink-0 ${
+        hide ? 'bg-rose-500/10 border-rose-500/20 text-rose-400/70' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400/70'
+      }`}>
+        {hide ? 'Gizli' : 'Açık'}
+      </span>
+      <ChevronRight size={14} className="text-ivory/60 shrink-0" />
+    </button>
+  );
+}
+
 export default function ProfileSettings({ theme, toggleTheme, logout, navigate, onNotifOpen }) {
   const settings = [
     {
@@ -124,6 +174,7 @@ export default function ProfileSettings({ theme, toggleTheme, logout, navigate, 
 
       <div className="rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">
         <NotifyTimeRow />
+        <ActivityToggleRow />
         {settings.map(({ icon: Icon, label, desc, danger, action, badge }) => (
           <button key={label} onClick={action}
             className={`w-full flex items-center gap-3.5 px-5 py-4 text-left transition-all

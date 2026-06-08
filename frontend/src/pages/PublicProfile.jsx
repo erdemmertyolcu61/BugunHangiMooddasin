@@ -5,13 +5,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, UserX } from 'lucide-react';
+import { ChevronLeft, UserX, Heart, Star } from 'lucide-react';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
 import ProfileTasteMap from '../components/profile/ProfileTasteMap';
 import ProfileTimeline from '../components/profile/ProfileTimeline';
 import ShareButtons from '../components/ShareButtons';
+
+const MOOD_COLORS = {
+  battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
+  askbahcesi: '#f43f5e', kahkaha: '#10b981', adrenalin: '#ef4444',
+  yolculuk: '#10b981', zamanyolcusu: '#f59e0b', sessiz: '#a8a29e',
+  zihin: '#8b5cf6', kalp: '#ec4899', karmakar: '#f97316',
+  sipsak: '#d4af37', 'deep-chills': '#3b82f6',
+  'kadraj-estetigi': '#a855f7', 'geceyarisi-itirafi': '#6366f1',
+};
 
 export default function PublicProfile() {
   const { username } = useParams();
@@ -121,6 +130,87 @@ export default function PublicProfile() {
                 recentWatched={profile.recent_watched}
                 topMoods={profile.taste_map?.top_moods || []}
               />
+            )}
+
+            {/* Topluluk Önerileri */}
+            {profile.community_recs?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-3"
+              >
+                <div className="flex items-center gap-2.5 px-1">
+                  <Heart size={14} className="text-amber/50" />
+                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                    Topluluğa Önerdiği Filmler
+                  </p>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  {profile.community_recs.map((film) => (
+                    <motion.div key={film.tmdb_id}
+                      whileHover={{ scale: 1.05, y: -4 }}
+                      className="group relative"
+                    >
+                      <div className="aspect-[2/3] rounded-xl overflow-hidden bg-[#1c1512] border border-white/[0.06]
+                        group-hover:border-amber/30 transition-all shadow-lg">
+                        {film.poster_url ? (
+                          <img src={film.poster_url} alt={film.title} loading="lazy"
+                            className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Star size={16} className="text-ivory/20" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent
+                        rounded-b-xl p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-[9px] font-semibold text-ivory/90 truncate leading-tight">
+                          {film.title}
+                        </p>
+                        {film.vote_average > 0 && (
+                          <p className="text-[8px] text-amber/70 font-bold mt-0.5">
+                            ★ {Number(film.vote_average).toFixed(1)}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Top Moods Vitrin */}
+            {profile.top_moods?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-3"
+              >
+                <div className="flex items-center gap-2.5 px-1">
+                  <Star size={14} className="text-amber/50" />
+                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                    Sinema Ruhu
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {profile.top_moods.slice(0, 5).map((mood, i) => {
+                    const color = MOOD_COLORS[mood.mood_id] || '#d4af37';
+                    return (
+                      <motion.span key={mood.mood_id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.7 + i * 0.08 }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full
+                          bg-[#1c1512]/90 border border-white/[0.06] text-[13px] font-semibold text-ivory/80"
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}55` }} />
+                        {mood.title}
+                      </motion.span>
+                    );
+                  })}
+                </div>
+              </motion.div>
             )}
           </>
         )}
