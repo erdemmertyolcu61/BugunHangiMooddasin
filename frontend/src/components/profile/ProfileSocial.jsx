@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Bell, Check, X, Search, Trash2, Star as StarIcon,
-  Send, RotateCcw, Heart, MessageCircle, ChevronRight, Clock, Info,
+  Send, RotateCcw, MessageCircle, ChevronRight, Info, UsersRound,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import { proxyImageUrl, unrecommendFromCommunity } from '../../services/api';
@@ -121,7 +121,7 @@ export default function ProfileSocial({
     { id: 'friends', icon: Users, count: friends.length },
     { id: 'requests', icon: UserPlus, count: requests.length, pulse: requests.length > 0 },
     { id: 'shares', icon: Bell, count: shares.length + sent.length },
-    { id: 'community', icon: Heart, count: communityRecs.length },
+    { id: 'community', icon: UsersRound, count: communityRecs.length },
   ];
 
   const tabLabels = {
@@ -143,7 +143,7 @@ export default function ProfileSocial({
           return (
             <button key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 relative flex flex-col items-center gap-1 py-2.5 rounded-[13px] transition-all duration-300"
+              className="flex-1 min-w-0 relative flex flex-col items-center gap-1 py-2.5 rounded-[13px] transition-all duration-300"
               style={{
                 background: active ? 'rgba(255,191,0,0.1)' : 'transparent',
                 boxShadow: active ? 'inset 0 0 0 1px rgba(255,191,0,0.18)' : 'none',
@@ -420,7 +420,7 @@ export default function ProfileSocial({
               className="space-y-3"
             >
               <div className="flex items-center gap-2 px-1">
-                <Heart size={13} className="text-rose-400/70" />
+                <UsersRound size={13} className="text-ivory/40" />
                 <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ivory/40">
                   Topluluğa önerdiğin filmler
                 </p>
@@ -440,125 +440,62 @@ export default function ProfileSocial({
                 </div>
               ) : communityRecs.length === 0 ? (
                 <EmptyState
-                  icon={Heart}
+                  icon={UsersRound}
                   text="Henüz topluluk önerin yok"
                   sub="Bir filmi beğendiğinde 'Topluluğa Öner' ile herkese tavsiye et."
                 />
               ) : (
-                <>
-                  {/* Mobil: list view */}
-                  <div className="sm:hidden space-y-2">
-                    <AnimatePresence initial={false}>
-                      {communityRecs.map((rec, i) => (
-                        <motion.div key={rec.tmdb_id}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: -50, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
-                          transition={{ delay: i * 0.04 }}
-                          className="flex gap-3 p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05]
-                            hover:border-white/[0.08] transition-all overflow-hidden cursor-pointer"
-                          onClick={() => onDetailMovie?.({
-                            id: rec.tmdb_id, title: rec.title, poster_url: rec.poster_url,
-                            vote_average: rec.vote_average, release_date: rec.release_date,
-                          })}
-                        >
-                          <div className="w-[50px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative">
-                            {rec.poster_url ? (
-                              <img src={proxyImageUrl(rec.poster_url)} alt={rec.title}
-                                className="w-full h-full object-cover" loading="lazy" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-lg opacity-20">🎬</div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">
-                            <h4 className="text-[13px] font-serif font-bold text-ivory line-clamp-1">{rec.title}</h4>
-                            <div className="flex items-center gap-2 text-[10px] text-ivory/40">
-                              {rec.vote_average > 0 && (
-                                <span className="flex items-center gap-1 text-amber/80 font-bold">
-                                  <StarIcon size={8} className="fill-amber/80" /> {Number(rec.vote_average).toFixed(1)}
-                                </span>
-                              )}
-                              <span>{timeAgo(rec.recommended_at)}</span>
-                              {rec.release_date && (
-                                <><span className="text-white/10">·</span><span>{String(rec.release_date).slice(0, 4)}</span></>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleRemoveCommunityRec(rec.tmdb_id); }}
-                            className="self-center w-8 h-8 rounded-full flex items-center justify-center
-                              text-white/30 hover:text-rose-400 hover:bg-rose-500/8 transition-all shrink-0"
-                          >
-                            <X size={14} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                  {/* Web: grid view */}
-                  <div className="hidden sm:grid sm:grid-cols-3 gap-2.5">
-                    <AnimatePresence>
-                      {communityRecs.map((rec, i) => (
-                        <motion.div key={rec.tmdb_id}
-                          layout
-                          initial={{ opacity: 0, scale: 0.92 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2 } }}
-                          transition={{ delay: i * 0.04 }}
-                          className="group relative rounded-2xl overflow-hidden bg-[#1a1310] border border-white/[0.05]
-                            hover:border-amber/15 transition-all duration-300 cursor-pointer"
-                          onClick={() => onDetailMovie?.({
-                            id: rec.tmdb_id, title: rec.title, poster_url: rec.poster_url,
-                            vote_average: rec.vote_average, release_date: rec.release_date,
-                          })}
-                        >
-                          <div className="aspect-[2/3] bg-white/[0.03] relative overflow-hidden">
-                            {rec.poster_url ? (
-                              <img src={proxyImageUrl(rec.poster_url)} alt={rec.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                loading="lazy" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-3xl opacity-20">🎬</div>
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <AnimatePresence initial={false}>
+                  <div className="space-y-2 sm:grid sm:grid-cols-3 sm:gap-2.5 sm:space-y-0">
+                    {communityRecs.map((rec, i) => (
+                      <motion.div key={rec.tmdb_id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -50, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
+                        transition={{ delay: i * 0.04 }}
+                        className="flex gap-3 p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05]
+                          hover:border-white/[0.08] sm:hover:border-amber/15 transition-all overflow-hidden cursor-pointer"
+                        onClick={() => onDetailMovie?.({
+                          id: rec.tmdb_id, title: rec.title, poster_url: rec.poster_url,
+                          vote_average: rec.vote_average, release_date: rec.release_date,
+                        })}
+                      >
+                        <div className="w-[50px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative">
+                          {rec.poster_url ? (
+                            <img src={proxyImageUrl(rec.poster_url)} alt={rec.title}
+                              className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-lg opacity-20">🎬</div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col gap-1 justify-center">
+                          <h4 className="text-[13px] font-serif font-bold text-ivory line-clamp-1 sm:line-clamp-2 leading-tight">
+                            {rec.title}
+                          </h4>
+                          <div className="flex items-center gap-2 text-[10px] text-ivory/40">
                             {rec.vote_average > 0 && (
-                              <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1
-                                rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
-                                <StarIcon size={9} className="text-amber fill-amber" />
-                                <span className="text-[10px] font-bold text-amber tabular-nums">
-                                  {Number(rec.vote_average).toFixed(1)}
-                                </span>
-                              </div>
+                              <span className="flex items-center gap-1 text-amber/80 font-bold">
+                                <StarIcon size={8} className="fill-amber/80" /> {Number(rec.vote_average).toFixed(1)}
+                              </span>
                             )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleRemoveCommunityRec(rec.tmdb_id); }}
-                              className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm
-                                border border-white/10 flex items-center justify-center
-                                opacity-0 group-hover:opacity-100 sm:opacity-60 hover:!opacity-100
-                                hover:bg-rose-500/20 hover:border-rose-500/30 transition-all"
-                              title="Öneriyi geri al"
-                            >
-                              <X size={12} className="text-white/60 hover:text-rose-400" />
-                            </button>
+                            <span>{timeAgo(rec.recommended_at)}</span>
+                            {rec.release_date && (
+                              <><span className="text-white/10">·</span><span>{String(rec.release_date).slice(0, 4)}</span></>
+                            )}
                           </div>
-                          <div className="p-3 space-y-1">
-                            <h4 className="text-[13px] font-serif font-bold text-ivory leading-tight line-clamp-2">
-                              {rec.title}
-                            </h4>
-                            <div className="flex items-center gap-1.5 text-[10px] text-ivory/30">
-                              <Clock size={9} />
-                              <span>{timeAgo(rec.recommended_at)}</span>
-                              {rec.release_date && (
-                                <><span className="text-white/10">·</span><span>{String(rec.release_date).slice(0, 4)}</span></>
-                              )}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRemoveCommunityRec(rec.tmdb_id); }}
+                          className="self-center w-8 h-8 rounded-full flex items-center justify-center
+                            text-white/30 hover:text-rose-400 hover:bg-rose-500/8 transition-all shrink-0"
+                        >
+                          <X size={14} />
+                        </button>
+                      </motion.div>
+                    ))}
                   </div>
-                </>
+                </AnimatePresence>
               )}
             </motion.div>
           )}
