@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, Bell, Check, X, Search, Trash2, Play, Star as StarIcon,
-  Send, RotateCcw, Heart, MessageCircle, ChevronRight, Clock,
+  Users, UserPlus, Bell, Check, X, Search, Trash2, Star as StarIcon,
+  Send, RotateCcw, Heart, MessageCircle, ChevronRight, Clock, Info,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import { proxyImageUrl, unrecommendFromCommunity } from '../../services/api';
@@ -642,8 +642,8 @@ function ShareCard({ share: s, direction, onDetail, onRetract, failedAvatars, on
 
         {/* Note */}
         {s.user_note && (
-          <p className="text-[12px] font-serif italic text-white/50 line-clamp-2 leading-relaxed">
-            "{sanitize(s.user_note)}"
+          <p className="text-[13px] sm:text-[12px] font-serif not-italic sm:italic text-white/70 sm:text-white/50 line-clamp-3 sm:line-clamp-2 leading-relaxed">
+            {sanitize(s.user_note)}
           </p>
         )}
 
@@ -658,7 +658,7 @@ function ShareCard({ share: s, direction, onDetail, onRetract, failedAvatars, on
               bg-amber/12 border border-amber/20 text-amber text-[10px] font-bold uppercase tracking-wider
               hover:bg-amber/20 transition-all active:scale-[0.96]"
           >
-            <Play size={10} /> Bak
+            <Info size={10} /> Detaylar
           </button>
           {isSent && onRetract && (
             <button
