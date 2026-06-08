@@ -210,7 +210,7 @@ export default function ProfileSocial({
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
                     placeholder="Kullanıcı adı ile ekle..."
                     className="flex-1 px-4 py-2.5 bg-black/20 border border-white/[0.06] rounded-xl
-                      text-[13px] text-ivory placeholder:text-white/30 focus:outline-none focus:border-amber/30
+                      text-[16px] sm:text-[13px] text-ivory placeholder:text-white/30 focus:outline-none focus:border-amber/30
                       transition-all font-mono"
                   />
                   <button onClick={handleAdd} disabled={addBusy || !addUsername.trim()}
@@ -237,7 +237,7 @@ export default function ProfileSocial({
                   <input value={friendSearch} onChange={e => setFriendSearch(e.target.value)}
                     placeholder="Arkadaşlarında ara..."
                     className="w-full pl-10 pr-4 py-2.5 bg-[#1a1310] border border-white/[0.05] rounded-xl
-                      text-[13px] text-ivory placeholder:text-white/30 focus:outline-none focus:border-amber/20 transition-all" />
+                      text-[16px] sm:text-[13px] text-ivory placeholder:text-white/30 focus:outline-none focus:border-amber/20 transition-all" />
                 </div>
               )}
 

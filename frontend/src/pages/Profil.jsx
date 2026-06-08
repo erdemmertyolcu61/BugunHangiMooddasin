@@ -90,21 +90,21 @@ const SignInCTA = ({ compact, emailForm, setEmailForm, emailMode, setEmailMode, 
             type="text" value={emailForm.name} autoComplete="name"
             onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value.slice(0, 50) }))}
             placeholder="Adın"
-            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
+            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[16px] sm:text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
           />
         )}
         <input
           type="email" value={emailForm.email} autoComplete="email" inputMode="email"
           onChange={(e) => setEmailForm((f) => ({ ...f, email: e.target.value }))}
           placeholder="E-posta"
-          className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
+          className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[16px] sm:text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
         />
         <input
           type="password" value={emailForm.password}
           autoComplete={emailMode === 'register' ? 'new-password' : 'current-password'}
           onChange={(e) => setEmailForm((f) => ({ ...f, password: e.target.value }))}
           placeholder="Şifre (en az 6 karakter)"
-          className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
+          className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[16px] sm:text-[14px] text-ivory placeholder:text-ivory/35 focus:outline-none focus:border-amber/40 transition-all"
         />
         <button
           type="submit" disabled={authBusy}
