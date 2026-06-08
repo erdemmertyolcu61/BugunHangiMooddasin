@@ -852,6 +852,7 @@ class MovieCache:
             "ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0",
             "ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18",
             "ALTER TABLE direct_recommendations ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN last_active TIMESTAMP",
             "ALTER TABLE watchlist ADD COLUMN watched_at TIMESTAMP",
             "CREATE INDEX IF NOT EXISTS idx_user_lists_user ON user_lists(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id)",

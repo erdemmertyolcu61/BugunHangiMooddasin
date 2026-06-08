@@ -1242,49 +1242,64 @@ async def community_unrecommend(tmdb_id: int = Path(..., ge=1), user=Depends(ver
 async def my_community_recommendations(user=Depends(verify_user)):
     """Kullanıcının topluluğa önerdiği filmler (poster + puan dahil)."""
     user_id = user.get("user_id", 0)
+
+    # Adım 1: Turso'dan sadece tmdb_id'leri al (movie_repository Turso'da yok)
     async with _db_conn(cache.db_path, user_data=True) as db:
         cur = await db.execute("""
-            SELECT cr.tmdb_id, MAX(cr.created_at) as created_at,
-                   mr.title, mr.poster_url, mr.vote_average, mr.release_date, mr.genre_ids
-            FROM community_recommendations cr
-            LEFT JOIN movie_repository mr ON mr.tmdb_id = cr.tmdb_id
-            WHERE cr.user_id = ?
-            GROUP BY cr.tmdb_id
+            SELECT tmdb_id, MAX(created_at) as created_at
+            FROM community_recommendations
+            WHERE user_id = ?
+            GROUP BY tmdb_id
             ORDER BY created_at DESC
             LIMIT 50
         """, (user_id,))
         rows = await cur.fetchall()
 
+    if not rows:
+        return {"recommendations": [], "count": 0}
+
+    ids = [r[0] for r in rows]
+    rec_at_map = {r[0]: r[1] for r in rows}
+    ids_str = ",".join(str(i) for i in ids)
+
+    # Adım 2: Local SQLite'dan film detaylarını al (movie_repository + movie_cache)
+    async with _db_conn(cache.db_path, user_data=False) as db:
+        cur = await db.execute(f"""
+            SELECT tmdb_id, title, poster_url, vote_average, release_date, genre_ids
+            FROM movie_repository WHERE tmdb_id IN ({ids_str})
+        """)
+        repo_rows = {r[0]: r for r in await cur.fetchall()}
+
     # movie_repository'de yoksa movie_cache'e bak
+    missing_ids = [tid for tid in ids if tid not in repo_rows]
+    cache_rows = {}
+    if missing_ids:
+        missing_str = ",".join(str(i) for i in missing_ids)
+        async with _db_conn(cache.db_path, user_data=False) as db:
+            cur = await db.execute(f"""
+                SELECT tmdb_id, title, poster_url, vote_average, release_date
+                FROM movie_cache WHERE tmdb_id IN ({missing_str})
+            """)
+            cache_rows = {r[0]: r for r in await cur.fetchall()}
+
     results = []
-    missing_ids = []
-    for r in rows:
-        if r[2]:  # title var → repo'da bulundu
+    for tid in ids:
+        r = repo_rows.get(tid)
+        if r:
             results.append({
-                "tmdb_id": r[0], "recommended_at": r[1],
-                "title": r[2], "poster_url": r[3],
-                "vote_average": r[4], "release_date": r[5],
-                "genre_ids": json.loads(r[6]) if r[6] else [],
+                "tmdb_id": tid, "recommended_at": rec_at_map[tid],
+                "title": r[1], "poster_url": r[2],
+                "vote_average": r[3], "release_date": r[4],
+                "genre_ids": json.loads(r[5]) if r[5] else [],
             })
         else:
-            missing_ids.append((r[0], r[1]))
-
-    if missing_ids:
-        ids_str = ",".join(str(mid) for mid, _ in missing_ids)
-        async with _db_conn(cache.db_path, user_data=True) as db:
-            cur2 = await db.execute(f"""
-                SELECT tmdb_id, title, poster_url, vote_average, release_date
-                FROM movie_cache WHERE tmdb_id IN ({ids_str})
-            """)
-            cache_rows = {r[0]: r for r in await cur2.fetchall()}
-        for mid, rec_at in missing_ids:
-            cr = cache_rows.get(mid)
+            c = cache_rows.get(tid)
             results.append({
-                "tmdb_id": mid, "recommended_at": rec_at,
-                "title": cr[1] if cr else f"Film #{mid}",
-                "poster_url": cr[2] if cr else None,
-                "vote_average": cr[3] if cr else 0,
-                "release_date": cr[4] if cr else None,
+                "tmdb_id": tid, "recommended_at": rec_at_map[tid],
+                "title": c[1] if c else f"Film #{tid}",
+                "poster_url": c[2] if c else None,
+                "vote_average": c[3] if c else 0,
+                "release_date": c[4] if c else None,
                 "genre_ids": [],
             })
 
