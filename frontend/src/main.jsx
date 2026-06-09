@@ -28,6 +28,12 @@ if (_streak.increased) {
   window.__streakMilestone = _streak.current;
 }
 
+// ?streak=<N> test parametresi — mobilde streak animasyonunu tetiklemek için
+const _streakParam = new URLSearchParams(window.location.search).get('streak');
+if (_streakParam) {
+  window.__streakMilestone = Number(_streakParam);
+}
+
 // Davet linki ?ref=<username> yakala (kayıt öncesi sakla)
 captureReferral();
 if (new URLSearchParams(window.location.search).get('ref')) {

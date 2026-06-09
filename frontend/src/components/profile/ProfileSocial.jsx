@@ -6,7 +6,8 @@ import {
   Eye, Bookmark,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
-import { proxyImageUrl, unrecommendFromCommunity, getMyCommunityRecommendations } from '../../services/api';
+import { proxyImageUrl, unrecommendFromCommunity, getMyCommunityRecommendations, reactToRecommendation } from '../../services/api';
+import RecommendMovieSheet from '../RecommendMovieSheet';
 
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
@@ -85,9 +86,18 @@ export default function ProfileSocial({
   const [addBusy, setAddBusy] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
   const [failedAvatars, setFailedAvatars] = useState(new Set());
+  const [recommendTarget, setRecommendTarget] = useState(null);
 
   const onAvatarError = useCallback((id) => {
     setFailedAvatars(prev => { const n = new Set(prev); n.add(id); return n; });
+  }, []);
+
+  const handleReaction = useCallback(async (recId, reaction) => {
+    try {
+      await reactToRecommendation(recId, reaction);
+      // Optimistic UI: shares state'ini parent'tan geldiği için burada güncelleyemiyoruz
+      // ama bir sonraki polling'de güncellenecek. Alternatif: parent'a callback
+    } catch { /* sessiz */ }
   }, []);
 
   const handleRemoveCommunityRec = useCallback(async (tmdbId) => {
@@ -294,10 +304,16 @@ export default function ProfileSocial({
                           </p>
                           <p className="text-[11px] text-white/35 truncate">@{f.username}</p>
                         </div>
+                        <button onClick={(e) => { e.stopPropagation(); setRecommendTarget(f); }}
+                          className="w-8 h-8 rounded-full flex items-center justify-center
+                            text-white/15 hover:text-amber hover:bg-amber/8
+                            opacity-0 group-hover:opacity-100 sm:opacity-100 transition-all" title="Film Oner">
+                          <Send size={14} />
+                        </button>
                         <button onClick={(e) => { e.stopPropagation(); onRemoveFriend(f.id); }}
                           className="w-8 h-8 rounded-full flex items-center justify-center
                             text-white/15 hover:text-rose-400 hover:bg-rose-500/8
-                            opacity-0 group-hover:opacity-100 sm:opacity-100 transition-all" title="Kaldır">
+                            opacity-0 group-hover:opacity-100 sm:opacity-100 transition-all" title="Kaldir">
                           <X size={14} />
                         </button>
                       </motion.div>
@@ -410,7 +426,7 @@ export default function ProfileSocial({
                   <AnimatePresence initial={false}>
                     {sent.map(s => (
                       <ShareCard key={`sent-${s.id}`} share={s} direction="sent"
-                        onDetail={onDetailMovie} onRetract={onRetractSent}
+                        onDetail={onDetailMovie} onRetract={onRetractSent} onReaction={handleReaction}
                         failedAvatars={failedAvatars} onAvatarError={onAvatarError}
                       />
                     ))}
@@ -423,6 +439,7 @@ export default function ProfileSocial({
                   {shares.map(s => (
                     <ShareCard key={`recv-${s.id}`} share={s} direction="received"
                       onDetail={onDetailMovie}
+                      onReaction={handleReaction}
                       failedAvatars={failedAvatars} onAvatarError={onAvatarError}
                     />
                   ))}
@@ -524,11 +541,18 @@ export default function ProfileSocial({
           )}
         </AnimatePresence>
       )}
+      {/* Film Oner bottom sheet */}
+      {recommendTarget && (
+        <RecommendMovieSheet
+          targetUser={recommendTarget}
+          onClose={() => setRecommendTarget(null)}
+        />
+      )}
     </motion.div>
   );
 }
 
-/* ── Boş durum bileşeni ──────────────────────────────────────── */
+/* ── Bos durum bileseni ──────────────────────────────────────── */
 function EmptyState({ icon: Icon, text, sub }) {
   return (
     <div className="py-10 rounded-2xl bg-[#1a1310]/80 border border-white/[0.04] text-center space-y-4">
@@ -544,10 +568,17 @@ function EmptyState({ icon: Icon, text, sub }) {
 }
 
 /* ── Paylaşım kartı (gelen/gönderilen) ───────────────────────── */
-function ShareCard({ share: s, direction, onDetail, onRetract, failedAvatars, onAvatarError }) {
+const REACTIONS = [
+  { key: 'izlerim', label: 'Izlerim', icon: Check, color: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10' },
+  { key: 'pas', label: 'Pas', icon: X, color: 'text-white/50 border-white/15 bg-white/[0.03]' },
+  { key: 'izledim', label: 'Izledim', icon: Eye, color: 'text-sky-400 border-sky-400/30 bg-sky-400/10' },
+  { key: 'bu-aksam-degil', label: 'Bu Aksam Degil', icon: Bookmark, color: 'text-amber/60 border-amber/25 bg-amber/8' },
+];
+
+function ShareCard({ share: s, direction, onDetail, onRetract, onReaction, failedAvatars, onAvatarError }) {
   const isSent = direction === 'sent';
   const person = isSent ? s.receiver : s.sender;
-  const personLabel = person?.username || person?.name || 'Arkadaş';
+  const personLabel = person?.username || person?.name || 'Arkadas';
 
   return (
     <motion.div
@@ -584,7 +615,7 @@ function ShareCard({ share: s, direction, onDetail, onRetract, failedAvatars, on
               className="w-5 h-5 rounded-full object-cover border border-white/10" referrerPolicy="no-referrer" />
           )}
           <span className="text-[11px] text-ivory/45">
-            {isSent ? 'Önerdiğin →' : ''} <span className="text-amber/70 font-semibold">@{personLabel}</span>
+            {isSent ? 'Onerdigin →' : ''} <span className="text-amber/70 font-semibold">@{personLabel}</span>
           </span>
         </div>
 
@@ -605,6 +636,31 @@ function ShareCard({ share: s, direction, onDetail, onRetract, failedAvatars, on
           <p className="text-[13px] sm:text-[12px] font-serif not-italic sm:italic text-white/70 sm:text-white/50 line-clamp-3 sm:line-clamp-2 leading-relaxed">
             {sanitize(s.user_note)}
           </p>
+        )}
+
+        {/* Reaction buttons (received) / Reaction badge (sent) */}
+        {!isSent && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {REACTIONS.map((r) => {
+              const Icon = r.icon;
+              const active = s.reaction === r.key;
+              return (
+                <button key={r.key}
+                  onClick={() => onReaction?.(s.id, r.key)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase tracking-wider
+                    transition-all active:scale-[0.94] ${active ? r.color + ' ring-1 ring-current' : 'text-white/30 border-white/8 bg-white/[0.02] hover:border-white/15 hover:text-white/50'}`}
+                >
+                  <Icon size={10} /> {r.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {isSent && s.reaction && (
+          <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider pt-0.5
+            ${REACTIONS.find(r => r.key === s.reaction)?.color?.split(' ')[0] || 'text-white/40'}`}>
+            {(() => { const R = REACTIONS.find(r => r.key === s.reaction); return R ? <><R.icon size={10} /> {R.label}</> : s.reaction; })()}
+          </span>
         )}
 
         {/* Actions */}

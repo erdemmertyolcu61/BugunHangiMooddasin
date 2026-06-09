@@ -5,13 +5,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, UserX, Heart, Star } from 'lucide-react';
+import { ChevronLeft, UserX, Heart, Star, Send } from 'lucide-react';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { useAuth } from '../context/AuthContext';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
 import ProfileTasteMap from '../components/profile/ProfileTasteMap';
 import ProfileTimeline from '../components/profile/ProfileTimeline';
 import ShareButtons from '../components/ShareButtons';
+import RecommendMovieSheet from '../components/RecommendMovieSheet';
 
 const MOOD_COLORS = {
   battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
@@ -25,9 +27,11 @@ const MOOD_COLORS = {
 export default function PublicProfile() {
   const { username } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [recommendOpen, setRecommendOpen] = useState(false);
 
   useEffect(() => {
     if (!username) return;
@@ -102,13 +106,23 @@ export default function PublicProfile() {
               isPublic
             />
 
-            {/* Share buttons */}
-            <div className="flex justify-center">
+            {/* Share buttons + Bana Film Oner */}
+            <div className="flex flex-col items-center gap-3">
               <ShareButtons
                 url={profileUrl}
                 text={`${profile.name || username}'in Sinemood profili`}
                 compact
               />
+              {user && String(user.user_id) !== String(profile.id) && (
+                <button
+                  onClick={() => setRecommendOpen(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider
+                             bg-amber/15 text-amber border border-amber/30 hover:bg-amber/25 transition-all"
+                >
+                  <Send size={14} />
+                  Film Oner
+                </button>
+              )}
             </div>
 
             <ProfileStats
@@ -215,6 +229,14 @@ export default function PublicProfile() {
           </>
         )}
       </main>
+
+      {/* Bana Film Oner Sheet */}
+      {recommendOpen && profile && (
+        <RecommendMovieSheet
+          targetUser={{ id: profile.id, name: profile.name, username: profile.username, avatar: profile.picture }}
+          onClose={() => setRecommendOpen(false)}
+        />
+      )}
     </motion.div>
   );
 }

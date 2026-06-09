@@ -670,3 +670,67 @@ async def get_friend_profile(user_id: int, current_user: dict = Depends(get_curr
         "activity": activity,
         "top_moods": top_moods,
     }
+
+
+# ─── Mood Paylaşımı ─────────────────────────────────────────
+
+class MoodShareBody(BaseModel):
+    mood_id: str = Field(..., max_length=30)
+
+@router.post("/mood/share", dependencies=[Depends(rate_limit_strict)])
+async def share_mood(body: MoodShareBody, user: dict = Depends(get_current_user)):
+    """Kullanıcının güncel mood'unu kaydet."""
+    await cache.save_user_mood(user["user_id"], body.mood_id)
+    return {"ok": True, "mood_id": body.mood_id}
+
+@router.get("/mood/friends")
+async def get_friends_moods(user: dict = Depends(get_current_user)):
+    """Arkadaşların son 24 saatteki mood seçimleri."""
+    moods = await cache.get_friends_moods(user["user_id"])
+    return {"moods": moods}
+
+
+# ─── Öneri Reaksiyonları ─────────────────────────────────────
+
+VALID_REACTIONS = {"izlerim", "pas", "izledim", "bu-aksam-degil"}
+
+class ReactionBody(BaseModel):
+    reaction: str = Field(..., max_length=20)
+
+@router.post("/movies/recommend/{rec_id}/reaction")
+async def react_to_recommendation(rec_id: int, body: ReactionBody,
+                                   user: dict = Depends(get_current_user)):
+    """Alınan bir öneriye reaksiyon koy."""
+    if body.reaction not in VALID_REACTIONS:
+        raise HTTPException(400, f"Geçersiz reaksiyon. Seçenekler: {VALID_REACTIONS}")
+    ok = await cache.set_recommendation_reaction(rec_id, user["user_id"], body.reaction)
+    if not ok:
+        raise HTTPException(404, "Öneri bulunamadı veya sana ait değil")
+    return {"ok": True, "reaction": body.reaction}
+
+
+# ─── Sosyal Akış (Feed) ─────────────────────────────────────
+
+@router.get("/feed")
+async def social_feed(user: dict = Depends(get_current_user)):
+    """Birleşik sosyal akış: arkadaş mood'ları + aktivite + öneriler."""
+    uid = user["user_id"]
+    moods = await cache.get_friends_moods(uid)
+    activities = await cache.get_friends_activity(uid, limit=15)
+    received = await cache.get_received_recommendations(uid, limit=5)
+    # Öneri meta verisini doldur
+    movie_ids = [r["movie_id"] for r in received]
+    meta = {}
+    if movie_ids:
+        meta = await cache.get_movies_meta_by_ids(movie_ids)
+        await _fill_missing_posters(meta, movie_ids)
+    for r in received:
+        m = meta.get(r["movie_id"], {})
+        r["movie_title"] = m.get("title", "")
+        r["poster_url"] = m.get("poster_url", "")
+        r["vote_average"] = m.get("vote_average")
+    return {
+        "friend_moods": moods,
+        "activities": activities,
+        "recommendations": received,
+    }

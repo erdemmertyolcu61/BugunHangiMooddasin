@@ -721,6 +721,14 @@ class MovieCache:
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id)"
             )
+            # user_moods — kullanıcının seçili mood'u (tekil, UPSERT)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_moods (
+                    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+                    mood_id TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             # is_pwa migration (güvenli ALTER TABLE)
             try:
                 await db.execute("ALTER TABLE push_subscriptions ADD COLUMN is_pwa INTEGER DEFAULT 0")
@@ -731,6 +739,11 @@ class MovieCache:
                 await db.execute("ALTER TABLE push_subscriptions ADD COLUMN notify_hour INTEGER DEFAULT 18")
             except Exception:
                 logger.warning("[DB] ALTER push_subscriptions ADD notify_hour failed")
+            # reaction migration (öneri reaksiyonları)
+            try:
+                await db.execute("ALTER TABLE direct_recommendations ADD COLUMN reaction TEXT")
+            except Exception:
+                logger.warning("[DB] ALTER direct_recommendations ADD reaction failed")
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -840,6 +853,11 @@ class MovieCache:
                 notify_hour INTEGER DEFAULT 18,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
+            """CREATE TABLE IF NOT EXISTS user_moods (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id),
+                mood_id TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
         ]
         for stmt in stmts:
             await _turso_client.execute(stmt)
@@ -863,6 +881,7 @@ class MovieCache:
             "CREATE INDEX IF NOT EXISTS idx_user_lists_user ON user_lists(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id)",
             "ALTER TABLE users ADD COLUMN hide_activity INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE direct_recommendations ADD COLUMN reaction TEXT",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -1242,7 +1261,7 @@ class MovieCache:
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
                 """SELECT d.id, d.movie_id, d.user_note, d.created_at, d.is_read,
-                          u.id, u.username, u.name, u.picture
+                          u.id, u.username, u.name, u.picture, d.reaction
                    FROM direct_recommendations d JOIN users u ON u.id = d.sender_id
                    WHERE d.receiver_id = ? AND d.dismissed = 0
                    ORDER BY d.created_at DESC LIMIT ?""",
@@ -1251,7 +1270,8 @@ class MovieCache:
             rows = await cur.fetchall()
             return [{"id": r[0], "movie_id": r[1], "user_note": r[2], "created_at": r[3],
                      "is_read": bool(r[4]),
-                     "sender": {"id": r[5], "username": r[6], "name": r[7], "avatar": r[8]}}
+                     "sender": {"id": r[5], "username": r[6], "name": r[7], "avatar": r[8]},
+                     "reaction": r[9] if len(r) > 9 else None}
                     for r in rows]
 
     async def get_sent_recommendations(self, user_id: int, limit: int = 60) -> list:
@@ -1259,7 +1279,7 @@ class MovieCache:
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
                 """SELECT d.id, d.movie_id, d.user_note, d.created_at, d.is_read,
-                          u.id, u.username, u.name, u.picture
+                          u.id, u.username, u.name, u.picture, d.reaction
                    FROM direct_recommendations d JOIN users u ON u.id = d.receiver_id
                    WHERE d.sender_id = ?
                    ORDER BY d.created_at DESC LIMIT ?""",
@@ -1268,7 +1288,8 @@ class MovieCache:
             rows = await cur.fetchall()
             return [{"id": r[0], "movie_id": r[1], "user_note": r[2], "created_at": r[3],
                      "is_read": bool(r[4]),
-                     "receiver": {"id": r[5], "username": r[6], "name": r[7], "avatar": r[8]}}
+                     "receiver": {"id": r[5], "username": r[6], "name": r[7], "avatar": r[8]},
+                     "reaction": r[9] if len(r) > 9 else None}
                     for r in rows]
 
     async def count_pending_requests(self, user_id: int) -> int:
@@ -1306,6 +1327,49 @@ class MovieCache:
                     (user_id,),
                 )
             await db.commit()
+
+    # ── Mood paylaşımı ─────────────────────────────────────────
+    async def save_user_mood(self, user_id: int, mood_id: str) -> None:
+        """Kullanıcının güncel mood'unu kaydet (UPSERT)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            await db.execute(
+                "INSERT INTO user_moods (user_id, mood_id, updated_at) VALUES (?, ?, datetime('now')) "
+                "ON CONFLICT(user_id) DO UPDATE SET mood_id = excluded.mood_id, updated_at = excluded.updated_at",
+                (user_id, mood_id),
+            )
+            await db.commit()
+
+    async def get_friends_moods(self, user_id: int) -> list:
+        """Arkadaşların son 24 saatteki mood seçimleri."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT u.id, u.username, u.name, u.picture, m.mood_id, m.updated_at
+                   FROM user_moods m
+                   JOIN users u ON u.id = m.user_id
+                   JOIN friendships f ON (
+                       (f.user_id = ? AND f.friend_id = m.user_id)
+                       OR (f.friend_id = ? AND f.user_id = m.user_id)
+                   )
+                   WHERE f.status = 'ACCEPTED'
+                     AND u.hide_activity = 0
+                     AND m.updated_at > datetime('now', '-24 hours')
+                   ORDER BY m.updated_at DESC""",
+                (user_id, user_id),
+            )
+            rows = await cur.fetchall()
+            return [{"user_id": r[0], "username": r[1], "name": r[2], "avatar": r[3],
+                     "mood_id": r[4], "updated_at": r[5]} for r in rows]
+
+    # ── Öneri reaksiyonları ──────────────────────────────────
+    async def set_recommendation_reaction(self, rec_id: int, user_id: int, reaction: str) -> bool:
+        """Alıcı bir öneriye reaksiyon koyar."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "UPDATE direct_recommendations SET reaction = ? WHERE id = ? AND receiver_id = ?",
+                (reaction, rec_id, user_id),
+            )
+            await db.commit()
+            return cur.rowcount > 0
 
     async def is_auto_username(self, user_id: int) -> bool:
         """Kullanıcının username'i otomatik backfill mi (örn. email_123) yoksa custom mı?"""

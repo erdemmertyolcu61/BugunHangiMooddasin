@@ -40,7 +40,7 @@ export default function StreakCelebration() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
           onClick={() => setN(null)}
-          className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/65 backdrop-blur-sm cursor-pointer p-6"
+          className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 cursor-pointer p-6"
         >
           <motion.div
             initial={{ scale: 0.82, y: 24, opacity: 0 }}
@@ -54,12 +54,13 @@ export default function StreakCelebration() {
               path="/lottie/streak-fire.json"
               loop={false}
               autoplay
+              renderer="canvas"
               preserveAspectRatio="xMidYMid slice"
               className="absolute inset-0 w-full h-full"
             />
             <button onClick={() => setN(null)}
-              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm
-                flex items-center justify-center text-ivory/60 hover:text-ivory hover:bg-black/50 transition-all">
+              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40
+                flex items-center justify-center text-ivory/60 hover:text-ivory hover:bg-black/60 transition-all">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

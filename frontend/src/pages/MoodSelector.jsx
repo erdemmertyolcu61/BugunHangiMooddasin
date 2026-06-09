@@ -13,7 +13,7 @@ import { playMoodAudio, preloadMoodAudio } from '../utils/moodAudioManager';
 import QuizModal from '../components/QuizModal';
 import MovieCard from '../components/MovieCard';
 import FilmDetailModal from '../components/FilmDetailModal';
-import { searchMovies } from '../services/api';
+import { searchMovies, shareMood } from '../services/api';
 
 const moodList = Object.values(MOODS);
 
@@ -104,13 +104,16 @@ export default function MoodSelector() {
     track(EVENTS.MOOD_SELECT, { mood: mood.id });
     try { playMoodAudio(mood.id); } catch(e) {}
     selectMood(mood.id);
+    // Implicit mood sharing (fire-and-forget, giriş yapmışsa)
+    if (user) shareMood(mood.id).catch(() => {});
     import('../pages/Discover').catch(() => {});
     navigate('/discover');
-  }, [selectMood, navigate]);
+  }, [selectMood, navigate, user]);
 
   const handleQuizComplete = (moodId) => {
     try { playMoodAudio(moodId); } catch(e) {}
     selectMood(moodId);
+    if (user) shareMood(moodId).catch(() => {});
     setQuizOpen(false);
     navigate('/discover');
   };

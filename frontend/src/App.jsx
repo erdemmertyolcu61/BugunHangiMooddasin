@@ -60,6 +60,7 @@ const PublicProfile = lazyRetry(() => import('./pages/PublicProfile'));
 const DailyFilm = lazyRetry(() => import('./pages/DailyFilm'));
 const Gizlilik = lazyRetry(() => import('./pages/Gizlilik'));
 const MoodOracle = lazyRetry(() => import('./pages/MoodOracle'));
+const MoodFeed = lazyRetry(() => import('./components/social/MoodFeed'));
 
 import { useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
@@ -153,6 +154,7 @@ function AppContent() {
             <Route path="/gunun-filmi" element={<DailyFilm />} />
             <Route path="/gizlilik" element={<Gizlilik />} />
             <Route path="/oyun" element={<MoodOracle />} />
+            <Route path="/feed" element={<MoodFeed />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

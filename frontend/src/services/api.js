@@ -718,6 +718,42 @@ export async function dismissShare(shareId) {
   return res.json();
 }
 
+// ─── Mood Paylaşımı ─────────────────────────────────────────────────────
+export async function shareMood(moodId) {
+  try {
+    const res = await fetch(`${BASE}/mood/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ mood_id: moodId }),
+    });
+    return res.ok ? res.json() : { ok: false };
+  } catch { return { ok: false }; }
+}
+
+export async function getFriendsMoods() {
+  const res = await fetch(`${BASE}/mood/friends`, { headers: { ...authHeaders() } });
+  if (!res.ok) return { moods: [] };
+  return res.json();
+}
+
+// ─── Öneri Reaksiyonları ────────────────────────────────────────────────
+export async function reactToRecommendation(recId, reaction) {
+  const res = await fetch(`${BASE}/movies/recommend/${recId}/reaction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ reaction }),
+  });
+  if (!res.ok) return { ok: false };
+  return res.json();
+}
+
+// ─── Sosyal Akış (Feed) ────────────────────────────────────────────────
+export async function getSocialFeed() {
+  const res = await fetch(`${BASE}/feed`, { headers: { ...authHeaders() } });
+  if (!res.ok) return { friend_moods: [], activities: [], recommendations: [] };
+  return res.json();
+}
+
 // ─── Film beğeni (like/dislike) — giriş zorunlu, backend ──────────────────
 export function isLoggedIn() {
   return !!(window.__fc_user_token || localStorage.getItem('fc_user_token'));

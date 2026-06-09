@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clapperboard, Compass, BookMarked, BookOpen, Brain } from 'lucide-react';
+import { Clapperboard, Compass, BookMarked, BookOpen, Activity } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
-  { label: 'Ruh Halim', icon: Brain, action: 'mood-quiz', match: () => false },
+  { label: 'Akis', icon: Activity, path: '/feed', match: (p) => p === '/feed' },
   { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
-  { label: 'Kafan mı Karışık?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
+  { label: 'Kafan mi Karisik?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];
 
@@ -20,16 +20,6 @@ export default function BottomNav() {
   const path = location.pathname;
 
   const handlePress = (item) => {
-    if (item.action === 'mood-quiz') {
-      // "Bugünkü Ruh Halim" quiz'i MoodSelector (/) içinde yaşıyor.
-      sessionStorage.setItem('open_mood_quiz', '1');
-      if (path === '/') {
-        window.dispatchEvent(new CustomEvent('open-mood-quiz'));
-      } else {
-        navigate('/');
-      }
-      return;
-    }
     navigate(item.path);
   };
 

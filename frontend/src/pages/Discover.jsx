@@ -20,6 +20,7 @@ import { useCache } from '../hooks/useCache';
 import MoodBackdrop from '../components/discover/MoodBackdrop';
 import DiscoverHeader from '../components/discover/DiscoverHeader';
 import SortControl from '../components/discover/SortControl';
+import MoodShareCard from '../components/MoodShareCard';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';         // Grid posters (küçük, hızlı)
 const IMG_BASE_LG = 'https://image.tmdb.org/t/p/original';  // Modal detail poster (tam kalite)
@@ -107,6 +108,7 @@ export default function Discover() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [quizOpen, setQuizOpen] = useState(false);
+  const [moodShareOpen, setMoodShareOpen] = useState(false);
 
   const searchTimeout = useRef(null);
   const lastRequestId = useRef(0);
@@ -631,6 +633,7 @@ export default function Discover() {
           searchQuery={searchQuery}
           onSearch={handleSearch}
           onOpenQuiz={() => setQuizOpen(true)}
+          onShareMood={() => setMoodShareOpen(true)}
         />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-14 sm:space-y-24 pb-nav md:pb-32">
@@ -820,6 +823,10 @@ export default function Discover() {
       />
 
       <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} onComplete={handleQuizComplete} />
+
+      {moodShareOpen && selectedMood && (
+        <MoodShareCard mood={selectedMood} onClose={() => setMoodShareOpen(false)} />
+      )}
 
         </motion.div>
       </AnimatePresence>
