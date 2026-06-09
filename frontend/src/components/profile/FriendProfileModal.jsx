@@ -91,7 +91,7 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
 
       {/* Modal */}
       <motion.div
-        className="fixed inset-0 z-[1101] flex items-start sm:items-center justify-center overflow-y-auto py-4 sm:py-8"
+        className="fixed inset-0 z-[1101] flex items-end sm:items-center justify-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -99,12 +99,18 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
 
         <motion.div
-          initial={{ scale: 0.94, y: 24, opacity: 0 }}
+          initial={{ scale: 0.97, y: 60, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
-          exit={{ scale: 0.94, y: 24, opacity: 0 }}
+          exit={{ scale: 0.97, y: 60, opacity: 0 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-lg mx-4 rounded-2xl bg-[#1a1210] border border-white/[0.06] shadow-2xl overflow-hidden"
+          className="relative w-full sm:max-w-lg sm:mx-4 rounded-t-2xl sm:rounded-2xl bg-[#1a1210]
+            border-t sm:border border-white/[0.06] shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[85vh]"
         >
+          {/* Mobile drag handle */}
+          <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+            <div className="w-10 h-1 rounded-full bg-white/20" />
+          </div>
+
           {/* Close */}
           <button onClick={onClose}
             className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm
@@ -135,7 +141,7 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
           )}
 
           {!loading && !error && profile && (
-            <div className="max-h-[85vh] overflow-y-auto overscroll-contain">
+            <div className="max-h-[88vh] sm:max-h-[80vh] overflow-y-auto overscroll-contain">
               <div className="p-5 sm:p-6 space-y-6">
 
                 {/* Header: Avatar (clickable) + Name + Join Date */}

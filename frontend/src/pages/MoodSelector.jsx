@@ -226,7 +226,7 @@ export default function MoodSelector() {
               </div>
             </div>
             {searchLoading && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 sm:gap-x-5 gap-y-4 sm:gap-y-6">
                 {Array.from({ length: 10 }).map((_, i) => (
                   <div key={i} className="aspect-[2/3] rounded-[2.5rem] animate-pulse overflow-hidden" style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.08)' }}>
                     <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.06) 0%, rgba(0,0,0,0.3) 50%, rgba(212,175,55,0.06) 100%)', backgroundSize: '200% 200%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
@@ -244,7 +244,7 @@ export default function MoodSelector() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-ivory/20">
                   <span className="text-amber/60">{searchResults.length}</span> sonuç
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 sm:gap-x-5 gap-y-4 sm:gap-y-6">
                   {searchResults.map((movie) => (
                     <MovieCard
                       key={movie.id}

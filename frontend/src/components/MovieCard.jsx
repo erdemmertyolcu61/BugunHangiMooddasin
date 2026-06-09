@@ -118,7 +118,7 @@ function MovieCard({ movie, isSaved, isWatched, onQuickSave, onQuickWatched, onA
         </button>
       </div>
 
-      <div className="mt-2 sm:mt-5 px-1 sm:px-4">
+      <div className="mt-1.5 sm:mt-3 px-0.5 sm:px-2">
         <h3 className="text-[15px] sm:text-lg font-sans font-semibold text-ivory leading-tight line-clamp-2 mb-1.5">
           {movie.title}
         </h3>
