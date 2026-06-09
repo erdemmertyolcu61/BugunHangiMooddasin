@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Book, BookOpen, X, Brain, Users, Search, Share2 } from 'lucide-react';
+import { ChevronLeft, Book, BookOpen, X, Brain, Users, Search } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 
 /**
@@ -9,7 +9,7 @@ import { resolveAvatarUrl } from '../../utils/apiConfig';
  * yönetilir; parent yalnız arama metnini ve callback'leri verir.
  * (Discover.jsx'ten ayrıştırıldı — davranış birebir korunur.)
  */
-export default function DiscoverHeader({ selectedMood, user, searchQuery, onSearch, onOpenQuiz, onShareMood }) {
+export default function DiscoverHeader({ selectedMood, user, searchQuery, onSearch, onOpenQuiz }) {
   const navigate = useNavigate();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileSearchRef = useRef(null);
@@ -87,14 +87,6 @@ export default function DiscoverHeader({ selectedMood, user, searchQuery, onSear
             <Brain size={16} className="text-bg/80 shrink-0" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugunku Ruh Halim</span>
           </button>
-          {onShareMood && (
-            <button onClick={onShareMood}
-              title="Mood'unu Paylas"
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 hover:border-amber/30 transition-all tap-target">
-              <Share2 size={14} className="text-amber/70" />
-              <span className="hidden md:inline text-[9px] font-bold uppercase tracking-widest text-ivory/60">Paylas</span>
-            </button>
-          )}
           <button onClick={() => navigate('/listeler')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
             <BookOpen size={16} className="text-amber group-hover:scale-110 transition-transform" />
             <span className="text-[10px] font-bold uppercase tracking-widest">Listeler</span>
