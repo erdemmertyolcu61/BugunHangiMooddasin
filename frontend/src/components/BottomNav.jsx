@@ -1,12 +1,13 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clapperboard, Compass, BookMarked, BookOpen, Activity } from 'lucide-react';
+import { Clapperboard, Compass, BookMarked, BookOpen, Activity, Brain } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
-  { label: 'Akis', icon: Activity, path: '/feed', match: (p) => p === '/feed' },
+  { label: 'Ruh Halim', icon: Brain, path: null, match: (p) => false },
   { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
   { label: 'Kafan mi Karisik?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
+  { label: 'Akis', icon: Activity, path: '/feed', match: (p) => p === '/feed' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];
 
@@ -20,6 +21,15 @@ export default function BottomNav() {
   const path = location.pathname;
 
   const handlePress = (item) => {
+    if (item.label === 'Ruh Halim') {
+      if (path === '/' || path === '/moodlar') {
+        window.dispatchEvent(new CustomEvent('open-mood-quiz'));
+      } else {
+        sessionStorage.setItem('open_mood_quiz', '1');
+        navigate('/');
+      }
+      return;
+    }
     navigate(item.path);
   };
 

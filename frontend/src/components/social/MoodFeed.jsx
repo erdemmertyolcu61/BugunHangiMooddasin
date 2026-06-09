@@ -63,17 +63,17 @@ export default function MoodFeed() {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="min-h-screen pb-28 pt-4 px-4 sm:px-6 max-w-2xl mx-auto"
+      className="min-h-screen pb-28 pt-2 sm:pt-4 px-2 sm:px-6 max-w-2xl mx-auto"
     >
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
         <button onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
-          <ChevronLeft size={20} className="text-ivory/70" />
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
+          <ChevronLeft size={16} className="sm:size-[20px] text-ivory/70" />
         </button>
         <div>
-          <h1 className="font-serif text-2xl font-bold text-ivory">Akis</h1>
-          <p className="text-[11px] text-white/35">Arkadaslarinin sinema dunyasi</p>
+          <h1 className="font-serif text-xl sm:text-2xl font-bold text-ivory leading-tight">Akis</h1>
+          <p className="text-[10px] sm:text-[11px] text-white/35">Arkadaslarinin sinema dunyasi</p>
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export default function MoodFeed() {
           </div>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {/* Gunun Filmi */}
           <DailyFilmBanner />
 
@@ -96,7 +96,7 @@ export default function MoodFeed() {
           {feed?.friend_moods?.length > 0 && (
             <section>
               <SectionHeader icon={Activity} text="Arkadaslarin Mood'u" />
-              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
+              <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-2 sm:-mx-4 px-2 sm:px-4">
                 {feed.friend_moods.map((fm) => {
                   const mood = MOODS[fm.mood_id];
                   const MoodIcon = mood?.icon;
@@ -104,10 +104,10 @@ export default function MoodFeed() {
                   return (
                     <motion.div key={fm.user_id}
                       initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      className="shrink-0 w-[160px] p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05] space-y-2.5"
+                      className="shrink-0 w-[130px] sm:w-[160px] p-3 sm:p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05] space-y-2 sm:space-y-2.5"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 shrink-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-white/10 shrink-0">
                           {fm.avatar ? (
                             <img src={resolveAvatarUrl(fm.avatar)} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -116,21 +116,21 @@ export default function MoodFeed() {
                             </div>
                           )}
                         </div>
-                        <p className="text-[12px] font-semibold text-ivory truncate">@{fm.username}</p>
+                        <p className="text-[10px] sm:text-[12px] font-semibold text-ivory truncate">@{fm.username}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {MoodIcon && <MoodIcon size={16} style={{ color }} />}
-                        <span className="text-[13px] font-serif font-bold" style={{ color }}>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        {MoodIcon && <MoodIcon size={14} className="sm:size-[16px]" style={{ color }} />}
+                        <span className="text-[11px] sm:text-[13px] font-serif font-bold" style={{ color }}>
                           {mood?.title || fm.mood_id}
                         </span>
                       </div>
-                      <p className="text-[10px] text-white/30">{timeAgo(fm.updated_at)}</p>
+                      <p className="text-[9px] sm:text-[10px] text-white/30">{timeAgo(fm.updated_at)}</p>
                       <button
                         onClick={() => setRecommendTarget({ id: fm.user_id, name: fm.name, username: fm.username, avatar: fm.avatar })}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-wider
                           bg-amber/12 border border-amber/20 text-amber hover:bg-amber/20 transition-all"
                       >
-                        <Send size={10} /> Film Oner
+                        <Send size={9} className="sm:size-[10px]" /> Film Oner
                       </button>
                     </motion.div>
                   );
