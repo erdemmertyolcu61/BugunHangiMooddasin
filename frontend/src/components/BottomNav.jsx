@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: 'Ruh Halim', icon: Brain, path: null, match: (p) => false },
   { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
   { label: 'Kafan mi Karisik?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
-  { label: 'Akis', icon: Activity, path: '/feed', match: (p) => p === '/feed' },
+  { label: 'Akış', icon: Activity, path: '/feed', match: (p) => p === '/feed' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];
 

@@ -1340,7 +1340,7 @@ class MovieCache:
             await db.commit()
 
     async def get_friends_moods(self, user_id: int) -> list:
-        """Arkadaşların son 24 saatteki mood seçimleri."""
+        """Arkadaşların son 7 gündeki mood seçimleri."""
         async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
                 """SELECT u.id, u.username, u.name, u.picture, m.mood_id, m.updated_at
@@ -1352,7 +1352,7 @@ class MovieCache:
                    )
                    WHERE f.status = 'ACCEPTED'
                      AND u.hide_activity = 0
-                     AND m.updated_at > datetime('now', '-24 hours')
+                     AND m.updated_at > datetime('now', '-7 days')
                    ORDER BY m.updated_at DESC""",
                 (user_id, user_id),
             )

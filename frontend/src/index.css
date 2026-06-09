@@ -119,6 +119,15 @@
 /* Panel/koyu yüzey zeminleri → açık bej */
 [data-theme="light"] [class*="bg-[#161010]"] { background-color: #f3ecdb !important; color: #2a2017; }
 
+/* DailyFilmBanner gradient stop'lari -> bej tonlari */
+[data-theme="light"] [class*="from-[#1a1210]"],
+[data-theme="light"] [class*="via-[#17100d]"],
+[data-theme="light"] [class*="to-[#1a1210]"] {
+  --tw-gradient-from: #ece2cd !important;
+  --tw-gradient-via: #f3ecdb !important;
+  --tw-gradient-to: #ece2cd !important;
+}
+
 /* ── Latte kapsam genişletme — daha iyi okunabilirlik ──────────────────
    Override sheet'in kaçırdığı koyu yüzeyler ve silik metinler. Böylece
    token kullanmayan bileşenler de (örn. zinc/slate paletli) latte'de okunur. */
