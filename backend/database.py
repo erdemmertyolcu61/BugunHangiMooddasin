@@ -1432,6 +1432,26 @@ class MovieCache:
                 for r in rows
             ]
 
+    async def get_user_activity(self, user_id: int, limit: int = 20) -> list:
+        """Tek kullanıcının son watchlist aktivitesi (sayfa/kullanıcı profili için)."""
+        async with _get_connection(self.db_path, user_data=True) as db:
+            cursor = await db.execute("""
+                SELECT tmdb_id, title, poster_url, watched,
+                       COALESCE(watched_at, added_at) as action_at,
+                       CASE WHEN watched = 1 THEN 'watched' ELSE 'saved' END as action_type
+                FROM watchlist WHERE user_id = ?
+                  AND added_at > datetime('now', '-14 days')
+                ORDER BY action_at DESC LIMIT ?
+            """, (user_id, limit))
+            rows = await cursor.fetchall()
+            return [
+                {
+                    "tmdb_id": r[0], "title": r[1], "poster_url": r[2],
+                    "watched": bool(r[3]), "action_at": r[4], "action_type": r[5],
+                }
+                for r in rows
+            ]
+
     async def set_hide_activity(self, user_id: int, hide: bool) -> None:
         async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(

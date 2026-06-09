@@ -28,6 +28,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import NotificationsBell from '../components/NotificationsBell';
 import FilmDetailModal from '../components/FilmDetailModal';
 import EditProfileModal from '../components/EditProfileModal';
+import FriendProfileModal from '../components/profile/FriendProfileModal';
 import ShareButtons from '../components/ShareButtons';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
@@ -204,6 +205,7 @@ export default function Profil() {
 
   /* ─── Friend Activity ──────────────────────────────────────────── */
   const [friendActivity, setFriendActivity] = useState([]);
+  const [selectedFriend, setSelectedFriend] = useState(null);
 
   /* ─── Shares ───────────────────────────────────────────────────── */
   const [shares, setShares] = useState([]);
@@ -318,6 +320,14 @@ export default function Profil() {
     } catch (err) {
       setSocialError(err?.message || 'Arkadaş silinemedi.');
     }
+  }, []);
+
+  const handleFriendClick = useCallback((friend) => {
+    setSelectedFriend(friend);
+  }, []);
+
+  const handleMovieDetail = useCallback((item) => {
+    setDetailMovie({ id: item.tmdb_id, ...item });
   }, []);
 
   const handleRetractSent = useCallback((recId) => {
@@ -566,6 +576,7 @@ export default function Profil() {
                 onAddFriend={handleAddFriend}
                 onRetractSent={handleRetractSent}
                 onDetailMovie={setDetailMovie}
+                onFriendClick={handleFriendClick}
                 respondLoading={respondLoading}
               />
             </div>
@@ -609,6 +620,13 @@ export default function Profil() {
             setEditProfileOpen(false);
             getMe().then((data) => updateUser(data)).catch(() => {});
           }}
+        />
+      )}
+      {selectedFriend && (
+        <FriendProfileModal
+          friend={selectedFriend}
+          onClose={() => setSelectedFriend(null)}
+          onDetailMovie={handleMovieDetail}
         />
       )}
     </motion.div>

@@ -593,6 +593,17 @@ export async function removeFriend(friendId) {
   return res.json();
 }
 
+export async function getFriendProfile(userId) {
+  const res = await fetch(`${BASE}/friends/${userId}/profile`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Profil yüklenemedi');
+  }
+  return res.json();
+}
+
 // --- Arkadaşıma Öner (Direct Film Sharing / Social) ---
 
 async function _socialError(res, fallback) {

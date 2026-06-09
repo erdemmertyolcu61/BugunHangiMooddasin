@@ -536,3 +536,102 @@ async def set_activity_visibility(body: ActivityVisibilityBody, user: dict = Dep
     uid = user["user_id"]
     await cache.set_hide_activity(uid, body.hide_activity)
     return {"ok": True, "hide_activity": body.hide_activity}
+
+
+@router.get("/friends/{user_id}/profile")
+async def get_friend_profile(user_id: int, current_user: dict = Depends(get_current_user)):
+    """Arkadaşın detaylı profili (auth + arkadaş kontrolü)."""
+    me = current_user["user_id"]
+
+    if not await cache.are_friends(me, user_id):
+        raise HTTPException(403, "Bu kullanıcı arkadaşın değil")
+
+    friend_info = await cache.get_user_by_username_by_id(user_id)
+    if not friend_info:
+        raise HTTPException(404, "Kullanıcı bulunamadı")
+
+    # Watchlist + istatistikler
+    try:
+        watchlist = await cache.get_watchlist(user_id)
+    except Exception:
+        logger.warning("[FriendProfile] get_watchlist failed for uid=%d", user_id)
+        watchlist = []
+
+    watched = [m for m in watchlist if m.get("watched")]
+    watchlist_preview = watchlist[:10]
+
+    # Bu ay sayısı
+    from datetime import datetime
+    now = datetime.now()
+    this_month_count = 0
+    for m in watchlist:
+        try:
+            d = datetime.fromisoformat(str(m.get("added_at", "")).replace(" ", "T"))
+            if d.month == now.month and d.year == now.year:
+                this_month_count += 1
+        except Exception:
+            pass
+
+    # Taste map
+    taste_map = None
+    try:
+        cached_profile = await cache.get_taste_profile(user_id)
+        if cached_profile and cached_profile.get("profile_data"):
+            taste_map = cached_profile["profile_data"]
+    except Exception:
+        logger.warning("[FriendProfile] get_taste_profile failed for uid=%d", user_id)
+
+    # Top moods
+    top_moods = []
+    if taste_map and isinstance(taste_map, dict):
+        top_moods = taste_map.get("top_moods", [])
+
+    # Son aktivite (hide_activity=0 ise)
+    activity = []
+    try:
+        if not await cache.get_hide_activity(user_id):
+            activity = await cache.get_user_activity(user_id, limit=15)
+    except Exception:
+        logger.warning("[FriendProfile] get_user_activity failed for uid=%d", user_id)
+
+    # Topluluk önerileri (son 4)
+    community_recs = []
+    try:
+        from backend.database import _get_connection as _db_conn
+        async with _db_conn(cache.db_path, user_data=True) as db:
+            cur = await db.execute(
+                """SELECT tmdb_id FROM community_recommendations
+                   WHERE user_id = ? GROUP BY tmdb_id
+                   ORDER BY MAX(created_at) DESC LIMIT 4""",
+                (user_id,),
+            )
+            rec_ids = [r[0] for r in await cur.fetchall()]
+        if rec_ids:
+            meta = await cache.get_movies_meta_by_ids(rec_ids)
+            await _fill_missing_posters(meta, rec_ids)
+            for tid in rec_ids:
+                m = meta.get(tid)
+                if m and m.get("poster_url"):
+                    community_recs.append({
+                        "tmdb_id": tid,
+                        "title": m.get("title", ""),
+                        "poster_url": m["poster_url"],
+                        "vote_average": m.get("vote_average"),
+                    })
+    except Exception:
+        logger.warning("[FriendProfile] community_recs failed for uid=%d", user_id)
+
+    return {
+        "id": user_id,
+        "username": friend_info.get("username", ""),
+        "name": friend_info.get("name", ""),
+        "picture": friend_info.get("picture") or "",
+        "watched_count": len(watched),
+        "saved_count": len(watchlist),
+        "this_month_count": this_month_count,
+        "watchlist_preview": watchlist_preview,
+        "taste_map": taste_map,
+        "community_recs": community_recs,
+        "activity": activity,
+        "top_moods": top_moods,
+    }

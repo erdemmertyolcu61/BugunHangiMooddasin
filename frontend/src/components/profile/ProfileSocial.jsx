@@ -77,6 +77,7 @@ export default function ProfileSocial({
   onAddFriend,
   onRetractSent,
   onDetailMovie,
+  onFriendClick,
 }) {
   const [activeTab, setActiveTab] = useState('friends');
   const [shareDir, setShareDir] = useState('received');
@@ -281,7 +282,8 @@ export default function ProfileSocial({
                         exit={{ opacity: 0, x: -60, transition: { duration: 0.25 } }}
                         transition={{ delay: i * 0.03 }}
                         className="group flex items-center gap-3 p-3 rounded-xl
-                          hover:bg-white/[0.03] transition-all duration-200 cursor-default"
+                          hover:bg-white/[0.03] transition-all duration-200 cursor-pointer"
+                        onClick={() => onFriendClick?.(f)}
                       >
                         <Avatar
                           src={f.avatar} name={f.username || f.name} size={42} ring
@@ -293,7 +295,7 @@ export default function ProfileSocial({
                           </p>
                           <p className="text-[11px] text-white/35 truncate">@{f.username}</p>
                         </div>
-                        <button onClick={() => onRemoveFriend(f.id)}
+                        <button onClick={(e) => { e.stopPropagation(); onRemoveFriend(f.id); }}
                           className="w-8 h-8 rounded-full flex items-center justify-center
                             text-white/15 hover:text-rose-400 hover:bg-rose-500/8
                             opacity-0 group-hover:opacity-100 sm:opacity-100 transition-all" title="Kaldır">
