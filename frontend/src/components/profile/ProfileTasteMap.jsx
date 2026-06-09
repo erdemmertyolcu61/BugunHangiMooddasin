@@ -39,7 +39,7 @@ function SectionLabel({ icon: Icon, children }) {
  * Zevk Haritası profil bölümü — moodlar, türler, dönem, tempo/stil/süre, Üstad analizi.
  * İki temaya da uyumlu (semantik token'lar). Props: tasteMap, loading, username, profileUrl.
  */
-export default function ProfileTasteMap({ tasteMap, loading = false, username = '', profileUrl = '' }) {
+export default function ProfileTasteMap({ tasteMap, loading = false, username = '', profileUrl = '', hideAnalysis = false }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -292,7 +292,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
           )}
 
           {/* ─── Üstad'ın Analizi ─── */}
-          {tasteMap.summary?.length > 0 && (
+          {!hideAnalysis && tasteMap.summary?.length > 0 && (
             <div className="space-y-4">
               <div className="h-px bg-gradient-to-r from-transparent via-border-default to-transparent" />
               <SectionLabel icon={Brain}>Üstad'ın Analizi</SectionLabel>
@@ -325,9 +325,11 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
           </div>
 
           {/* ─── Share card ─── */}
-          <div className="pt-2">
-            <TasteMapCard tasteMap={tasteMap} username={username} profileUrl={profileUrl} />
-          </div>
+          {!hideAnalysis && (
+            <div className="pt-2">
+              <TasteMapCard tasteMap={tasteMap} username={username} profileUrl={profileUrl} />
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

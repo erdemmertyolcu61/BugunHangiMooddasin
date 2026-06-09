@@ -550,6 +550,18 @@ async def get_friend_profile(user_id: int, current_user: dict = Depends(get_curr
     if not friend_info:
         raise HTTPException(404, "Kullanıcı bulunamadı")
 
+    # Katılma tarihi — users tablosundan doğrudan çek
+    created_at = None
+    try:
+        from backend.database import _get_connection as _db_conn_inner
+        async with _db_conn_inner(cache.db_path, user_data=True) as db:
+            cur = await db.execute("SELECT created_at FROM users WHERE id = ?", (user_id,))
+            row = await cur.fetchone()
+            if row and row[0]:
+                created_at = str(row[0])
+    except Exception:
+        pass
+
     # Watchlist + istatistikler
     try:
         watchlist = await cache.get_watchlist(user_id)
@@ -626,6 +638,7 @@ async def get_friend_profile(user_id: int, current_user: dict = Depends(get_curr
         "username": friend_info.get("username", ""),
         "name": friend_info.get("name", ""),
         "picture": friend_info.get("picture") or "",
+        "created_at": created_at,
         "watched_count": len(watched),
         "saved_count": len(watchlist),
         "this_month_count": this_month_count,
