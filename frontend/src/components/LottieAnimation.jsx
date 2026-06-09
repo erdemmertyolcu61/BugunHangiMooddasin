@@ -14,6 +14,7 @@ import lottie from 'lottie-web';
  * @param {string}  renderer   - 'svg' | 'canvas' | 'html' (default: 'svg')
  * @param {function} onComplete - Animasyon bittiğinde callback (loop=false ise)
  * @param {function} onLoopComplete - Her döngü sonunda callback
+ * @param {string}  preserveAspectRatio - Lottie SVG preserveAspectRatio (default: 'xMidYMid meet')
  * @param {function} onAnimRef - Lottie instance referansı callback (dışarıdan kontrol için)
  */
 function LottieAnimation({
@@ -25,6 +26,7 @@ function LottieAnimation({
   style,
   speed = 1,
   renderer = 'svg',
+  preserveAspectRatio = 'xMidYMid meet',
   onComplete,
   onLoopComplete,
   onAnimRef,
@@ -46,6 +48,7 @@ function LottieAnimation({
       renderer,
       loop,
       autoplay,
+      rendererSettings: { preserveAspectRatio },
       ...(animationData ? { animationData } : { path }),
     };
 
@@ -74,7 +77,7 @@ function LottieAnimation({
       anim.destroy();
       animRef.current = null;
     };
-  }, [path, animationData, loop, autoplay, speed, renderer]);
+  }, [path, animationData, loop, autoplay, speed, renderer, preserveAspectRatio]);
 
   return (
     <div

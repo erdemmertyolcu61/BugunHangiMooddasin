@@ -40,51 +40,15 @@ export default function StreakCelebration() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
           onClick={() => setN(null)}
-          className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/65 backdrop-blur-sm cursor-pointer"
-          role="alertdialog"
-          aria-label={`${n} günlük seri`}
+          className="fixed inset-0 z-[3000] bg-black/65 backdrop-blur-sm cursor-pointer overflow-hidden"
         >
-          <motion.div
-            initial={{ scale: 0.82, y: 24, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm rounded-[2rem] border border-amber/30 bg-[#1c1512] px-8 py-10 text-center shadow-2xl overflow-hidden"
-          >
-            {/* Atmosferik turuncu/altın parıltı */}
-            <div className="absolute inset-0 bg-gradient-to-b from-orange-500/[0.14] via-transparent to-transparent pointer-events-none" />
-            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-56 bg-orange-500/25 blur-[80px] rounded-full pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col items-center gap-3">
-              <div className="relative w-40 h-40 flex items-center justify-center -mb-2">
-                <LottieAnimation
-                  path="/lottie/streak-fire.json"
-                  loop={false}
-                  autoplay
-                  className="w-40 h-40"
-                />
-              </div>
-
-              <span className="text-[11px] font-bold uppercase tracking-[0.35em] text-orange-400">
-                Seri Devam Ediyor
-              </span>
-
-              <h3 className="font-serif text-4xl font-bold tracking-tight text-[#f5f2eb] leading-none">
-                {n} <span className="text-orange-400">gün</span>
-              </h3>
-              <p className="text-sm text-[#f5f2eb]/55 leading-relaxed max-w-[15rem]">
-                Üst üste {n} gündür buradasın. Alevi söndürme — yarın yine bekleriz.
-              </p>
-
-              <button
-                onClick={() => setN(null)}
-                className="mt-3 px-7 py-2.5 rounded-full bg-amber text-[#120d0b] font-bold text-[11px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-transform"
-              >
-                Devam
-              </button>
-            </div>
-          </motion.div>
+          <LottieAnimation
+            path="/lottie/streak-fire.json"
+            loop={false}
+            autoplay
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full"
+          />
         </motion.div>
       )}
     </AnimatePresence>,
