@@ -111,13 +111,6 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
             <div className="w-10 h-1 rounded-full bg-white/20" />
           </div>
 
-          {/* Close */}
-          <button onClick={onClose}
-            className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm
-              flex items-center justify-center text-ivory/60 hover:text-ivory hover:bg-black/50 transition-all">
-            <X size={14} />
-          </button>
-
           {loading && (
             <div className="flex items-center justify-center py-24">
               <div className="flex gap-2">
@@ -147,6 +140,16 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
               [&::-webkit-scrollbar-thumb]:bg-white/10
               [&::-webkit-scrollbar-thumb]:rounded-full
               hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
+
+              {/* Close button - scrolls away with content */}
+              <div className="sticky top-0 z-10 flex justify-end p-3">
+                <button onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm
+                    flex items-center justify-center text-ivory/60 hover:text-ivory hover:bg-black/60 transition-all">
+                  <X size={14} />
+                </button>
+              </div>
+
               <div className="p-5 sm:p-6 space-y-6">
 
                 {/* Header: Avatar (clickable) + Name + Join Date */}
@@ -194,158 +197,176 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
                   </div>
                 </div>
 
-                {/* Stats */}
-                <ProfileStats
-                  watchedCount={profile.watched_count || 0}
-                  savedCount={profile.saved_count || 0}
-                  thisMonthCount={profile.this_month_count || 0}
-                />
-
-                {/* Taste Map — Üstad analizi gizli, sadece DNA + türler + dönem + imza */}
-                {profile.taste_map && (
-                  <ProfileTasteMap
-                    tasteMap={profile.taste_map}
-                    username={profile.name || profile.username}
-                    hideAnalysis
-                  />
-                )}
-
-                {/* Top Moods */}
-                {profile.top_moods?.length > 0 && (
-                  <div className="space-y-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50">
-                      Sinema Ruhu
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {profile.top_moods.slice(0, 4).map(mood => (
-                        <span key={mood.mood_id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                            bg-[#1c1512]/90 border border-white/[0.06] text-[11px] font-semibold text-ivory/70">
-                          <span className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: mood.color || '#d4af37' }} />
-                          {mood.title}
-                        </span>
-                      ))}
+                {profile.profile_hidden ? (
+                  <div className="py-10 flex flex-col items-center justify-center space-y-3 text-center">
+                    <div className="w-12 h-12 rounded-full bg-amber/[0.06] flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        className="text-amber/40">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                      </svg>
                     </div>
-                  </div>
-                )}
-
-                {/* Watchlist Preview */}
-                {profile.watchlist_preview?.length > 0 && (
-                  <div className="space-y-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50">
-                      Defterim
+                    <p className="font-serif text-[13px] text-ivory/40 italic max-w-[200px] leading-relaxed">
+                      Bu kullanıcı profilini arkadaşlarından gizlemiş.
                     </p>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {profile.watchlist_preview.map(item => (
-                        <motion.button key={item.tmdb_id}
-                          onClick={() => onDetailMovie?.(item)}
-                          whileHover={{ scale: 1.05, y: -2 }}
-                          className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1c1512] border border-white/[0.06]
-                            hover:border-amber/30 transition-all group relative"
-                        >
-                          {item.poster_url ? (
-                            <img src={proxyImageUrl(item.poster_url)} alt={item.title}
-                              className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Film size={14} className="text-ivory/20" />
-                            </div>
-                          )}
-                          {item.watched && (
-                            <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500/80
-                              flex items-center justify-center">
-                              <Eye size={7} className="text-black" />
-                            </div>
-                          )}
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent
-                            rounded-b-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-[7px] font-semibold text-ivory/90 truncate leading-tight">
-                              {item.title}
-                            </p>
-                          </div>
-                        </motion.button>
-                      ))}
-                    </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Stats */}
+                    <ProfileStats
+                      watchedCount={profile.watched_count || 0}
+                      savedCount={profile.saved_count || 0}
+                      thisMonthCount={profile.this_month_count || 0}
+                    />
 
-                {/* Community Recs */}
-                {profile.community_recs?.length > 0 && (
-                  <div className="space-y-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50 flex items-center gap-1.5">
-                      <Heart size={10} className="text-amber/50" />
-                      Topluluğa Önerdi
-                    </p>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {profile.community_recs.map(film => (
-                        <motion.button key={film.tmdb_id}
-                          onClick={() => onDetailMovie?.(film)}
-                          whileHover={{ scale: 1.05 }}
-                          className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1c1512] border border-white/[0.06]
-                            hover:border-amber/30 transition-all group relative"
-                        >
-                          {film.poster_url ? (
-                            <img src={film.poster_url} alt={film.title}
-                              className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Star size={12} className="text-ivory/20" />
-                            </div>
-                          )}
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent
-                            rounded-b-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-[7px] font-semibold text-ivory/90 truncate">{film.title}</p>
-                          </div>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                    {/* Taste Map — Üstad analizi gizli, sadece DNA + türler + dönem + imza */}
+                    {profile.taste_map && (
+                      <ProfileTasteMap
+                        tasteMap={profile.taste_map}
+                        username={profile.name || profile.username}
+                        hideAnalysis
+                      />
+                    )}
 
-                {/* Activity */}
-                {profile.activity?.length > 0 && (
-                  <div className="space-y-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50">
-                      Son Hareketler
-                    </p>
-                    <div className="space-y-1">
-                      {profile.activity.map((a, i) => (
-                        <motion.div key={`${a.tmdb_id}-${i}`}
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.02 }}
-                          className="flex items-center gap-2.5 py-1.5 px-2 rounded-xl hover:bg-white/[0.02] transition-colors"
-                        >
-                          {a.poster_url ? (
-                            <div className="w-5 h-7 rounded-md overflow-hidden shrink-0 bg-white/[0.03]">
-                              <img src={proxyImageUrl(a.poster_url)} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            </div>
-                          ) : (
-                            <div className="w-5 h-7 rounded-md shrink-0 bg-white/[0.03] flex items-center justify-center">
-                              <Film size={8} className="text-ivory/15" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] text-ivory/70 truncate">
-                              <span className="italic text-ivory/60">{a.title}</span>
-                              {' '}
-                              <span className="text-ivory/30">
-                                {a.action_type === 'watched' ? 'izledi' : 'ekledi'}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {a.action_type === 'watched'
-                              ? <Eye size={10} className="text-emerald-400/50" />
-                              : <Bookmark size={10} className="text-amber/40" />
-                            }
-                            <span className="text-[8px] text-ivory/25">{timeAgo(a.action_at)}</span>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
+                    {/* Top Moods */}
+                    {profile.top_moods?.length > 0 && (
+                      <div className="space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                          Sinema Ruhu
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.top_moods.slice(0, 4).map(mood => (
+                            <span key={mood.mood_id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                                bg-[#1c1512]/90 border border-white/[0.06] text-[11px] font-semibold text-ivory/70">
+                              <span className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: mood.color || '#d4af37' }} />
+                              {mood.title}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Watchlist Preview */}
+                    {profile.watchlist_preview?.length > 0 && (
+                      <div className="space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                          Defterim
+                        </p>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {profile.watchlist_preview.map(item => (
+                            <motion.button key={item.tmdb_id}
+                              onClick={() => onDetailMovie?.(item)}
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1c1512] border border-white/[0.06]
+                                hover:border-amber/30 transition-all group relative"
+                            >
+                              {item.poster_url ? (
+                                <img src={proxyImageUrl(item.poster_url)} alt={item.title}
+                                  className="w-full h-full object-cover" loading="lazy" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Film size={14} className="text-ivory/20" />
+                                </div>
+                              )}
+                              {item.watched && (
+                                <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500/80
+                                  flex items-center justify-center">
+                                  <Eye size={7} className="text-black" />
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent
+                                rounded-b-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <p className="text-[7px] font-semibold text-ivory/90 truncate leading-tight">
+                                  {item.title}
+                                </p>
+                              </div>
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Community Recs */}
+                    {profile.community_recs?.length > 0 && (
+                      <div className="space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50 flex items-center gap-1.5">
+                          <Heart size={10} className="text-amber/50" />
+                          Topluluğa Önerdi
+                        </p>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {profile.community_recs.map(film => (
+                            <motion.button key={film.tmdb_id}
+                              onClick={() => onDetailMovie?.(film)}
+                              whileHover={{ scale: 1.05 }}
+                              className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1c1512] border border-white/[0.06]
+                                hover:border-amber/30 transition-all group relative"
+                            >
+                              {film.poster_url ? (
+                                <img src={film.poster_url} alt={film.title}
+                                  className="w-full h-full object-cover" loading="lazy" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Star size={12} className="text-ivory/20" />
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent
+                                rounded-b-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <p className="text-[7px] font-semibold text-ivory/90 truncate">{film.title}</p>
+                              </div>
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Activity */}
+                    {profile.activity?.length > 0 && (
+                      <div className="space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                          Son Hareketler
+                        </p>
+                        <div className="space-y-1">
+                          {profile.activity.map((a, i) => (
+                            <motion.div key={`${a.tmdb_id}-${i}`}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.02 }}
+                              className="flex items-center gap-2.5 py-1.5 px-2 rounded-xl hover:bg-white/[0.02] transition-colors"
+                            >
+                              {a.poster_url ? (
+                                <div className="w-5 h-7 rounded-md overflow-hidden shrink-0 bg-white/[0.03]">
+                                  <img src={proxyImageUrl(a.poster_url)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-7 rounded-md shrink-0 bg-white/[0.03] flex items-center justify-center">
+                                  <Film size={8} className="text-ivory/15" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] text-ivory/70 truncate">
+                                  <span className="italic text-ivory/60">{a.title}</span>
+                                  {' '}
+                                  <span className="text-ivory/30">
+                                    {a.action_type === 'watched' ? 'izledi' : 'ekledi'}
+                                  </span>
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {a.action_type === 'watched'
+                                  ? <Eye size={10} className="text-emerald-400/50" />
+                                  : <Bookmark size={10} className="text-amber/40" />
+                                }
+                                <span className="text-[8px] text-ivory/25">{timeAgo(a.action_at)}</span>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
               </div>

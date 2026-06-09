@@ -562,6 +562,28 @@ async def get_friend_profile(user_id: int, current_user: dict = Depends(get_curr
     except Exception:
         pass
 
+    # Aktivite gizliyse sadece temel bilgileri dön (watchlist, taste map, community recs gizlenir)
+    try:
+        if await cache.get_hide_activity(user_id):
+            return {
+                "id": user_id,
+                "username": friend_info.get("username", ""),
+                "name": friend_info.get("name", ""),
+                "picture": friend_info.get("picture") or "",
+                "created_at": created_at,
+                "profile_hidden": True,
+                "watched_count": 0,
+                "saved_count": 0,
+                "this_month_count": 0,
+                "watchlist_preview": [],
+                "taste_map": None,
+                "community_recs": [],
+                "activity": [],
+                "top_moods": [],
+            }
+    except Exception:
+        pass
+
     # Watchlist + istatistikler
     try:
         watchlist = await cache.get_watchlist(user_id)
