@@ -141,7 +141,12 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
           )}
 
           {!loading && !error && profile && (
-            <div className="max-h-[88vh] sm:max-h-[80vh] overflow-y-auto overscroll-contain">
+            <div className="max-h-[88vh] sm:max-h-[80vh] overflow-y-auto overscroll-contain
+              [&::-webkit-scrollbar]:w-1.5
+              [&::-webkit-scrollbar-track]:bg-transparent
+              [&::-webkit-scrollbar-thumb]:bg-white/10
+              [&::-webkit-scrollbar-thumb]:rounded-full
+              hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
               <div className="p-5 sm:p-6 space-y-6">
 
                 {/* Header: Avatar (clickable) + Name + Join Date */}
