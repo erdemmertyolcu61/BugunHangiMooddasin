@@ -68,7 +68,6 @@ export default function ProfileSocial({
   sent = [],
   communityRecs = [],
   setCommunityRecs,
-  friendActivity = [],
   socialLoading = false,
   socialError = '',
   respondLoading = null,
@@ -312,52 +311,7 @@ export default function ProfileSocial({
                 </div>
               )}
 
-              {/* ── Arkadaş Aktivite Akışı ── */}
-              {friendActivity.length > 0 && (
-                <div className="mt-4 space-y-1.5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ivory/30 px-1 mb-2">
-                    Son Hareketler
-                  </p>
-                  {friendActivity.slice(0, 10).map((a, i) => (
-                    <motion.div key={`${a.user_id}-${a.tmdb_id}-${i}`}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="flex items-center gap-2.5 py-2 px-2 rounded-xl hover:bg-white/[0.02] transition-colors"
-                    >
-                      <Avatar
-                        src={a.avatar} name={a.username || a.name} size={28}
-                        failedAvatars={failedAvatars} onError={onAvatarError} id={`act-${a.user_id}`}
-                      />
-                      {a.poster_url && (
-                        <div className="w-6 h-9 rounded-md overflow-hidden shrink-0 bg-white/[0.03]">
-                          <img src={proxyImageUrl(a.poster_url)} alt="" className="w-full h-full object-cover" loading="lazy" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] text-ivory/70 truncate">
-                          <span className="font-semibold text-amber/70">@{a.username || a.name}</span>
-                          {' '}
-                          <span className="text-ivory/40 italic">
-                            {a.title}
-                          </span>
-                          {' '}
-                          <span className="text-ivory/30">
-                            {a.action_type === 'watched' ? 'izledi' : 'ekledi'}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {a.action_type === 'watched'
-                          ? <Eye size={11} className="text-emerald-400/50" />
-                          : <Bookmark size={11} className="text-amber/40" />
-                        }
-                        <span className="text-[9px] text-ivory/25">{timeAgo(a.action_at)}</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+
             </motion.div>
           )}
 

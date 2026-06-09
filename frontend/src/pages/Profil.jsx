@@ -568,7 +568,6 @@ export default function Profil() {
                 setCommunityRecs={setCommunityRecs}
                 shares={shares}
                 sent={sentShares}
-                friendActivity={friendActivity}
                 socialLoading={socialLoading || sharesLoading}
                 socialError={socialError}
                 onRespondRequest={handleRespondRequest}
