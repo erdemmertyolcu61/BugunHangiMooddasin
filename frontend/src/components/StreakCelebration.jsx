@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LottieAnimation from './LottieAnimation';
 
 /**
- * Günlük seri (streak) milestone kutlaması.
+ * Günlük seri (streak) kutlaması.
  *
- * main.jsx açılışta recordStreakOpen() çağırır; bir milestone'a (3/7/14/…)
- * ULAŞILDIYSA window.__streakMilestone = N atar. Bu bileşen mount'ta o değeri
+ * main.jsx açılışta recordStreakOpen() çağırır; streak arttıysa
+ * window.__streakMilestone = N atar. Bu bileşen mount'ta o değeri
  * okur ve ateş (🔥) Lottie animasyonuyla tam-ekran bir kutlama gösterir.
+ * Kullanıcı tıklayana kadar açık kalır, animasyon bir kere oynar.
  * Sonradan tetiklenebilmesi için 'streak-milestone' window event'ini de dinler.
  * Tema-bağımsız token'lar (bg-[#1c1512]/text-amber) açık temaya otomatik uyar.
  */
@@ -29,13 +30,6 @@ export default function StreakCelebration() {
     window.addEventListener('streak-milestone', handler);
     return () => window.removeEventListener('streak-milestone', handler);
   }, []);
-
-  // 5sn sonra otomatik kapan (dokunarak da kapanır)
-  useEffect(() => {
-    if (n == null) return;
-    const t = setTimeout(() => setN(null), 5000);
-    return () => clearTimeout(t);
-  }, [n]);
 
   return createPortal(
     <AnimatePresence>
@@ -66,7 +60,7 @@ export default function StreakCelebration() {
               <div className="relative w-40 h-40 flex items-center justify-center -mb-2">
                 <LottieAnimation
                   path="/lottie/streak-fire.json"
-                  loop
+                  loop={false}
                   autoplay
                   className="w-40 h-40"
                 />
