@@ -329,8 +329,9 @@ export async function getReferrals() {
 }
 
 // ─── Günün Filmi ───
-export async function getDailyFilm() {
-  const res = await fetch(`${BASE}/daily/film`, { headers: { ...authHeaders() } });
+export async function getDailyFilm(personal = true) {
+  const qs = personal ? '' : '?personal=false';
+  const res = await fetch(`${BASE}/daily/film${qs}`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Günün filmi alınamadı (${res.status})`);
   return res.json(); // { date, movie, ustad_line, title, personalized }
 }

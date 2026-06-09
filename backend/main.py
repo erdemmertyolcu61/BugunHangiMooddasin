@@ -3365,10 +3365,13 @@ async def _get_daily_film(user_id: int = None) -> Optional[dict]:
 
 
 @app.get("/api/daily/film")
-async def daily_film(request: Request):
-    """Günün filmi — giriş yapana kişisel, anonime genel. Gün boyu sabit."""
-    uid = optional_user_id(request)
-    payload = await _get_daily_film(user_id=uid)
+async def daily_film(request: Request, personal: bool = Query(True)):
+    """Günün filmi — personal=true (default) kişiselleştirilmiş, false ise bildirimle aynı global film."""
+    if personal:
+        uid = optional_user_id(request)
+        payload = await _get_daily_film(user_id=uid)
+    else:
+        payload = await _get_daily_film()
     if not payload:
         return {"movie": None, "message": "Bugünün filmi henüz hazır değil."}
     return payload

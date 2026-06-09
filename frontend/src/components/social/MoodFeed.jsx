@@ -63,7 +63,7 @@ export default function MoodFeed() {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="min-h-screen pb-28 pt-2 sm:pt-4 px-2 sm:px-6 max-w-2xl mx-auto"
+      className="min-h-screen pb-28 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:pt-4 px-2 sm:px-6 max-w-2xl mx-auto"
     >
       {/* Header */}
       <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -104,7 +104,7 @@ export default function MoodFeed() {
                   return (
                     <motion.div key={fm.user_id}
                       initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      className="shrink-0 w-[130px] sm:w-[160px] p-3 sm:p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05] space-y-2 sm:space-y-2.5"
+                      className="shrink-0 w-[100px] sm:w-[160px] p-2 sm:p-3.5 rounded-2xl bg-[#1a1310] border border-white/[0.05] space-y-2 sm:space-y-2.5"
                     >
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-white/10 shrink-0">

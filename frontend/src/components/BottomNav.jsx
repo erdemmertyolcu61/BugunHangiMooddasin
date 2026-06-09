@@ -22,10 +22,10 @@ export default function BottomNav() {
 
   const handlePress = (item) => {
     if (item.label === 'Ruh Halim') {
+      sessionStorage.setItem('open_mood_quiz', '1');
       if (path === '/' || path === '/moodlar') {
         window.dispatchEvent(new CustomEvent('open-mood-quiz'));
       } else {
-        sessionStorage.setItem('open_mood_quiz', '1');
         navigate('/');
       }
       return;

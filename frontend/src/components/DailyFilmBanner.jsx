@@ -21,7 +21,7 @@ export default function DailyFilmBanner() {
       return;
     }
     let alive = true;
-    getDailyFilm()
+    getDailyFilm(false)
       .then((d) => { if (alive && d?.movie) setData(d); })
       .catch(() => {});
     return () => { alive = false; };
