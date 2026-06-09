@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing } from 'lucide-react';
+import { Bell, X, Play, Star, UserPlus, Check, UserX, BellRing, CalendarDays, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   getRecommendationHistory, getUnreadShareCount, markSharesRead, markShareRead, dismissShare,
-  getFriendRequests, respondFriendRequest, proxyImageUrl,
+  getFriendRequests, respondFriendRequest, proxyImageUrl, getDailyFilm,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
 import LottieAnimation from './LottieAnimation';
@@ -37,6 +37,7 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState('');
+  const [dailyFilm, setDailyFilm] = useState(null);
   const [respondLoading, setRespondLoading] = useState(null); // request_id yüklemede
   const [failedAvatars, setFailedAvatars] = useState(new Set());
   const onAvatarError = useCallback((id) => {
@@ -119,10 +120,12 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
     try {
       // GELEN öneriler (okunmuş DAHİL) → panel push sonrası asla yanlışlıkla boş
       // kalmaz. Badge için unread sayımı ayrı (getUnreadShareCount).
-      const [recsData, requestsData] = await Promise.all([
+      const [recsData, requestsData, dailyData] = await Promise.all([
         getRecommendationHistory().catch(() => ({ received: [] })),
         getFriendRequests().catch(() => ({ requests: [] })),
+        getDailyFilm().catch(() => null),
       ]);
+      if (dailyData?.movie) setDailyFilm(dailyData);
       setShares(recsData.received || []);
       setRequests(requestsData.requests || []);
       // Paneli görüntüleyince okundu işaretle → rozet sıfırlanır ama kartlar görünür kalır.
@@ -269,6 +272,40 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                     </div>
                   );
                 })()}
+                {/* ─── Günün Filmi ─── */}
+                {dailyFilm?.movie && (
+                  <div
+                    onClick={() => { setOpen(false); navigate('/gunun-filmi'); }}
+                    className="group flex items-center gap-3.5 p-3.5 mb-4 rounded-2xl bg-gradient-to-r from-amber/[0.08] to-transparent border border-amber/15 cursor-pointer hover:border-amber/30 transition-all"
+                  >
+                    <div className="w-12 h-[72px] shrink-0 rounded-xl overflow-hidden bg-white/5 ring-1 ring-white/10 shadow-lg">
+                      {dailyFilm.movie.poster_url ? (
+                        <img src={proxyImageUrl(dailyFilm.movie.poster_url)} alt={dailyFilm.movie.title}
+                          className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-lg opacity-30">🎬</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <CalendarDays size={11} className="text-amber/60 shrink-0" />
+                        <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                          {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} — Üstad'ın Seçimi
+                        </span>
+                      </div>
+                      <h4 className="font-serif text-[14px] font-bold text-[#f5f2eb] truncate group-hover:text-amber transition-colors">
+                        {dailyFilm.movie.title}
+                      </h4>
+                      {dailyFilm.ustad_line && (
+                        <p className="text-[11px] font-serif italic text-white/40 line-clamp-1 mt-0.5">
+                          &ldquo;{dailyFilm.ustad_line}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight size={16} className="text-amber/25 group-hover:text-amber/60 transition-colors shrink-0" />
+                  </div>
+                )}
+
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <div className="flex gap-2">

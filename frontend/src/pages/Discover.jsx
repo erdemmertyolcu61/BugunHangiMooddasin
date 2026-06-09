@@ -530,7 +530,7 @@ export default function Discover() {
       <div className="min-h-screen bg-[#120d0b] p-8 pt-24">
         <div className="max-w-7xl mx-auto space-y-12">
           <div className="h-8 bg-white/10 rounded w-1/4 animate-pulse" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-5 gap-y-4 sm:gap-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-5 lg:gap-x-6 gap-y-4 sm:gap-y-6">
             {[...Array(10)].map((_, i) => <MovieCardSkeleton key={i} />)}
           </div>
         </div>
@@ -702,7 +702,7 @@ export default function Discover() {
           </div>
           {/* Frosted glass container — tıpkı Gurme kartı gibi, blur efektini scroll boyunca sürdürür */}
           <div className="p-2.5 sm:p-5 md:p-8 rounded-2xl sm:rounded-[3rem] bg-surface/5 border border-white/5">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-5 gap-y-4 sm:gap-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-5 lg:gap-x-6 gap-y-4 sm:gap-y-6">
               {(loading && searchQuery.trim() === '') || searchLoading
                 ? [...Array(10)].map((_, i) => (
                     <div key={i} className="aspect-[2/3] rounded-[2.5rem] animate-pulse overflow-hidden" style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.08)' }}>

@@ -8,6 +8,7 @@ import { proxyImageUrl } from '../../services/api';
 import { MOODS } from '../../context/MoodContext';
 import { useAuth } from '../../context/AuthContext';
 import RecommendMovieSheet from '../RecommendMovieSheet';
+import DailyFilmBanner from '../DailyFilmBanner';
 import useDocumentMeta from '../../utils/useDocumentMeta';
 
 const IMG_SM = 'https://image.tmdb.org/t/p/w185';
@@ -88,6 +89,9 @@ export default function MoodFeed() {
         </div>
       ) : (
         <div className="space-y-8">
+          {/* Gunun Filmi */}
+          <DailyFilmBanner />
+
           {/* Section 1: Arkadaslarin Moodlari */}
           {feed?.friend_moods?.length > 0 && (
             <section>
