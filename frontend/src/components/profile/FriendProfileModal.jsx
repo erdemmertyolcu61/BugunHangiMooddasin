@@ -197,16 +197,16 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
                 </div>
 
                 {profile.profile_hidden ? (
-                  <div className="py-10 flex flex-col items-center justify-center space-y-3 text-center">
-                    <div className="w-12 h-12 rounded-full bg-amber/[0.06] flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                  <div className="py-10 flex flex-col items-center justify-center space-y-4 text-center px-6">
+                    <div className="w-14 h-14 rounded-full bg-amber/[0.08] flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        className="text-amber/40">
+                        className="text-amber/50">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                       </svg>
                     </div>
-                    <p className="font-serif text-[13px] text-ivory/40 italic max-w-[200px] leading-relaxed">
+                    <p className="font-medium text-[15px] sm:text-[16px] text-ivory/70 leading-snug">
                       Bu kullanıcı profilini arkadaşlarından gizlemiş.
                     </p>
                   </div>
