@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
 import { Users, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, repositoryMovies, proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
+import { addToWatchlist, removeFromWatchlist, toggleWatched, searchMovies, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations, getSimilarMovies, getTasteMap } from '../services/api';
 import { buildMatcher } from '../utils/personalMatch';
 import { useAuth } from '../context/AuthContext';
 import { checkBackendHealth } from '../utils/apiConfig';

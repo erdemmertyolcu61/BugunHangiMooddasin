@@ -7,7 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, UserX, Heart, Star, Send, Users, RotateCcw } from 'lucide-react';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
-import { proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
+import { recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
