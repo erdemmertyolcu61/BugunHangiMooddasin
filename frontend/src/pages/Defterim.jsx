@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus, Users, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched, saveRating } from '../services/api';
+import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched, saveRating, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import TasteMapCard from '../components/TasteMapCard';
 import RatingControl from '../components/RatingControl';
 import CustomListsPanel from '../components/CustomListsPanel';
+import FilmDetailModal from '../components/FilmDetailModal';
 import { useAchievements } from '../components/AchievementCelebration';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
@@ -34,6 +35,9 @@ export default function Defterim() {
   const [tasteMap, setTasteMap] = useState(null);
   const [tasteLoading, setTasteLoading] = useState(true);
   const [defterTab, setDefterTab] = useState('movies'); // 'movies' | 'lists'
+  const [detailMovie, setDetailMovie] = useState(null);
+  const [recommenders, setRecommenders] = useState([]);
+  const [recommending, setRecommending] = useState(false);
 
   const handleCardReaction = (id, next) => {
     setSavedMovies(prev => prev.map(m => m.tmdb_id === id ? { ...m, reaction: next.reaction } : m));
@@ -174,6 +178,51 @@ export default function Defterim() {
   const normalizedMoodPct = rawTotal > 0
     ? Object.fromEntries(Object.entries(rawMoodPct).map(([k, v]) => [k, (v / rawTotal) * 100]))
     : rawMoodPct;
+
+  useEffect(() => {
+    if (!detailMovie?.id) { setRecommenders([]); return; }
+    let active = true;
+    setRecommenders([]);
+    getCommunityRecommendations(detailMovie.id).then((d) => {
+      if (active) setRecommenders(d.recommenders || []);
+    });
+    return () => { active = false; };
+  }, [detailMovie?.id]);
+
+  const alreadyRecommended = recommenders.some((r) => user && r.uid === user.id);
+
+  const handleRecommendFromDetail = async () => {
+    if (!detailMovie || recommending) return;
+    setRecommending(true);
+    try {
+      if (alreadyRecommended) {
+        await unrecommendFromCommunity(detailMovie.id);
+        setRecommenders((prev) => prev.filter((r) => !(user && r.uid === user.id)));
+      } else {
+        const res = await recommendToCommunity(detailMovie.id);
+        setRecommenders((prev) => {
+          const without = prev.filter((r) => r.uid !== res.shared_by.uid);
+          return [res.shared_by, ...without];
+        });
+      }
+    } catch (err) {
+      console.error('Topluluk önerisi güncellenemedi:', err);
+    } finally {
+      setRecommending(false);
+    }
+  };
+
+  const openMovieDetail = async (movie) => {
+    const m = { id: movie.tmdb_id, ...movie };
+    setDetailMovie(m);
+    try {
+      const res = await fetch(getApiUrl(`/api/movies/${movie.tmdb_id}/analyze`));
+      if (res.ok) {
+        const data = await res.json();
+        setDetailMovie((prev) => ({ ...prev, ...data }));
+      }
+    } catch {}
+  };
 
   return (
     <motion.div
@@ -474,7 +523,7 @@ export default function Defterim() {
                 className="bg-surface rounded-2xl sm:rounded-[4rem] border border-white/5 overflow-hidden flex flex-col md:flex-row shadow-2xl group relative"
               >
                 <div className="noise-overlay" />
-                <div className="w-full md:w-80 lg:w-96 aspect-[16/10] sm:aspect-[2/3] md:aspect-auto relative overflow-hidden">
+                <button onClick={() => openMovieDetail(movie)} className="w-full md:w-80 lg:w-96 aspect-[16/10] sm:aspect-[2/3] md:aspect-auto relative overflow-hidden text-left">
                     <img 
                         src={proxyImageUrl(movie.poster_url) || 'https://via.placeholder.com/500x750'}
                         loading="lazy"
@@ -482,7 +531,7 @@ export default function Defterim() {
                         className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface/40" />
-                </div>
+                </button>
                 
                 <div className="flex-1 p-5 sm:p-12 lg:p-20 flex flex-col justify-between space-y-6 sm:space-y-12">
                   <div className="space-y-4 sm:space-y-8">
@@ -595,6 +644,39 @@ export default function Defterim() {
           </>
         )}
       </main>
+
+      {detailMovie && (
+        <FilmDetailModal
+          movieId={detailMovie.id || detailMovie.tmdb_id}
+          initialMovie={detailMovie}
+          onClose={() => setDetailMovie(null)}
+          headerBadge={recommenders.length > 0 ? (
+            <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 border border-white/5">
+              <div className="flex -space-x-2">
+                {recommenders.slice(0, 3).map((r) => (
+                  <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-slate-900">
+                    {r.avatar
+                      ? <img src={resolveAvatarUrl(r.avatar)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      : <span className="w-full h-full flex items-center justify-center font-serif text-[11px] font-bold text-amber bg-slate-800">{r.username?.[0]}</span>}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-ivory/60">
+                <span className="font-bold text-amber">Gurme {recommenders[0].username}</span>
+                {recommenders.length > 1 && <span> ve {recommenders.length - 1} kişi daha</span>} önerdi
+              </p>
+            </div>
+          ) : null}
+          extraActions={user ? (
+            <button onClick={handleRecommendFromDetail}
+              disabled={recommending}
+              title={alreadyRecommended ? 'Öneriyi geri al' : 'Topluluğa öner'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap ${alreadyRecommended ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25' : 'bg-amber/12 border-amber/25 text-amber hover:bg-amber/25'}`}>
+              {alreadyRecommended ? <><RotateCcw size={14} /> Öneriyi Geri Al</> : <><Users size={14} /> Topluluğa Öner</>}
+            </button>
+          ) : null}
+        />
+      )}
     </motion.div>
   );
 }

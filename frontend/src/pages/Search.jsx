@@ -1,14 +1,17 @@
 /**
  * Global Arama Sayfası — /search?q=...
  * Ana sayfadan erişilir. Sonuçlar TMDB araması; bir filme tıklayınca
- * mevcut Discover modal akışı için /discover?film={id}'ye yönlendirir.
+ * FilmDetailModal doğrudan açılır (Topluluğa Öner dahil).
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Search as SearchIcon, X } from 'lucide-react';
-import { searchMovies, proxyImageUrl } from '../services/api';
+import { ChevronLeft, Search as SearchIcon, X, Users, RotateCcw } from 'lucide-react';
+import { searchMovies, proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
+import { getApiUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { useAuth } from '../context/AuthContext';
 import LottieAnimation from '../components/LottieAnimation';
+import FilmDetailModal from '../components/FilmDetailModal';
 import useDocumentMeta from '../utils/useDocumentMeta';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
@@ -28,6 +31,11 @@ export default function SearchPage() {
   const debounce = useRef(null);
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [recommenders, setRecommenders] = useState([]);
+  const [recommending, setRecommending] = useState(false);
+  const { user } = useAuth();
 
   const runSearch = useCallback((q) => {
     clearTimeout(debounce.current);
@@ -70,6 +78,50 @@ export default function SearchPage() {
     setResults(null);
     setSearchParams({}, { replace: true });
     inputRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!selectedMovie?.id) { setRecommenders([]); return; }
+    let active = true;
+    setRecommenders([]);
+    getCommunityRecommendations(selectedMovie.id).then((d) => {
+      if (active) setRecommenders(d.recommenders || []);
+    });
+    return () => { active = false; };
+  }, [selectedMovie?.id]);
+
+  const alreadyRecommended = recommenders.some((r) => user && r.uid === user.id);
+
+  const handleRecommendToCommunity = async () => {
+    if (!selectedMovie || recommending) return;
+    setRecommending(true);
+    try {
+      if (alreadyRecommended) {
+        await unrecommendFromCommunity(selectedMovie.id);
+        setRecommenders((prev) => prev.filter((r) => !(user && r.uid === user.id)));
+      } else {
+        const res = await recommendToCommunity(selectedMovie.id);
+        setRecommenders((prev) => {
+          const without = prev.filter((r) => r.uid !== res.shared_by.uid);
+          return [res.shared_by, ...without];
+        });
+      }
+    } catch (err) {
+      console.error('Topluluk önerisi güncellenemedi:', err);
+    } finally {
+      setRecommending(false);
+    }
+  };
+
+  const openMovie = async (m) => {
+    setSelectedMovie({ id: m.id, title: m.title, poster_url: m.poster_url || (m.poster_path ? `${IMG_BASE}${m.poster_path}` : null), release_date: m.release_date, vote_average: m.vote_average, overview: m.overview });
+    try {
+      const res = await fetch(getApiUrl(`/api/movies/${m.id}/analyze`));
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedMovie((prev) => ({ ...prev, ...data }));
+      }
+    } catch {}
   };
 
   return (
@@ -164,7 +216,7 @@ export default function SearchPage() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.4) }}
-                  onClick={() => navigate(`/discover?film=${m.id}`)}
+                  onClick={() => openMovie(m)}
                   className="group text-left"
                   title={m.title}
                 >
@@ -188,6 +240,39 @@ export default function SearchPage() {
           </>
         )}
       </main>
+
+      {selectedMovie && (
+        <FilmDetailModal
+          movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          initialMovie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+          headerBadge={recommenders.length > 0 ? (
+            <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 border border-white/5">
+              <div className="flex -space-x-2">
+                {recommenders.slice(0, 3).map((r) => (
+                  <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-slate-900">
+                    {r.avatar
+                      ? <img src={resolveAvatarUrl(r.avatar)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      : <span className="w-full h-full flex items-center justify-center font-serif text-[11px] font-bold text-amber bg-slate-800">{r.username?.[0]}</span>}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-ivory/60">
+                <span className="font-bold text-amber">Gurme {recommenders[0].username}</span>
+                {recommenders.length > 1 && <span> ve {recommenders.length - 1} kişi daha</span>} önerdi
+              </p>
+            </div>
+          ) : null}
+          extraActions={user ? (
+            <button onClick={handleRecommendToCommunity}
+              disabled={recommending}
+              title={alreadyRecommended ? 'Öneriyi geri al' : 'Topluluğa öner'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap ${alreadyRecommended ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25' : 'bg-amber/12 border-amber/25 text-amber hover:bg-amber/25'}`}>
+              {alreadyRecommended ? <><RotateCcw size={14} /> Öneriyi Geri Al</> : <><Users size={14} /> Topluluğa Öner</>}
+            </button>
+          ) : null}
+        />
+      )}
     </motion.div>
   );
 }

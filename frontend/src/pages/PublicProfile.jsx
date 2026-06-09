@@ -5,8 +5,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, UserX, Heart, Star, Send } from 'lucide-react';
+import { ChevronLeft, UserX, Heart, Star, Send, Users, RotateCcw } from 'lucide-react';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
+import { proxyImageUrl, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileStats from '../components/profile/ProfileStats';
@@ -14,6 +15,7 @@ import ProfileTasteMap from '../components/profile/ProfileTasteMap';
 import ProfileTimeline from '../components/profile/ProfileTimeline';
 import ShareButtons from '../components/ShareButtons';
 import RecommendMovieSheet from '../components/RecommendMovieSheet';
+import FilmDetailModal from '../components/FilmDetailModal';
 
 const MOOD_COLORS = {
   battaniye: '#f59e0b', gece: '#94a3b8', gozyasi: '#ec4899',
@@ -32,6 +34,9 @@ export default function PublicProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recommendOpen, setRecommendOpen] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [recommenders, setRecommenders] = useState([]);
+  const [recommending, setRecommending] = useState(false);
 
   useEffect(() => {
     if (!username) return;
@@ -49,6 +54,51 @@ export default function PublicProfile() {
 
   // Backend OG paylaşım ucu: kişiye özel link önizlemesi için.
   const profileUrl = getShareUrl(`/share/u/${username}`);
+
+  useEffect(() => {
+    if (!selectedMovie?.id) { setRecommenders([]); return; }
+    let active = true;
+    setRecommenders([]);
+    getCommunityRecommendations(selectedMovie.id).then((d) => {
+      if (active) setRecommenders(d.recommenders || []);
+    });
+    return () => { active = false; };
+  }, [selectedMovie?.id]);
+
+  const alreadyRecommended = recommenders.some((r) => user && r.uid === user.id);
+
+  const handleRecommendToCommunity = async () => {
+    if (!selectedMovie || recommending) return;
+    setRecommending(true);
+    try {
+      if (alreadyRecommended) {
+        await unrecommendFromCommunity(selectedMovie.id);
+        setRecommenders((prev) => prev.filter((r) => !(user && r.uid === user.id)));
+      } else {
+        const res = await recommendToCommunity(selectedMovie.id);
+        setRecommenders((prev) => {
+          const without = prev.filter((r) => r.uid !== res.shared_by.uid);
+          return [res.shared_by, ...without];
+        });
+      }
+    } catch (err) {
+      console.error('Topluluk önerisi güncellenemedi:', err);
+    } finally {
+      setRecommending(false);
+    }
+  };
+
+  const openMovie = async (film) => {
+    const movie = { id: film.tmdb_id, ...film };
+    setSelectedMovie(movie);
+    try {
+      const res = await fetch(getApiUrl(`/api/movies/${film.tmdb_id}/analyze`));
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedMovie((prev) => ({ ...prev, ...data }));
+      }
+    } catch {}
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -161,9 +211,10 @@ export default function PublicProfile() {
                 </div>
                 <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                   {profile.community_recs.map((film) => (
-                    <motion.div key={film.tmdb_id}
+                    <motion.button key={film.tmdb_id}
+                      onClick={() => openMovie(film)}
                       whileHover={{ scale: 1.05, y: -4 }}
-                      className="group relative"
+                      className="group relative text-left"
                     >
                       <div className="aspect-[2/3] rounded-xl overflow-hidden bg-[#1c1512] border border-white/[0.06]
                         group-hover:border-amber/30 transition-all shadow-lg">
@@ -187,7 +238,7 @@ export default function PublicProfile() {
                           </p>
                         )}
                       </div>
-                    </motion.div>
+                      </motion.button>
                   ))}
                 </div>
               </motion.div>
@@ -235,6 +286,39 @@ export default function PublicProfile() {
         <RecommendMovieSheet
           targetUser={{ id: profile.id, name: profile.name, username: profile.username, avatar: profile.picture }}
           onClose={() => setRecommendOpen(false)}
+        />
+      )}
+
+      {selectedMovie && (
+        <FilmDetailModal
+          movieId={selectedMovie.id || selectedMovie.tmdb_id}
+          initialMovie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+          headerBadge={recommenders.length > 0 ? (
+            <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/80 border border-white/5">
+              <div className="flex -space-x-2">
+                {recommenders.slice(0, 3).map((r) => (
+                  <span key={r.uid} className="w-7 h-7 rounded-full overflow-hidden border-2 border-slate-900">
+                    {r.avatar
+                      ? <img src={resolveAvatarUrl(r.avatar)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      : <span className="w-full h-full flex items-center justify-center font-serif text-[11px] font-bold text-amber bg-slate-800">{r.username?.[0]}</span>}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-ivory/60">
+                <span className="font-bold text-amber">Gurme {recommenders[0].username}</span>
+                {recommenders.length > 1 && <span> ve {recommenders.length - 1} kişi daha</span>} önerdi
+              </p>
+            </div>
+          ) : null}
+          extraActions={user ? (
+            <button onClick={handleRecommendToCommunity}
+              disabled={recommending}
+              title={alreadyRecommended ? 'Öneriyi geri al' : 'Topluluğa öner'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap ${alreadyRecommended ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25' : 'bg-amber/12 border-amber/25 text-amber hover:bg-amber/25'}`}>
+              {alreadyRecommended ? <><RotateCcw size={14} /> Öneriyi Geri Al</> : <><Users size={14} /> Topluluğa Öner</>}
+            </button>
+          ) : null}
         />
       )}
     </motion.div>
