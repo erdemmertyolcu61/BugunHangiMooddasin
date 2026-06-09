@@ -3352,8 +3352,15 @@ async def _compute_daily_film(date_key: str, user_id: int = None) -> Optional[di
 async def _get_daily_film(user_id: int = None) -> Optional[dict]:
     date_key = datetime.utcnow().strftime("%Y-%m-%d")
     cache_key = f"{date_key}_{user_id or 'anon'}"
+    # 1. In-memory cache
     if cache_key in _daily_film_cache:
         return _daily_film_cache[cache_key]
+    # 2. DB persistence (server restart'larda kaybolmaz)
+    db_payload = await cache.get_daily_film(cache_key)
+    if db_payload:
+        _daily_film_cache[cache_key] = db_payload
+        return db_payload
+    # 3. Compute fresh
     payload = await _compute_daily_film(date_key, user_id=user_id)
     if payload:
         today_prefix = f"{date_key}_"
@@ -3361,6 +3368,7 @@ async def _get_daily_film(user_id: int = None) -> Optional[dict]:
         for k in stale:
             del _daily_film_cache[k]
         _daily_film_cache[cache_key] = payload
+        await cache.save_daily_film(cache_key, payload)
     return payload
 
 

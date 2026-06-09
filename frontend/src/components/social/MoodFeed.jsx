@@ -61,21 +61,26 @@ export default function MoodFeed() {
   }
 
   return (
+    <>
+      <header className="sticky top-0 z-50 bg-[#120d0b]/98 border-b border-white/5 pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => navigate(-1)}
+              className="p-3 -ml-1 hover:bg-white/5 rounded-full transition-all tap-target flex items-center justify-center">
+              <ChevronLeft size={24} />
+            </button>
+            <div>
+              <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-amber/60">SOSYAL</p>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight">Akış</h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="min-h-screen pb-28 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:pt-4 px-2 sm:px-6 max-w-2xl mx-auto"
+      className="min-h-screen pb-28 pt-4 sm:pt-6 px-2 sm:px-6 max-w-2xl mx-auto"
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-        <button onClick={() => navigate(-1)}
-          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
-          <ChevronLeft size={16} className="sm:size-[20px] text-ivory/70" />
-        </button>
-        <div>
-          <h1 className="font-serif text-xl sm:text-2xl font-bold text-ivory leading-tight">Akis</h1>
-          <p className="text-[10px] sm:text-[11px] text-white/35">Arkadaslarinin sinema dunyasi</p>
-        </div>
-      </div>
 
       {loading ? (
         <div className="flex justify-center py-20">
@@ -231,6 +236,7 @@ export default function MoodFeed() {
         <RecommendMovieSheet targetUser={recommendTarget} onClose={() => setRecommendTarget(null)} />
       )}
     </motion.div>
+    </>
   );
 }
 
