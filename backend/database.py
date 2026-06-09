@@ -744,14 +744,6 @@ class MovieCache:
                 await db.execute("ALTER TABLE direct_recommendations ADD COLUMN reaction TEXT")
             except Exception:
                 logger.warning("[DB] ALTER direct_recommendations ADD reaction failed")
-            # Daily film persistence — server restart'larda bildirimle banner'in eşleşmesi için
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS daily_films (
-                    date_key TEXT PRIMARY KEY,
-                    payload TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -866,6 +858,11 @@ class MovieCache:
                 mood_id TEXT NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
+            """CREATE TABLE IF NOT EXISTS daily_films (
+                date_key TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
         ]
         for stmt in stmts:
             await _turso_client.execute(stmt)
@@ -909,8 +906,8 @@ class MovieCache:
             logger.warning("[DB] Turso UPDATE username auto-generate failed")
 
     async def get_daily_film(self, date_key: str) -> Optional[dict]:
-        """Daily film'i DB'den oku (varsa). Server restart'ta kaybolmaz."""
-        async with _get_connection(self.db_path) as db:
+        """Daily film'i Turso'dan oku (varsa). Cloud'da kalici, restart'a dayanikli."""
+        async with _get_connection(self.db_path, user_data=True) as db:
             cur = await db.execute(
                 "SELECT payload FROM daily_films WHERE date_key = ?", (date_key,)
             )
@@ -921,9 +918,9 @@ class MovieCache:
             return None
 
     async def save_daily_film(self, date_key: str, payload: dict):
-        """Daily film'i DB'ye yaz (idempotent — INSERT OR REPLACE)."""
+        """Daily film'i Turso'ya yaz (idempotent — INSERT OR REPLACE)."""
         import json
-        async with _get_connection(self.db_path) as db:
+        async with _get_connection(self.db_path, user_data=True) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO daily_films (date_key, payload) VALUES (?, ?)",
                 (date_key, json.dumps(payload, default=str)),

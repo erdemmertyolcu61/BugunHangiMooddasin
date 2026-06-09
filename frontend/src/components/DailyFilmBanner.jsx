@@ -103,10 +103,10 @@ export default function DailyFilmBanner() {
         {/* Dismiss — kartin disinda sag ust */}
         <button
           onClick={handleDismiss}
-          className="absolute -top-1.5 -right-1.5 w-7 h-7 flex items-center justify-center rounded-full bg-black/70 border border-white/10 text-ivory/50 hover:text-ivory hover:bg-black/80 transition-all z-10 hover:scale-105"
+          className="absolute -top-1.5 -right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-ivory/50 hover:text-ivory hover:bg-black/70 transition-all z-10"
           aria-label="Kapat"
         >
-          <X size={13} />
+          <X size={12} />
         </button>
       </div>
     </AnimatePresence>
