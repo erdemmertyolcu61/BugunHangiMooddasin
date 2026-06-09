@@ -141,19 +141,10 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
               [&::-webkit-scrollbar-thumb]:rounded-full
               hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
 
-              {/* Close button - scrolls away with content */}
-              <div className="sticky top-0 z-10 flex justify-end p-3">
-                <button onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm
-                    flex items-center justify-center text-ivory/60 hover:text-ivory hover:bg-black/60 transition-all">
-                  <X size={14} />
-                </button>
-              </div>
-
               <div className="p-5 sm:p-6 space-y-6">
 
-                {/* Header: Avatar (clickable) + Name + Join Date */}
-                <div className="flex items-center gap-4">
+                {/* Header: Avatar (clickable) + Name + Join Date + Close */}
+                <div className="flex items-start gap-4">
                   <button
                     onClick={() => avatarUrl && setAvatarZoom(true)}
                     className="relative group shrink-0"
@@ -195,6 +186,14 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
                       </p>
                     )}
                   </div>
+
+                  {/* Close button - floats right, scrolls away with content */}
+                  <button onClick={onClose}
+                    className="ml-auto shrink-0 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm
+                      flex items-center justify-center text-ivory/60 hover:text-ivory hover:bg-black/60
+                      transition-all sm:self-start">
+                    <X size={14} />
+                  </button>
                 </div>
 
                 {profile.profile_hidden ? (
