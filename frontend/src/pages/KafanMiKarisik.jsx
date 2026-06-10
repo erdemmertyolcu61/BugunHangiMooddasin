@@ -250,7 +250,7 @@ export default function KafanMiKarisik() {
         {!result && !loading && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             <p className="text-lg md:text-xl font-serif font-medium text-amber-100/90 leading-relaxed text-center max-w-2xl mx-auto drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
-              Film adı, yönetmen, oyuncu veya ruh halini yaz — sana en uygun filmleri bulalım.
+              Film adı, yönetmen, oyuncu veya ruh halini yaz, sana en uygun filmleri bulalım.
             </p>
 
             <div className="relative max-w-2xl mx-auto">
