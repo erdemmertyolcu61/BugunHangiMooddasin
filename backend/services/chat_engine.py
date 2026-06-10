@@ -119,8 +119,10 @@ SIMILAR_PATTERNS = [
     r"(.+?)\s*tadında\b",
     r"(.+?)\s*benzeri\b",
     r"(.+?)\s*havasında\b",
+    r"(.+?)\s*havası\b",
     r"(.+?)\s*ayarında\b",
     r"(.+?)\s*tarzında\b",
+    r"(.+?)\s*tadı\b",
     r"(.+?)['']?[eaıiuü]\s+benzeyen\b",
     r"(.+?)['']?[eaıiuü]\s+benzer\b",
     r"(.+?)\s+gibi\s+(?:bir\s+)?film",
@@ -132,6 +134,7 @@ SIMILAR_PATTERNS = [
     r"films?\s+like\s+(.+)",
     r"in\s+the\s+style\s+of\s+(.+)",
     r"(.+?)\s+vibes?\b",
+    r"\blike\s+(.+)",
 ]
 
 # "X ile Y ortası" — iki referanslı karışım (blend) kalıpları
@@ -203,6 +206,13 @@ _SIMILAR_MODIFIER_MAP = {
     "daha romantik": "romantic",
     "daha korkutucu": "scarier",
     "daha urpertici": "scarier",
+    "daha yavas": "slower",
+    "daha yavas tempolu": "slower",
+    "daha hizli": "faster",
+    "daha hizli tempolu": "faster",
+    "daha aksiyonlu": "heavier",
+    "daha sakin": "lighter",
+    "daha yogun": "heavier",
 }
 
 
@@ -407,6 +417,16 @@ KNOWN_PERSONS = {
     "dafoe", "pattinson", "hathaway", "portman", "jolie",
     "roberts", "chastain", "adams", "stone", "lawrence",
     "ryder", "kidman", "foster", "mirren", "dench",
+    "keanu reeves", "reeves", "keanu",
+    "tom cruise", "cruise",
+    "will smith", "scarlett johansson", "johansson",
+    "ryan gosling", "emma stone", "timothee chalamet", "chalamet",
+    "florence pugh", "pugh", "zendaya",
+    "margot robbie", "robbie", "austin butler", "butler",
+    "denzel washington", "matt damon", "damon",
+    "russell crowe", "crowe", "ben affleck", "affleck",
+    "kate winslet", "winslet", "viola davis",
+    "anya taylor-joy", "anya taylor joy",
 }
 
 
@@ -494,6 +514,24 @@ GENRE_KEYWORDS = {
     "action movie": [28], "war movie": [10752],
     "romcom": [10749, 35], "rom-com": [10749, 35],
 }
+
+# Kelime-sınırı (word-boundary) regex'leri — "savaş" ∉ "yavaş" garantisi.
+_GENRE_KW_RE: dict[str, re.Pattern] = {
+    gw: re.compile(r"(?<!\w)" + re.escape(gw) + r"(?!\w)")
+    for gw in GENRE_KEYWORDS
+}
+
+
+def _genre_kw_in(text: str, genre_word: str) -> bool:
+    """Genre keyword'ü kelime sınırıyla text içinde ara."""
+    return _GENRE_KW_RE[genre_word].search(text) is not None
+
+
+def _genre_kw_pos(text: str, genre_word: str) -> int:
+    """Genre keyword'ün text içindeki başlangıç pozisyonu (-1 = yok)."""
+    m = _GENRE_KW_RE[genre_word].search(text)
+    return m.start() if m else -1
+
 
 NEGATIVE_WORDS = [
     "olmasın", "istemiyorum", "değil", "hariç", "dışında", "yok",
@@ -654,6 +692,7 @@ def _normalize(text: str) -> str:
     if not text:
         return ""
     t = text.strip().lower()
+    t = t.replace(chr(0x0307), "")
     t = re.sub(r'[^\w\s]', ' ', t)
     t = re.sub(r'\s+', ' ', t).strip()
     return t
@@ -667,8 +706,9 @@ _TR_FOLD = str.maketrans("çğıöşü", "cgiosu")
 
 
 def _fold(text: str) -> str:
-    """Türkçe aksanları katlayıp normalize eder (hem aksanlı hem ASCII girişi yakalar)."""
-    return _normalize(text).translate(_TR_FOLD)
+    """Türkçe aksanları katlayıp normalize eder (hem aksanlı hem ASCII girişi yakalar).
+    'İ'.lower() = 'i̇' (U+0307 combining dot) sorununu da temizler."""
+    return _normalize(text).translate(_TR_FOLD).replace(chr(0x0307), "")
 
 
 def _title_key(text: str) -> str:
@@ -753,7 +793,7 @@ def _is_short_title_like(text: str) -> bool:
     # Tür kelimesi içeren kısa ifadeler ("a horror movie", "romantik film")
     # film başlığı değil, tür isteğidir → genre_recommendation'a düşsün.
     text_lower = text.lower()
-    if any(gw in text_lower for gw in GENRE_KEYWORDS):
+    if any(_genre_kw_in(text_lower, gw) for gw in GENRE_KEYWORDS):
         return False
     return True
 
@@ -790,6 +830,12 @@ _NON_NAME_WORDS = {
     "özel", "uygun", "yetişkin", "yetişkinler", "yetişkinlere", "yetişkinlik",
     "çocuklar", "çocuklara", "çocuğumla", "çocuğa", "yaş", "yaşa", "yaşında",
     "üstü", "altı", "izleyebileceğim", "izlenebilir", "seyredilebilir",
+    # Betimleyici ifadeler — kişi adı değil
+    "gerçek", "esinlenen", "uyarlanan", "geçen", "olan",
+    "slow", "burn", "psychological", "mind", "bending",
+    "dark", "light", "fast", "based", "true", "real", "events",
+    "twist", "ending", "single", "location", "adapted",
+    "book", "novel", "story",
     # "X filmi/filmleri" bare ifadesinde takı (PERSON_KEYWORD yolu zaten önce
     # çalışır; bu yalnız bare _looks_like_person_name yolunu korur)
     "filmi", "filmler", "filmleri", "filmini", "filmleriyle", "filmiyle",
@@ -807,6 +853,14 @@ _NAME_VERB_SUFFIXES = (
     "sem", "sam", "eyim", "ayim", "ayım", "elim", "alim", "alım",
     "ebilir", "abilir", "ebilecek", "abilecek", "egim", "agim",
     "ecegim", "acagim", "eceğim", "acağım", "ebileceğim", "abileceğim",
+    # Sıfat-fiil ekleri ("esinlenen", "uyarlanan", "geçen")
+    "lenen", "lanan", "layan", "leyen",
+    "enen", "anan", "ayan", "eyen",
+    "olan", "olen",
+    # Hal ekleri — kişi adları bunlarla bitmez ("olaylardan", "hikayeden")
+    "lardan", "lerden", "lardan", "lerden",
+    "larda", "lerde", "larin", "lerin",
+    "larindan", "lerinden",
 )
 
 
@@ -841,7 +895,7 @@ def _is_plausible_person_name(name: str, allow_single: bool = False) -> bool:
     if any(nw in nl for nw in NEGATIVE_WORDS):
         return False
     for gw in GENRE_KEYWORDS:
-        if gw in nl:
+        if _genre_kw_in(nl, gw):
             return False
     # Tek kelimelik aday bir tür adının TYPO'su ise kişi DEĞİL ("korko"→korku,
     # "komeedi"→komedi). KNOWN_PERSONS dışındaki tek kelimeler için fuzzy kontrol;
@@ -981,6 +1035,9 @@ _FUZZY_STOP_WORDS = _NON_NAME_WORDS | {
     "izle", "seyret", "baksam", "izledim", "gördüm", "film", "filmi",
     "filmleri", "filmler", "dizisi", "dizi", "serisi", "seri",
     "sahne", "sahip", "senaryo", "müzik", "oyuncu",
+    "yavaş", "hızlı", "uzun", "kısa", "büyük", "küçük", "kalın", "ince",
+    "soğuk", "sıcak", "sessiz", "gürültülü", "temiz", "kirli",
+    "tempolu", "tempoya", "tempo",
 }
 _FUZZY_STOP_FOLDED = {_fold(w) for w in _FUZZY_STOP_WORDS}
 
@@ -1187,6 +1244,25 @@ def _extract_leading_person(text: str):
     return candidate, ptype
 
 
+def _find_known_person_in(text: str):
+    """Metin içinde KNOWN_PERSONS'u ara (normalize eşleşme).
+    Çok-kelimeli eşleşmeler öncelikli. Döndürür: (isim, 'director'|'actor') | (None, None)."""
+    tn = _normalize(text)
+    best = None
+    best_len = 0
+    for pn in _KNOWN_PERSONS_NORM:
+        if len(pn) > best_len and pn in tn:
+            if re.search(r"(?<!\w)" + re.escape(pn) + r"(?!\w)", tn):
+                best = pn
+                best_len = len(pn)
+    if not best:
+        return None, None
+    for p in KNOWN_PERSONS:
+        if _normalize(p) == best:
+            return p, "actor"
+    return None, None
+
+
 # "A ve B birlikte / aynı filmde" — iki oyuncunun ortak filmi
 _MULTI_PERSON_SPLIT = re.compile(r"\s+(?:ve|ile|&|,)\s+", re.IGNORECASE)
 _MULTI_PERSON_CUES = ("birlikte", "beraber", "ayni filmde", "aynı filmde", "bir arada",
@@ -1333,30 +1409,54 @@ def _parse_complex_negation(text: str) -> tuple[list[int], list[int]]:
     clauses = _CLAUSE_SPLITTER.split(t, maxsplit=1)
     main_clause = clauses[0].strip()
     # Önce tüm metinden exclude'ları topla
+    _NEG_BEFORE = ("olmasın", "istemiyorum", "değil", "hariç", "dışında")
+    _NEG_AFTER = ("hariç", "dışında", "olmasın", "istemiyorum", "değil")
     all_exclude = []
     for gname, gids in GENRE_KEYWORDS.items():
-        if gname in t:
-            before_idx = t.index(gname)
-            before_text = t[max(0, before_idx - 30):before_idx]
-            if any(nw in before_text for nw in ("olmasın", "istemiyorum", "değil", "hariç", "dışında")):
+        pos = _genre_kw_pos(t, gname)
+        if pos >= 0:
+            before_text = t[max(0, pos - 30):pos]
+            after_text = t[pos + len(gname):pos + len(gname) + 15]
+            neg_b = any(nw in before_text for nw in _NEG_BEFORE)
+            neg_a = any(nw in after_text for nw in _NEG_AFTER)
+            if neg_b:
+                intervening = any(
+                    _genre_kw_pos(before_text, g2) >= 0
+                    for g2 in GENRE_KEYWORDS if g2 != gname
+                )
+                if intervening:
+                    neg_b = False
+            if neg_b or neg_a:
                 all_exclude.extend(gids)
     # "ama" sonrası varsa, oradaki türleri include'a ekle
     more_include = []
     if len(clauses) > 1:
         after = clauses[1].strip()
         for gname, gids in GENRE_KEYWORDS.items():
-            if gname in after:
-                after_idx = after.index(gname)
-                after_before = after[max(0, after_idx - 15):after_idx]
+            pos = _genre_kw_pos(after, gname)
+            if pos >= 0:
+                after_before = after[max(0, pos - 15):pos]
                 if not any(nw in after_before for nw in ("olmasın", "istemiyorum", "değil", "hariç")):
                     more_include.extend(gids)
     # Ana clause'taki türlerden exclude'ları çıkar
+    # "korku değil gerilim" → "gerilim" öncesinde "değil" var ama arada "korku" genre'ı
+    # bulunuyor: negatif kelime "korku"ya ait, "gerilim"e değil.
     main_include = []
     for gname, gids in GENRE_KEYWORDS.items():
-        if gname in main_clause:
-            before_idx = main_clause.index(gname)
-            before_text = main_clause[max(0, before_idx - 15):before_idx]
-            if not any(nw in before_text for nw in ("olmasın", "istemiyorum", "değil", "hariç")):
+        pos = _genre_kw_pos(main_clause, gname)
+        if pos >= 0:
+            before_text = main_clause[max(0, pos - 15):pos]
+            after_text = main_clause[pos + len(gname):pos + len(gname) + 15]
+            neg_before = any(nw in before_text for nw in _NEG_BEFORE)
+            neg_after = any(nw in after_text for nw in _NEG_AFTER)
+            if neg_before:
+                intervening_genre = any(
+                    _genre_kw_pos(before_text, g2) >= 0
+                    for g2 in GENRE_KEYWORDS if g2 != gname
+                )
+                if intervening_genre:
+                    neg_before = False
+            if not (neg_before or neg_after):
                 main_include.extend(gids)
     return list(set(main_include + more_include)), list(set(all_exclude))
 
@@ -1828,8 +1928,9 @@ class ChatEngine:
             if kw in text_lower:
                 idx = text_lower.index(kw)
                 person_name = text[:idx].strip().strip('"\'')
-                if person_name and _is_plausible_person_name(person_name, allow_single=True):
-                    # intent belirlendikten sonra cross-signal'lar toplanır
+                if not (person_name and _is_plausible_person_name(person_name, allow_single=True)):
+                    person_name, _ = _find_known_person_in(text[:idx])
+                if person_name:
                     era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
                     return Intent("director_recommendation", person_name=person_name,
                                   person_type="director", original_text=text,
@@ -1844,10 +1945,13 @@ class ChatEngine:
             if kw in text_lower:
                 idx = text_lower.index(kw)
                 person_name = text[:idx].strip().strip('"\'')
-                if person_name and _is_plausible_person_name(person_name, allow_single=True):
+                ptype = "actor"
+                if not (person_name and _is_plausible_person_name(person_name, allow_single=True)):
+                    person_name, ptype = _find_known_person_in(text[:idx])
+                if person_name:
                     era_c, time_c, g_hints, ex_g_hints = self._collect_signals(text)
-                    return Intent("actor_recommendation", person_name=person_name,
-                                  person_type="actor", original_text=text,
+                    return Intent(f"{ptype}_recommendation", person_name=person_name,
+                                  person_type=ptype, original_text=text,
                                   platform_filter=platform_filter,
                                   era_constraint=era_c, time_constraint=time_c,
                                   genres=g_hints, exclude_genres=ex_g_hints,
@@ -1885,9 +1989,11 @@ class ChatEngine:
             if m:
                 ref_title = m.group(1).strip().strip('"\'')
                 if len(ref_title) >= 2:
-                    # Guard: referans kısa ve mood phrase'i andırıyorsa atla
+                    # Guard: referans mood phrase / genre keyword'üyse atla
                     ref_norm = _normalize(ref_title)
                     if len(ref_norm.split()) <= 2 and any(mp in ref_norm for mp in ("bir şey", "birsey", "şey", "film", "sey", "bisey")):
+                        break
+                    if any(_genre_kw_in(ref_norm, gw) for gw in GENRE_KEYWORDS):
                         break
                     alias_check = ref_norm
                     if alias_check in TURKISH_TITLE_ALIASES:
@@ -1898,7 +2004,8 @@ class ChatEngine:
                     return Intent("similar_to_movie", reference_title=ref_title, original_text=text,
                                   platform_filter=platform_filter, similar_modifier=sim_mod,
                                   era_constraint=era_c, time_constraint=time_c,
-                                  genres=g_hints, exclude_genres=ex_g_hints)
+                                  genres=g_hints, exclude_genres=ex_g_hints,
+                                  lang_filter=_detect_lang_filter(text))
 
         # ── Çapraz sinyal toplama
         era_constraint = _extract_era_constraint(text)
@@ -1931,11 +2038,22 @@ class ChatEngine:
         genres_wanted = list(set(genre_hints))
         genres_excluded = list(set(exclude_genre_hints))
         # Ek genre ayrıştırma — olumsuzluk içeren türleri exclude'a ekle
+        _POST_NEG = ("hariç", "dışında", "olmasın", "istemiyorum", "değil")
         for genre_name, genre_ids in GENRE_KEYWORDS.items():
-            if genre_name in text_lower:
-                pos = text_lower.index(genre_name)
+            pos = _genre_kw_pos(text_lower, genre_name)
+            if pos >= 0:
                 before = text_lower[max(0, pos - 20):pos]
-                is_negative = any(nw in before for nw in NEGATIVE_WORDS)
+                after = text_lower[pos + len(genre_name):pos + len(genre_name) + 15]
+                neg_b = any(nw in before for nw in NEGATIVE_WORDS)
+                neg_a = any(nw in after for nw in _POST_NEG)
+                if neg_b:
+                    has_intervening = any(
+                        _genre_kw_pos(before, g2) >= 0
+                        for g2 in GENRE_KEYWORDS if g2 != genre_name
+                    )
+                    if has_intervening:
+                        neg_b = False
+                is_negative = neg_b or neg_a
                 if is_negative:
                     genres_excluded = list(set(genres_excluded + genre_ids))
                 else:
@@ -2008,6 +2126,19 @@ class ChatEngine:
                     era_constraint=era_constraint, time_constraint=time_constraint,
                     genres=genres_wanted, exclude_genres=genres_excluded,
                     mood_signals=cross_mood, lang_filter=_detect_lang_filter(text))
+
+        # ── KNOWN_PERSONS scan — cümle içinde tanınmış isim varsa yakala ──
+        _kp_name, _kp_type = _find_known_person_in(text)
+        if _kp_name:
+            return Intent(f"{_kp_type}_recommendation", person_name=_kp_name,
+                          person_type=_kp_type, original_text=text,
+                          platform_filter=platform_filter,
+                          era_constraint=era_constraint,
+                          time_constraint=time_constraint,
+                          genres=genres_wanted,
+                          exclude_genres=genres_excluded,
+                          mood_signals=cross_mood,
+                          lang_filter=_detect_lang_filter(text))
 
         if _is_short_title_like(text):
             return Intent("exact_movie_search", reference_title=text.strip(),

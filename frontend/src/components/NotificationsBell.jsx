@@ -290,7 +290,9 @@ export default function NotificationsBell({ open: externalOpen, onOpenChange }) 
                       <div className="flex items-center gap-1.5 mb-1">
                         <CalendarDays size={11} className="text-amber/60 shrink-0" />
                         <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-amber/50">
-                          {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} — Üstad'ın Seçimi
+                          {dailyFilm.date
+                            ? new Date(dailyFilm.date + 'T00:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+                            : new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} — Üstad'ın Seçimi
                         </span>
                       </div>
                       <h4 className="font-serif text-[14px] font-bold text-[#f5f2eb] truncate group-hover:text-amber transition-colors">

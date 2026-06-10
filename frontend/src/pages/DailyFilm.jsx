@@ -41,7 +41,9 @@ export default function DailyFilm() {
 
   const movie = data?.movie;
   const shareUrl = `${CANONICAL_URL}/gunun-filmi`;
-  const dateLabel = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+  const dateLabel = data?.date
+    ? new Date(data.date + 'T00:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+    : new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
   const shareText = movie
     ? `Üstad'ın bugünkü filmi: ${movie.title} 🎬\nSen de günün filmini keşfet 👉`
     : '';

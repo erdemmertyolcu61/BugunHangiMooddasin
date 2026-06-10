@@ -4,24 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, Star, ChevronRight, X } from 'lucide-react';
 import { getDailyFilm, proxyImageUrl } from '../services/api';
 
-/**
- * Günün Filmi — kompakt banner.
- * MoodSelector (ana sayfa) ve/veya MoodFeed'de gösterilir.
- * getDailyFilm cache'li döner; ekstra maliyet yok.
- */
 export default function DailyFilmBanner() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Session içinde dismiss edildiyse tekrar gösterme
     if (sessionStorage.getItem('daily_film_dismissed')) {
       setDismissed(true);
       return;
     }
     let alive = true;
-    getDailyFilm(false)
+    getDailyFilm()
       .then((d) => { if (alive && d?.movie) setData(d); })
       .catch(() => {});
     return () => { alive = false; };
@@ -36,7 +30,9 @@ export default function DailyFilmBanner() {
   if (dismissed || !data?.movie) return null;
 
   const movie = data.movie;
-  const dateLabel = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+  const dateLabel = data.date
+    ? new Date(data.date + 'T00:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+    : new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
 
   return (
     <AnimatePresence>
@@ -50,7 +46,6 @@ export default function DailyFilmBanner() {
           className="group w-full cursor-pointer"
         >
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1a1210] via-[#17100d] to-[#1a1210] border border-amber/15 hover:border-amber/30 transition-all duration-500 shadow-[0_8px_40px_-12px_rgba(212,175,55,0.15)]">
-            {/* Subtle glow */}
             <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full blur-3xl bg-amber/8 pointer-events-none" />
 
             <div className="relative flex items-center gap-4 p-3 sm:p-4">
@@ -100,13 +95,13 @@ export default function DailyFilmBanner() {
           </div>
         </motion.div>
 
-        {/* Dismiss — kartin disinda sag ust */}
+        {/* Dismiss — küçük, border yok, mobilde flush */}
         <button
           onClick={handleDismiss}
-          className="absolute -top-1.5 -right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-ivory/50 hover:text-ivory hover:bg-black/70 transition-all z-10"
+          className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full text-ivory/40 hover:text-ivory/70 transition-colors z-10"
           aria-label="Kapat"
         >
-          <X size={12} />
+          <X size={14} strokeWidth={2.5} />
         </button>
       </div>
     </AnimatePresence>

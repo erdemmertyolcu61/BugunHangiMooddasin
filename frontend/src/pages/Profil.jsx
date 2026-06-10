@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LogOut, ChevronLeft, User, Share2, Link2, Brain, Users, Settings, Trophy } from 'lucide-react';
+import { LogOut, ChevronLeft, User, Share2, Link2, Brain, Users, Settings, Trophy, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -560,6 +560,18 @@ export default function Profil() {
         {profileTab === 'social' && (
           user ? (
             <div className="space-y-6">
+              {/* Akış sayfasına kısayol */}
+              <button onClick={() => navigate('/feed')}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-amber/[0.06] border border-amber/15 hover:border-amber/30 transition-all group">
+                <div className="w-10 h-10 rounded-full bg-amber/12 flex items-center justify-center shrink-0">
+                  <Activity size={18} className="text-amber" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[13px] font-semibold text-ivory">Sosyal Akış</p>
+                  <p className="text-[11px] text-white/40">Arkadaşlarının mood'ları ve aktivitesi</p>
+                </div>
+                <ChevronLeft size={16} className="text-amber/30 rotate-180 group-hover:translate-x-0.5 transition-transform" />
+              </button>
               <ReferralCard />
               <ProfileSocial
                 friends={friends}

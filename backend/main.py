@@ -1592,86 +1592,125 @@ async def classify_repository_movies(
 # çözülmesi için kullanılır (bkz. _parse_curated_title / _pick_movie_by_year).
 CURATED_TITLES_BY_MOOD = {
     "battaniye": [
-        "Gülen Gözler (1977)", "Hababam Sınıfı (1975)", "Süt Kardeşler (1976)",
-        "Tosun Paşa (1976)", "Vizontele (2001)",
-        "My Neighbor Totoro (1988)", "Klaus (2019)", "Ratatouille (2007)",
-        "Our Little Sister (2015)", "Little Forest (2018)",
-        "Chef (2014)", "When Harry Met Sally (1989)", "Amelie (2001)",
+        # Cozy'nin özü: sıcak, sarmalayan, yormayan — ilk açılışta "bu gece tam bana göre" dedirtmeli
+        "Amelie (2001)", "Little Forest (2018)", "My Neighbor Totoro (1988)",
+        "The Secret Life of Walter Mitty (2013)", "Paddington 2 (2017)",
+        "About Time (2013)", "Soul (2020)", "Chef (2014)",
+        "Vizontele (2001)", "Midnight in Paris (2011)",
     ],
     "yolculuk": [
-        "The Motorcycle Diaries (2004)", "The Straight Story (1999)", "Tracks (2013)",
-        "The Way (2010)", "Yol (1982)",
-        "Into the Wild (2007)", "Wild (2014)", "Vizontele Tuuba (2004)",
+        # Keşif, yol, ufuk — "hadi bavulu topla" hissi
+        "Into the Wild (2007)", "The Motorcycle Diaries (2004)", "Nomadland (2020)",
+        "The Way (2010)", "Lion (2016)",
+        "Wild (2014)", "The Darjeeling Limited (2007)", "Yol (1982)",
+        "Tracks (2013)", "The Straight Story (1999)",
     ],
     "gece": [
-        "Good Time (2017)", "Nightcrawler (2014)", "Kyua (1997)",
-        "Memories of Murder (2003)", "Masumiyet (1997)",
-        "Drive (2011)", "Collateral (2004)", "Thief (1981)",
+        # Gece şehri, neon, gerilim, noir — karanlıkta ekranla baş başa
+        "Drive (2011)", "Nightcrawler (2014)", "Collateral (2004)",
+        "Good Time (2017)", "Memories of Murder (2003)",
+        "Sicario (2015)", "Zodiac (2007)", "Masumiyet (1997)",
+        "Thief (1981)", "Se7en (1995)",
     ],
     "kahkaha": [
-        "What We Do in the Shadows (2014)", "Hunt for the Wilderpeople (2016)",
-        "The Nice Guys (2016)", "In Bruges (2008)", "G.O.R.A. (2004)",
-        "Four Lions (2010)", "The Grand Budapest Hotel (2014)", "Organize İşler (2005)",
+        # Gerçekten güldüren — hafif, absürt, buddy comedy; Yeşilçam nostalji değil, komedi
+        "The Grand Budapest Hotel (2014)", "In Bruges (2008)",
+        "The Big Lebowski (1998)", "Snatch (2000)",
+        "What We Do in the Shadows (2014)", "The Nice Guys (2016)",
+        "Kiss Kiss Bang Bang (2005)", "G.O.R.A. (2004)",
+        "Hot Fuzz (2007)", "Hunt for the Wilderpeople (2016)",
     ],
     "gozyasi": [
-        "The Broken Circle Breakdown (2012)", "Okuribito (2008)", "Still Walking (2008)",
-        "A Monster Calls (2016)", "Babam ve Oğlum (2005)",
-        "Manchester by the Sea (2016)", "Capernaum (2018)", "Ayla (2017)",
+        # İlk filmden gözyaşı — katarsis, kayıp, özlem
+        "Schindler's List (1993)", "Grave of the Fireflies (1988)",
+        "Manchester by the Sea (2016)", "Babam ve Oğlum (2005)",
+        "Capernaum (2018)", "The Broken Circle Breakdown (2012)",
+        "Departures (2008)", "A Monster Calls (2016)",
+        "Still Walking (2008)", "Ayla (2017)",
     ],
     "adrenalin": [
-        "The Raid: Redemption (2012)", "Victoria (2015)", "13 Assassins (2010)",
-        "Headhunters (2011)", "Nefes: Vatan Sağolsun (2009)",
-        "Mad Max: Fury Road (2015)", "Heat (1995)", "Leon: The Professional (1994)",
+        # İlk saniyeden koltuğa çivileyen — hız, darbe, nefes kesici
+        "Mad Max: Fury Road (2015)", "The Raid: Redemption (2012)",
+        "John Wick (2014)", "Heat (1995)",
+        "Sicario (2015)", "Top Gun: Maverick (2022)",
+        "Leon: The Professional (1994)", "Nefes: Vatan Sağolsun (2009)",
+        "13 Assassins (2010)", "Headhunters (2011)",
     ],
     "askbahcesi": [
-        "Past Lives (2023)", "Like Crazy (2011)", "Weekend (2011)",
-        "5 Centimeters per Second (2007)", "Issız Adam (2008)",
-        "Her (2013)", "Eternal Sunshine of the Spotless Mind (2004)", "Aşk Tesadüfleri Sever (2011)",
+        # Aşkın en güzel halleri — kelebekler, sıcaklık, kırılganlık
+        "Eternal Sunshine of the Spotless Mind (2004)", "Her (2013)",
+        "Past Lives (2023)", "Call Me by Your Name (2017)",
+        "Issız Adam (2008)", "In the Mood for Love (2000)",
+        "5 Centimeters per Second (2007)", "Aşk Tesadüfleri Sever (2011)",
+        "La La Land (2016)", "Like Crazy (2011)",
     ],
     "zamanyolcusu": [
-        "Cinema Paradiso (1988)", "Tokyo Story (1953)", "Le Samouraï (1967)",
-        "Il conformista (1971)", "Susuz Yaz (1963)",
-        "Amarcord (1973)", "The Godfather (1972)", "Eşkıya (1996)",
+        # Zaman makinesi — 1990 öncesi, gramofon çağı, sinema tarihi
+        "Cinema Paradiso (1988)", "The Godfather (1972)",
+        "Tokyo Story (1953)", "Le Samouraï (1967)",
+        "12 Angry Men (1957)", "Rear Window (1954)",
+        "Susuz Yaz (1963)", "Amarcord (1973)",
+        "Paths of Glory (1957)", "Rashomon (1950)",
     ],
     "sessiz": [
-        "Le Quattro Volte (2010)", "The Turin Horse (2011)", "Silent Light (2007)",
-        "Uncle Boonmee Who Can Recall His Past Lives (2010)", "Bal (2010)",
-        "Ida (2013)", "Paterson (2016)", "Tabiat-ı Alem (2018)",
+        # Sessizliğin şiiri — meditatif, minimal, içe dönüş
+        "Paterson (2016)", "Ida (2013)", "Bal (2010)",
+        "The Turin Horse (2011)", "Nomadland (2020)",
+        "Le Quattro Volte (2010)", "Silent Light (2007)",
+        "Uncle Boonmee Who Can Recall His Past Lives (2010)",
     ],
     "zihin": [
-        "Coherence (2014)", "Primer (2004)", "The Man from Earth (2007)",
-        "Triangle (2009)", "Vavien (2009)",
-        "Arrival (2016)", "The Prestige (2006)", "Exam (2009)",
+        # Beyin yakan twist'ler — "bir dakika, ne oldu?" dedirten filmler
+        "Inception (2010)", "The Prestige (2006)", "Arrival (2016)",
+        "Coherence (2014)", "Memento (2000)",
+        "Primer (2004)", "Shutter Island (2010)",
+        "The Man from Earth (2007)", "Predestination (2014)", "Vavien (2009)",
     ],
     "kalp": [
-        "Aftersun (2022)", "The Florida Project (2017)", "Columbus (2017)",
+        # Bağımsız sinema — küçük bütçe, büyük etki, festival mücevherleri
+        "Aftersun (2022)", "The Florida Project (2017)",
+        "Moonrise Kingdom (2012)", "Columbus (2017)",
         "A Ghost Story (2017)", "Uzak (2002)",
-        "Beasts of the Southern Wild (2012)", "Moonrise Kingdom (2012)", "Sivas (2014)",
+        "Beasts of the Southern Wild (2012)", "Sivas (2014)",
     ],
     "karmakar": [
-        "Holy Motors (2012)", "Songs from the Second Floor (2000)", "The Holy Mountain (1973)",
-        "Hausu (1977)", "Kosmos (2009)",
-        "Dogtooth (2009)", "The Lobster (2015)", "Titane (2021)",
+        # Gerçeklik bükülür — "bu ne?" dedirten, unutulmaz deneyimler
+        "Mulholland Drive (2001)", "Holy Motors (2012)",
+        "The Lobster (2015)", "Dogtooth (2009)",
+        "The Holy Mountain (1973)", "Hausu (1977)",
+        "Kosmos (2009)", "Titane (2021)",
+        "Being John Malkovich (1999)", "Songs from the Second Floor (2000)",
     ],
     "sipsak": [
-        "La Jetée (1962)", "The Red Balloon (1956)", "World of Tomorrow (2015)",
-        "Two Cars, One Night (2004)", "Sessiz / Bê Deng (2012)",
-        "Paperman (2012)", "Fresh Guacamole (2012)", "Logorama (2009)",
+        # Kısa ve vurucu — 90 dakika altı mücevherler
+        "La Jetée (1962)", "The Red Balloon (1956)",
+        "World of Tomorrow (2015)", "Paperman (2012)",
+        "Logorama (2009)", "Two Cars, One Night (2004)",
+        "Sessiz / Bê Deng (2012)", "Fresh Guacamole (2012)",
     ],
     "deep-chills": [
-        "Lake Mungo (2008)", "The Wailing (2016)", "Kill List (2011)",
-        "Saint Maud (2019)", "Baskın (2015)",
-        "Hereditary (2018)", "The Witch (2015)", "It Follows (2014)",
+        # Slow-burn korku — ürperti omurgada kalır, jumpscare değil atmosfer
+        "Hereditary (2018)", "The Witch (2015)",
+        "The Wailing (2016)", "It Follows (2014)",
+        "Lake Mungo (2008)", "Saint Maud (2019)",
+        "Baskın (2015)", "Kill List (2011)",
+        "The Others (2001)", "Midsommar (2019)",
     ],
     "kadraj-estetigi": [
-        "In the Mood for Love (2000)", "The Fall (2006)", "Nie Yinniang (2015)",
-        "The Color of Pomegranates (1969)", "Bir Zamanlar Anadolu'da (2011)",
-        "The Grand Budapest Hotel (2014)", "Stalker (1979)", "Hero (2002)",
+        # Her kare bir tablo — görsel şölen, sinematografi başyapıtı
+        "Blade Runner 2049 (2017)", "In the Mood for Love (2000)",
+        "The Grand Budapest Hotel (2014)", "Hero (2002)",
+        "Bir Zamanlar Anadolu'da (2011)", "The Fall (2006)",
+        "Stalker (1979)", "The Color of Pomegranates (1969)",
+        "Dune (2021)", "Days of Heaven (1978)",
     ],
     "geceyarisi-itirafi": [
-        "Before Sunrise (1995)", "Before Sunset (2004)", "Before Midnight (2013)",
-        "My Dinner with Andre (1981)", "Kış Uykusu (2014)",
-        "Boyhood (2014)", "A Separation (2011)", "Bir Başkadır (2020)",
+        # Gece yarısı derin sohbet — diyalog, varoluş, samimi anlar
+        "Before Sunrise (1995)", "Before Sunset (2004)",
+        "Before Midnight (2013)", "Kış Uykusu (2014)",
+        "A Separation (2011)", "Boyhood (2014)",
+        "My Dinner with Andre (1981)", "The Sunset Limited (2011)",
+        "Coffee and Cigarettes (2003)", "Bir Başkadır (2020)",
     ],
 }
 
@@ -3350,7 +3389,12 @@ async def _compute_daily_film(date_key: str, user_id: int = None) -> Optional[di
 
 
 async def _get_daily_film(user_id: int = None) -> Optional[dict]:
-    date_key = datetime.utcnow().strftime("%Y-%m-%d")
+    # Kullanıcının bildirim saatine göre: saatten önce dünün filmi, sonra bugünün filmi.
+    tz = ZoneInfo("Europe/Istanbul")
+    now_tr = datetime.now(tz)
+    cutoff = await cache.get_notify_hour(user_id) if user_id else 18
+    effective = now_tr if now_tr.hour >= cutoff else now_tr - timedelta(days=1)
+    date_key = effective.strftime("%Y-%m-%d")
     cache_key = f"{date_key}_{user_id or 'anon'}"
     # 1. In-memory cache
     if cache_key in _daily_film_cache:

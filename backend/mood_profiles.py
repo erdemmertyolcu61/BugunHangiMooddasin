@@ -34,7 +34,7 @@ MOOD_PROFILES = {
         "music_style": "Lo-Fi & Coffee Shop Jazz",
         "description": "Dışarıda yağmur yağıyor, elinde sıcak bir çay var ve pijamalarını giydin.",
         "intent": "Cozy, sıcak, güvenli, rahat. Feel-good, aile, yumuşak komedi, tatlı romantik, sıcak dram. Kullanıcıyı yormayan, korkutmayan, germeyen filmler.",
-        "positive_genres": [10751, 35, 18, 10749, 16, 14],
+        "positive_genres": [10751, 35, 10749, 16, 14],
         "negative_genres": [27, 53, 80, 28, 10752, 9648],
         "positive_keywords": ["cozy", "warm", "family", "home", "comfort", "heartwarming", "feel-good", "gentle", "soft",
                               "friendship", "reunion", "holiday", "christmas", "childhood", "puppy", "dog", "cat",
@@ -60,7 +60,7 @@ MOOD_PROFILES = {
         },
         "popularity_policy": "no_restriction",
         "tmdb_params": {
-            "without_genres": "27,53,80,10752",
+            "without_genres": "27,53,80,10752,9648",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.0,
             "min_vote_count": 50,
@@ -134,9 +134,9 @@ MOOD_PROFILES = {
         "title": "Kahkaha Molası",
         "music_style": "Upbeat Funk & Swing",
         "description": "Hayat zaten yeterince ciddi. Bugün sadece gülmek, kıkırdamak ve o güzel rahatlamayı hissetmek için.",
-        "intent": "Hafif, eğlenceli, komik, hızlı rahatlatan. Live-action komedi öncelikli. Absürt komedi, buddy comedy, feel-good comedy.",
-        "positive_genres": [35, 10402, 10751, 18, 80],
-        "negative_genres": [27, 53, 10752, 9648, 16],
+        "intent": "Hafif, eğlenceli, komik, hızlı rahatlatan. Live-action komedi öncelikli. Absürt komedi, buddy comedy, feel-good comedy, dark comedy.",
+        "positive_genres": [35, 10402, 10751],
+        "negative_genres": [27, 53, 10752, 9648, 16, 18],
         "positive_keywords": ["comedy", "funny", "hilarious", "laugh", "satire", "parody", "stand-up", "slapstick", "buddy comedy",
                               "prank", "absurd", "farce", "wit", "humor", "joke", "gag", "ridiculous", "chaos",
                               "misunderstanding", "awkward", "embarrassment", "drunk", "party", "bachelor",
@@ -156,7 +156,7 @@ MOOD_PROFILES = {
         },
         "popularity_policy": "no_restriction",
         "tmdb_params": {
-            "without_genres": "27,53,10752,9648,16",
+            "without_genres": "27,53,10752,9648,16,18",
             "sort_by": "vote_average.desc",
             "min_vote_average": 6.0,
             "min_vote_count": 50,
@@ -692,14 +692,12 @@ MOOD_SEED_STRATEGIES = {
     "battaniye": [
         {"genres": [10751, 35, 10749]},
         {"genres": [16, 10751]},
-        {"genres": [35, 18]},
-        {"genres": [10749, 18]},
-        {"genres": [10751, 18]},           # Aile dramı (live-action)
         {"genres": [35, 10749]},           # Rom-com
-        {"genres": [16, 14]},              # Animasyon + Fantezi (konser yerine)
-        {"genres": [10751, 35, 10749], "with_origin_country": "TR", "with_original_language": "tr"},
-        {"genres": [35, 18], "with_origin_country": "TR", "with_original_language": "tr"},
-        {"genres": [10751, 18], "with_origin_country": "TR", "with_original_language": "tr"},
+        {"genres": [10751, 14]},           # Aile + Fantezi
+        {"genres": [16, 14]},              # Animasyon + Fantezi
+        {"genres": [10751, 35]},           # Aile + Komedi
+        {"genres": [35, 10749], "with_origin_country": "TR", "with_original_language": "tr"},
+        {"genres": [10751, 35], "with_origin_country": "TR", "with_original_language": "tr"},
     ],
     "yolculuk": [
         {"genres": [12, 14]},
@@ -726,11 +724,10 @@ MOOD_SEED_STRATEGIES = {
         {"genres": [35]},
         {"genres": [35, 10402]},
         {"genres": [35, 10751]},
-        {"genres": [35, 80], "with_keywords": "189561"},
-        {"genres": [35, 18]},              # Komedi-drama
         {"genres": [35, 10749]},           # Romantik komedi
-        {"genres": [35], "with_keywords": "9736|207317"},    # Satir + komedi
+        {"genres": [35], "with_keywords": "9736|207317|189561"},  # Satir + komedi + dark comedy
         {"genres": [35], "with_origin_country": "TR", "with_original_language": "tr"},
+        {"genres": [35, 10751], "with_origin_country": "TR", "with_original_language": "tr"},
     ],
     "gozyasi": [
         {"genres": [18, 10749]},

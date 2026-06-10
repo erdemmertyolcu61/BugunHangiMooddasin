@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Activity, Eye, Bookmark, Send, ChevronLeft, Film, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getSocialFeed } from '../../services/api';
@@ -10,8 +10,6 @@ import { useAuth } from '../../context/AuthContext';
 import RecommendMovieSheet from '../RecommendMovieSheet';
 import DailyFilmBanner from '../DailyFilmBanner';
 import useDocumentMeta from '../../utils/useDocumentMeta';
-
-const IMG_SM = 'https://image.tmdb.org/t/p/w185';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -33,6 +31,7 @@ export default function MoodFeed() {
   const [recommendTarget, setRecommendTarget] = useState(null);
 
   useEffect(() => {
+    if (!user) { setLoading(false); return; }
     let alive = true;
     (async () => {
       try {
@@ -45,7 +44,7 @@ export default function MoodFeed() {
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [user]);
 
   if (!user) {
     return (
@@ -59,6 +58,8 @@ export default function MoodFeed() {
       </div>
     );
   }
+
+  const hasFeedContent = feed?.friend_moods?.length > 0 || feed?.activities?.length > 0 || feed?.recommendations?.length > 0;
 
   return (
     <>
@@ -94,7 +95,7 @@ export default function MoodFeed() {
         </div>
       ) : (
         <div className="space-y-6 sm:space-y-8">
-          {/* Gunun Filmi */}
+          {/* Gunun Filmi — her zaman goster (feed bos olsa bile) */}
           <DailyFilmBanner />
 
           {/* Section 1: Arkadaslarin Moodlari */}
@@ -221,12 +222,12 @@ export default function MoodFeed() {
             </section>
           )}
 
-          {/* Empty state */}
-          {!feed?.friend_moods?.length && !feed?.activities?.length && !feed?.recommendations?.length && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <Activity size={40} className="text-white/10 mb-4" />
-              <p className="font-serif text-lg text-ivory/50">Akis bos</p>
-              <p className="text-[13px] text-white/30 mt-1">Arkadas ekleyince burada aktiviteleri gorunecek.</p>
+          {/* Empty state — sadece feed icerik yoksa VE gunun filmi yoksa goster */}
+          {!hasFeedContent && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Activity size={36} className="text-white/10 mb-3" />
+              <p className="font-serif text-base text-ivory/50">Henuz arkadas aktivitesi yok</p>
+              <p className="text-[12px] text-white/30 mt-1">Arkadas ekleyince burada mood ve film aktiviteleri gorunecek.</p>
             </div>
           )}
         </div>
