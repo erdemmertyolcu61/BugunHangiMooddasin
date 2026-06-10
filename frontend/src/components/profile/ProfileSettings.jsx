@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Settings, Bell, Palette, Database, AlertTriangle, ChevronRight, Clock, EyeOff,
+  Settings, Bell, Palette, Database, AlertTriangle, ChevronRight, ChevronDown, Clock, EyeOff, Ban,
 } from 'lucide-react';
-import { getWatchlist, getNotifyTime, setNotifyTime, setActivityVisibility } from '../../services/api';
+import { getWatchlist, getNotifyTime, setNotifyTime, setActivityVisibility, getBlockedUsers, unblockUser } from '../../services/api';
+import { resolveAvatarUrl } from '../../utils/apiConfig';
 import { getApiUrl } from '../../utils/apiConfig';
 import { isPushSubscribed } from '../../utils/push';
 
@@ -118,6 +119,67 @@ function ActivityToggleRow() {
   );
 }
 
+/** Engellenen kullanıcılar yönetimi — UGC moderasyonunun kullanıcı tarafı. */
+function BlockedUsersRow() {
+  const [open, setOpen] = useState(false);
+  const [blocked, setBlocked] = useState(null);
+
+  const load = async () => {
+    const d = await getBlockedUsers();
+    setBlocked(d.blocked || []);
+  };
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && blocked === null) load();
+  };
+
+  const handleUnblock = async (id) => {
+    try { await unblockUser(id); } catch { /* sessiz */ }
+    setBlocked((b) => (b || []).filter((u) => u.id !== id));
+  };
+
+  return (
+    <div>
+      <button onClick={toggle}
+        className="w-full flex items-center gap-3.5 px-5 py-4 text-left transition-all hover:bg-white/[0.04]">
+        <Ban size={17} className="text-ivory/65" />
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-[14px] font-semibold text-ivory/80">Engellenen Kullanıcılar</p>
+          <p className="font-sans text-[12px] text-ivory/60 mt-0.5">İçerikleri sana görünmez</p>
+        </div>
+        {open ? <ChevronDown size={14} className="text-ivory/60 shrink-0" />
+              : <ChevronRight size={14} className="text-ivory/60 shrink-0" />}
+      </button>
+      {open && (
+        <div className="px-5 pb-4 space-y-2">
+          {blocked === null ? (
+            <p className="text-[12px] text-ivory/40">Yükleniyor...</p>
+          ) : blocked.length === 0 ? (
+            <p className="text-[12px] text-ivory/40 italic">Engellediğin kimse yok.</p>
+          ) : (
+            blocked.map((u) => (
+              <div key={u.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+                <span className="w-7 h-7 rounded-full overflow-hidden bg-white/10 shrink-0">
+                  {u.avatar
+                    ? <img src={resolveAvatarUrl(u.avatar)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    : <span className="w-full h-full flex items-center justify-center text-[11px] font-bold text-amber/60">{(u.username || '?')[0].toUpperCase()}</span>}
+                </span>
+                <p className="flex-1 text-[12px] font-semibold text-ivory/80 truncate">@{u.username}</p>
+                <button onClick={() => handleUnblock(u.id)}
+                  className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-ivory/60 hover:text-ivory hover:border-white/25 transition-all">
+                  Engeli Kaldır
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProfileSettings({ theme, toggleTheme, logout, navigate, onNotifOpen }) {
   const settings = [
     {
@@ -175,6 +237,7 @@ export default function ProfileSettings({ theme, toggleTheme, logout, navigate, 
       <div className="rounded-2xl bg-[#1c1512]/90 border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">
         <NotifyTimeRow />
         <ActivityToggleRow />
+        <BlockedUsersRow />
         {settings.map(({ icon: Icon, label, desc, danger, action, badge }) => (
           <button key={label} onClick={action}
             className={`w-full flex items-center gap-3.5 px-5 py-4 text-left transition-all

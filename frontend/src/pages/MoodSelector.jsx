@@ -14,8 +14,11 @@ import QuizModal from '../components/QuizModal';
 import MovieCard from '../components/MovieCard';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { searchMovies, shareMood } from '../services/api';
+import { rankMoods, recordMoodPick } from '../utils/moodRanking';
 
-const moodList = Object.values(MOODS);
+// Kişiselleştirme: en çok seçilen ilk 4 mood öne alınır (sayfa açılışında
+// bir kez hesaplanır — gezinme sırasında kartlar yer değiştirmesin).
+const moodList = rankMoods(Object.values(MOODS));
 
 export default function MoodSelector() {
   const navigate = useNavigate();
@@ -102,6 +105,7 @@ export default function MoodSelector() {
 
   const handleMoodClick = useCallback(async (mood) => {
     track(EVENTS.MOOD_SELECT, { mood: mood.id });
+    recordMoodPick(mood.id); // kişisel sıralama sayacı (client-side)
     try { playMoodAudio(mood.id); } catch(e) {}
     selectMood(mood.id);
     // Implicit mood sharing (fire-and-forget, giriş yapmışsa)

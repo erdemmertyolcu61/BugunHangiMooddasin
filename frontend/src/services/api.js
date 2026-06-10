@@ -847,3 +847,122 @@ export async function removeFromCustomList(listId, tmdbId) {
   if (!res.ok) await _socialError(res, 'Listeden çıkarılamadı');
   return res.json();
 }
+
+// ─── Topluluk Katmanı: Trend + Söz + Moderasyon + Engelleme ─────────────────
+
+export async function getTrending(limit = 12) {
+  try {
+    const res = await fetch(`${BASE}/community/trending?limit=${limit}`);
+    if (!res.ok) return { movies: [] };
+    return res.json();
+  } catch { return { movies: [] }; }
+}
+
+export async function getMovieReviews(tmdbId, limit = 20, offset = 0) {
+  try {
+    const res = await fetch(`${BASE}/movies/${tmdbId}/reviews?limit=${limit}&offset=${offset}`,
+      { headers: { ...authHeaders() } });
+    if (!res.ok) return { reviews: [], count: 0 };
+    return res.json();
+  } catch { return { reviews: [], count: 0 }; }
+}
+
+export async function saveMovieReview(tmdbId, content, hasSpoiler = false) {
+  const res = await fetch(`${BASE}/movies/${tmdbId}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ content, has_spoiler: hasSpoiler }),
+  });
+  if (!res.ok) await _socialError(res, 'Söz kaydedilemedi');
+  return res.json();
+}
+
+export async function deleteMovieReview(tmdbId) {
+  const res = await fetch(`${BASE}/movies/${tmdbId}/reviews`, {
+    method: 'DELETE', headers: { ...authHeaders() },
+  });
+  if (!res.ok) await _socialError(res, 'Söz silinemedi');
+  return res.json();
+}
+
+export async function likeReview(reviewId, liked) {
+  try {
+    const res = await fetch(`${BASE}/reviews/${reviewId}/like`, {
+      method: liked ? 'POST' : 'DELETE', headers: { ...authHeaders() },
+    });
+    return res.ok ? res.json() : { ok: false };
+  } catch { return { ok: false }; }
+}
+
+export async function reportContent(contentType, contentId, reason = 'diger') {
+  const res = await fetch(`${BASE}/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ content_type: contentType, content_id: String(contentId), reason }),
+  });
+  if (!res.ok) await _socialError(res, 'Şikayet gönderilemedi');
+  return res.json();
+}
+
+export async function blockUser(userId) {
+  const res = await fetch(`${BASE}/users/${userId}/block`, {
+    method: 'POST', headers: { ...authHeaders() },
+  });
+  if (!res.ok) await _socialError(res, 'Kullanıcı engellenemedi');
+  return res.json();
+}
+
+export async function unblockUser(userId) {
+  const res = await fetch(`${BASE}/users/${userId}/block`, {
+    method: 'DELETE', headers: { ...authHeaders() },
+  });
+  if (!res.ok) await _socialError(res, 'Engel kaldırılamadı');
+  return res.json();
+}
+
+export async function getBlockedUsers() {
+  try {
+    const res = await fetch(`${BASE}/users/blocks`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { blocked: [] };
+    return res.json();
+  } catch { return { blocked: [] }; }
+}
+
+// ─── Kişi keşfi ──────────────────────────────────────────────────────────────
+
+export async function getSimilarUsers() {
+  try {
+    const res = await fetch(`${BASE}/community/similar-users`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { users: [] };
+    return res.json();
+  } catch { return { users: [] }; }
+}
+
+export async function getTopRecommenders() {
+  try {
+    const res = await fetch(`${BASE}/community/top-recommenders`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { users: [] };
+    return res.json();
+  } catch { return { users: [] }; }
+}
+
+// ─── Herkese açık listeler ───────────────────────────────────────────────────
+
+export async function setListVisibility(listId, isPublic, description = null) {
+  const res = await fetch(`${BASE}/custom-lists/${listId}/visibility`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ is_public: isPublic, description }),
+  });
+  if (!res.ok) await _socialError(res, 'Liste görünürlüğü değiştirilemedi');
+  return res.json();
+}
+
+export async function getPublicList(slug) {
+  const res = await fetch(`${BASE}/lists/public/${encodeURIComponent(slug)}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Liste bulunamadı');
+  }
+  return res.json();
+}

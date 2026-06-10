@@ -1,4 +1,5 @@
 {
+  "id": "app.sinemood",
   "name": "Sinemood — Bugün Hangi Mooddasın?",
   "short_name": "Sinemood",
   "description": "Yapay zeka destekli film keşif platformu. Ruh haline göre film önerileri.",
@@ -25,6 +26,26 @@
     }
   ],
   "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Günün Filmi",
+      "short_name": "Günün Filmi",
+      "url": "/gunun-filmi",
+      "icons": [{ "src": "/sinemod-mark.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Kafan mı Karışık?",
+      "short_name": "Kafan Karışık",
+      "url": "/kafan-mi-karisik",
+      "icons": [{ "src": "/sinemod-mark.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Sürpriz Film",
+      "short_name": "Sürpriz",
+      "url": "/surprise",
+      "icons": [{ "src": "/sinemod-mark.png", "sizes": "512x512" }]
+    }
+  ],
   "share_target": {
     "action": "/kafan-mi-karisik",
     "method": "GET",

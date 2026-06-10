@@ -9,6 +9,8 @@ import { MOODS } from '../../context/MoodContext';
 import { useAuth } from '../../context/AuthContext';
 import RecommendMovieSheet from '../RecommendMovieSheet';
 import DailyFilmBanner from '../DailyFilmBanner';
+import TrendingStrip from './TrendingStrip';
+import PeopleDiscovery from './PeopleDiscovery';
 import useDocumentMeta from '../../utils/useDocumentMeta';
 
 function timeAgo(dateStr) {
@@ -46,15 +48,25 @@ export default function MoodFeed() {
     return () => { alive = false; };
   }, [user]);
 
+  // Login'siz: trend + günün filmi yine görünür (boş ekran yok), giriş CTA'sı altta
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <Users size={40} className="text-white/15 mb-4" />
-        <p className="font-serif text-lg text-ivory/60">Akisi gormek icin giris yap</p>
-        <button onClick={() => navigate('/profil')}
-          className="mt-4 px-6 py-2.5 rounded-full bg-amber/15 text-amber border border-amber/30 text-xs font-bold uppercase tracking-wider hover:bg-amber/25 transition-all">
-          Giris Yap
-        </button>
+      <div className="min-h-screen pb-28 pt-6 px-2 sm:px-6 max-w-2xl mx-auto space-y-8">
+        <div className="px-1">
+          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-amber/60">SOSYAL</p>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight">Akış</h1>
+        </div>
+        <TrendingStrip />
+        <DailyFilmBanner />
+        <PeopleDiscovery loggedIn={false} />
+        <div className="flex flex-col items-center justify-center py-10 text-center rounded-2xl bg-[#1a1310] border border-white/[0.05]">
+          <Users size={36} className="text-white/15 mb-3" />
+          <p className="font-serif text-lg text-ivory/60">Arkadaşlarının aktivitesini görmek için giriş yap</p>
+          <button onClick={() => navigate('/profil')}
+            className="mt-4 px-6 py-2.5 rounded-full bg-amber/15 text-amber border border-amber/30 text-xs font-bold uppercase tracking-wider hover:bg-amber/25 transition-all">
+            Giriş Yap
+          </button>
+        </div>
       </div>
     );
   }
@@ -95,6 +107,9 @@ export default function MoodFeed() {
         </div>
       ) : (
         <div className="space-y-6 sm:space-y-8">
+          {/* Bu Hafta Toplulukta — topluluk trendi, her zaman dolu (soguk baslangic) */}
+          <TrendingStrip />
+
           {/* Gunun Filmi — her zaman goster (feed bos olsa bile) */}
           <DailyFilmBanner />
 
@@ -222,12 +237,15 @@ export default function MoodFeed() {
             </section>
           )}
 
-          {/* Empty state — sadece feed icerik yoksa VE gunun filmi yoksa goster */}
+          {/* Kisi kesfi — arkadas aktivitesi azsa one cikar */}
+          {!hasFeedContent && <PeopleDiscovery loggedIn />}
+
+          {/* Empty state — sadece feed icerik yoksa goster */}
           {!hasFeedContent && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Activity size={36} className="text-white/10 mb-3" />
               <p className="font-serif text-base text-ivory/50">Henuz arkadas aktivitesi yok</p>
-              <p className="text-[12px] text-white/30 mt-1">Arkadas ekleyince burada mood ve film aktiviteleri gorunecek.</p>
+              <p className="text-[12px] text-white/30 mt-1">Yukaridan benzer zevkli kullanicilari ekleyebilirsin.</p>
             </div>
           )}
         </div>

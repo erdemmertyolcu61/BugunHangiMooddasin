@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, ChevronLeft, ListPlus, X, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ListPlus, X, Loader2, Globe2, Lock } from 'lucide-react';
 import {
   getCustomLists, createCustomList, deleteCustomList,
-  getCustomList, removeFromCustomList, proxyImageUrl,
+  getCustomList, removeFromCustomList, proxyImageUrl, setListVisibility,
 } from '../services/api';
 import FilmDetailModal from './FilmDetailModal';
+import ShareButtons from './ShareButtons';
 
 const EMOJIS = ['🎬', '🍿', '🚀', '🌌', '🕵️', '💔', '😂', '👻', '🎭', '🏆', '🌙', '🔥'];
 
@@ -65,6 +66,18 @@ export default function CustomListsPanel({ user }) {
     loadLists(); // sayım/kapak güncellensin
   };
 
+  const [visBusy, setVisBusy] = useState(false);
+  const handleToggleVisibility = async () => {
+    if (!openList || visBusy) return;
+    setVisBusy(true);
+    try {
+      const next = !openList.is_public;
+      const r = await setListVisibility(openList.id, next);
+      setOpenList(prev => ({ ...prev, is_public: next, slug: r.slug || prev.slug }));
+    } catch { /* sessiz */ }
+    finally { setVisBusy(false); }
+  };
+
   // ── Giriş yok ──
   if (!user) {
     return (
@@ -96,6 +109,27 @@ export default function CustomListsPanel({ user }) {
           <span className="text-3xl">{openList.emoji || '🎬'}</span>
           <h2 className="text-2xl sm:text-4xl font-serif font-bold tracking-tight">{openList.name}</h2>
           <span className="text-sm text-ivory/40">{openList.movies?.length || 0} film</span>
+        </div>
+
+        {/* Herkese açık paylaşım — WhatsApp büyüme döngüsü */}
+        <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+          <button onClick={handleToggleVisibility} disabled={visBusy}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border text-[11px] font-bold uppercase tracking-wider transition-all ${
+              openList.is_public
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-white/5 border-white/10 text-ivory/60 hover:border-amber/30'
+            }`}>
+            {visBusy ? <Loader2 size={13} className="animate-spin" />
+              : openList.is_public ? <Globe2 size={13} /> : <Lock size={13} />}
+            {openList.is_public ? 'Herkese Açık' : 'Gizli — Paylaşmak için aç'}
+          </button>
+          {openList.is_public && openList.slug && (
+            <ShareButtons
+              compact
+              url={`${window.location.origin}/liste/${openList.slug}`}
+              text={`${openList.emoji || '🎬'} "${openList.name}" listem Sinemood'da:`}
+            />
+          )}
         </div>
 
         {detailLoading ? (

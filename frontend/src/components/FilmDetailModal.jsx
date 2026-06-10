@@ -21,6 +21,7 @@ import UstadLoader from './UstadLoader';
 import UstadinNotu from './UstadinNotu';
 import RecommendToFriendSheet from './RecommendToFriendSheet';
 import AddToListSheet from './AddToListSheet';
+import FilmReviews from './social/FilmReviews';
 import FilmShareCard from './FilmShareCard';
 import { useAuth } from '../context/AuthContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -442,6 +443,9 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                     </div>
                   );
                 })()}
+
+                {/* Topluluk Sözleri — herkese açık mini yorumlar */}
+                <FilmReviews movie={movie} />
 
                 {/* Benzer Filmler */}
                 <SimilarFilmsStrip movies={similar} onSelect={(m) => { setActiveId(m.id); onActiveChange?.(m); }} />

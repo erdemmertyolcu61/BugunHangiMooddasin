@@ -5,7 +5,7 @@ Extracted from backend/main.py to enable modular router files.
 """
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
 from fastapi import HTTPException, Request
@@ -23,7 +23,7 @@ _error_counter = 0
 
 
 def _create_token(payload: dict, expires_hours: int = 24) -> str:
-    payload["exp"] = datetime.utcnow() + timedelta(hours=expires_hours)
+    payload["exp"] = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
     return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 

@@ -470,6 +470,39 @@ async def get_public_profile(username: str):
     if taste_map and isinstance(taste_map, dict):
         top_moods = taste_map.get("top_moods", [])
 
+    # Herkese açık Sözler (son 3) + toplam sayı
+    review_count = 0
+    recent_reviews = []
+    try:
+        from backend.database import _get_connection as _db_conn_r
+        async with _db_conn_r(cache.db_path, user_data=True) as db:
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM movie_reviews WHERE user_id = ? AND status = 'visible'",
+                (uid,),
+            )
+            row = await cur.fetchone()
+            review_count = row[0] if row else 0
+            cur = await db.execute(
+                """SELECT tmdb_id, content, created_at FROM movie_reviews
+                   WHERE user_id = ? AND status = 'visible'
+                   ORDER BY created_at DESC LIMIT 3""",
+                (uid,),
+            )
+            rev_rows = await cur.fetchall()
+        rev_ids = [r[0] for r in rev_rows]
+        rev_meta = await cache.get_movies_meta_by_ids(rev_ids) if rev_ids else {}
+        for r in rev_rows:
+            m = rev_meta.get(r[0], {})
+            recent_reviews.append({
+                "tmdb_id": r[0],
+                "content": r[1],
+                "created_at": str(r[2] or ""),
+                "movie_title": m.get("title", ""),
+                "poster_url": m.get("poster_url", ""),
+            })
+    except Exception:
+        logger.warning("[PublicProfile] reviews failed for uid=%d", uid)
+
     return {
         "id": uid,
         "username": user_info.get("username", ""),
@@ -483,6 +516,8 @@ async def get_public_profile(username: str):
         "taste_map": taste_map,
         "community_recs": community_recs,
         "top_moods": top_moods,
+        "review_count": review_count,
+        "recent_reviews": recent_reviews,
     }
 
 
@@ -707,6 +742,64 @@ async def react_to_recommendation(rec_id: int, body: ReactionBody,
     if not ok:
         raise HTTPException(404, "Öneri bulunamadı veya sana ait değil")
     return {"ok": True, "reaction": body.reaction}
+
+
+# ─── Hesap Silme (store zorunluluğu: Apple hesap silme ister) ───────────────
+
+@router.delete("/auth/account")
+async def delete_account(user: dict = Depends(get_current_user)):
+    """Hesabı ve TÜM kullanıcı verilerini kalıcı olarak sil (KVKK + App Store şartı)."""
+    uid = user["user_id"]
+    from backend.database import _get_connection as _db_conn
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        # Kullanıcının listelerine bağlı öğeler
+        try:
+            cur = await db.execute("SELECT id FROM user_lists WHERE user_id = ?", (uid,))
+            list_ids = [r[0] for r in await cur.fetchall()]
+            for lid in list_ids:
+                await db.execute("DELETE FROM list_items WHERE list_id = ?", (lid,))
+        except Exception:
+            pass
+        # Söz beğenileri (kendi beğendikleri + Sözlerine gelenler)
+        try:
+            await db.execute("DELETE FROM review_likes WHERE user_id = ?", (uid,))
+            await db.execute(
+                "DELETE FROM review_likes WHERE review_id IN "
+                "(SELECT id FROM movie_reviews WHERE user_id = ?)", (uid,))
+        except Exception:
+            pass
+        for table, col in (
+            ("movie_reviews", "user_id"),
+            ("ugc_reports", "reporter_id"),
+            ("watchlist", "user_id"),
+            ("movie_notes", "user_id"),
+            ("future_plans", "user_id"),
+            ("movie_ratings", "user_id"),
+            ("user_lists", "user_id"),
+            ("community_recommendations", "user_id"),
+            ("user_taste_profiles", "user_id"),
+            ("push_subscriptions", "user_id"),
+            ("user_moods", "user_id"),
+        ):
+            try:
+                await db.execute(f"DELETE FROM {table} WHERE {col} = ?", (uid,))
+            except Exception:
+                logger.warning("[AccountDelete] %s silinemedi (uid=%d)", table, uid)
+        # Çift kolonlu ilişki tabloları
+        for stmt in (
+            "DELETE FROM friendships WHERE user_id = ? OR friend_id = ?",
+            "DELETE FROM direct_recommendations WHERE sender_id = ? OR receiver_id = ?",
+            "DELETE FROM referrals WHERE referrer_id = ? OR referred_id = ?",
+            "DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?",
+        ):
+            try:
+                await db.execute(stmt, (uid, uid))
+            except Exception:
+                logger.warning("[AccountDelete] ilişki tablosu silinemedi (uid=%d)", uid)
+        await db.execute("DELETE FROM users WHERE id = ?", (uid,))
+        await db.commit()
+    logger.info("[AccountDelete] uid=%d hesabı ve tüm verileri silindi", uid)
+    return {"ok": True, "message": "Hesabın ve tüm verilerin kalıcı olarak silindi."}
 
 
 # ─── Sosyal Akış (Feed) ─────────────────────────────────────

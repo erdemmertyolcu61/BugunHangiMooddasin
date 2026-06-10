@@ -18,9 +18,22 @@ RATE_LIMIT_STRICT = 20
 _rate_store: dict[str, list[float]] = defaultdict(list)
 
 
+def _client_ip(request: Request) -> str:
+    """Gerçek istemci IP'si. Prod'da tüm trafik Vercel rewrite + Railway proxy
+    üzerinden gelir; request.client.host proxy IP'sidir — tüm kullanıcılar tek
+    rate-limit bütçesini paylaşır (60/dk TOPLAM!). X-Forwarded-For'un ilk
+    girdisi gerçek istemcidir."""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    return request.client.host if request.client else "unknown"
+
+
 def _check_rate_limit(request: Request, limit: int) -> None:
     """Dakikada `limit` istek (IP + path başına). Aşılırsa 429."""
-    ip = request.client.host if request.client else "unknown"
+    ip = _client_ip(request)
     now = time.time()
     window = 60  # 1 dakika
     key = f"{ip}:{request.url.path}"

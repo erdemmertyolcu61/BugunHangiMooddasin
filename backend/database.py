@@ -744,6 +744,75 @@ class MovieCache:
                 await db.execute("ALTER TABLE direct_recommendations ADD COLUMN reaction TEXT")
             except Exception:
                 logger.warning("[DB] ALTER direct_recommendations ADD reaction failed")
+
+            # ── Topluluk katmanı: Söz (public mini yorum) + moderasyon ────────
+            # movie_reviews — movie_notes'tan AYRI: notlar özel günlük, Söz herkese açık.
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS movie_reviews (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tmdb_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    content TEXT NOT NULL,
+                    has_spoiler INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'visible'
+                        CHECK (status IN ('visible','hidden','removed')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(tmdb_id, user_id)
+                )
+            """)
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reviews_movie ON movie_reviews(tmdb_id, status)"
+            )
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reviews_user ON movie_reviews(user_id)"
+            )
+            # ugc_reports — store zorunluluğu: herkese açık içerik şikayet edilebilmeli
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS ugc_reports (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_type TEXT NOT NULL,
+                    content_id TEXT NOT NULL,
+                    reporter_id INTEGER NOT NULL REFERENCES users(id),
+                    reason TEXT,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # user_blocks — friendships.BLOCKED'dan ayrı: yabancılar arasında satır olmayabilir
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_blocks (
+                    blocker_id INTEGER NOT NULL REFERENCES users(id),
+                    blocked_id INTEGER NOT NULL REFERENCES users(id),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (blocker_id, blocked_id)
+                )
+            """)
+            # review_likes — Söz beğenileri
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS review_likes (
+                    review_id INTEGER NOT NULL REFERENCES movie_reviews(id),
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (review_id, user_id)
+                )
+            """)
+            # user_lists public paylaşım kolonları
+            for _col_mig in (
+                "ALTER TABLE user_lists ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE user_lists ADD COLUMN slug TEXT",
+                "ALTER TABLE user_lists ADD COLUMN description TEXT",
+            ):
+                try:
+                    await db.execute(_col_mig)
+                except Exception:
+                    pass  # kolon zaten var
+            try:
+                await db.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_lists_slug ON user_lists(slug) WHERE slug IS NOT NULL"
+                )
+            except Exception:
+                logger.warning("[DB] idx_user_lists_slug failed")
             await db.commit()
 
     async def _init_turso_user_tables(self):
@@ -863,6 +932,40 @@ class MovieCache:
                 payload TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
+            # ── Topluluk katmanı: Söz + moderasyon + beğeniler ───────────────
+            """CREATE TABLE IF NOT EXISTS movie_reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tmdb_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                content TEXT NOT NULL,
+                has_spoiler INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'visible'
+                    CHECK (status IN ('visible','hidden','removed')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(tmdb_id, user_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS ugc_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content_type TEXT NOT NULL,
+                content_id TEXT NOT NULL,
+                reporter_id INTEGER NOT NULL REFERENCES users(id),
+                reason TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            """CREATE TABLE IF NOT EXISTS user_blocks (
+                blocker_id INTEGER NOT NULL REFERENCES users(id),
+                blocked_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (blocker_id, blocked_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS review_likes (
+                review_id INTEGER NOT NULL REFERENCES movie_reviews(id),
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (review_id, user_id)
+            )""",
         ]
         for stmt in stmts:
             await _turso_client.execute(stmt)
@@ -887,6 +990,13 @@ class MovieCache:
             "CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_id)",
             "ALTER TABLE users ADD COLUMN hide_activity INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE direct_recommendations ADD COLUMN reaction TEXT",
+            # Topluluk katmanı index + public liste kolonları
+            "CREATE INDEX IF NOT EXISTS idx_reviews_movie ON movie_reviews(tmdb_id, status)",
+            "CREATE INDEX IF NOT EXISTS idx_reviews_user ON movie_reviews(user_id)",
+            "ALTER TABLE user_lists ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE user_lists ADD COLUMN slug TEXT",
+            "ALTER TABLE user_lists ADD COLUMN description TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_lists_slug ON user_lists(slug) WHERE slug IS NOT NULL",
         ):
             try:
                 await _turso_client.execute(mig)
@@ -1799,11 +1909,21 @@ class MovieCache:
     async def get_list_items(self, list_id: int, user_id: int) -> Optional[dict]:
         """A list's header + its movies (None if not owned)."""
         async with _get_connection(self.db_path, user_data=True) as db:
-            cur = await db.execute(
-                "SELECT id, name, emoji FROM user_lists WHERE id = ? AND user_id = ?",
-                (list_id, user_id)
-            )
-            header = await cur.fetchone()
+            try:
+                cur = await db.execute(
+                    "SELECT id, name, emoji, is_public, slug FROM user_lists WHERE id = ? AND user_id = ?",
+                    (list_id, user_id)
+                )
+                header = await cur.fetchone()
+            except Exception:
+                # is_public/slug kolonları henüz yoksa eski SELECT'e düş
+                cur = await db.execute(
+                    "SELECT id, name, emoji FROM user_lists WHERE id = ? AND user_id = ?",
+                    (list_id, user_id)
+                )
+                header = await cur.fetchone()
+                if header:
+                    header = (*header, 0, None)
             if not header:
                 return None
             cur2 = await db.execute(
@@ -1814,7 +1934,8 @@ class MovieCache:
                 {"tmdb_id": r[0], "title": r[1], "poster_url": r[2], "added_at": r[3]}
                 for r in await cur2.fetchall()
             ]
-            return {"id": header[0], "name": header[1], "emoji": header[2], "movies": items}
+            return {"id": header[0], "name": header[1], "emoji": header[2],
+                    "is_public": bool(header[3]), "slug": header[4], "movies": items}
 
     async def add_to_list(self, list_id: int, user_id: int, tmdb_id: int, title: str, poster_url: Optional[str]) -> bool:
         """Add a movie to a list (only if owned). Returns False if not owned."""

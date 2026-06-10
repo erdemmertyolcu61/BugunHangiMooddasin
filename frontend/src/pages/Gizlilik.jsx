@@ -21,7 +21,7 @@ export default function Gizlilik() {
     description: "Sinemood'da hangi verilerin neden işlendiği, çerez/analitik kullanımı ve KVKK kapsamındaki haklarınız.",
   });
 
-  const updated = '29 Mayıs 2026';
+  const updated = '10 Haziran 2026';
 
   return (
     <motion.div
@@ -106,7 +106,19 @@ export default function Gizlilik() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-lg font-bold text-fg">5. Üçüncü Taraf Servisler</h2>
+            <h2 className="text-lg font-bold text-fg">5. Herkese Açık İçerik & Topluluk Kuralları</h2>
+            <p>
+              "Söz" (film yorumu), topluluk önerileri ve herkese açık yaptığınız listeler{' '}
+              <span className="text-fg">kullanıcı adınızla birlikte tüm kullanıcılara görünür</span>.
+              Bu içerikleri dilediğiniz zaman silebilir veya gizleyebilirsiniz. Uygunsuz içerikleri
+              her içeriğin yanındaki menüden <span className="text-fg">bildirebilir</span>, dilediğiniz
+              kullanıcıyı <span className="text-fg">engelleyebilirsiniz</span> (içerikleri size görünmez
+              olur). Bildirilen içerikler incelenir; kurallara aykırı olanlar kaldırılır.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-lg font-bold text-fg">6. Üçüncü Taraf Servisler</h2>
             <p>
               Film verileri için TMDB ve OMDb, kimlik doğrulama için Google, öneri/analiz için yapay
               zeka servisleri kullanılır. Bu servislerin kendi gizlilik politikaları geçerlidir.
@@ -115,15 +127,17 @@ export default function Gizlilik() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-lg font-bold text-fg">6. Saklama & Güvenlik</h2>
+            <h2 className="text-lg font-bold text-fg">7. Saklama & Güvenlik</h2>
             <p>
-              Verileriniz hizmet sürdüğü sürece saklanır; hesabınızı sildiğinizde ilişkili verileriniz
-              makul süre içinde silinir. Verilere yetkisiz erişime karşı teknik tedbirler uygulanır.
+              Verileriniz hizmet sürdüğü sürece saklanır. Profil → Ayarlar → "Hesabı Sil" ile
+              hesabınızı sildiğinizde; izleme listeniz, notlarınız, Sözleriniz, listeleriniz ve tüm
+              sosyal verileriniz <span className="text-fg">kalıcı olarak silinir</span>. Verilere
+              yetkisiz erişime karşı teknik tedbirler uygulanır.
             </p>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-lg font-bold text-fg">7. KVKK Haklarınız</h2>
+            <h2 className="text-lg font-bold text-fg">8. KVKK Haklarınız</h2>
             <p>
               KVKK md. 11 kapsamında; verilerinize erişme, düzeltme, silme ve işlemeye itiraz etme
               haklarına sahipsiniz. Talepleriniz için aşağıdaki adresten bize ulaşabilirsiniz.
@@ -131,7 +145,7 @@ export default function Gizlilik() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-lg font-bold text-fg">8. İletişim</h2>
+            <h2 className="text-lg font-bold text-fg">9. İletişim</h2>
             <p>
               Gizlilikle ilgili sorular için:{' '}
               <a href="mailto:privacy@sinemood.app" className="text-amber underline underline-offset-2 hover:text-amber/80">

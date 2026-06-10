@@ -700,6 +700,8 @@ from backend.routers.push import router as push_router
 app.include_router(push_router)
 from backend.routers.admin import router as admin_router
 app.include_router(admin_router)
+from backend.routers.community import router as community_router
+app.include_router(community_router)
 
 # ── Statik dosyalar: Avatar yüklemeleri ──
 import os
@@ -707,6 +709,19 @@ from fastapi.staticfiles import StaticFiles
 _uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(_uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Temel güvenlik başlıkları — API yanıtları ve /uploads dahil her yanıta."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Kullanıcı yüklemeleri (avatar) tarayıcıda asla HTML/script olarak yorumlanmasın
+    if request.url.path.startswith("/uploads"):
+        response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'"
+    return response
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

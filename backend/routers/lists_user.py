@@ -109,3 +109,84 @@ async def remove_item_from_list(list_id: int = Path(..., ge=1), tmdb_id: int = P
     if not ok:
         raise HTTPException(status_code=404, detail="Liste bulunamadı")
     return {"status": "success"}
+
+
+# ─── Herkese açık liste paylaşımı ────────────────────────────────────────────
+import re as _re
+import secrets as _secrets
+
+from backend.database import _get_connection as _db_conn
+
+_TR_MAP = str.maketrans("ğüşıöçĞÜŞİÖÇ", "gusiocGUSIOC")
+
+
+def _slugify(name: str) -> str:
+    s = name.translate(_TR_MAP).lower()
+    s = _re.sub(r"[^a-z0-9]+", "-", s).strip("-")[:40] or "liste"
+    return f"{s}-{_secrets.token_hex(3)}"
+
+
+class ListPublishBody(BaseModel):
+    is_public: bool
+    description: Optional[str] = Field(default=None, max_length=200)
+
+
+@router.patch("/custom-lists/{list_id}/visibility")
+async def set_list_visibility(body: ListPublishBody, list_id: int = Path(..., ge=1),
+                              user: dict = Depends(get_current_user)):
+    """Listeyi herkese açık yap / gizle. İlk açışta paylaşım slug'ı üretilir."""
+    uid = user["user_id"]
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT slug FROM user_lists WHERE id = ? AND user_id = ?", (list_id, uid)
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Liste bulunamadı")
+        slug = row[0]
+        if body.is_public and not slug:
+            cur = await db.execute(
+                "SELECT name FROM user_lists WHERE id = ?", (list_id,)
+            )
+            name_row = await cur.fetchone()
+            slug = _slugify((name_row[0] if name_row else "") or "liste")
+        await db.execute(
+            "UPDATE user_lists SET is_public = ?, slug = ?, description = ? WHERE id = ? AND user_id = ?",
+            (int(body.is_public), slug, (body.description or "").strip() or None, list_id, uid),
+        )
+        await db.commit()
+    return {"status": "success", "is_public": body.is_public, "slug": slug}
+
+
+@router.get("/lists/public/{slug}")
+async def get_public_list(slug: str = Path(..., max_length=60)):
+    """Herkese açık liste — login gerektirmez (WhatsApp paylaşım hedefi)."""
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            """SELECT l.id, l.name, l.emoji, l.description, l.created_at,
+                      u.id, u.username, u.name, u.picture
+               FROM user_lists l JOIN users u ON u.id = l.user_id
+               WHERE l.slug = ? AND l.is_public = 1""",
+            (slug,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Liste bulunamadı ya da herkese açık değil")
+        cur = await db.execute(
+            """SELECT tmdb_id, title, poster_url, added_at FROM list_items
+               WHERE list_id = ? ORDER BY added_at DESC LIMIT 100""",
+            (row[0],),
+        )
+        items = await cur.fetchall()
+    return {
+        "name": row[1],
+        "emoji": row[2] or "",
+        "description": row[3] or "",
+        "created_at": str(row[4] or ""),
+        "owner": {"id": row[5], "username": row[6] or "", "name": row[7] or "", "avatar": row[8] or ""},
+        "items": [
+            {"tmdb_id": r[0], "title": r[1] or "", "poster_url": r[2] or "", "added_at": str(r[3] or "")}
+            for r in items
+        ],
+        "count": len(items),
+    }

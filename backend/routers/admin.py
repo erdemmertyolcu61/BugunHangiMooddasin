@@ -46,3 +46,73 @@ async def admin_warm_ustad(limit: int = Query(10, ge=1, le=50)):
     from backend.tasks.ustad_pipeline import warm_ustad_notes
     summary = await warm_ustad_notes(limit=limit)
     return summary
+
+
+# ─── UGC moderasyonu (Söz / liste şikayetleri) ──────────────────────────────
+
+@router.get("/admin/reports", dependencies=[Depends(verify_admin)])
+async def admin_list_reports(status: str = Query("open", max_length=20)):
+    """Şikayet kuyruğu. Söz şikayetlerinde içerik metni de gösterilir."""
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            """SELECT id, content_type, content_id, reporter_id, reason, status, created_at
+               FROM ugc_reports WHERE status = ? ORDER BY created_at DESC LIMIT 200""",
+            (status,),
+        )
+        rows = await cur.fetchall()
+        reports = [
+            {"id": r[0], "content_type": r[1], "content_id": r[2], "reporter_id": r[3],
+             "reason": r[4], "status": r[5], "created_at": str(r[6] or "")}
+            for r in rows
+        ]
+        # Söz şikayetleri için içerik metnini ekle (admin değerlendirmesi için)
+        for rep in reports:
+            if rep["content_type"] == "review":
+                try:
+                    cur = await db.execute(
+                        """SELECT r.content, r.status, u.username FROM movie_reviews r
+                           JOIN users u ON u.id = r.user_id WHERE r.id = ?""",
+                        (int(rep["content_id"]),),
+                    )
+                    row = await cur.fetchone()
+                    if row:
+                        rep["review_content"] = row[0]
+                        rep["review_status"] = row[1]
+                        rep["review_author"] = row[2]
+                except Exception:
+                    pass
+    return {"total": len(reports), "reports": reports}
+
+
+@router.post("/admin/reports/{report_id}/resolve", dependencies=[Depends(verify_admin)])
+async def admin_resolve_report(report_id: int, action: str = Query(..., max_length=20)):
+    """Şikayeti sonuçlandır: dismiss (içerik kalır) | hide | remove (Söz gizlenir/kaldırılır)."""
+    if action not in ("dismiss", "hide", "remove"):
+        raise HTTPException(400, "action 'dismiss', 'hide' veya 'remove' olmalı")
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT content_type, content_id FROM ugc_reports WHERE id = ?", (report_id,)
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Şikayet bulunamadı")
+        content_type, content_id = row
+        if action in ("hide", "remove") and content_type == "review":
+            new_status = "hidden" if action == "hide" else "removed"
+            await db.execute(
+                "UPDATE movie_reviews SET status = ? WHERE id = ?",
+                (new_status, int(content_id)),
+            )
+        if action in ("hide", "remove") and content_type == "list":
+            try:
+                await db.execute(
+                    "UPDATE user_lists SET is_public = 0 WHERE id = ?", (int(content_id),)
+                )
+            except Exception:
+                pass
+        await db.execute(
+            "UPDATE ugc_reports SET status = ? WHERE id = ?",
+            ("resolved" if action != "dismiss" else "dismissed", report_id),
+        )
+        await db.commit()
+    return {"ok": True, "action": action}

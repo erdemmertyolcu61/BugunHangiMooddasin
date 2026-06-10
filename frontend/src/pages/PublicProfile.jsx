@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, UserX, Heart, Star, Send, Users, RotateCcw } from 'lucide-react';
+import { ChevronLeft, UserX, Heart, Star, Send, Users, RotateCcw, Quote } from 'lucide-react';
 import { getApiUrl, getShareUrl, resolveAvatarUrl } from '../utils/apiConfig';
 import { recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -194,6 +194,41 @@ export default function PublicProfile() {
                 recentWatched={profile.recent_watched}
                 topMoods={profile.taste_map?.top_moods || []}
               />
+            )}
+
+            {/* Son Sözleri — herkese açık film yorumları */}
+            {profile.recent_reviews?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-3"
+              >
+                <div className="flex items-center gap-2.5 px-1">
+                  <Quote size={14} className="text-amber/50" />
+                  <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">
+                    Son Sözleri{profile.review_count > 3 ? ` · ${profile.review_count}` : ''}
+                  </p>
+                </div>
+                <div className="space-y-2.5">
+                  {profile.recent_reviews.map((r) => (
+                    <button key={`${r.tmdb_id}-${r.created_at}`}
+                      onClick={() => openMovie({ tmdb_id: r.tmdb_id, title: r.movie_title, poster_url: r.poster_url })}
+                      className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-[#1c1512]/90 border border-white/[0.06]
+                                 hover:border-amber/25 transition-all text-left">
+                      {r.poster_url ? (
+                        <img src={r.poster_url} alt="" loading="lazy"
+                          className="w-10 h-[60px] rounded-lg object-cover bg-white/5 shrink-0" />
+                      ) : (
+                        <div className="w-10 h-[60px] rounded-lg bg-white/5 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-amber/60 truncate">{r.movie_title}</p>
+                        <p className="text-[13px] font-serif italic text-ivory/80 line-clamp-2">“{r.content}”</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
             )}
 
             {/* Topluluk Önerileri */}
