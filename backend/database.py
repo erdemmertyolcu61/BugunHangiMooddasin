@@ -2504,9 +2504,11 @@ class MovieCache:
             conn.close()
 
     async def bulk_save_repository_movies(self, movies: list, mood_id: str):
-        """Save multiple movies to repository for a mood (fast executemany)."""
+        """Save multiple movies to repository for a mood (fast executemany).
+        Poster veya overview eksik filmler ve düşük kalite niş filmler atlanır."""
         if not movies:
             return
+        from backend.mood_scoring import is_low_quality_niche
         rows = [
             (
                 m["id"], m["title"], m.get("poster_url"),
@@ -2519,6 +2521,7 @@ class MovieCache:
                 m.get("popularity", 0)
             )
             for m in movies
+            if m.get("poster_url") and m.get("overview") and not is_low_quality_niche(m)
         ]
         async with _get_connection(self.db_path) as db:
             await db.executemany("""
@@ -2543,29 +2546,39 @@ class MovieCache:
 
     async def purge_low_quality_asian(self, min_vote_average: float = 7.2,
                                       min_vote_count: int = 600) -> dict:
-        """Niş/obskür Doğu Asya (ja/ko/zh/cn) filmlerini repository'den temizle.
-        Yalnız puanı/oy sayısı eşiği geçen tanınmış Asya filmleri kalır."""
-        langs = ("ja", "ko", "zh", "cn")
-        placeholders = ",".join("?" * len(langs))
+        """Niş/obskür Doğu Asya + Güney Asya filmlerini repository'den temizle."""
+        east = ("ja", "ko", "zh", "cn")
+        south = ("hi", "ta", "te", "ml", "kn", "bn", "mr", "pa", "gu")
+        all_langs = east + south
+        placeholders = ",".join("?" * len(all_langs))
         async with _get_connection(self.db_path) as db:
             cursor = await db.execute(
                 f"SELECT COUNT(*) FROM movie_repository WHERE LOWER(original_language) IN ({placeholders})",
-                list(langs))
+                list(all_langs))
             before = (await cursor.fetchone())[0]
+            # Doğu Asya: 7.2 / 600
+            east_ph = ",".join("?" * len(east))
             await db.execute(
                 f"""DELETE FROM movie_repository
-                    WHERE LOWER(original_language) IN ({placeholders})
+                    WHERE LOWER(original_language) IN ({east_ph})
                       AND NOT (vote_average >= ? AND vote_count >= ?)""",
-                list(langs) + [min_vote_average, min_vote_count])
+                list(east) + [min_vote_average, min_vote_count])
+            # Güney Asya: 7.0 / 500
+            south_ph = ",".join("?" * len(south))
+            await db.execute(
+                f"""DELETE FROM movie_repository
+                    WHERE LOWER(original_language) IN ({south_ph})
+                      AND NOT (vote_average >= ? AND vote_count >= ?)""",
+                list(south) + [7.0, 500])
             await db.commit()
             cursor = await db.execute(
                 f"SELECT COUNT(*) FROM movie_repository WHERE LOWER(original_language) IN ({placeholders})",
-                list(langs))
+                list(all_langs))
             after = (await cursor.fetchone())[0]
         removed = before - after
-        logger.info("[Cleanup] %d kalitesiz Asya filmi temizlendi (%d -> %d kaldı).",
+        logger.info("[Cleanup] %d kalitesiz niş film temizlendi (%d -> %d kaldı).",
                     removed, before, after)
-        return {"asianBefore": before, "asianAfter": after, "removed": removed}
+        return {"nicheBefore": before, "nicheAfter": after, "removed": removed}
 
     async def remove_posterless_movies(self) -> int:
         """Remove all movies from repository where poster_url is NULL or empty. Returns count removed."""

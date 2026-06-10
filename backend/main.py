@@ -54,6 +54,7 @@ from backend.services.omdb_service import omdb_service
 from backend.services.claude_service import claude_service, ANALYSIS_VERSION
 from backend.services import ustad_note
 from backend.mood_profiles import MOOD_PROFILES, get_tmdb_params, get_positive_genres, GENRE_NAMES
+from backend.mood_scoring import is_low_quality_niche
 
 # Unified search engine with 4-tier fallback (semantic → vector → regex → curated)
 search_engine = SearchEngine(
@@ -1487,13 +1488,15 @@ async def get_movies(
 # --- Movie Repository Endpoints (kaliteli film havuzu) ---
 
 @app.get("/api/repository/seed", dependencies=[Depends(verify_admin)])
-async def seed_repository(mood_id: str = Query(None)):
+async def seed_repository(mood_id: str = Query(None), deep: bool = Query(False)):
     """
     Pre-fetch high-rated movies for all moods (or a specific mood) and store locally.
-    Uses mood profile parameters for diverse, characterful seeding.
+    deep=True: 40 sayfa + popularity sort da çeker (havuzu ciddi genişletir).
     """
     try:
         moods_to_seed = [mood_id] if mood_id else list(MOOD_GENRE_MAP.keys())
+        pages = 40 if deep else 15
+        tr_p = 15 if deep else 8
         total = 0
         results = {}
         for mid in moods_to_seed:
@@ -1503,21 +1506,45 @@ async def seed_repository(mood_id: str = Query(None)):
             tmdb_params = get_tmdb_params(mid)
             saved = await cache.seed_mood_repository(
                 mid, config["genres"], tmdb_service,
-                pages=15,
+                pages=pages,
                 min_vote=tmdb_params.get("min_vote_average", 5.5),
                 with_keywords=config.get("with_keywords"),
                 max_vote_count=config.get("max_vote_count"),
                 without_genres=config.get("without_genres"),
                 primary_release_date_lte=tmdb_params.get("primary_release_date_lte"),
                 seed_turkish=True,
-                tr_pages=8,
+                tr_pages=tr_p,
             )
             results[mid] = saved
             total += saved
+        # Deep modda: popularity-sorted da çek (farklı film havuzu)
+        if deep:
+            for mid in moods_to_seed:
+                config = MOOD_GENRE_MAP.get(mid)
+                if not config:
+                    continue
+                tmdb_params = get_tmdb_params(mid)
+                saved2 = await cache.seed_mood_repository(
+                    mid, config["genres"], tmdb_service,
+                    pages=20,
+                    min_vote=max(5.5, tmdb_params.get("min_vote_average", 5.5) - 0.5),
+                    with_keywords=config.get("with_keywords"),
+                    max_vote_count=config.get("max_vote_count"),
+                    without_genres=config.get("without_genres"),
+                    primary_release_date_lte=tmdb_params.get("primary_release_date_lte"),
+                    seed_turkish=True,
+                    tr_pages=8,
+                )
+                results[mid] = results.get(mid, 0) + saved2
+                total += saved2
+        # Posterless + niş film temizliği
+        posterless = await cache.remove_posterless_movies()
+        niche = await cache.purge_low_quality_asian()
         return {
             "status": "success",
             "total_movies_seeded": total,
             "details": results,
+            "cleanup": {"posterless_removed": posterless, "niche_removed": niche.get("removed", 0)},
         }
     except Exception as e:
         raise _safe_http_500(e)
@@ -3316,7 +3343,7 @@ async def get_surprise_movie(exclude_ids: str = Query("")):
             if not candidate.get("poster_url"):
                 continue
             # Niş/obskür Asya filmlerini sürprizde gösterme
-            if is_low_quality_asian(candidate):
+            if is_low_quality_niche(candidate):
                 continue
             # Minimum puan filtresi (çöp filmlerden kaçın)
             vote = candidate.get("vote_average", 0)
@@ -3392,7 +3419,7 @@ async def _compute_daily_film(date_key: str, user_id: int = None) -> Optional[di
             candidate = await cache.get_random_repository_movie()
             if not candidate or not candidate.get("poster_url"):
                 continue
-            if is_low_quality_asian(candidate):
+            if is_low_quality_niche(candidate):
                 continue
             candidate_pool.append(candidate)
             vote = candidate.get("vote_average", 0) or 0
@@ -4736,11 +4763,10 @@ async def _confused_fallback(text: str, limit: int, min_vote: float, exclude_ids
     else:
         _ustad = _confused_ustad_line(intent.type, mood_analysis)
 
-    # Kullanıcı açıkça Doğu Asya dili istediyse (kore/japon/çin) o filmleri sona itme
+    # Kullanıcı açıkça niş dil istediyse o filmleri sona itme
     _lang = mood_analysis.get("lang_filter")
-    if _lang in _EAST_ASIAN_LANGS:
-        from backend.mood_scoring import is_low_quality_asian
-        _final_movies = [m for m in movies if not is_low_quality_asian(m)]
+    if _lang in _NICHE_LANGS:
+        _final_movies = [m for m in movies if not is_low_quality_niche(m)]
     else:
         _final_movies = _sort_east_asian_to_end(movies)
 
@@ -4974,19 +5000,17 @@ def _hybrid_rerank(movies: list, hints, limit: int) -> list:
     return [m for _, m in scored[:limit]]
 
 
-# ── East Asian language sorting ──────────────────────────────────────────
-from backend.mood_scoring import is_low_quality_asian
-_EAST_ASIAN_LANGS = {"ja", "ko", "zh", "cn"}  # Japonca, Korece, Çince
+# ── Niche language sorting ──────────────────────────────────────────
+from backend.mood_scoring import is_low_quality_niche, EAST_ASIAN_LANGS, SOUTH_ASIAN_LANGS
+_EAST_ASIAN_LANGS = EAST_ASIAN_LANGS
+_NICHE_LANGS = EAST_ASIAN_LANGS | SOUTH_ASIAN_LANGS
 
 def _sort_east_asian_to_end(movies: list[dict]) -> list[dict]:
-    """Niş/obskür Doğu Asya filmlerini tamamen ele; geriye kalan kaliteli
-    Asya filmlerini de listenin sonuna it (Türk izleyici önceliği)."""
-    # 1) Kalitesiz Asya filmlerini at
-    movies = [m for m in movies if not is_low_quality_asian(m)]
-    # 2) Kalan Asya filmlerini sona it
-    non_east = [m for m in movies if (m.get("original_language") or "").lower() not in _EAST_ASIAN_LANGS]
-    east = [m for m in movies if (m.get("original_language") or "").lower() in _EAST_ASIAN_LANGS]
-    return non_east + east
+    """Niş/obskür Doğu Asya + Hint filmlerini ele; kalanları sona it."""
+    movies = [m for m in movies if not is_low_quality_niche(m)]
+    non_niche = [m for m in movies if (m.get("original_language") or "").lower() not in _NICHE_LANGS]
+    niche = [m for m in movies if (m.get("original_language") or "").lower() in _NICHE_LANGS]
+    return non_niche + niche
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -5720,9 +5744,8 @@ async def post_confused_recommendation(req: ConfusedRequest):
                     m["reason"] = dyn_reason
         # Kullanıcı açıkça bir Doğu Asya dili istediyse o filmleri sona İTME
         # (aksi halde "kore korku" sonuçları en alta düşerdi).
-        if lang_filter in _EAST_ASIAN_LANGS:
-            from backend.mood_scoring import is_low_quality_asian
-            result["movies"] = [m for m in ranked if not is_low_quality_asian(m)]
+        if lang_filter in _NICHE_LANGS:
+            result["movies"] = [m for m in ranked if not is_low_quality_niche(m)]
         else:
             result["movies"] = _sort_east_asian_to_end(ranked)
         result["mode"]   = "semantic_hybrid"

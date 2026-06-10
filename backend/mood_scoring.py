@@ -18,13 +18,14 @@ EAST_ASIAN_LANGS = {"ja", "ko", "zh", "cn"}
 ASIAN_MIN_VOTE_AVERAGE = 7.2
 ASIAN_MIN_VOTE_COUNT = 600
 
+SOUTH_ASIAN_LANGS = {"hi", "ta", "te", "ml", "kn", "bn", "mr", "pa", "gu"}
+SOUTH_ASIAN_MIN_VOTE_AVERAGE = 7.0
+SOUTH_ASIAN_MIN_VOTE_COUNT = 500
 
-def is_low_quality_asian(movie: dict) -> bool:
-    """Doğu Asya dilli bir film ise ve tanınırlık/puan eşiğini geçemiyorsa True.
-    Asya dışı tüm filmler için her zaman False (filtre yalnız Asya filmlerine uygulanır)."""
+
+def is_low_quality_niche(movie: dict) -> bool:
+    """Doğu Asya veya Güney Asya dilli bir film ise ve tanınırlık/puan eşiğini geçemiyorsa True."""
     lang = (movie.get("original_language") or "").lower()
-    if lang not in EAST_ASIAN_LANGS:
-        return False
     try:
         va = float(movie.get("vote_average") or 0)
     except (TypeError, ValueError):
@@ -33,7 +34,16 @@ def is_low_quality_asian(movie: dict) -> bool:
         vc = int(movie.get("vote_count") or 0)
     except (TypeError, ValueError):
         vc = 0
-    return not (va >= ASIAN_MIN_VOTE_AVERAGE and vc >= ASIAN_MIN_VOTE_COUNT)
+    if lang in EAST_ASIAN_LANGS:
+        return not (va >= ASIAN_MIN_VOTE_AVERAGE and vc >= ASIAN_MIN_VOTE_COUNT)
+    if lang in SOUTH_ASIAN_LANGS:
+        return not (va >= SOUTH_ASIAN_MIN_VOTE_AVERAGE and vc >= SOUTH_ASIAN_MIN_VOTE_COUNT)
+    return False
+
+
+def is_low_quality_asian(movie: dict) -> bool:
+    """Geriye uyumluluk — is_low_quality_niche'i çağırır."""
+    return is_low_quality_niche(movie)
 
 # TMDB keyword ID -> mood affinity mapping
 # Her keyword ID'si hangi mood'lara ne kadar katkı sağlıyor
