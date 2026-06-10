@@ -836,6 +836,9 @@ _NON_NAME_WORDS = {
     "dark", "light", "fast", "based", "true", "real", "events",
     "twist", "ending", "single", "location", "adapted",
     "book", "novel", "story",
+    # Platform / servis adları (kişi adı değil)
+    "netflix", "amazon", "prime", "mubi", "disney", "hulu", "hbo",
+    "blutv", "exxen", "puhu", "gain", "tabii", "youtube", "imdb",
     # "X filmi/filmleri" bare ifadesinde takı (PERSON_KEYWORD yolu zaten önce
     # çalışır; bu yalnız bare _looks_like_person_name yolunu korur)
     "filmi", "filmler", "filmleri", "filmini", "filmleriyle", "filmiyle",
@@ -2012,6 +2015,7 @@ class ChatEngine:
         time_constraint = _extract_time_constraint(text)
         genre_hints, exclude_genre_hints = _parse_complex_negation(text)
         cross_mood = _rule_based_confused_analysis(text).get("mood_mix", [])
+        lang_filter = _detect_lang_filter(text)
 
         if text_norm in TURKISH_TITLE_ALIASES:
             return Intent("exact_movie_search",
@@ -2070,6 +2074,10 @@ class ChatEngine:
                 genres_excluded = list(set(genres_excluded + _gids))
                 genres_wanted = [g for g in genres_wanted if g not in _gids]
 
+        # Overlap temizliği: exclude'a giren genre'lar wanted'dan çıksın
+        if genres_excluded and genres_wanted:
+            genres_wanted = [g for g in genres_wanted if g not in genres_excluded]
+
         # ── Çocuk / aile-güvenli içerik: korku/gerilim/şiddet HARİÇ, aile+animasyon ──
         # "çocuk için uygun film", "korkutmayan çocuk filmi", "aile dostu", "ailecek"
         if _detect_child_safe(text):
@@ -2080,7 +2088,7 @@ class ChatEngine:
                           platform_filter=platform_filter,
                           era_constraint=era_constraint,
                           time_constraint=time_constraint,
-                          mood_signals=cross_mood)
+                          mood_signals=cross_mood, lang_filter=lang_filter)
 
         # ── Yaş/yetişkin sorgusu → genel mood önerisi (anlamsız exact-search'i önle) ──
         if _detect_age_query(text):
@@ -2089,7 +2097,7 @@ class ChatEngine:
                           era_constraint=era_constraint,
                           time_constraint=time_constraint,
                           genres=genres_wanted, exclude_genres=genres_excluded,
-                          mood_signals=cross_mood)
+                          mood_signals=cross_mood, lang_filter=lang_filter)
 
         # Tümce düzeyinde ruh hali kontrolü — alias/kişi eşleşmeyen metinlerde
         for phrase in MOOD_PHRASES:
@@ -2100,11 +2108,13 @@ class ChatEngine:
                               time_constraint=time_constraint,
                               genres=genres_wanted,
                               exclude_genres=genres_excluded,
-                              mood_signals=cross_mood)
+                              mood_signals=cross_mood, lang_filter=lang_filter)
 
         # Kişi adı tespiti — tmdb'ye async lookup olmadan heuristic
         if _looks_like_person_name(text) and _normalize(text) not in TURKISH_TITLE_ALIASES:
-            return Intent("actor_recommendation", person_name=text.strip(),
+            _kn, _kt = _find_known_person_in(text)
+            _pn = _kn if _kn else text.strip()
+            return Intent("actor_recommendation", person_name=_pn,
                           person_type="actor", original_text=text,
                           platform_filter=platform_filter,
                           era_constraint=era_constraint,
@@ -2150,7 +2160,7 @@ class ChatEngine:
                           platform_filter=platform_filter,
                           era_constraint=era_constraint,
                           time_constraint=time_constraint,
-                          mood_signals=cross_mood)
+                          mood_signals=cross_mood, lang_filter=lang_filter)
 
         if genres_wanted or genres_excluded:
             return Intent("mixed_request", genres=genres_wanted,
@@ -2158,7 +2168,7 @@ class ChatEngine:
                           platform_filter=platform_filter,
                           era_constraint=era_constraint,
                           time_constraint=time_constraint,
-                          mood_signals=cross_mood)
+                          mood_signals=cross_mood, lang_filter=lang_filter)
 
         return Intent("mood_recommendation", original_text=text,
                       platform_filter=platform_filter,
@@ -2166,7 +2176,7 @@ class ChatEngine:
                       time_constraint=time_constraint,
                       genres=genres_wanted,
                       exclude_genres=genres_excluded,
-                      mood_signals=cross_mood)
+                      mood_signals=cross_mood, lang_filter=lang_filter)
 
     @staticmethod
     def _empty_response(msg: str) -> dict:
