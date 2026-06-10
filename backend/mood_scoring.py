@@ -192,6 +192,13 @@ KEYWORD_MOOD_BLOCKS = {
     "sessiz": {"action", "explosion", "superhero", "blockbuster"},
     "kalp": {"superhero", "blockbuster", "franchise", "sequel"},
     "gozyasi": {"comedy", "slapstick", "parody", "superhero"},
+    "deep-chills": {"comedy", "romantic", "funny", "parody", "nostalgia",
+                    "sentimental", "feel-good", "dramedy", "coming-of-age",
+                    "komedi", "romantik", "nostalji", "duygusal", "aile",
+                    "komik", "güldürü", "müzikal", "dans"},
+    "sipsak": {"epic", "blockbuster", "franchise", "sequel", "nostalgia",
+               "comedy classic", "kült", "gişe", "klasik", "epik",
+               "unutulmaz", "seri", "devam"},
 }
 
 # Her mood için genre ağırlıkları (0-1, mood profillerinden türetildi)

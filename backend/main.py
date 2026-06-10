@@ -254,6 +254,14 @@ async def lifespan(app: FastAPI):
             logger.info(f"[Seed] {mid} ({count}/{TARGET_MOVIES_PER_MOOD}) dolduruluyor...")
             tmdb_params = get_tmdb_params(mid)
             rls_lte = tmdb_params.get("primary_release_date_lte")
+            tr_genres = None
+            tr_min_vote_count = 5
+            if mid == "battaniye":
+                tr_genres = [10751, 10749]  # Family + Romance only (Comedy disinda)
+            elif mid == "sipsak":
+                tr_genres = [18, 99]  # Drama + Documentary only (Comedy disinda)
+            elif mid == "deep-chills":
+                tr_min_vote_count = 50  # Dusuk kaliteli gerilimleri engelle
             saved = await cache.seed_mood_repository(
                 mid, config["genres"], tmdb_service,
                 pages=SEED_PAGES,
@@ -265,6 +273,8 @@ async def lifespan(app: FastAPI):
                 primary_release_date_lte=rls_lte,
                 tr_pages=TR_SEED_PAGES,
                 tr_min_vote_override=tmdb_params.get("min_vote_average", 6.0) - 1.0,
+                tr_genres=tr_genres,
+                tr_min_vote_count=tr_min_vote_count,
                 with_runtime_lte=90 if mid == "sipsak" else None,
             )
             after = await cache.count_repository_movies(mid, 0.0)

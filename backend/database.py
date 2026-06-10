@@ -2472,6 +2472,8 @@ class MovieCache:
                                     primary_release_date_gte: str = None,
                                     tr_pages: int = None,
                                     tr_min_vote_override: float = None,
+                                    tr_genres: list = None,
+                                    tr_min_vote_count: int = 5,
                                     with_runtime_lte: int = None) -> int:
         """
         Pre-fetch movies for a mood from TMDB and store locally.
@@ -2534,11 +2536,12 @@ class MovieCache:
         if seed_turkish:
             tr_p = tr_pages if tr_pages is not None else max(1, pages // 2)
             tr_min_vote = max(5.0, tr_min_vote_override) if tr_min_vote_override is not None else max(5.0, min_vote - 1.0)
+            tr_g = tr_genres if tr_genres else genre_ids
             tr_movies = await tmdb_service.discover_pages_parallel(
-                genre_ids, list(range(1, tr_p + 1)),
+                tr_g, list(range(1, tr_p + 1)),
                 sort_by="vote_average.desc",
                 min_vote_average=tr_min_vote,
-                min_vote_count=5,
+                min_vote_count=tr_min_vote_count,
                 with_keywords=with_keywords,
                 without_genres=without_genres,
                 with_origin_country="TR",
