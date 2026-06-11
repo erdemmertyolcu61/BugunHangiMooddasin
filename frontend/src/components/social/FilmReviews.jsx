@@ -92,7 +92,7 @@ export default function FilmReviews({ movie }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Quote size={14} className="text-amber/60" />
-          <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">
+          <p className="font-sans text-[12px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">
             Topluluk Sözleri{reviews?.length > 0 ? ` · ${reviews.length}` : ''}
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function FilmReviews({ movie }) {
           {[0, 1].map((i) => <div key={i} className="h-16 rounded-2xl bg-white/5 animate-pulse" />)}
         </div>
       ) : reviews.length === 0 ? (
-        <p className="text-[13px] font-serif italic text-white/35 py-2">
+        <p className="text-sm sm:text-[13px] font-serif italic text-white/35 py-2">
           Bu film için henüz söz söylenmemiş. {loggedIn ? 'İlk sözü sen bırak.' : 'Giriş yap, ilk sözü sen bırak.'}
         </p>
       ) : (
@@ -130,7 +130,7 @@ export default function FilmReviews({ movie }) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-[12px] font-semibold text-amber/75 truncate">@{r.username}</p>
+                      <p className="text-[13px] sm:text-[12px] font-semibold text-amber/75 truncate">@{r.username}</p>
                       <span className="text-[10px] text-white/25">{timeAgo(r.created_at)}</span>
                       {r.has_spoiler && (
                         <span className="text-[9px] font-bold uppercase tracking-wider text-rose-400/70 bg-rose-500/10 px-1.5 py-0.5 rounded-full">
@@ -142,12 +142,12 @@ export default function FilmReviews({ movie }) {
                       <button onClick={() => setRevealed((s) => new Set(s).add(r.id))}
                         className="mt-1 text-left w-full">
                         <p className="text-[13px] font-serif text-white/90 blur-[6px] select-none" aria-hidden>{r.content}</p>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400/70">
+                        <span className="text-[11px] sm:text-[10px] font-bold uppercase tracking-wider text-rose-400/70">
                           Spoiler içerir, görmek için dokun
                         </span>
                       </button>
                     ) : (
-                      <p className="mt-0.5 text-[13.5px] font-serif text-ivory/90 leading-snug break-words">{r.content}</p>
+                      <p className="mt-0.5 text-sm sm:text-[13.5px] font-serif text-ivory/90 leading-snug break-words">{r.content}</p>
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">

@@ -117,7 +117,8 @@
 /* Koyu yarı saydam zeminler (etiket/rozet) → açık */
 [data-theme="light"] [class*="bg-black/"] { background-color: rgba(255, 255, 255, 0.6) !important; }
 /* Panel/koyu yüzey zeminleri → açık bej */
-[data-theme="light"] [class*="bg-[#161010]"] { background-color: #f3ecdb !important; color: #2a2017; }
+[data-theme="light"] [class*="bg-[#161010]"],
+[data-theme="light"] [class*="bg-[#221a16]"] { background-color: #f3ecdb !important; color: #2a2017; }
 
 /* DailyFilmBanner gradient stop'lari -> bej tonlari */
 [data-theme="light"] [class*="from-[#1a1210]"],
