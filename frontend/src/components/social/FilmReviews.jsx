@@ -30,7 +30,7 @@ export default function FilmReviews({ movie }) {
   const load = useCallback(async () => {
     if (!movieId) return;
     const data = await getMovieReviews(movieId);
-    setReviews(data.reviews || []);
+    if (data) setReviews(data.reviews || []);
   }, [movieId]);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function FilmReviews({ movie }) {
     (async () => {
       if (!movieId) return;
       const data = await getMovieReviews(movieId);
-      if (alive) setReviews(data.reviews || []);
+      if (alive && data) setReviews(data.reviews || []);
     })();
     return () => { alive = false; };
   }, [movieId]);

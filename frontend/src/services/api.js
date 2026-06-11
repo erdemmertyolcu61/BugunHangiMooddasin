@@ -862,9 +862,9 @@ export async function getMovieReviews(tmdbId, limit = 20, offset = 0) {
   try {
     const res = await fetch(`${BASE}/movies/${tmdbId}/reviews?limit=${limit}&offset=${offset}`,
       { headers: { ...authHeaders() } });
-    if (!res.ok) return { reviews: [], count: 0 };
+    if (!res.ok) return null;
     return res.json();
-  } catch { return { reviews: [], count: 0 }; }
+  } catch { return null; }
 }
 
 export async function saveMovieReview(tmdbId, content, hasSpoiler = false) {
