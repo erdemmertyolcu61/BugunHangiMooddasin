@@ -77,11 +77,9 @@ export default function FilmReviews({ movie }) {
   };
 
   const handleDelete = async () => {
-    // Optimistic: hemen kaldır
     setReviews((rs) => (rs || []).filter((r) => !r.is_mine));
     setMenuFor(null);
     try { await deleteMovieReview(movieId); } catch { /* sessiz */ }
-    setTimeout(() => load(), 400);
   };
 
   const onBlocked = (blockedUserId) => {
@@ -134,6 +132,11 @@ export default function FilmReviews({ movie }) {
                     <div className="flex items-center gap-2">
                       <p className="text-[12px] font-semibold text-amber/75 truncate">@{r.username}</p>
                       <span className="text-[10px] text-white/25">{timeAgo(r.created_at)}</span>
+                      {r.has_spoiler && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-rose-400/70 bg-rose-500/10 px-1.5 py-0.5 rounded-full">
+                          ⚠ Spoiler
+                        </span>
+                      )}
                     </div>
                     {spoilerHidden ? (
                       <button onClick={() => setRevealed((s) => new Set(s).add(r.id))}
