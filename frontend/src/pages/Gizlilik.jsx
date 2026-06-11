@@ -17,7 +17,7 @@ export default function Gizlilik() {
     else { grantAnalyticsConsent(); setAnalyticsOn(true); }
   };
   useDocumentMeta({
-    title: 'Gizlilik & KVKK — Sinemood',
+    title: 'Gizlilik & KVKK | Sinemood',
     description: "Sinemood'da hangi verilerin neden işlendiği, çerez/analitik kullanımı ve KVKK kapsamındaki haklarınız.",
   });
 
@@ -64,7 +64,7 @@ export default function Gizlilik() {
             <h2 className="text-lg font-bold text-fg">2. İşlenen Veriler</h2>
             <ul className="list-disc pl-5 space-y-1.5">
               <li><span className="text-fg">Hesap bilgileri:</span> Google ile giriş yaptığınızda ad, e-posta ve profil görseliniz (yalnızca kimlik doğrulama ve profilinizi oluşturmak için).</li>
-              <li><span className="text-fg">Uygulama içi veriler:</span> izleme listeniz, notlarınız, zevk haritanız, arkadaş/öneri etkileşimleriniz — hizmeti size sunmak için.</li>
+              <li><span className="text-fg">Uygulama içi veriler:</span> izleme listeniz, notlarınız, zevk haritanız, arkadaş/öneri etkileşimleriniz; hizmeti size sunmak için.</li>
               <li><span className="text-fg">Anonim analitik:</span> sayfa görüntüleme ve özellik kullanımı (çerezsiz, IP saklanmaz, kişisel kimlik içermez). İstediğiniz zaman aşağıdan kapatabilirsiniz.</li>
               <li><span className="text-fg">Teknik veriler:</span> hata/performans amaçlı sınırlı günlükler.</li>
             </ul>
@@ -83,7 +83,7 @@ export default function Gizlilik() {
             <h2 className="text-lg font-bold text-fg">4. Çerezler & Analitik</h2>
             <p>
               Pazarlama/izleme çerezleri kullanmıyoruz. Analitik araçlarımız (Umami) <span className="text-fg">çerezsiz
-              ve anonimdir</span> — çerez yerleştirmez, IP adresinizi saklamaz, kişisel kimlik toplamaz. Bu nedenle
+              ve anonimdir</span>; çerez yerleştirmez, IP adresinizi saklamaz, kişisel kimlik toplamaz. Bu nedenle
               çerezsiz anonim ölçüm varsayılan olarak açıktır; dilediğiniz zaman aşağıdaki düğmeyle kapatabilirsiniz.
             </p>
             <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-default bg-fg/[0.03] px-4 py-3">

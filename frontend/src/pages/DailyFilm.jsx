@@ -27,7 +27,7 @@ export default function DailyFilm() {
 
   useDocumentMeta({
     title: 'Üstad’ın Bugünkü Filmi | Sinemood',
-    description: 'Üstad’ın bugün için seçtiği film. Her gün yeni bir öneri — bugün ne izleyeceğini Sinemood söylesin.',
+    description: 'Üstad’ın bugün için seçtiği film. Her gün yeni bir öneri, bugün ne izleyeceğini Sinemood söylesin.',
   });
 
   useEffect(() => {

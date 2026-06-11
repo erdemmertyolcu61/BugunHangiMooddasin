@@ -48,7 +48,7 @@ export default function StreamingConsentModal({ open, platform, movieTitle, onCo
               tarayıcıda eşleştirmek istiyor.
             </p>
             <p className="font-sans text-[13px] leading-relaxed text-ivory/40 mb-7">
-              Hiçbir şifre veya hesap bilgisi saklanmaz — yalnızca tercih ettiğin
+              Hiçbir şifre veya hesap bilgisi saklanmaz, yalnızca tercih ettiğin
               platform hatırlanır. Bir dahaki sefere{' '}
               <span className="text-amber/80 font-semibold">{movieTitle || 'film'}</span> için
               doğrudan oraya yönlendirileceksin.

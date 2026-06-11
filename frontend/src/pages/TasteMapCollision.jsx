@@ -76,7 +76,7 @@ function buildVerdict(u1MoodId, u2MoodId, movie) {
   const a = moodTitle(u1MoodId);
   const b = moodTitle(u2MoodId);
   if (u1MoodId === u2MoodId) {
-    return `Evlatlar, ikiniz de aynı telden çalıyorsunuz — "${a}" ruhuyla gelmişsiniz. ` +
+    return `Evlatlar, ikiniz de aynı telden çalıyorsunuz, "${a}" ruhuyla gelmişsiniz. ` +
       `Bu durumda iş kolay: "${movie.title}" tam da o ortak frekansın filmi. ` +
       `Işıkları kısın, Üstadınız bu seçimden gönül rahatlığıyla emin.`;
   }
@@ -194,7 +194,7 @@ const genCode = () => {
 export default function TasteMapCollision() {
   const navigate = useNavigate();
   useDocumentMeta({
-    title: 'Zevk Çarpıştır — İki Kişiye Tek Film | Sinemood',
+    title: 'Zevk Çarpıştır | İki Kişiye Tek Film | Sinemood',
     description: 'Sevgilinle ya da dostunla film konusunda anlaşamıyor musun? Zevklerinizi çarpıştırın, Üstad ortak başyapıtı bulsun.',
   });
   const [step, setStep] = useState('setup');       // setup | prefs | colliding | results
@@ -440,7 +440,7 @@ export default function TasteMapCollision() {
               <div className="text-center mb-12">
                 <h2 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight mb-3">Tercih Sentezi</h2>
                 <p className="text-ivory/50 font-serif italic text-lg">
-                  Her ikiniz de ruh hâlinizi seçin — sonra asla izlemeyeceğiniz türleri eleyin.
+                  Her ikiniz de ruh hâlinizi seçin, sonra asla izlemeyeceğiniz türleri eleyin.
                 </p>
               </div>
 

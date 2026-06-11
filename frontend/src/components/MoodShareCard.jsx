@@ -16,7 +16,7 @@ export default function MoodShareCard({ mood, onClose }) {
   const MoodIcon = mood.icon;
   const color = mood.accentHex || '#d4af37';
   const shareUrl = CANONICAL_URL;
-  const shareText = `Bugunku mood'um: ${mood.title} — Bana film oner! Sinemood'da kesif yap.`;
+  const shareText = `Bugunku mood'um: ${mood.title} | Bana film oner! Sinemood'da kesif yap.`;
   const fileName = `sinemood-mood-${mood.id}.png`;
 
   const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {

@@ -68,7 +68,7 @@ export default function TrailerPlayer({ youtubeKey, posterSrc, title = 'Film', p
         <iframe
           ref={iframeRef}
           src={`/youtube.html?v=${encodeURIComponent(youtubeKey)}`}
-          title={`${title} — Fragman`}
+          title={`${title} | Fragman`}
           className={`absolute inset-0 w-full h-full border-0 z-[5] ${iframeLoaded ? '' : 'opacity-0'}`}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen

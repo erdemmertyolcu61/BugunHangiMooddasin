@@ -185,7 +185,7 @@ export default function UsernameOnboardingModal() {
                 className="w-full -mt-2 py-2 text-xs text-white/45 hover:text-white/70 transition-colors
                            disabled:opacity-40"
               >
-                Şimdilik geç — sonra profilden değiştirebilirsin
+                Şimdilik geç, sonra profilden değiştirebilirsin
               </button>
             </div>
           )}

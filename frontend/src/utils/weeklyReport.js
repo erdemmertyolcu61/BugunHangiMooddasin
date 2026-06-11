@@ -20,7 +20,7 @@ function parseDate(s) {
 /** "26 May – 1 Haz" gibi kısa Türkçe aralık. */
 function formatRange(start, end) {
   const fmt = (d) => new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short' }).format(d);
-  return `${fmt(start)} – ${fmt(end)}`;
+  return `${fmt(start)} - ${fmt(end)}`;
 }
 
 /**
@@ -45,9 +45,9 @@ export function computeWeeklyReport(movies = [], opts = {}) {
 
   const savedCount = savedThisWeek.length;
   const headline =
-    savedCount >= 5 ? 'Yoğun bir haftaydı — defterin doluyor.' :
+    savedCount >= 5 ? 'Yoğun bir haftaydı, defterin doluyor.' :
     savedCount >= 1 ? 'Güzel gidiyorsun, defterine yeni izler ekledin.' :
-    streak.current >= 2 ? 'Serini koruyorsun — bu hafta bir film seç.' :
+    streak.current >= 2 ? 'Serini koruyorsun, bu hafta bir film seç.' :
     'Bu hafta sessizdi. Bir ruh hali seç, Üstad seni bekliyor.';
 
   return {

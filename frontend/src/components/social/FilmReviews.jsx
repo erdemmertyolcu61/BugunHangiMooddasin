@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Quote, Heart, MoreHorizontal, Flag, Trash2, PenLine } from 'lucide-react';
 import { getMovieReviews, deleteMovieReview, likeReview, isLoggedIn } from '../../services/api';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
+import { useAuth } from '../../context/AuthContext';
 import ReviewComposerSheet from './ReviewComposerSheet';
 import ReportSheet from './ReportSheet';
 
@@ -16,13 +17,10 @@ function timeAgo(dateStr) {
   return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short' }).format(d);
 }
 
-/**
- * "Topluluk Sözleri" — filmin herkese açık mini yorumları.
- * FilmDetailModal içine gömülür. Login'siz okunur; yazmak giriş ister.
- */
 export default function FilmReviews({ movie }) {
   const movieId = movie?.id || movie?.tmdb_id;
   const loggedIn = isLoggedIn();
+  const { user: authUser } = useAuth();
   const [reviews, setReviews] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
@@ -49,9 +47,32 @@ export default function FilmReviews({ movie }) {
 
   const mine = reviews?.find((r) => r.is_mine);
 
+  const handleReviewSaved = useCallback(({ content, has_spoiler }) => {
+    // Optimistic: hemen listede göster
+    setReviews((prev) => {
+      const others = (prev || []).filter((r) => !r.is_mine);
+      const optimistic = {
+        id: `temp-${Date.now()}`,
+        tmdb_id: movieId,
+        user_id: authUser?.id || 0,
+        content,
+        has_spoiler,
+        created_at: new Date().toISOString(),
+        username: authUser?.username || authUser?.name || '',
+        avatar: authUser?.picture || '',
+        like_count: 0,
+        liked_by_me: false,
+        is_mine: true,
+      };
+      return [optimistic, ...others];
+    });
+    setComposerOpen(false);
+    // Arka planda gerçek veriyle değiştir
+    setTimeout(() => load(), 600);
+  }, [movieId, authUser, load]);
+
   const toggleLike = async (review) => {
     if (!loggedIn) return;
-    // Optimistic update
     setReviews((rs) => rs.map((r) => r.id === review.id
       ? { ...r, liked_by_me: !r.liked_by_me, like_count: r.like_count + (r.liked_by_me ? -1 : 1) }
       : r));
@@ -59,8 +80,11 @@ export default function FilmReviews({ movie }) {
   };
 
   const handleDelete = async () => {
-    try { await deleteMovieReview(movieId); await load(); } catch { /* sessiz */ }
+    // Optimistic: hemen kaldır
+    setReviews((rs) => (rs || []).filter((r) => !r.is_mine));
     setMenuFor(null);
+    try { await deleteMovieReview(movieId); } catch { /* sessiz */ }
+    setTimeout(() => load(), 400);
   };
 
   const onBlocked = (blockedUserId) => {
@@ -119,7 +143,7 @@ export default function FilmReviews({ movie }) {
                         className="mt-1 text-left w-full">
                         <p className="text-[13px] font-serif text-white/90 blur-[6px] select-none" aria-hidden>{r.content}</p>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400/70">
-                          Spoiler — görmek için dokun
+                          Spoiler içerir, görmek için dokun
                         </span>
                       </button>
                     ) : (
@@ -127,7 +151,6 @@ export default function FilmReviews({ movie }) {
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    {/* ... menü: kendi Söz'ünde sil; başkalarında bildir/engelle (store şartı) */}
                     <div className="relative">
                       <button onClick={() => setMenuFor(menuFor === r.id ? null : r.id)}
                         aria-label="Seçenekler"
@@ -172,7 +195,7 @@ export default function FilmReviews({ movie }) {
           initialContent={mine?.content || ''}
           initialSpoiler={mine?.has_spoiler || false}
           onClose={() => setComposerOpen(false)}
-          onSaved={load}
+          onSaved={handleReviewSaved}
         />
       )}
 

@@ -17,7 +17,7 @@ export const MILESTONES = [
   { id: 'saved_1',    type: 'saved',   threshold: 1,   icon: 'BookMarked', title: 'İlk Sayfa',       blurb: 'Defterine ilk filmini ekledin.' },
   { id: 'saved_10',   type: 'saved',   threshold: 10,  icon: 'Library',    title: 'Koleksiyoner',    blurb: '10 film arşivledin.' },
   { id: 'saved_25',   type: 'saved',   threshold: 25,  icon: 'Library',    title: 'Sinefil Arşivi',  blurb: '25 film defterinde duruyor.' },
-  { id: 'saved_50',   type: 'saved',   threshold: 50,  icon: 'Library',    title: 'Küratör',         blurb: '50 film — zevkin iyice şekillendi.' },
+  { id: 'saved_50',   type: 'saved',   threshold: 50,  icon: 'Library',    title: 'Küratör',         blurb: '50 film, zevkin iyice şekillendi.' },
   { id: 'saved_100',  type: 'saved',   threshold: 100, icon: 'Crown',      title: 'Usta Arşivci',    blurb: '100 film! Kendi sinemateğini kurdun.' },
   // ── İzleme ──
   { id: 'watched_1',  type: 'watched', threshold: 1,   icon: 'Eye',        title: 'İlk Perde',       blurb: 'İlk filmini izledin olarak işaretledin.' },
@@ -28,7 +28,7 @@ export const MILESTONES = [
   // ── Eleştiri (gurme notu) ──
   { id: 'notes_1',    type: 'notes',   threshold: 1,   icon: 'PenLine',    title: 'İlk Eleştirin',   blurb: 'İlk gurme notunu düştün.' },
   { id: 'notes_10',   type: 'notes',   threshold: 10,  icon: 'PenLine',    title: 'Kalem Açıldı',    blurb: '10 filme not yazdın.' },
-  { id: 'notes_25',   type: 'notes',   threshold: 25,  icon: 'Feather',    title: 'Eleştirmen',      blurb: '25 eleştiri — sesin oluştu.' },
+  { id: 'notes_25',   type: 'notes',   threshold: 25,  icon: 'Feather',    title: 'Eleştirmen',      blurb: '25 eleştiri, sesin oluştu.' },
 ];
 
 const TYPE_LABEL = { saved: 'kayıt', watched: 'izleme', notes: 'eleştiri' };

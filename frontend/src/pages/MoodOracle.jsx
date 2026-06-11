@@ -49,7 +49,7 @@ function markPlayedToday() {
 export default function MoodOracle() {
   const navigate = useNavigate();
   useDocumentMeta({
-    title: 'Mood Kâhini — Filmin Ruhunu Oku | Sinemood',
+    title: 'Mood Kâhini | Filmin Ruhunu Oku | Sinemood',
     description: "Üstad bu filmi hangi ruh haline koydu? Filmlerin ruhunu okuyup Sinefil rütbeni yükselt. Sinemood'un mini oyunu.",
   });
 
@@ -122,7 +122,7 @@ export default function MoodOracle() {
   const correctCount = results.filter(Boolean).length;
   const shareUrl = `${CANONICAL_URL}/oyun`;
   const shareText = summary
-    ? `Mood Kâhini'nde ${correctCount}/${rounds.length || TOTAL} bildim — Rütbem: ${summary.rank.name} 🎬\nSen de filmlerin ruhunu oku 👉`
+    ? `Mood Kâhini'nde ${correctCount}/${rounds.length || TOTAL} bildim, Rütbem: ${summary.rank.name} 🎬\nSen de filmlerin ruhunu oku 👉`
     : '';
 
   const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {

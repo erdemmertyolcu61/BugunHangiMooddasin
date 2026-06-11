@@ -77,7 +77,7 @@ export default function KafanMiKarisik() {
   const { selectMood } = useMood();
 
   useDocumentMeta({
-    title: 'Kafan Mı Karışık? — İçini Dök, Film Bul | Sinemood',
+    title: 'Kafan Mı Karışık? İçini Dök, Film Bul | Sinemood',
     description: 'Ne hissettiğini yaz, Üstad ruh haline göre tam sana göre filmi bulsun. Kararsız kaldığın geceler için.',
   });
 

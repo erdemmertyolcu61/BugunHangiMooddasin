@@ -9,7 +9,7 @@ const QUESTIONS = [
     text: "1. Şu an etrafındaki dünyanın ışığı ve havası nasıl olmalı?",
     answers: [
       { text: "Loş bir lamba, bir fincan çay ve dış dünyadan yalıtılmış derin bir sessizlik.", targets: ["battaniye", "sessiz"] },
-      { text: "Şehrin enerjisi, hareketli caddeler — dışarıda bir şeyler oluyor hissi.", targets: ["adrenalin", "yolculuk"] },
+      { text: "Şehrin enerjisi, hareketli caddeler, dışarıda bir şeyler oluyor hissi.", targets: ["adrenalin", "yolculuk"] },
       { text: "Eski bir filmin grenli projeksiyon ışığı ve yıllar öncesine ait o nostaljik huzur.", targets: ["zamanyolcusu", "kalp"] },
       { text: "Göz alıcı renkler, beklenmedik açılar, sıradan olanın sanatsal yeniden doğuşu.", targets: ["kadraj-estetigi", "karmakar"] },
     ],
@@ -48,7 +48,7 @@ const QUESTIONS = [
     id: "step_5_spatial_setting",
     text: "5. Hikayenin seni nereye götürmesini istiyorsun?",
     answers: [
-      { text: "Hiçbir yere — bir manzara karesinde, görüntünün içinde kaybolmak istiyorum.", targets: ["sessiz", "kadraj-estetigi"] },
+      { text: "Hiçbir yere. Bir manzara karesinde, görüntünün içinde kaybolmak istiyorum.", targets: ["sessiz", "kadraj-estetigi"] },
       { text: "Sıradan, cıvıl cıvıl bir yere; neşenin ve kalp atışlarının olduğu dünyaya.", targets: ["kahkaha", "askbahcesi"] },
       { text: "Karanlık ve izole bir yere; paranın geçmediği, saat sürekli gece olan bir atmosfere.", targets: ["gece", "deep-chills"] },
       { text: "Uzaklara ve uzak zamanlara; bir atlasa, bir haritaya veya derinden tarihe.", targets: ["yolculuk", "zamanyolcusu"] },
@@ -136,7 +136,7 @@ export function getResultMessage(topMoods) {
     zihin: "Üstad'ın seçkisiyle zihninin sınırlarını zorlayacak, şaşırtıcı bir film seni bekliyor.",
     kalp: "Büyük hikayeler değil, küçük dokunuşlar arıyorsun. Bağımsız sinemanın samimi dünyası.",
     karmakar: "Gerçekliğin sınırlarını zorlayan, sıradışı bir deneyim istiyorsun.",
-    sipsak: "Zamanın az, sinema aşkının sonsuz. Kısa ve vurucu başyapıtlar seni bekliyor — perde hemen açılıyor.",
+    sipsak: "Zamanın az, sinema aşkının sonsuz. Kısa ve vurucu başyapıtlar seni bekliyor. Perde hemen açılıyor.",
     "deep-chills": "Karanlık çöktü, perdeler kapandı. Derin bir ürperti için hazır mısın?",
     "kadraj-estetigi": "Güzel bir kare bin kelimeye bedeldir. Bu gece sinematografinin başyapıtlarını keşfet.",
     "geceyarisi-itirafi": "Gece yarısı sohbetleri ve derin diyaloglar sana iyi gelecek. Konuşmaların büyüsüne kapıl.",

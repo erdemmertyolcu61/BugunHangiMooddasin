@@ -68,7 +68,7 @@ const SignInCTA = ({ compact, emailForm, setEmailForm, emailMode, setEmailMode, 
       </h2>
       <p className="font-sans text-sm text-ivory/45 leading-relaxed">
         {compact
-          ? 'Sosyal özellikler için giriş yapman gerek — arkadaş ekle, film paylaş, zevkini karşılaştır.'
+          ? 'Sosyal özellikler için giriş yapman gerek. Arkadaş ekle, film paylaş, zevkini karşılaştır.'
           : 'Şu an kayıtların bu cihazda tutuluyor. Giriş yaparsan izleme geçmişin, notların ve listelerin her yerde seninle.'}
       </p>
     </div>
@@ -142,7 +142,7 @@ export default function Profil() {
   const { theme, toggleTheme } = useTheme();
   const { check: checkMilestones } = useAchievements();
   useDocumentMeta({
-    title: 'Profilim — Zevk Haritam | Sinemood',
+    title: 'Profilim | Zevk Haritam | Sinemood',
     description: 'Sinema zevk haritan, izleme listen ve davet ettiklerin. Profilini keşfet ve paylaş.',
   });
 

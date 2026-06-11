@@ -26,7 +26,7 @@ export default function MoodSelector() {
   const { user } = useAuth();
 
   useDocumentMeta({
-    title: 'Sinemood — Ruh Haline Göre Film Öner',
+    title: 'Sinemood | Ruh Haline Göre Film Öner',
     description: 'Bugün hangi mooddasın? Ruh haline göre film keşfet, Üstad’ın seçkilerini ve sürpriz filmleri dene. Yapay zeka destekli sinematik öneri.',
   });
 

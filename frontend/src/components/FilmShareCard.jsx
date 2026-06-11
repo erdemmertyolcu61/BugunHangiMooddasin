@@ -29,7 +29,7 @@ export default function FilmShareCard({ movie }) {
   const noteShort = note ? (note.length > 150 ? note.slice(0, 147) + '…' : note) : (movie?.overview || '').slice(0, 150);
 
   const shareUrl = CANONICAL_URL;
-  const shareText = `"${movie?.title}"${year ? ` (${year})` : ''} — Sinemood'da keşfettim. Sen de bak!`;
+  const shareText = `"${movie?.title}"${year ? ` (${year})` : ''} Sinemood'da keşfettim. Sen de bak!`;
   const fileName = `sinemood-film-${movie?.id || movie?.tmdb_id || 'film'}.png`;
 
   const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {

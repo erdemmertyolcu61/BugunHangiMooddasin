@@ -20,7 +20,7 @@ export default function WeeklyReportCard({ movies, topMood }) {
     track('weekly_report_share');
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Sinemood — Haftalık Karnem', text, url });
+        await navigator.share({ title: 'Sinemood | Haftalık Karnem', text, url });
       } else {
         await navigator.clipboard.writeText(`${text} ${url}`);
       }
@@ -29,7 +29,7 @@ export default function WeeklyReportCard({ movies, topMood }) {
 
   const metrics = [
     { icon: BookMarked, label: 'Bu hafta', value: report.savedCount, accent: true },
-    { icon: Flame, label: 'Seri', value: report.streak ? `${report.streak} gün` : '—' },
+    { icon: Flame, label: 'Seri', value: report.streak ? `${report.streak} gün` : '-' },
     { icon: Film, label: 'İzlenen', value: report.watchedTotal },
     { icon: Trophy, label: 'Başarım', value: `${report.milestones.unlocked}/${report.milestones.total}` },
   ];

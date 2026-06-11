@@ -22,7 +22,7 @@ export default function ReferralCard() {
   if (!data || !data.invite_url) return null;
 
   const { count = 0, invite_url, rewards_unlocked = [], next_reward } = data;
-  const shareText = 'Sinemood\'da ruh haline göre film keşfet — sana özel önerilerle. Gel beraber çarpışalım!';
+  const shareText = 'Sinemood\'da ruh haline göre film keşfet, sana özel önerilerle. Gel beraber çarpışalım!';
 
   const handleCopy = async () => {
     await copyToClipboard(invite_url);
@@ -45,7 +45,7 @@ export default function ReferralCard() {
       </div>
 
       <p className="text-sm text-ivory/55 leading-relaxed">
-        Linkini paylaş — gelen her arkadaş için rozetler ve özel kilitler açılır.
+        Linkini paylaş, gelen her arkadaş için rozetler ve özel kilitler açılır.
         Şimdiye dek <span className="text-amber font-bold">{count}</span> kişiyi davet ettin.
       </p>
 
@@ -91,7 +91,7 @@ export default function ReferralCard() {
         </div>
       ) : (
         <p className="text-[11px] text-emerald-400/80 flex items-center gap-1.5">
-          <Trophy size={11} /> Tüm davet ödüllerini açtın — efsanesin!
+          <Trophy size={11} /> Tüm davet ödüllerini açtın, efsanesin!
         </p>
       )}
 

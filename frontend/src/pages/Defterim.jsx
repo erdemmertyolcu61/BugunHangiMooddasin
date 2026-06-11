@@ -137,8 +137,8 @@ export default function Defterim() {
     const shareUrl = getShareUrl(`/share/${movie.tmdb_id}`);
     const note = (movie.personal_note || '').trim();
     const shareData = {
-      title: `${movie.title} — Sinemood`,
-      text: note ? `"${note.slice(0, 140)}"` : `${movie.title} — Sinemood defterimden.`,
+      title: `${movie.title} | Sinemood`,
+      text: note ? `"${note.slice(0, 140)}"` : `${movie.title} | Sinemood defterimden.`,
       url: shareUrl,
     };
     try {

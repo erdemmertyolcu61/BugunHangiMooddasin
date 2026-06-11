@@ -25,7 +25,7 @@ function timeAgo(dateStr) {
 }
 
 export default function MoodFeed() {
-  useDocumentMeta({ title: 'Akis — Sinemood', description: 'Arkadaslarinin mood ve film aktivitesi.' });
+  useDocumentMeta({ title: 'Akis | Sinemood', description: 'Arkadaslarinin mood ve film aktivitesi.' });
   const navigate = useNavigate();
   const { user } = useAuth();
   const [feed, setFeed] = useState(null);

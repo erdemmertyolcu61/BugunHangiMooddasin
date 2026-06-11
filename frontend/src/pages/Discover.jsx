@@ -89,7 +89,7 @@ export default function Discover() {
   const { selectedMood, selectMood, fetchMoodMovies } = useMood();
 
   useDocumentMeta({
-    title: 'Keşfet — Ruh Haline Göre Filmler | Sinemood',
+    title: 'Keşfet | Ruh Haline Göre Filmler | Sinemood',
     description: 'Ruh haline ve zevkine göre film keşfet. Üstad’ın seçkileri, mood eşleşmeleri ve binlerce filmlik arşivle ne izleyeceğini bul.',
   });
   const [movies, setMovies] = useState([]);

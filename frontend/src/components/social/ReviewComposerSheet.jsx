@@ -27,8 +27,9 @@ export default function ReviewComposerSheet({ movie, initialContent = '', initia
     try {
       await saveMovieReview(movieId, text, hasSpoiler);
       track('review_saved', { movie_id: movieId });
-      onSaved?.({ content: text, has_spoiler: hasSpoiler });
-      onClose();
+      // onSaved handles both optimistic UI update AND closing the sheet
+      if (onSaved) onSaved({ content: text, has_spoiler: hasSpoiler });
+      else onClose();
     } catch (e) {
       setError(e.message || 'Söz kaydedilemedi.');
     } finally {
@@ -65,7 +66,7 @@ export default function ReviewComposerSheet({ movie, initialContent = '', initia
 
         <div className="px-6 pb-6 space-y-3">
           <p className="text-[11px] text-white/40">
-            Sözün <span className="text-amber/70 font-semibold">herkese açık</span> olur — film sayfasında tüm Sinemood topluluğu görür.
+            Sözün <span className="text-amber/70 font-semibold">herkese açık</span> olur, film sayfasında tüm Sinemood topluluğu görür.
           </p>
           <textarea
             autoFocus

@@ -147,7 +147,7 @@ export default function SearchPage() {
               type="text"
               value={query}
               onChange={onChange}
-              placeholder="Film ara — isim, konu, yönetmen..."
+              placeholder="Film ara: isim, konu, yönetmen..."
               aria-label="Film ara"
               className="w-full pl-11 pr-11 py-3.5 bg-white/5 border border-white/10 rounded-full text-[15px] text-ivory placeholder:text-ivory/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/60 focus:border-amber/50 focus:bg-white/[0.07] transition-all"
             />
@@ -173,7 +173,7 @@ export default function SearchPage() {
             <div>
               <h2 className="font-serif text-2xl sm:text-3xl font-bold text-ivory mb-2">Ne aramıştın evlat?</h2>
               <p className="font-sans text-sm text-ivory/40 max-w-xs leading-relaxed">
-                Aklındaki filmi yaz — Üstad'ın arşivinde bulalım.
+                Aklındaki filmi yaz, Üstad'ın arşivinde bulalım.
               </p>
             </div>
           </div>

@@ -15,7 +15,7 @@ const MOOD_COLORS = {
 // Backend era_preferences anahtarları (taste_map.py) ile birebir eşleşir.
 const ERA_LABELS = {
   pre_1990: '1990 öncesi',
-  '1991_2009': '1991 – 2009',
+  '1991_2009': '1991-2009',
   '2010_plus': '2010 sonrası',
   recent_5_years: 'Son 5 yıl',
 };
@@ -231,7 +231,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
               {eraPref.year_range_min != null && eraPref.year_range_max != null && (
                 <div className="flex items-center gap-2 text-[11px] text-fg-subtle font-mono pt-0.5">
                   <span>{eraPref.year_range_min}</span>
-                  <span className="opacity-50">—</span>
+                  <span className="opacity-50">-</span>
                   <span>{eraPref.year_range_max}</span>
                   {eraPref.mean_year != null && <span className="ml-auto">ortalama {Math.round(eraPref.mean_year)}</span>}
                 </div>

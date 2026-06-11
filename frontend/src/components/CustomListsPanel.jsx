@@ -121,7 +121,7 @@ export default function CustomListsPanel({ user }) {
             }`}>
             {visBusy ? <Loader2 size={13} className="animate-spin" />
               : openList.is_public ? <Globe2 size={13} /> : <Lock size={13} />}
-            {openList.is_public ? 'Herkese Açık' : 'Gizli — Paylaşmak için aç'}
+            {openList.is_public ? 'Herkese Açık' : 'Gizli, paylaşmak için aç'}
           </button>
           {openList.is_public && openList.slug && (
             <ShareButtons

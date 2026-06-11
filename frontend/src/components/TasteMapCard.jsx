@@ -54,8 +54,8 @@ export default function TasteMapCard({ tasteMap, username = '', profileUrl = '' 
 
   const shareUrl = profileUrl || CANONICAL_URL;
   const shareText = username
-    ? `${username}'in Sinemood Zevk Haritası — Sen de sinema DNA'nı keşfet!`
-    : 'Sinemood Zevk Haritam — Sen de sinema DNA\'nı keşfet!';
+    ? `${username}'in Sinemood Zevk Haritası | Sen de sinema DNA'nı keşfet!`
+    : 'Sinemood Zevk Haritam | Sen de sinema DNA\'nı keşfet!';
 
   // Hook'lar erken return'den ÖNCE çağrılmalı (Rules of Hooks).
   const { share, download: handleDownload, sharing } = useShareableImage(cardRef, {

@@ -362,7 +362,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   </motion.div>
                 ) : (giveUp && thinkingDone) ? (
                   <UstadinNotu
-                    noteText="Üstad bu film için kısa bir kahve molası verdi — birazdan tekrar dene."
+                    noteText="Üstad bu film için kısa bir kahve molası verdi, birazdan tekrar dene."
                     movieName={movie.title}
                   />
                 ) : (
@@ -380,7 +380,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/20">Küresel Yankı</p>
-                    <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(movie) ?? '—'}</p>
+                    <p className="text-2xl sm:text-3xl font-serif font-bold text-amber">★ {reliableRating(movie) ?? '-'}</p>
                   </div>
                 </div>
 
@@ -424,7 +424,7 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
                             <button
                               key={p.provider_id}
                               onClick={() => openProvider(p)}
-                              title={`${p.provider_name} (${p.tag}) — açmak için tıkla`}
+                              title={`${p.provider_name} (${p.tag}), açmak için tıkla`}
                               className="flex items-center gap-2 px-4 py-2.5 rounded-full transition-all group active:scale-95 cursor-pointer hover:brightness-110"
                               style={{
                                 background: `${brand}22`,

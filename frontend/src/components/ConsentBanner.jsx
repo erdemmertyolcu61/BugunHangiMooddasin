@@ -91,7 +91,7 @@ export default function ConsentBanner() {
 
               <p className="text-[13.5px] leading-relaxed text-fg-muted">
                 Deneyimini iyileştirmek için <span className="text-fg font-semibold">çerezsiz, anonim</span> analitik
-                kullanıyoruz — <span className="text-fg font-semibold">çerez yok, IP saklanmaz, kişisel veri toplanmaz</span>.
+                kullanıyoruz; <span className="text-fg font-semibold">çerez yok, IP saklanmaz, kişisel veri toplanmaz</span>.
                 Hesap bilgilerin ve listelerin yalnızca hizmeti sunmak için işlenir; üçüncü taraflara satılmaz.
                 İstersen aşağıdan kapatabilirsin.{' '}
                 <Link to="/gizlilik" onClick={() => setShow(false)}

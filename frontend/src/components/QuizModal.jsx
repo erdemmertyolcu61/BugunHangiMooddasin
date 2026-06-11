@@ -283,7 +283,7 @@ export default function QuizModal({ isOpen, onClose, onComplete }) {
                           <div className="flex items-center gap-2">
                             <span className="flex items-center gap-0.5 text-[9px] text-amber">
                               <Star size={8} className="fill-amber" />
-                              {movie.vote_average > 0 ? movie.vote_average.toFixed(1) : '—'}
+                              {movie.vote_average > 0 ? movie.vote_average.toFixed(1) : '-'}
                             </span>
                             <span className="text-[9px] text-ivory/40">%{movie.mood_score}</span>
                           </div>

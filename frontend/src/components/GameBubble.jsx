@@ -16,7 +16,7 @@ export default function GameBubble() {
   return (
     <button
       onClick={() => navigate('/oyun')}
-      title="Mini Oyun — Mood Kâhini"
+      title="Mini Oyun | Mood Kâhini"
       aria-label="Mini oyun: Mood Kâhini"
       className="
         group fixed left-4 z-[96]

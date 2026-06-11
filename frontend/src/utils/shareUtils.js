@@ -136,7 +136,7 @@ export async function captureAndShare(element, filename = 'sinemood.png', shareT
     const file = new File([blob], filename, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
-        text: shareText || 'Sinemood — Bugün Hangi Mooddasın?',
+        text: shareText || 'Sinemood | Bugün Hangi Mooddasın?',
         files: [file],
       });
       return 'shared';

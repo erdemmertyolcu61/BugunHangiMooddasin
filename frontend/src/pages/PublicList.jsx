@@ -24,7 +24,7 @@ export default function PublicList() {
   const [reportOpen, setReportOpen] = useState(false);
 
   useDocumentMeta({
-    title: list ? `${list.name} — Sinemood Listesi` : 'Liste — Sinemood',
+    title: list ? `${list.name} | Sinemood Listesi` : 'Liste | Sinemood',
     description: list?.description || 'Sinemood topluluğundan bir film listesi.',
   });
 
@@ -107,7 +107,7 @@ export default function PublicList() {
         <div className="mt-5">
           <ShareButtons compact
             url={window.location.href}
-            text={`${list.emoji || '🎬'} "${list.name}" — Sinemood listesi:`} />
+            text={`${list.emoji || '🎬'} "${list.name}" Sinemood listesi:`} />
         </div>
       </header>
 

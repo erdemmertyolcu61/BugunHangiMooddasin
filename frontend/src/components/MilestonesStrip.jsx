@@ -74,7 +74,7 @@ export default function MilestonesStrip({ stats }) {
             return (
               <div
                 key={m.id}
-                title={`${m.title} — ${m.blurb}${m.achieved ? '' : ` (${m.current}/${m.threshold})`}`}
+                title={`${m.title}: ${m.blurb}${m.achieved ? '' : ` (${m.current}/${m.threshold})`}`}
                 className={`relative flex flex-col items-center text-center gap-2 p-3 sm:p-4 rounded-2xl border transition-all ${
                   m.achieved
                     ? 'bg-amber-500/[0.08] border-amber/25'

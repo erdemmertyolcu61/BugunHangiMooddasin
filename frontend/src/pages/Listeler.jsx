@@ -96,7 +96,7 @@ function ListelerAnasayfa() {
                 : `🏆 ${award.title} yakında (${award.days_until} gün)`}
             </p>
             <p className="text-[12px] text-ivory/55 mt-0.5">
-              {award.status === 'today' ? 'Kazananlar uygulamada hazır — keşfet' : 'Kazananları şimdiden incele'}
+              {award.status === 'today' ? 'Kazananlar uygulamada hazır, keşfet' : 'Kazananları şimdiden incele'}
             </p>
           </div>
           <ChevronLeft size={16} className="rotate-180 text-amber/60 group-hover:text-amber transition-colors shrink-0" />
@@ -219,7 +219,6 @@ function ListeDetay() {
   const validMovies = (liste.movies || []).filter(
     m =>
       (m.title || '').trim() &&
-      m.title !== '—' &&
       m.title !== '-' &&
       (m.vote_average == null || m.vote_average >= 0.5)
   );
@@ -427,7 +426,7 @@ function ListeDetay() {
 export default function Listeler() {
   const { slug } = useParams();
   useDocumentMeta({
-    title: slug ? 'Ödüllü Filmler | Sinemood' : 'Ödüllü Filmler — Festival Kazananları | Sinemood',
+    title: slug ? 'Ödüllü Filmler | Sinemood' : 'Ödüllü Filmler | Festival Kazananları | Sinemood',
     description: 'Oscar, Cannes, Altın Küre, BAFTA, Venedik, Berlin ve daha fazlasının en güncel kazananları. Hangi film hangi ödülü aldı, Sinemood’da keşfet.',
   });
   return (
