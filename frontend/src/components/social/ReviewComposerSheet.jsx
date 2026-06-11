@@ -25,10 +25,10 @@ export default function ReviewComposerSheet({ movie, initialContent = '', initia
     setBusy(true);
     setError('');
     try {
-      await saveMovieReview(movieId, text, hasSpoiler);
+      const result = await saveMovieReview(movieId, text, hasSpoiler);
       track('review_saved', { movie_id: movieId });
       // onSaved handles both optimistic UI update AND closing the sheet
-      if (onSaved) onSaved({ content: text, has_spoiler: hasSpoiler });
+      if (onSaved) onSaved(result.review || { content: text, has_spoiler: hasSpoiler });
       else onClose();
     } catch (e) {
       setError(e.message || 'Söz kaydedilemedi.');

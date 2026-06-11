@@ -47,29 +47,26 @@ export default function FilmReviews({ movie }) {
 
   const mine = reviews?.find((r) => r.is_mine);
 
-  const handleReviewSaved = useCallback(({ content, has_spoiler }) => {
-    // Optimistic: hemen listede göster
+  const handleReviewSaved = useCallback((review) => {
     setReviews((prev) => {
       const others = (prev || []).filter((r) => !r.is_mine);
-      const optimistic = {
-        id: `temp-${Date.now()}`,
-        tmdb_id: movieId,
-        user_id: authUser?.id || 0,
-        content,
-        has_spoiler,
-        created_at: new Date().toISOString(),
-        username: authUser?.username || authUser?.name || '',
-        avatar: authUser?.picture || '',
-        like_count: 0,
-        liked_by_me: false,
+      const entry = {
+        id: review.id || `temp-${Date.now()}`,
+        tmdb_id: review.tmdb_id || movieId,
+        user_id: review.user_id || authUser?.id || 0,
+        content: review.content || '',
+        has_spoiler: review.has_spoiler || false,
+        created_at: review.created_at || new Date().toISOString(),
+        username: review.username || authUser?.username || authUser?.name || '',
+        avatar: review.avatar || authUser?.picture || '',
+        like_count: review.like_count || 0,
+        liked_by_me: review.liked_by_me || false,
         is_mine: true,
       };
-      return [optimistic, ...others];
+      return [entry, ...others];
     });
     setComposerOpen(false);
-    // Arka planda gerçek veriyle değiştir
-    setTimeout(() => load(), 600);
-  }, [movieId, authUser, load]);
+  }, [movieId, authUser]);
 
   const toggleLike = async (review) => {
     if (!loggedIn) return;

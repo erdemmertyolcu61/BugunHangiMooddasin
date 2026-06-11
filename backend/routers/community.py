@@ -155,8 +155,36 @@ async def upsert_review(tmdb_id: int, body: ReviewBody, user: dict = Depends(ver
             (int(tmdb_id), uid, content, int(body.has_spoiler)),
         )
         await db.commit()
+        # Yeni/mevcut review'ı geri oku
+        cur = await db.execute(
+            """SELECT r.id, r.tmdb_id, r.user_id, r.content, r.has_spoiler,
+                      r.created_at, r.updated_at,
+                      u.username, u.picture
+               FROM movie_reviews r
+               JOIN users u ON u.id = r.user_id
+               WHERE r.tmdb_id = ? AND r.user_id = ?""",
+            (int(tmdb_id), uid),
+        )
+        row = await cur.fetchone()
     # Trend cache'i tazelensin (Söz sinyali değişti)
     _trending_cache["ts"] = 0.0
+    if row:
+        return {
+            "ok": True,
+            "review": {
+                "id": row[0],
+                "tmdb_id": row[1],
+                "user_id": row[2],
+                "content": row[3],
+                "has_spoiler": bool(row[4]),
+                "created_at": str(row[5] or ""),
+                "username": row[7] or "",
+                "avatar": row[8] or "",
+                "like_count": 0,
+                "liked_by_me": False,
+                "is_mine": True,
+            }
+        }
     return {"ok": True}
 
 
