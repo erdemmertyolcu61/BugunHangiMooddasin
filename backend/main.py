@@ -593,11 +593,13 @@ async def lifespan(app: FastAPI):
                         payload = await _get_daily_film()
                         if payload and payload.get("movie"):
                             m = payload["movie"]
+                            mid = m.get("id") or m.get("tmdb_id")
+                            push_url = f"/gunun-filmi?mid={mid}" if mid else "/gunun-filmi"
                             n = await send_push_for_hour(
                                 now_tr.hour,
                                 "Üstad'ın Bugünkü Filmi",
                                 f"{m.get('title') or 'Bugünün Filmi'} — {m.get('vote_average', 0):.1f} ⭐",
-                                url="/gunun-filmi", tag="daily-film", pwa_only=False,
+                                url=push_url, tag="daily-film", pwa_only=False,
                             )
                             if n:
                                 logger.info("[DailyPush] %02d:00 push gonderildi (%d cihaz): %s",
@@ -3475,8 +3477,17 @@ async def _get_daily_film(user_id: int = None) -> Optional[dict]:
 
 
 @app.get("/api/daily/film")
-async def daily_film(request: Request, personal: bool = Query(True)):
-    """Günün filmi — personal=true (default) kişiselleştirilmiş, false ise bildirimle aynı global film."""
+async def daily_film(request: Request, personal: bool = Query(True), movie_id: int = Query(None)):
+    """Günün filmi — movie_id verilirse bildirimdeki filmi döndürür (uyumsuzluk önleme)."""
+    if movie_id:
+        try:
+            from backend.services.tmdb_service import tmdb
+            details = await tmdb.get_movie_details(movie_id)
+            if details:
+                return {"movie": details, "date": datetime.now(ZoneInfo("Europe/Istanbul")).strftime("%Y-%m-%d"),
+                        "ustad_line": None, "title": "Üstad'ın Bugünkü Filmi", "personalized": False}
+        except Exception:
+            pass
     if personal:
         uid = optional_user_id(request)
         payload = await _get_daily_film(user_id=uid)

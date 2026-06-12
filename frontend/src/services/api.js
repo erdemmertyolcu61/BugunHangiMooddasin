@@ -329,11 +329,14 @@ export async function getReferrals() {
 }
 
 // ─── Günün Filmi ───
-export async function getDailyFilm(personal = true) {
-  const qs = personal ? '' : '?personal=false';
+export async function getDailyFilm(personal = true, movieId = null) {
+  const params = new URLSearchParams();
+  if (!personal) params.set('personal', 'false');
+  if (movieId) params.set('movie_id', movieId);
+  const qs = params.toString() ? `?${params}` : '';
   const res = await fetch(`${BASE}/daily/film${qs}`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(`Günün filmi alınamadı (${res.status})`);
-  return res.json(); // { date, movie, ustad_line, title, personalized }
+  return res.json();
 }
 
 // ─── Ödül takvimi (Listeler banner'ı) ───

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Star, Share2, Download, CalendarDays, Play } from 'lucide-react';
 import { getDailyFilm, proxyImageUrl } from '../services/api';
@@ -17,6 +17,7 @@ import { CANONICAL_URL } from '../utils/apiConfig';
  */
 export default function DailyFilm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const [data, setData] = useState(null);
@@ -30,14 +31,16 @@ export default function DailyFilm() {
     description: 'Üstad’ın bugün için seçtiği film. Her gün yeni bir öneri, bugün ne izleyeceğini Sinemood söylesin.',
   });
 
+  const notifMovieId = searchParams.get('mid');
+
   useEffect(() => {
     let alive = true;
     track(EVENTS.SURPRISE_VIEW, { kind: 'daily' });
-    getDailyFilm()
+    getDailyFilm(true, notifMovieId)
       .then((d) => { if (alive) { setData(d); setLoading(false); } })
       .catch(() => { if (alive) { setError(true); setLoading(false); } });
     return () => { alive = false; };
-  }, []);
+  }, [notifMovieId]);
 
   const movie = data?.movie;
   const shareUrl = `${CANONICAL_URL}/gunun-filmi`;

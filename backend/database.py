@@ -2668,7 +2668,7 @@ class MovieCache:
 
         # --- Phase C: Turkish films (parallel) ---
         if seed_turkish:
-            tr_p = tr_pages if tr_pages is not None else max(1, pages // 2)
+            tr_p = tr_pages if tr_pages is not None else max(1, pages // 3)
             tr_min_vote = max(5.0, tr_min_vote_override) if tr_min_vote_override is not None else max(5.0, min_vote - 1.0)
             tr_g = tr_genres if tr_genres else genre_ids
             tr_movies = await tmdb_service.discover_pages_parallel(
@@ -3098,9 +3098,9 @@ class MovieCache:
                 score = classification["moodScores"].get(mood_id, 0)
                 if mood_id in classification["blockedMoods"]:
                     score = 0
-                # Türkçe filmler: +3 bonus (yerli sinema önceliği — scoring engine'deki 1.08x'e ek)
+                # Türkçe filmler: +1 bonus (yerli sinema önceliği — küçük tutulur ki TR filmler sayfaya eşit dağılsın)
                 if original_language == "tr" and score >= 25:
-                    score += 3
+                    score += 1
                 # NOT: Japon/Hint/Kore/Çin dil cezaları artık mood_scoring.py'de uygulanıyor
                 # calculate_mood_scores() içinde original_language parametresi ile
                 updates.append((round(score, 1), tmdb_id, mood_id))
@@ -3121,8 +3121,10 @@ class MovieCache:
                                                 min_vote_count: int = 0) -> dict:
         """SQL-level paginated fetch — uses sync sqlite3 to avoid aiosqlite thread blocking."""
         # Build ORDER BY clause
+        # "recommended" sıralamasında TR filmleri eşit dağıtmak için mood_score'dan
+        # küçük bir kesinti yapılır; bu sayede ilk sayfalara yığılmaz, doğal karışır.
         order_clauses = {
-            "recommended": "mood_score DESC, vote_average DESC",
+            "recommended": "CASE WHEN original_language='tr' THEN mood_score - 2.0 ELSE mood_score END DESC, vote_average DESC",
             "rating_desc": "vote_average DESC, mood_score DESC",
             "rating_asc": "vote_average ASC, mood_score DESC",
             "mood_desc": "mood_score DESC, vote_average DESC",
