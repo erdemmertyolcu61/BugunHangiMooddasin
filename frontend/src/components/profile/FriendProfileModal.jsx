@@ -38,22 +38,31 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
 
   useEffect(() => {
     if (!friend?.id) return;
+    let alive = true;
     setLoading(true);
     setError(null);
     getFriendProfile(friend.id)
-      .then(setProfile)
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+      .then(d => { if (alive) setProfile(d); })
+      .catch(err => { if (alive) setError(err.message); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, [friend?.id]);
 
   useEffect(() => {
+    const prev = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    const handler = (e) => { if (e.key === 'Escape') { avatarZoom ? setAvatarZoom(false) : onClose(); } };
-    window.addEventListener('keydown', handler);
-    return () => {
-      document.documentElement.style.overflow = '';
-      window.removeEventListener('keydown', handler);
+    return () => { document.documentElement.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') {
+        if (avatarZoom) setAvatarZoom(false);
+        else onClose();
+      }
     };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, [onClose, avatarZoom]);
 
   const avatarUrl = profile?.picture ? resolveAvatarUrl(profile.picture) : null;

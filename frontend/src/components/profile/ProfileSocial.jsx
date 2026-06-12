@@ -92,12 +92,19 @@ export default function ProfileSocial({
     setFailedAvatars(prev => { const n = new Set(prev); n.add(id); return n; });
   }, []);
 
+  const [localReactions, setLocalReactions] = useState({});
+  const [reactionLoading, setReactionLoading] = useState(null);
+
   const handleReaction = useCallback(async (recId, reaction) => {
+    setLocalReactions(prev => ({ ...prev, [recId]: reaction }));
+    setReactionLoading(recId);
     try {
       await reactToRecommendation(recId, reaction);
-      // Optimistic UI: shares state'ini parent'tan geldiği için burada güncelleyemiyoruz
-      // ama bir sonraki polling'de güncellenecek. Alternatif: parent'a callback
-    } catch { /* sessiz */ }
+    } catch {
+      setLocalReactions(prev => { const n = { ...prev }; delete n[recId]; return n; });
+    } finally {
+      setReactionLoading(null);
+    }
   }, []);
 
   const handleRemoveCommunityRec = useCallback(async (tmdbId) => {
@@ -440,6 +447,8 @@ export default function ProfileSocial({
                     <ShareCard key={`recv-${s.id}`} share={s} direction="received"
                       onDetail={onDetailMovie}
                       onReaction={handleReaction}
+                      localReaction={localReactions[s.id]}
+                      reactionLoading={reactionLoading === s.id}
                       failedAvatars={failedAvatars} onAvatarError={onAvatarError}
                     />
                   ))}
@@ -575,10 +584,11 @@ const REACTIONS = [
   { key: 'bu-aksam-degil', label: 'Bu Aksam Degil', icon: Bookmark, color: 'text-amber/60 border-amber/25 bg-amber/8' },
 ];
 
-function ShareCard({ share: s, direction, onDetail, onRetract, onReaction, failedAvatars, onAvatarError }) {
+function ShareCard({ share: s, direction, onDetail, onRetract, onReaction, localReaction, reactionLoading, failedAvatars, onAvatarError }) {
   const isSent = direction === 'sent';
   const person = isSent ? s.receiver : s.sender;
   const personLabel = person?.username || person?.name || 'Arkadas';
+  const effectiveReaction = localReaction ?? s.reaction;
 
   return (
     <motion.div
@@ -643,12 +653,13 @@ function ShareCard({ share: s, direction, onDetail, onRetract, onReaction, faile
           <div className="flex flex-wrap gap-1.5 pt-1">
             {REACTIONS.map((r) => {
               const Icon = r.icon;
-              const active = s.reaction === r.key;
+              const active = effectiveReaction === r.key;
               return (
                 <button key={r.key}
                   onClick={() => onReaction?.(s.id, r.key)}
+                  disabled={reactionLoading}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase tracking-wider
-                    transition-all active:scale-[0.94] ${active ? r.color + ' ring-1 ring-current' : 'text-white/30 border-white/8 bg-white/[0.02] hover:border-white/15 hover:text-white/50'}`}
+                    transition-all active:scale-[0.94] disabled:opacity-40 ${active ? r.color + ' ring-1 ring-current' : 'text-white/30 border-white/8 bg-white/[0.02] hover:border-white/15 hover:text-white/50'}`}
                 >
                   <Icon size={10} /> {r.label}
                 </button>

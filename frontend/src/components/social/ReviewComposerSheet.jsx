@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Quote, Loader2, AlertTriangle } from 'lucide-react';
 import { saveMovieReview } from '../../services/api';
@@ -15,6 +15,12 @@ export default function ReviewComposerSheet({ movie, initialContent = '', initia
   const [hasSpoiler, setHasSpoiler] = useState(initialSpoiler);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => textareaRef.current?.focus(), 350);
+    return () => clearTimeout(t);
+  }, []);
 
   const remaining = MAX_LEN - content.length;
   const movieId = movie?.id || movie?.tmdb_id;
@@ -42,7 +48,7 @@ export default function ReviewComposerSheet({ movie, initialContent = '', initia
       <motion.div className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
       <motion.div
-        className="fixed bottom-0 left-0 right-0 z-[1001] flex flex-col
+        className="fixed bottom-0 left-0 right-0 z-[1001] flex flex-col max-h-[85vh]
                    bg-[#161010] border-t border-amber/20 rounded-t-[2rem] shadow-[0_-20px_60px_rgba(0,0,0,0.6)] pb-safe"
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}>
@@ -64,17 +70,17 @@ export default function ReviewComposerSheet({ movie, initialContent = '', initia
           </button>
         </div>
 
-        <div className="px-6 pb-6 space-y-3">
+        <div className="px-6 pb-6 space-y-3 overflow-y-auto overscroll-contain">
           <p className="text-[11px] text-white/40">
             Sözün <span className="text-amber/70 font-semibold">herkese açık</span> olur, film sayfasında tüm Sinemood topluluğu görür.
           </p>
           <textarea
-            autoFocus
+            ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value.slice(0, MAX_LEN))}
             placeholder="Bu film hakkında tek bir söz söyleyecek olsan..."
             rows={4}
-            className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-2xl text-base font-serif text-ivory
+            className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-2xl text-[16px] font-serif text-ivory
                        placeholder:text-ivory/30 placeholder:italic focus:outline-none focus:border-amber/40 resize-none"
           />
           <div className="flex items-center justify-between">

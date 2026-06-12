@@ -289,6 +289,7 @@ export default function Profil() {
     pollRef.current = setInterval(poll, 30000);
     return () => {
       clearInterval(pollRef.current);
+      clearTimeout(addTimerRef.current);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [user]);
@@ -341,6 +342,7 @@ export default function Profil() {
     });
   }, []);
 
+  const addTimerRef = useRef(null);
   const handleAddFriend = useCallback(async (username) => {
     const res = await sendFriendRequest(username);
     if (res.status === 'ACCEPTED') {
@@ -348,8 +350,8 @@ export default function Profil() {
       setFriends(data.friends || []);
       return 'ACCEPTED';
     }
-    // Background refetch after 5s
-    setTimeout(async () => {
+    clearTimeout(addTimerRef.current);
+    addTimerRef.current = setTimeout(async () => {
       try {
         const [fr, rq] = await Promise.all([
           getFriends().catch(() => ({ friends: [] })),
