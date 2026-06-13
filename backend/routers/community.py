@@ -446,6 +446,306 @@ async def top_recommenders(request: Request):
     return {"users": users[:10]}
 
 
+# ─── Söz yanıtları (thread) ──────────────────────────────────────────────────
+
+
+class ReplyBody(BaseModel):
+    content: str = Field(..., min_length=2, max_length=280)
+
+
+@router.post("/reviews/{review_id}/replies", dependencies=[Depends(rate_limit_strict)])
+async def create_reply(review_id: int, body: ReplyBody, user: dict = Depends(verify_user)):
+    uid = user["user_id"]
+    content = body.content.strip()
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT 1 FROM movie_reviews WHERE id = ? AND status = 'visible'", (review_id,)
+        )
+        if not await cur.fetchone():
+            raise HTTPException(404, "Söz bulunamadı.")
+        await db.execute(
+            "INSERT INTO review_replies (review_id, user_id, content) VALUES (?, ?, ?)",
+            (review_id, uid, content),
+        )
+        await db.commit()
+        cur = await db.execute(
+            """SELECT rr.id, rr.content, rr.created_at, u.username, u.picture
+               FROM review_replies rr JOIN users u ON u.id = rr.user_id
+               WHERE rr.review_id = ? AND rr.user_id = ?
+               ORDER BY rr.id DESC LIMIT 1""",
+            (review_id, uid),
+        )
+        row = await cur.fetchone()
+    if row:
+        return {
+            "ok": True,
+            "reply": {
+                "id": row[0], "content": row[1], "created_at": str(row[2] or ""),
+                "username": row[3] or "", "avatar": row[4] or "",
+                "user_id": uid, "is_mine": True,
+            },
+        }
+    return {"ok": True}
+
+
+@router.get("/reviews/{review_id}/replies")
+async def list_replies(review_id: int, request: Request):
+    viewer_id = optional_user_id(request)
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        blocked = await _blocked_ids(db, viewer_id)
+        cur = await db.execute(
+            """SELECT rr.id, rr.user_id, rr.content, rr.created_at,
+                      u.username, u.picture
+               FROM review_replies rr JOIN users u ON u.id = rr.user_id
+               WHERE rr.review_id = ? AND rr.status = 'visible'
+               ORDER BY rr.created_at ASC LIMIT 50""",
+            (review_id,),
+        )
+        rows = await cur.fetchall()
+    replies = [
+        {
+            "id": r[0], "user_id": r[1], "content": r[2],
+            "created_at": str(r[3] or ""),
+            "username": r[4] or "", "avatar": r[5] or "",
+            "is_mine": bool(viewer_id and r[1] == viewer_id),
+        }
+        for r in rows if r[1] not in blocked
+    ]
+    return {"replies": replies, "count": len(replies)}
+
+
+@router.delete("/reviews/{review_id}/replies/{reply_id}")
+async def delete_reply(review_id: int, reply_id: int, user: dict = Depends(verify_user)):
+    uid = user["user_id"]
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT 1 FROM review_replies WHERE id = ? AND review_id = ? AND user_id = ?",
+            (reply_id, review_id, uid),
+        )
+        if not await cur.fetchone():
+            raise HTTPException(404, "Yanıt bulunamadı veya sana ait değil.")
+        await db.execute("DELETE FROM review_replies WHERE id = ?", (reply_id,))
+        await db.commit()
+    return {"ok": True}
+
+
+# ─── Kullanıcı arama ────────────────────────────────────────────────────────
+
+
+@router.get("/users/search")
+async def search_users(q: str = "", request: Request = None):
+    """Kullanıcı adı veya isimle arama (min 2 karakter)."""
+    q = (q or "").strip().lower()
+    if len(q) < 2:
+        return {"users": []}
+    viewer_id = optional_user_id(request)
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        blocked = await _blocked_ids(db, viewer_id)
+        cur = await db.execute(
+            """SELECT id, username, name, picture FROM users
+               WHERE (lower(username) LIKE ? OR lower(name) LIKE ?)
+               AND username IS NOT NULL AND username != ''
+               LIMIT 20""",
+            (f"%{q}%", f"%{q}%"),
+        )
+        rows = await cur.fetchall()
+    users = [
+        {"id": r[0], "username": r[1] or "", "name": r[2] or "", "avatar": r[3] or ""}
+        for r in rows if r[0] not in blocked and r[0] != viewer_id
+    ]
+    return {"users": users[:15]}
+
+
+# ─── Tat uyumu (arkadaşlar arası) ────────────────────────────────────────────
+
+
+@router.get("/friends/{friend_id}/compatibility")
+async def taste_compatibility(friend_id: int, user: dict = Depends(verify_user)):
+    """İki kullanıcı arasındaki sinema zevki uyum skoru."""
+    me = user["user_id"]
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT profile_data FROM user_taste_profiles WHERE user_id = ?", (me,)
+        )
+        my_row = await cur.fetchone()
+        cur = await db.execute(
+            "SELECT profile_data FROM user_taste_profiles WHERE user_id = ?", (friend_id,)
+        )
+        friend_row = await cur.fetchone()
+
+    if not my_row or not my_row[0] or not friend_row or not friend_row[0]:
+        return {"score": 0, "common_moods": [], "reason": "no_profile"}
+
+    my_vec = _taste_vector(my_row[0])
+    fr_vec = _taste_vector(friend_row[0])
+    score = round(_cosine(my_vec, fr_vec) * 100)
+
+    all_moods = set(my_vec) | set(fr_vec)
+    common = []
+    for mood in all_moods:
+        if my_vec.get(mood, 0) > 5 and fr_vec.get(mood, 0) > 5:
+            common.append({"mood_id": mood, "my_pct": round(my_vec[mood]), "friend_pct": round(fr_vec[mood])})
+    common.sort(key=lambda x: x["my_pct"] + x["friend_pct"], reverse=True)
+
+    return {"score": score, "common_moods": common[:5]}
+
+
+# ─── Haftalık topluluk sorusu ────────────────────────────────────────────────
+
+WEEKLY_QUESTIONS = [
+    "Hayatınızda en çok etki bırakan film hangisi?",
+    "Bir adada mahsur kalsanız yanınıza alacağınız 3 film?",
+    "En çok ağladığınız film sahnesi hangisi?",
+    "Tekrar tekrar izlemekten bıkmadığınız film?",
+    "Son izlediğiniz ve 'keşke daha önce izleseydim' dediğiniz film?",
+    "En iyi açılış sahnesi olan film?",
+    "Bir film karakteri olsanız kim olurdunuz?",
+    "Soundtrack'i en iyi olan film?",
+    "En underrated bulduğunuz Türk filmi?",
+    "Bir yönetmenle akşam yemeği: kimi seçerdiniz?",
+    "En kötü devam filmi hangisi?",
+    "Sizi en çok güldüren film sahnesi?",
+    "Finali sizi en çok şaşırtan film?",
+    "Çocukluğunuzun en sevdiği film, hâlâ tutuyor mu?",
+    "90'ların en iyi filmi sizce hangisi?",
+    "En iyi kötü adam performansı hangi filmde?",
+    "Bir filmin evreninde yaşasanız hangisini seçerdiniz?",
+    "En sevdiğiniz film repliği hangisi?",
+    "Sadece bir yönetmenin filmlerini izleyecek olsanız?",
+    "Bu yılın en iyi filmi sizce hangisi?",
+    "İlk sinemada izlediğiniz filmi hatırlıyor musunuz?",
+    "En sevdiğiniz film ikilisi (duo) kimler?",
+    "Bir belgeseli herkesin izlemesi gerektiğini düşünüyorsanız hangisi?",
+    "En iyi 'plot twist' hangi filmde?",
+    "Kötü eleştiri alıp sizin çok sevdiğiniz bir film var mı?",
+    "Hangi film size yeni bir bakış açısı kazandırdı?",
+]
+
+
+def _current_week_key() -> str:
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    monday = today - timedelta(days=today.weekday())
+    return monday.strftime("%Y-W%U")
+
+
+@router.get("/community/challenge")
+async def get_weekly_challenge(request: Request):
+    """Bu haftanın topluluk sorusu + cevaplar."""
+    week_key = _current_week_key()
+    viewer_id = optional_user_id(request)
+
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT id, question, week_key FROM weekly_challenges WHERE week_key = ?",
+            (week_key,),
+        )
+        row = await cur.fetchone()
+
+        if not row:
+            import hashlib
+            idx = int(hashlib.md5(week_key.encode()).hexdigest(), 16) % len(WEEKLY_QUESTIONS)
+            question = WEEKLY_QUESTIONS[idx]
+            await db.execute(
+                "INSERT OR IGNORE INTO weekly_challenges (question, week_key) VALUES (?, ?)",
+                (question, week_key),
+            )
+            await db.commit()
+            cur = await db.execute(
+                "SELECT id, question, week_key FROM weekly_challenges WHERE week_key = ?",
+                (week_key,),
+            )
+            row = await cur.fetchone()
+
+        challenge_id = row[0]
+        question = row[1]
+
+        blocked = await _blocked_ids(db, viewer_id)
+        cur = await db.execute(
+            """SELECT cr.id, cr.user_id, cr.tmdb_id, cr.comment, cr.created_at,
+                      u.username, u.picture
+               FROM challenge_responses cr JOIN users u ON u.id = cr.user_id
+               WHERE cr.challenge_id = ?
+               ORDER BY cr.created_at DESC LIMIT 30""",
+            (challenge_id,),
+        )
+        resp_rows = await cur.fetchall()
+
+        my_response = None
+        if viewer_id:
+            cur = await db.execute(
+                "SELECT tmdb_id, comment FROM challenge_responses WHERE challenge_id = ? AND user_id = ?",
+                (challenge_id, viewer_id),
+            )
+            my_row = await cur.fetchone()
+            if my_row:
+                my_response = {"tmdb_id": my_row[0], "comment": my_row[1] or ""}
+
+    responses = []
+    movie_ids = set()
+    for r in resp_rows:
+        if r[1] in blocked:
+            continue
+        movie_ids.add(r[2])
+        responses.append({
+            "id": r[0], "user_id": r[1], "tmdb_id": r[2],
+            "comment": r[3] or "", "created_at": str(r[4] or ""),
+            "username": r[5] or "", "avatar": r[6] or "",
+            "is_mine": bool(viewer_id and r[1] == viewer_id),
+        })
+
+    meta = await _movie_meta(list(movie_ids))
+    for resp in responses:
+        m = meta.get(resp["tmdb_id"], {})
+        resp["movie_title"] = m.get("title", "")
+        resp["poster_url"] = m.get("poster_url", "")
+
+    if my_response and my_response["tmdb_id"] in meta:
+        m = meta[my_response["tmdb_id"]]
+        my_response["movie_title"] = m.get("title", "")
+        my_response["poster_url"] = m.get("poster_url", "")
+
+    return {
+        "challenge_id": challenge_id,
+        "question": question,
+        "week_key": week_key,
+        "responses": responses,
+        "response_count": len(responses),
+        "my_response": my_response,
+    }
+
+
+class ChallengeResponseBody(BaseModel):
+    tmdb_id: int
+    comment: str = Field(default="", max_length=200)
+
+
+@router.post("/community/challenge/respond", dependencies=[Depends(rate_limit_strict)])
+async def respond_to_challenge(body: ChallengeResponseBody, user: dict = Depends(verify_user)):
+    """Haftalık soruya film ile cevap ver."""
+    uid = user["user_id"]
+    week_key = _current_week_key()
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        cur = await db.execute(
+            "SELECT id FROM weekly_challenges WHERE week_key = ?", (week_key,)
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Bu haftanın sorusu bulunamadı.")
+        challenge_id = row[0]
+        await db.execute(
+            """INSERT INTO challenge_responses (challenge_id, user_id, tmdb_id, comment)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(challenge_id, user_id) DO UPDATE SET
+                 tmdb_id = excluded.tmdb_id,
+                 comment = excluded.comment,
+                 created_at = CURRENT_TIMESTAMP""",
+            (challenge_id, uid, body.tmdb_id, body.comment.strip()),
+        )
+        await db.commit()
+    return {"ok": True}
+
+
 @router.get("/users/blocks")
 async def list_blocks(user: dict = Depends(verify_user)):
     """Engellediğim kullanıcılar (ayarlar sayfası yönetimi için)."""

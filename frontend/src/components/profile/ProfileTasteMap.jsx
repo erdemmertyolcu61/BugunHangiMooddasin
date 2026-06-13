@@ -162,7 +162,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                 return (
                   <div key={mid} className="flex items-center gap-3">
                     <span className="text-[12px] font-semibold text-fg-muted w-28 sm:w-32 shrink-0 min-w-0">{label}</span>
-                    <div className="flex-1 h-2 rounded-full bg-fg-subtle/15 overflow-hidden">
+                    <div className="flex-1 h-2 rounded-full bg-amber/[0.12] overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(pct, 100)}%` }}
@@ -217,7 +217,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                   {eraBars.map(([era, pct]) => (
                     <div key={era} className="flex items-center gap-3">
                       <span className="text-[12px] font-semibold text-fg-muted w-24 sm:w-28 shrink-0 min-w-0">{ERA_LABELS[era] || humanize(era)}</span>
-                      <div className="flex-1 h-1.5 rounded-full bg-fg-subtle/15 overflow-hidden">
+                      <div className="flex-1 h-1.5 rounded-full bg-amber/[0.12] overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
                           transition={{ duration: 0.8, delay: 0.5 }}
@@ -263,7 +263,7 @@ export default function ProfileTasteMap({ tasteMap, loading = false, username = 
                     {style.label && <p className="text-[13px] font-bold text-fg leading-snug">{style.label}</p>}
                     {hasStyleSplit && (
                       <div className="space-y-1.5">
-                        <div className="h-2 rounded-full overflow-hidden flex bg-fg-subtle/15">
+                        <div className="h-2 rounded-full overflow-hidden flex bg-amber/[0.12]">
                           <div className="h-full bg-amber/70" style={{ width: `${mainPct}%` }} />
                           <div className="h-full bg-purple-400/60" style={{ width: `${indiePct}%` }} />
                         </div>

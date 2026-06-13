@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Clapperboard, BookOpen, Compass, BookMarked, User, Sun, Moon } from 'lucide-react';
+import { Clapperboard, BookOpen, Compass, BookMarked, User, Sun, Moon, Bell } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { getUnreadShareCount, isLoggedIn } from '../services/api';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', end: true },
@@ -14,6 +16,12 @@ export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const { pathname } = useLocation();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    getUnreadShareCount().then((d) => setUnread(d?.unread_count || 0)).catch(() => {});
+  }, [pathname]);
 
   const isDiscoverActive = pathname === '/' || pathname === '/moodlar' || pathname.startsWith('/discover');
 
@@ -53,7 +61,19 @@ export default function Header() {
           })}
         </nav>
 
-        {/* Theme Toggle */}
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+        {isLoggedIn() && (
+          <NavLink to="/bildirimler" className="relative p-2 rounded-full bg-white/5 border border-white/10 text-ivory/50 hover:text-amber hover:bg-white/10 transition-all"
+            aria-label="Bildirimler">
+            <Bell size={15} />
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber text-[9px] font-bold text-bg flex items-center justify-center">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </NavLink>
+        )}
         <button
           onClick={toggleTheme}
           title={isDark ? 'Latte temasına geç' : 'Espresso temasına geç'}
@@ -65,6 +85,7 @@ export default function Header() {
             {isDark ? 'Latte' : 'Espresso'}
           </span>
         </button>
+        </div>
       </div>
     </header>
   );

@@ -969,3 +969,62 @@ export async function getPublicList(slug) {
   }
   return res.json();
 }
+
+// ─── Söz yanıtları ─────────────────────────────────────────────────────
+export async function getReviewReplies(reviewId) {
+  return getJson(`${BASE}/reviews/${reviewId}/replies`, { errorMsg: 'Yanıtlar yüklenemedi' });
+}
+
+export async function createReviewReply(reviewId, content) {
+  const res = await fetch(`${BASE}/reviews/${reviewId}/replies`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) await _socialError(res, 'Yanıt gönderilemedi');
+  return res.json();
+}
+
+export async function deleteReviewReply(reviewId, replyId) {
+  const res = await fetch(`${BASE}/reviews/${reviewId}/replies/${replyId}`, {
+    method: 'DELETE', headers: authHeaders(),
+  });
+  if (!res.ok) await _socialError(res, 'Yanıt silinemedi');
+  return res.json();
+}
+
+// ─── Kullanıcı arama ───────────────────────────────────────────────────
+export async function searchUsers(query, { signal } = {}) {
+  return getJson(`${BASE}/users/search?q=${encodeURIComponent(query)}`, {
+    errorMsg: 'Kullanıcı araması başarısız', signal, dedup: false,
+  });
+}
+
+// ─── Tat uyumu ─────────────────────────────────────────────────────────
+export async function getTasteCompatibility(friendId) {
+  return getJson(`${BASE}/friends/${friendId}/compatibility`, {
+    errorMsg: 'Uyum skoru yüklenemedi',
+  });
+}
+
+// ─── Bildirim merkezi ──────────────────────────────────────────────────
+export async function getAllNotifications() {
+  const res = await fetch(`${BASE}/notifications/all`, { headers: authHeaders() });
+  if (!res.ok) return { notifications: [] };
+  return res.json();
+}
+
+// ─── Haftalık challenge ────────────────────────────────────────────────
+export async function getWeeklyChallenge() {
+  return getJson(`${BASE}/community/challenge`, { errorMsg: 'Haftalık soru yüklenemedi' });
+}
+
+export async function respondToChallenge(tmdbId, comment = '') {
+  const res = await fetch(`${BASE}/community/challenge/respond`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tmdb_id: tmdbId, comment }),
+  });
+  if (!res.ok) await _socialError(res, 'Cevap gönderilemedi');
+  return res.json();
+}

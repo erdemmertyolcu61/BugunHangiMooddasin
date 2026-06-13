@@ -804,6 +804,111 @@ async def delete_account(user: dict = Depends(get_current_user)):
 
 # ─── Sosyal Akış (Feed) ─────────────────────────────────────
 
+# ─── Birleşik bildirim merkezi ──────────────────────────────────────────────
+
+@router.get("/notifications/all")
+async def all_notifications(user: dict = Depends(get_current_user)):
+    """Tüm bildirimleri kronolojik: arkadaşlık, öneri, beğeni, yanıt."""
+    uid = user["user_id"]
+    items = []
+
+    from backend.database import _get_connection as _db_conn
+    async with _db_conn(cache.db_path, user_data=True) as db:
+        # Arkadaşlık istekleri
+        cur = await db.execute(
+            """SELECT f.id, f.user_id, u.username, u.picture, f.created_at
+               FROM friendships f JOIN users u ON u.id = f.user_id
+               WHERE f.friend_id = ? AND f.status = 'PENDING'
+               ORDER BY f.created_at DESC LIMIT 20""",
+            (uid,),
+        )
+        for r in await cur.fetchall():
+            items.append({
+                "type": "friend_request", "id": f"fr_{r[0]}",
+                "from_user": {"id": r[1], "username": r[2] or "", "avatar": r[3] or ""},
+                "created_at": str(r[4] or ""), "request_id": r[0],
+            })
+
+        # Film önerileri (okunmamış + son okunanlar)
+        cur = await db.execute(
+            """SELECT dr.id, dr.sender_id, u.username, u.picture,
+                      dr.movie_id, dr.user_note, dr.is_read, dr.created_at
+               FROM direct_recommendations dr JOIN users u ON u.id = dr.sender_id
+               WHERE dr.receiver_id = ? AND dr.dismissed = 0
+               ORDER BY dr.created_at DESC LIMIT 20""",
+            (uid,),
+        )
+        for r in await cur.fetchall():
+            items.append({
+                "type": "movie_recommendation", "id": f"rec_{r[0]}",
+                "from_user": {"id": r[1], "username": r[2] or "", "avatar": r[3] or ""},
+                "movie_id": r[4], "note": r[5] or "", "is_read": bool(r[6]),
+                "created_at": str(r[7] or ""), "rec_id": r[0],
+            })
+
+        # Söz beğenileri (son 20)
+        cur = await db.execute(
+            """SELECT rl.review_id, rl.user_id, u.username, u.picture,
+                      mr.tmdb_id, mr.content, rl.created_at
+               FROM review_likes rl
+               JOIN users u ON u.id = rl.user_id
+               JOIN movie_reviews mr ON mr.id = rl.review_id
+               WHERE mr.user_id = ? AND rl.user_id != ?
+               ORDER BY rl.created_at DESC LIMIT 20""",
+            (uid, uid),
+        )
+        for r in await cur.fetchall():
+            items.append({
+                "type": "review_like", "id": f"like_{r[0]}_{r[1]}",
+                "from_user": {"id": r[1], "username": r[2] or "", "avatar": r[3] or ""},
+                "tmdb_id": r[4], "review_preview": (r[5] or "")[:60],
+                "created_at": str(r[6] or ""),
+            })
+
+        # Söz yanıtları (son 20)
+        try:
+            cur = await db.execute(
+                """SELECT rr.id, rr.user_id, u.username, u.picture,
+                          mr.tmdb_id, rr.content, rr.created_at
+                   FROM review_replies rr
+                   JOIN users u ON u.id = rr.user_id
+                   JOIN movie_reviews mr ON mr.id = rr.review_id
+                   WHERE mr.user_id = ? AND rr.user_id != ? AND rr.status = 'visible'
+                   ORDER BY rr.created_at DESC LIMIT 20""",
+                (uid, uid),
+            )
+            for r in await cur.fetchall():
+                items.append({
+                    "type": "review_reply", "id": f"reply_{r[0]}",
+                    "from_user": {"id": r[1], "username": r[2] or "", "avatar": r[3] or ""},
+                    "tmdb_id": r[4], "reply_preview": (r[5] or "")[:60],
+                    "created_at": str(r[6] or ""),
+                })
+        except Exception:
+            pass
+
+    # Kronolojik sırala
+    items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    # Film meta verisini doldur
+    movie_ids = list({
+        i.get("movie_id") or i.get("tmdb_id")
+        for i in items if i.get("movie_id") or i.get("tmdb_id")
+    })
+    meta = {}
+    if movie_ids:
+        meta = await cache.get_movies_meta_by_ids(movie_ids)
+        await _fill_missing_posters(meta, movie_ids)
+    for i in items:
+        mid = i.get("movie_id") or i.get("tmdb_id")
+        if mid and mid in meta:
+            m = meta[mid]
+            i["movie_title"] = m.get("title", "")
+            i["poster_url"] = m.get("poster_url", "")
+
+    return {"notifications": items[:50]}
+
+
 @router.get("/feed")
 async def social_feed(user: dict = Depends(get_current_user)):
     """Birleşik sosyal akış: arkadaş mood'ları + aktivite + öneriler."""

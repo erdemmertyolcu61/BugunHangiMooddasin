@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMood } from '../context/MoodContext';
-import { ChevronLeft, Send, RefreshCw, Brain, Clock, TrendingUp, Gem } from 'lucide-react';
+import { ChevronLeft, Send, RefreshCw, Brain, Clock, TrendingUp, Gem, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postConfusedRecommendation, proxyImageUrl, addToWatchlist, toggleWatched } from '../services/api';
 import OptimizedImage from '../components/OptimizedImage';
@@ -11,6 +11,7 @@ import { playMoodAudio } from '../utils/moodAudioManager';
 import LottieAnimation from '../components/LottieAnimation';
 import { track, EVENTS } from '../utils/analytics';
 import useDocumentMeta from '../utils/useDocumentMeta';
+import useSpeechRecognition from '../hooks/useSpeechRecognition';
 
 const QUICK_MOODS = [
   {
@@ -100,6 +101,24 @@ export default function KafanMiKarisik() {
   // Film detail modal — opens in-place instead of navigating away
   const [detailMovieId, setDetailMovieId] = useState(null);
   const [detailInitialMovie, setDetailInitialMovie] = useState(null);
+
+  // Speech Recognition Hook
+  const { isSupported, isListening, startListening, stopListening } = useSpeechRecognition({
+    onResult: (transcript) => {
+      setText(prev => (prev ? prev + ' ' : '') + transcript);
+    },
+    onError: (err) => {
+      console.error('Speech recognition error callback:', err);
+    }
+  });
+
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
 
   useEffect(() => {
     if (loading) {
@@ -264,13 +283,32 @@ export default function KafanMiKarisik() {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
                 }}
               />
+              {isSupported && (
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  className={`absolute bottom-8 right-[6.5rem] w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                    isListening
+                      ? 'bg-red-600 text-white shadow-[0_0_25px_rgba(220,38,38,0.6)] animate-pulse'
+                      : 'bg-white/10 hover:bg-white/20 text-[#f5f2eb]/70 hover:text-[#f5f2eb] border border-white/10'
+                  }`}
+                  title={isListening ? 'Dinlemeyi Durdur' : 'Sesle Yaz'}
+                >
+                  {isListening ? <MicOff size={18} className="animate-bounce" /> : <Mic size={18} />}
+                </button>
+              )}
               <button
                 onClick={() => analyze()}
                 disabled={!text.trim()}
-                className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-[#ffbf00] hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all shadow-[0_0_20px_rgba(255,191,0,0.3)]"
+                className="absolute bottom-8 right-8 w-12 h-12 rounded-full bg-[#ffbf00] hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all shadow-[0_0_20px_rgba(255,191,0,0.3)]"
               >
                 <Send size={18} className="text-[#120d0b]" />
               </button>
+              {isListening && (
+                <p className="text-xs text-red-500 font-serif italic text-center mt-2 animate-pulse">
+                  Dinleniyor... Konuşun
+                </p>
+              )}
             </div>
 
             {/* Action buttons */}

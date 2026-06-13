@@ -8,6 +8,7 @@ import {
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import { proxyImageUrl, unrecommendFromCommunity, getMyCommunityRecommendations, reactToRecommendation } from '../../services/api';
 import RecommendMovieSheet from '../RecommendMovieSheet';
+import UserSearch from '../social/UserSearch';
 
 const sanitize = (str) =>
   String(str ?? '').replace(/[<>{}$]/g, '').replace(/javascript:/gi, '').trim();
@@ -155,6 +156,7 @@ export default function ProfileSocial({
     { id: 'requests', icon: UserPlus, count: requests.length, pulse: requests.length > 0 },
     { id: 'shares', icon: Bell, count: shares.length + sent.length },
     { id: 'community', icon: UsersRound, count: communityRecs.length },
+    { id: 'discover', icon: Search, count: null },
   ];
 
   const tabLabels = {
@@ -162,6 +164,7 @@ export default function ProfileSocial({
     requests: 'İstekler',
     shares: 'Öneriler',
     community: 'Topluluğa',
+    discover: 'Keşfet',
   };
 
   return (
@@ -546,6 +549,18 @@ export default function ProfileSocial({
                 </AnimatePresence>
                 </>
               )}
+            </motion.div>
+          )}
+
+          {activeTab === 'discover' && (
+            <motion.div key="discover"
+              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
+            >
+              <UserSearch onViewProfile={(username) => {
+                const friend = friends.find((f) => f.username === username);
+                if (friend) onFriendClick?.(friend);
+              }} />
             </motion.div>
           )}
         </AnimatePresence>

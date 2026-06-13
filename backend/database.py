@@ -797,6 +797,41 @@ class MovieCache:
                     PRIMARY KEY (review_id, user_id)
                 )
             """)
+            # review_replies — Söz yanıtları (thread)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS review_replies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    review_id INTEGER NOT NULL REFERENCES movie_reviews(id),
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    content TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'visible',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_replies_review ON review_replies(review_id)"
+            )
+            # weekly_challenges — Haftalık topluluk sorusu
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS weekly_challenges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question TEXT NOT NULL,
+                    week_key TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # challenge_responses — Haftalık soruya verilen film cevapları
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS challenge_responses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    challenge_id INTEGER NOT NULL REFERENCES weekly_challenges(id),
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    tmdb_id INTEGER NOT NULL,
+                    comment TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(challenge_id, user_id)
+                )
+            """)
             # user_lists public paylaşım kolonları
             for _col_mig in (
                 "ALTER TABLE user_lists ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0",
@@ -997,6 +1032,31 @@ class MovieCache:
             "ALTER TABLE user_lists ADD COLUMN slug TEXT",
             "ALTER TABLE user_lists ADD COLUMN description TEXT",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_lists_slug ON user_lists(slug) WHERE slug IS NOT NULL",
+            # Sosyal v2: yanıtlar, haftalık challenge
+            """CREATE TABLE IF NOT EXISTS review_replies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                review_id INTEGER NOT NULL REFERENCES movie_reviews(id),
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                content TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'visible',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_replies_review ON review_replies(review_id)",
+            """CREATE TABLE IF NOT EXISTS weekly_challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question TEXT NOT NULL,
+                week_key TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""",
+            """CREATE TABLE IF NOT EXISTS challenge_responses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                challenge_id INTEGER NOT NULL REFERENCES weekly_challenges(id),
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                tmdb_id INTEGER NOT NULL,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(challenge_id, user_id)
+            )""",
         ):
             try:
                 await _turso_client.execute(mig)

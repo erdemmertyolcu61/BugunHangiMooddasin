@@ -5,6 +5,7 @@ import { getFriendProfile, proxyImageUrl } from '../../services/api';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import ProfileStats from './ProfileStats';
 import ProfileTasteMap from './ProfileTasteMap';
+import TasteCompatibility from '../social/TasteCompatibility';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -227,6 +228,9 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
                       savedCount={profile.saved_count || 0}
                       thisMonthCount={profile.this_month_count || 0}
                     />
+
+                    {/* Tat Uyumu */}
+                    <TasteCompatibility friendId={profile.id} />
 
                     {/* Taste Map — Üstad analizi gizli, sadece DNA + türler + dönem + imza */}
                     {profile.taste_map && (

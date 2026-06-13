@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Quote, Heart, MoreHorizontal, Flag, Trash2, PenLine } from 'lucide-react';
-import { getMovieReviews, deleteMovieReview, likeReview, isLoggedIn } from '../../services/api';
+import { Quote, Heart, MoreHorizontal, Flag, Trash2, PenLine, MessageCircle, Send, X } from 'lucide-react';
+import { getMovieReviews, deleteMovieReview, likeReview, isLoggedIn, getReviewReplies, createReviewReply, deleteReviewReply } from '../../services/api';
 import { resolveAvatarUrl } from '../../utils/apiConfig';
 import { useAuth } from '../../context/AuthContext';
 import ReviewComposerSheet from './ReviewComposerSheet';
@@ -17,6 +17,80 @@ function timeAgo(dateStr) {
   return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short' }).format(d);
 }
 
+function ReplyThread({ reviewId }) {
+  const loggedIn = isLoggedIn();
+  const { user: authUser } = useAuth();
+  const [replies, setReplies] = useState(null);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    getReviewReplies(reviewId).then((d) => {
+      if (alive) setReplies(d?.replies || []);
+    }).catch(() => { if (alive) setReplies([]); });
+    return () => { alive = false; };
+  }, [reviewId]);
+
+  const submit = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    try {
+      const data = await createReviewReply(reviewId, text.trim());
+      if (data?.reply) setReplies((r) => [...(r || []), data.reply]);
+      setText('');
+    } catch { /* */ }
+    setSending(false);
+  };
+
+  const remove = async (replyId) => {
+    setReplies((r) => (r || []).filter((x) => x.id !== replyId));
+    try { await deleteReviewReply(reviewId, replyId); } catch { /* */ }
+  };
+
+  return (
+    <div className="mt-2 ml-10 border-l border-white/[0.06] pl-3 space-y-2">
+      {replies === null ? (
+        <div className="h-6 w-24 bg-white/5 animate-pulse rounded" />
+      ) : replies.map((r) => (
+        <div key={r.id} className="flex items-start gap-2">
+          <span className="w-5 h-5 rounded-full overflow-hidden bg-white/10 shrink-0 ring-1 ring-amber/10">
+            {r.avatar
+              ? <img src={resolveAvatarUrl(r.avatar)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              : <span className="w-full h-full flex items-center justify-center text-[9px] font-bold text-amber/60">{(r.username || '?')[0].toUpperCase()}</span>}
+          </span>
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-semibold text-amber/60">@{r.username}</span>
+            <span className="text-[9px] text-white/20 ml-1.5">{timeAgo(r.created_at)}</span>
+            <p className="text-[12px] font-serif text-ivory/80 leading-snug break-words">{r.content}</p>
+          </div>
+          {r.is_mine && (
+            <button onClick={() => remove(r.id)} className="p-0.5 text-white/20 hover:text-rose-400 transition-colors">
+              <X size={11} />
+            </button>
+          )}
+        </div>
+      ))}
+      {loggedIn && (
+        <div className="flex items-center gap-1.5 mt-1">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            placeholder="Yanıt yaz..."
+            maxLength={280}
+            className="flex-1 px-2.5 py-1.5 bg-white/5 border border-white/8 rounded-full text-[12px] max-sm:text-[16px] text-ivory/80 placeholder:text-white/25 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber/40"
+          />
+          <button onClick={submit} disabled={!text.trim() || sending}
+            className="p-1.5 rounded-full bg-amber/15 text-amber hover:bg-amber/25 disabled:opacity-30 transition-all">
+            <Send size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FilmReviews({ movie }) {
   const movieId = movie?.id || movie?.tmdb_id;
   const loggedIn = isLoggedIn();
@@ -26,6 +100,7 @@ export default function FilmReviews({ movie }) {
   const [reportTarget, setReportTarget] = useState(null);
   const [menuFor, setMenuFor] = useState(null);
   const [revealed, setRevealed] = useState(new Set());
+  const [openReplies, setOpenReplies] = useState(new Set());
 
   const load = useCallback(async () => {
     if (!movieId) return;
@@ -181,8 +256,14 @@ export default function FilmReviews({ movie }) {
                       <Heart size={13} fill={r.liked_by_me ? 'currentColor' : 'none'} />
                       {r.like_count > 0 && <span className="text-[11px] font-bold">{r.like_count}</span>}
                     </button>
+                    <button
+                      onClick={() => setOpenReplies((s) => { const n = new Set(s); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full text-white/35 hover:text-amber/70 transition-all">
+                      <MessageCircle size={13} />
+                    </button>
                   </div>
                 </div>
+                {openReplies.has(r.id) && <ReplyThread reviewId={r.id} />}
               </motion.div>
             );
           })}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus, Users, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus, Users, RotateCcw, Mic, MicOff } from 'lucide-react';
+import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched, saveRating, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +33,30 @@ export default function Defterim() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
+
+  // Speech Recognition Hook
+  const { isSupported, isListening, startListening, stopListening } = useSpeechRecognition({
+    onResult: (transcript) => {
+      setNoteDraft(prev => (prev ? prev + ' ' : '') + transcript);
+    },
+    onError: (err) => {
+      console.error('Speech recognition error in Defterim:', err);
+    }
+  });
+
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  useEffect(() => {
+    if (editingId === null) {
+      stopListening();
+    }
+  }, [editingId, stopListening]);
   const [tasteMap, setTasteMap] = useState(null);
   const [tasteLoading, setTasteLoading] = useState(true);
   const [defterTab, setDefterTab] = useState('movies'); // 'movies' | 'lists'
@@ -577,13 +602,32 @@ export default function Defterim() {
                                         placeholder="Bu başyapıt sende nasıl bir iz bıraktı?"
                                         className="w-full h-28 sm:h-40 bg-black/40 border border-white/10 rounded-xl sm:rounded-[2rem] p-4 sm:p-8 text-sm sm:text-2xl font-playfair italic text-ivory focus:outline-none focus:border-amber/40 no-scrollbar transition-all"
                                     />
-                                    <div className="flex gap-3 sm:gap-4">
+                                    <div className="flex gap-3 sm:gap-4 items-center flex-wrap">
                                         <button onClick={() => handleSaveNote(movie.tmdb_id)} className="px-6 sm:px-10 py-3 sm:py-4 bg-amber text-bg font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] rounded-full flex items-center gap-2 sm:gap-3">
                                             <Save size={12} className="sm:w-[14px] sm:h-[14px]" /> Kaydet
                                         </button>
                                         <button onClick={() => setEditingId(null)} className="px-6 sm:px-10 py-3 sm:py-4 bg-white/5 text-ivory/40 font-bold uppercase text-[9px] sm:text-[10px] tracking-[0.2em] rounded-full">
                                             İptal
                                         </button>
+                                        {isSupported && (
+                                            <button
+                                                type="button"
+                                                onClick={handleMicClick}
+                                                className={`w-9 h-9 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all ${
+                                                    isListening
+                                                        ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)] animate-pulse'
+                                                        : 'bg-white/5 hover:bg-white/10 text-ivory/40 hover:text-ivory border border-white/10'
+                                                }`}
+                                                title={isListening ? 'Dinlemeyi Durdur' : 'Sesle Yaz'}
+                                            >
+                                                {isListening ? <MicOff size={16} className="animate-bounce" /> : <Mic size={16} />}
+                                            </button>
+                                        )}
+                                        {isListening && (
+                                            <span className="text-[10px] text-red-500 font-serif italic animate-pulse">
+                                                Dinleniyor... Konuşun
+                                            </span>
+                                        )}
                                     </div>
                                 </motion.div>
                             ) : (

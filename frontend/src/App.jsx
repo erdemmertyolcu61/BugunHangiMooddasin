@@ -64,6 +64,7 @@ const Gizlilik = lazyRetry(() => import('./pages/Gizlilik'));
 const MoodOracle = lazyRetry(() => import('./pages/MoodOracle'));
 const MoodFeed = lazyRetry(() => import('./components/social/MoodFeed'));
 const PublicList = lazyRetry(() => import('./pages/PublicList'));
+const Bildirimler = lazyRetry(() => import('./pages/Bildirimler'));
 
 import { useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
@@ -153,6 +154,7 @@ function AppContent() {
             <Route path="/listeler" element={<Listeler />} />
             <Route path="/listeler/:slug" element={<Listeler />} />
             <Route path="/liste/:slug" element={<PublicList />} />
+            <Route path="/bildirimler" element={<Bildirimler />} />
             <Route path="/profil" element={<Profil />} />
             <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="/search" element={<SearchPage />} />
