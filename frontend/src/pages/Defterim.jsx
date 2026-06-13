@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus, Users, RotateCcw, Mic, MicOff } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Save, X, Book, Star, MessageCircle, Check, Brain, Heart, RefreshCw, Eye, EyeOff, Share2, Copy, Film, ListPlus, Users, RotateCcw, Mic, MicOff, BookOpen } from 'lucide-react';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWatchlist, removeFromWatchlist, saveNote, getNote, getTasteMap, proxyImageUrl, toggleWatched, saveRating, recommendToCommunity, unrecommendFromCommunity, getCommunityRecommendations } from '../services/api';
@@ -11,6 +11,7 @@ import RatingControl from '../components/RatingControl';
 import CustomListsPanel from '../components/CustomListsPanel';
 import FilmDetailModal from '../components/FilmDetailModal';
 import { useAchievements } from '../components/AchievementCelebration';
+import { ListelerAnasayfa } from './Listeler';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p/w1280';
 
@@ -297,23 +298,26 @@ export default function Defterim() {
           </div>
         ) : (
           <>
-            {/* Sekme şeridi: Filmler / Listelerim */}
-            <div className="flex gap-1 p-1 mb-8 sm:mb-10 rounded-full bg-white/5 border border-white/10 max-w-sm">
+            {/* Sekme şeridi: Filmler / Listelerim / Platform Listeleri */}
+            <div className="flex gap-1 p-1 mb-8 sm:mb-10 rounded-full bg-white/5 border border-white/10 max-w-md">
               {[
                 { id: 'movies', label: 'Filmler', icon: Film },
                 { id: 'lists', label: 'Listelerim', icon: ListPlus },
+                { id: 'platform_lists', label: 'Platform Listeleri', icon: BookOpen },
               ].map(t => (
                 <button key={t.id} onClick={() => setDefterTab(t.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-[0.15em] transition-all ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.05em] sm:tracking-[0.1em] transition-all ${
                     defterTab === t.id ? 'bg-amber/15 text-amber border border-amber/20' : 'text-ivory/40 hover:text-ivory/60'
                   }`}>
-                  <t.icon size={13} /> {t.label}
+                  <t.icon size={13} className="shrink-0" /> {t.label}
                 </button>
               ))}
             </div>
 
             {defterTab === 'lists' ? (
               <CustomListsPanel user={user} />
+            ) : defterTab === 'platform_lists' ? (
+              <ListelerAnasayfa embed={true} />
             ) : savedMovies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 sm:py-40 space-y-8 sm:space-y-10 px-4">
              <div className="w-28 h-28 sm:w-40 sm:h-40 rounded-full border border-white/5 flex items-center justify-center opacity-10 bg-white/5"><Book size={48} /></div>

@@ -36,7 +36,7 @@ const MOOD_COLORS = {
 const DEFAULT_COLOR = { bg: 'from-zinc-900/70 to-black', accent: '#a1a1aa' };
 
 // ─── Liste Listesi Sayfası ───────────────────────────────────
-function ListelerAnasayfa() {
+export function ListelerAnasayfa({ embed = false }) {
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [award, setAward] = useState(null); // bugün/yakında verilen ödül
@@ -53,31 +53,33 @@ function ListelerAnasayfa() {
   }, []);
 
   return (
-    <div className="min-h-screen pb-32 pt-8 px-4 sm:px-8 max-w-5xl mx-auto">
+    <div className={embed ? "pb-16" : "min-h-screen pb-32 pt-8 px-4 sm:px-8 max-w-5xl mx-auto"}>
       {/* Başlık */}
-      <div className="mb-12 sm:mb-16">
-        <button
-          onClick={goBack}
-          className="flex items-center gap-2 text-ivory/55 hover:text-ivory transition-colors mb-8 group"
-        >
-          <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-          <span className="text-[11px] font-bold uppercase tracking-widest font-sans">
-            {selectedMood ? 'Keşfete Dön' : 'Ana Sayfa'}
-          </span>
-        </button>
+      {!embed && (
+        <div className="mb-12 sm:mb-16">
+          <button
+            onClick={goBack}
+            className="flex items-center gap-2 text-ivory/55 hover:text-ivory transition-colors mb-8 group"
+          >
+            <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span className="text-[11px] font-bold uppercase tracking-widest font-sans">
+              {selectedMood ? 'Keşfete Dön' : 'Ana Sayfa'}
+            </span>
+          </button>
 
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-amber/15 flex items-center justify-center flex-shrink-0">
-            <BookOpen size={21} className="text-amber" />
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-11 h-11 rounded-2xl bg-amber/15 flex items-center justify-center flex-shrink-0">
+              <BookOpen size={21} className="text-amber" />
+            </div>
+            <h1 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight text-ivory">
+              Üstadın Listeleri
+            </h1>
           </div>
-          <h1 className="text-3xl sm:text-5xl font-serif font-bold tracking-tight text-ivory">
-            Üstadın Listeleri
-          </h1>
+          <p className="text-ivory/60 font-serif italic text-base sm:text-lg leading-relaxed">
+            Sinemanın en prestijli ödüllerinin güncel kazananları — her biri bir zafer.
+          </p>
         </div>
-        <p className="text-ivory/60 font-serif italic text-base sm:text-lg leading-relaxed">
-          Sinemanın en prestijli ödüllerinin güncel kazananları — her biri bir zafer.
-        </p>
-      </div>
+      )}
 
       {/* Ödül günü banner'ı */}
       {award && (
