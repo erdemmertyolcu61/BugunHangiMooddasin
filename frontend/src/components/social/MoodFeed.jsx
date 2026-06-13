@@ -96,14 +96,28 @@ export default function MoodFeed() {
     >
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="flex gap-2">
-            {[0, 1, 2].map(i => (
-              <motion.div key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: '#d4af37' }}
-                animate={{ opacity: [0.2, 1, 0.2] }}
-                transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.25 }} />
-            ))}
+        <div className="space-y-6 py-4">
+          <div className="animate-pulse">
+            <div className="h-4 bg-white/8 rounded w-1/3 mb-4" />
+            <div className="flex gap-3 overflow-hidden">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="w-20 shrink-0 space-y-2">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-white/8" />
+                  <div className="h-2.5 bg-white/6 rounded w-full" />
+                </div>
+              ))}
+            </div>
           </div>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="animate-pulse flex gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+              <div className="w-10 h-10 rounded-full bg-white/8 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 bg-white/8 rounded w-2/5" />
+                <div className="h-3 bg-white/6 rounded w-4/5" />
+              </div>
+              <div className="w-10 h-[60px] rounded-lg bg-white/5 shrink-0" />
+            </div>
+          ))}
         </div>
       ) : (
         <div className="space-y-6 sm:space-y-8">

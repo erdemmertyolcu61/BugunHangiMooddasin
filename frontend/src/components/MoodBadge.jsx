@@ -19,7 +19,9 @@ const HEX = {
   'Bilinmiyor':    '#8A7F70',
 };
 
-export default function MoodBadge({ mood, size = 'sm' }) {
+import { memo } from 'react';
+
+function MoodBadge({ mood, size = 'sm' }) {
   const config = MOOD_CONFIG[mood] || MOOD_CONFIG['Bilinmiyor'];
   const hex = HEX[mood] || HEX['Bilinmiyor'];
   const sizeClass = size === 'lg' ? 'px-3 py-1 text-xs' : 'px-2 py-0.5 text-[10px]';
@@ -38,3 +40,5 @@ export default function MoodBadge({ mood, size = 'sm' }) {
     </span>
   );
 }
+
+export default memo(MoodBadge);

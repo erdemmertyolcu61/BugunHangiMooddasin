@@ -7,12 +7,14 @@ import { ThemeProvider } from './context/ThemeContext';
 import SplashScreen from './components/SplashScreen';
 import AudioPlayer from './components/AudioPlayer';
 import BottomNav from './components/BottomNav';
+import Header from './components/Header';
 import UsernameOnboardingModal from './components/UsernameOnboardingModal';
 import ScrollChrome from './components/ScrollChrome';
 import ThemeToggle from './components/ThemeToggle';
 import GamePeekTab from './components/GamePeekTab';
 import AuraBackground from './components/AuraBackground.jsx';
 import ConsentBanner from './components/ConsentBanner';
+import OfflineBanner from './components/OfflineBanner';
 import PushPrompt from './components/PushPrompt';
 import StreakCelebration from './components/StreakCelebration';
 
@@ -127,11 +129,13 @@ function AppContent() {
 
   return (
     <>
+      <OfflineBanner />
       <SplashScreen />
       <ScrollToTop />
       <ScrollChrome />
       <AuraBackground />
       <ThemeToggle />
+      <Header />
       <GamePeekTab />
       <AudioPlayer />
       <PushPrompt />

@@ -290,7 +290,12 @@ nav.sticky,
     transition: transform 0.25s ease, opacity 0.25s ease, backdrop-filter 0.25s ease;
     will-change: transform, opacity;
   }
-  html[data-chrome="down"] header.sticky {
+  @media (min-width: 768px) {
+    header.sticky:not(.desktop-header) {
+      top: 4rem;
+    }
+  }
+  html[data-chrome="down"] header.sticky:not(.desktop-header) {
     transform: translateY(-110%);
     opacity: 0;
     pointer-events: none;

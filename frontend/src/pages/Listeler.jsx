@@ -106,7 +106,18 @@ function ListelerAnasayfa() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-52 rounded-3xl bg-white/5 animate-pulse" />
+            <div key={i} className="animate-pulse p-7 sm:p-9 rounded-[1.75rem] bg-white/[0.03] border border-white/5">
+              <div className="h-1 w-10 rounded-full bg-white/8 mb-6" />
+              <div className="h-6 bg-white/8 rounded w-3/5 mb-3" />
+              <div className="space-y-2 mb-6">
+                <div className="h-3.5 bg-white/6 rounded w-full" />
+                <div className="h-3.5 bg-white/6 rounded w-2/3" />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-6 bg-white/8 rounded-full w-24" />
+                <div className="h-3 bg-white/6 rounded w-16" />
+              </div>
+            </div>
           ))}
         </div>
       ) : (

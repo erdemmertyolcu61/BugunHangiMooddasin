@@ -18,8 +18,8 @@ export async function initMonitoring() {
       environment: import.meta.env.MODE,
       // Düşük örnekleme — maliyet/gürültü dengesi
       tracesSampleRate: 0.1,
-      replaysSessionSampleRate: 0,
-      replaysOnErrorSampleRate: 0,
+      replaysSessionSampleRate: 0.05,
+      replaysOnErrorSampleRate: 1.0,
     });
     _sentry = Sentry;
     _ready = true;

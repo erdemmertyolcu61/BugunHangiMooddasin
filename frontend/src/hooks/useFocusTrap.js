@@ -23,6 +23,12 @@ export function useFocusTrap(active = true) {
 
     const previouslyFocused = document.activeElement;
 
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
     const FOCUSABLE = [
       'a[href]', 'button:not([disabled])', 'textarea:not([disabled])',
       'input:not([disabled])', 'select:not([disabled])',
@@ -66,7 +72,11 @@ export function useFocusTrap(active = true) {
     container.addEventListener('keydown', handleKeyDown);
     return () => {
       container.removeEventListener('keydown', handleKeyDown);
-      // Odağı geri yükle
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
       if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
         previouslyFocused.focus();
       }

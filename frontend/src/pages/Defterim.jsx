@@ -276,10 +276,22 @@ export default function Defterim() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-16 pb-nav">
         {loading ? (
-            <div className="flex flex-col items-center justify-center py-40 gap-6">
-                <Book className="text-amber animate-pulse" size={48} />
-                <p className="text-xl font-serif italic text-ivory/20">Defterin sayfaları çevriliyor...</p>
+          <div className="space-y-4 py-4">
+            <div className="flex gap-1 p-1 mb-8 rounded-full bg-white/5 border border-white/5 max-w-sm animate-pulse">
+              <div className="h-9 flex-1 rounded-full bg-white/8" />
+              <div className="h-9 flex-1 rounded-full bg-white/4" />
             </div>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="animate-pulse flex gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                <div className="w-16 h-24 rounded-xl bg-white/8 shrink-0" />
+                <div className="flex-1 space-y-2.5 py-1">
+                  <div className="h-4 bg-white/8 rounded w-3/5" />
+                  <div className="h-3 bg-white/6 rounded w-2/5" />
+                  <div className="h-3 bg-white/6 rounded w-1/4" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <>
             {/* Sekme şeridi: Filmler / Listelerim */}

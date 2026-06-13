@@ -3,10 +3,17 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 const ThemeContext = createContext(null);
 const KEY = 'fc_theme';
 
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved) return saved;
+  } catch {}
+  if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light';
+  return 'dark';
+}
+
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem(KEY) || 'dark'; } catch { return 'dark'; }
-  });
+  const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

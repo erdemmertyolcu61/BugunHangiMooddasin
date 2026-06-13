@@ -2,8 +2,9 @@
 User-agent: *
 Allow: /
 
-# Backend OG/paylaşım ve API yolları indekslenmesin (insan SPA'ya yönlenir)
 Disallow: /api/
 Disallow: /share/
+Disallow: /profil
+Disallow: /defterim
 
-Sitemap: https://bug-n-hangi-mooddas-n.vercel.app/sitemap.xml
+Sitemap: https://sinemood.app/sitemap.xml

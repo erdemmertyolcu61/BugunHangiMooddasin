@@ -1,38 +1,70 @@
-export default function Header({ query, onQuery }) {
-  return (
-    <header className="sticky top-0 z-50 border-b border-line bg-paper-warm/85 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-[1380px] grid-cols-[auto_1fr_auto] items-center gap-8 px-8 py-4">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-full border border-ink bg-accent">
-            <span className="block h-2.5 w-2.5 rounded-full bg-paper-warm shadow-[0_0_0_4px_var(--color-accent),0_0_0_5px_var(--color-ink)]" />
-          </div>
-          <div>
-            <div className="font-mono text-sm font-semibold tracking-[0.5px] text-ink">FİLM ELEŞTİRMENİ</div>
-            <div className="font-mono text-[10px] tracking-[0.3px] text-ink-mute">A small record shop for cinema · Est. 2025</div>
-          </div>
-        </div>
+import { NavLink, useLocation } from 'react-router-dom';
+import { Clapperboard, BookOpen, Compass, BookMarked, User, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
-        {/* Search */}
-        <div className="flex items-center gap-2.5 rounded-full border border-line bg-white/35 px-4 py-2 focus-within:border-ink focus-within:bg-white/55">
-          <span className="font-mono text-[11px] tracking-[0.5px] text-ink-mute">FIND →</span>
-          <input
-            className="flex-1 border-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-mute"
-            placeholder="başlık, yönetmen veya tür…"
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-          />
-          {query && (
-            <button onClick={() => onQuery("")} className="text-lg text-ink-mute hover:text-ink">×</button>
-          )}
-        </div>
+const NAV_ITEMS = [
+  { label: 'Moodlar', icon: Clapperboard, path: '/', end: true },
+  { label: 'Listeler', icon: BookOpen, path: '/listeler' },
+  { label: 'Kafan mı Karışık', icon: Compass, path: '/kafan-mi-karisik' },
+  { label: 'Defterim', icon: BookMarked, path: '/defterim' },
+  { label: 'Profil', icon: User, path: '/profil' },
+];
+
+export default function Header() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
+  const { pathname } = useLocation();
+
+  const isDiscoverActive = pathname === '/' || pathname === '/moodlar' || pathname.startsWith('/discover');
+
+  return (
+    <header className="desktop-header hidden md:block sticky top-0 z-[95] border-b border-white/8 bg-bg/85 backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 lg:px-8 h-16">
+        {/* Brand */}
+        <NavLink to="/" className="flex items-center gap-3 shrink-0 group">
+          <div className="w-8 h-8 rounded-full bg-amber/15 border border-amber/30 flex items-center justify-center group-hover:bg-amber/25 transition-colors">
+            <span className="text-amber text-xs font-bold">S</span>
+          </div>
+          <span className="text-[13px] font-bold uppercase tracking-[0.25em] text-ivory/80 group-hover:text-ivory transition-colors">
+            Sinemood
+          </span>
+        </NavLink>
 
         {/* Nav */}
-        <nav className="hidden gap-5 md:flex">
-          {["RAFLAR", "MODLAR", "DEFTERIM"].map(item => (
-            <span key={item} className="cursor-pointer font-mono text-[11px] tracking-[1px] text-ink-soft hover:text-accent">{item}</span>
-          ))}
+        <nav className="flex items-center gap-1" aria-label="Ana menü">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.path === '/' ? isDiscoverActive : pathname.startsWith(item.path);
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${
+                  isActive
+                    ? 'text-amber bg-amber/10'
+                    : 'text-ivory/45 hover:text-ivory/70 hover:bg-white/5'
+                }`}
+              >
+                <Icon size={15} strokeWidth={isActive ? 2.4 : 1.8} />
+                {item.label}
+              </NavLink>
+            );
+          })}
         </nav>
+
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          title={isDark ? 'Latte temasına geç' : 'Espresso temasına geç'}
+          aria-label="Tema değiştir"
+          className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-white/10 text-amber hover:bg-white/10 hover:border-amber/30 transition-all"
+        >
+          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em]">
+            {isDark ? 'Latte' : 'Espresso'}
+          </span>
+        </button>
       </div>
     </header>
   );
