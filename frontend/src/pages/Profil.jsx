@@ -532,7 +532,7 @@ export default function Profil() {
           <div className="flex gap-1 p-1 rounded-full bg-[#1c1512]/90 border border-white/[0.06]">
             {[
               { id: 'achievements', label: 'Başarımlar', short: 'Başarımlar', icon: Trophy },
-              { id: 'social', label: 'Arkadaşlar', short: 'Arkadaşlar', icon: Users },
+              { id: 'social', label: 'Sosyal', short: 'Sosyal', icon: Users },
               { id: 'settings', label: 'Ayarlar', short: 'Ayarlar', icon: Settings },
             ].map(tab => (
               <button key={tab.id}
