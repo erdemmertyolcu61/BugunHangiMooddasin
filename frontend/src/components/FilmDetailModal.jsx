@@ -132,16 +132,17 @@ export default function FilmDetailModal({ movieId, onClose, headerBadge = null, 
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    const prevHtml = html.style.overflow;
-    const prevBody = body.style.overflow;
-    const prevOB = body.style.overscrollBehavior;
     html.style.overflow = 'hidden';
     body.style.overflow = 'hidden';
     body.style.overscrollBehavior = 'none';
     return () => {
-      html.style.overflow = prevHtml;
-      body.style.overflow = prevBody;
-      body.style.overscrollBehavior = prevOB;
+      // Sadece başka aktif modal/dialog yoksa scroll kilidini tamamen aç
+      const otherModals = document.querySelectorAll('[role="dialog"]');
+      if (otherModals.length <= 1) {
+        html.style.overflow = '';
+        body.style.overflow = '';
+        body.style.overscrollBehavior = '';
+      }
     };
   }, []);
 

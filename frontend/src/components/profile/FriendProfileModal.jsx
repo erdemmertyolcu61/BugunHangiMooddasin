@@ -50,9 +50,13 @@ export default function FriendProfileModal({ friend, onClose, onDetailMovie }) {
   }, [friend?.id]);
 
   useEffect(() => {
-    const prev = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    return () => { document.documentElement.style.overflow = prev; };
+    return () => {
+      const otherModals = document.querySelectorAll('[role="dialog"]');
+      if (otherModals.length <= 1) {
+        document.documentElement.style.overflow = '';
+      }
+    };
   }, []);
 
   useEffect(() => {
