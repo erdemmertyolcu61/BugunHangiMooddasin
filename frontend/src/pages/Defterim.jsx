@@ -246,30 +246,8 @@ export default function Defterim() {
               <h1 className="font-serif text-3xl sm:text-6xl font-bold tracking-tighter">Defterim<span className="text-amber">.</span></h1>
             </div>
           </div>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <button
-              onClick={() => navigate('/kafan-mi-karisik')}
-              className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 rounded-full hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] animate-pulse"
-            >
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-bg">Kafan mı Karışık?</span>
-            </button>
-            <div className="flex items-center gap-3 sm:gap-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] opacity-40">
-              <Book size={16} className="text-amber" /> {savedMovies.length} KAYITLI
-            </div>
-            <button
-              onClick={() => navigate('/profil')}
-              title="Profilim"
-              className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
-            >
-              <span className="w-8 h-8 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
-                {user?.picture
-                  ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  : <span className="font-serif text-sm font-bold text-amber">{user ? (user.username || user.name || '?').slice(0, 1).toUpperCase() : '?'}</span>}
-              </span>
-              <span className="inline sm:inline font-sans text-[11px] sm:text-[13px] font-semibold text-ivory/80 max-w-[140px] sm:max-w-[120px] truncate">
-                {user?.username || user?.name || (user ? 'Profilim' : 'Giriş Yap')}
-              </span>
-            </button>
+          <div className="flex items-center gap-3 sm:gap-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] opacity-40">
+            <Book size={16} className="text-amber" /> {savedMovies.length} KAYITLI
           </div>
         </div>
       </header>

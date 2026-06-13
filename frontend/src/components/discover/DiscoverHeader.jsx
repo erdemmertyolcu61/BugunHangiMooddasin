@@ -77,39 +77,6 @@ export default function DiscoverHeader({ selectedMood, user, searchQuery, onSear
           </button>
         </div>
 
-        <div className="flex items-center gap-3 md:gap-4 md:shrink-0">
-          <button onClick={() => navigate('/kafan-mi-karisik')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-purple-600 border border-white/10 rounded-full hover:scale-105 transition-all group animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-bg">Kafan mı Karışık?</span>
-          </button>
-          <button onClick={onOpenQuiz}
-            title="Bugunku Ruh Halim"
-            className="hidden md:flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 bg-amber/90 hover:bg-amber text-bg rounded-full hover:scale-105 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 tap-target">
-            <Brain size={16} className="text-bg/80 shrink-0" />
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Bugunku Ruh Halim</span>
-          </button>
-          <button onClick={() => navigate('/listeler')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-            <BookOpen size={16} className="text-amber group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Listeler</span>
-          </button>
-          <button onClick={() => navigate('/defterim')} className="hidden md:flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-all group">
-            <Book size={16} className="text-amber group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Defterim</span>
-          </button>
-          <button
-            onClick={() => navigate('/profil')}
-            title={user ? 'Profilim' : 'Giriş Yap'}
-            className="hidden md:flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:border-amber/40 transition-all"
-          >
-            <span className="w-7 h-7 rounded-full overflow-hidden bg-amber/10 flex items-center justify-center shrink-0">
-              {user?.picture
-                ? <img src={resolveAvatarUrl(user.picture)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                : <Users size={13} className="text-amber/60" />}
-            </span>
-            <span className="font-sans text-[11px] font-semibold text-ivory/60 max-w-[100px] truncate">
-              {user?.username || user?.name || 'Giriş Yap'}
-            </span>
-          </button>
-        </div>
         </div>
       </div>
     </header>
