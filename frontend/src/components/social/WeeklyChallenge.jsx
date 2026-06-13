@@ -54,7 +54,6 @@ export default function WeeklyChallenge() {
   return (
     <section className="rounded-2xl bg-gradient-to-br from-amber-900/15 to-transparent border border-amber/15 p-4 sm:p-5">
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles size={16} className="text-amber" />
         <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-amber/60">Haftanın Sorusu</p>
       </div>
 

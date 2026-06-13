@@ -91,7 +91,6 @@ export default function TrendingStrip({ title = 'Bu Hafta Toplulukta' }) {
 function Header({ title }) {
   return (
     <div className="flex items-center gap-2.5 px-1 mb-3">
-      <Flame size={14} className="text-amber/60" />
       <p className="font-sans text-[11px] font-bold uppercase tracking-[0.25em] text-amber/50">{title}</p>
     </div>
   );

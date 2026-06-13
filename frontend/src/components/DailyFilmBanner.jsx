@@ -66,7 +66,6 @@ export default function DailyFilmBanner() {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <CalendarDays size={12} className="text-amber/60 shrink-0" />
                   <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber/50">
                     {dateLabel} — Üstad'ın Seçimi
                   </span>
