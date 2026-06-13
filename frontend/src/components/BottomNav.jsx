@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clapperboard, Compass, BookMarked, BookOpen, Brain } from 'lucide-react';
+import { Clapperboard, Compass, BookMarked, Brain, Activity } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Moodlar', icon: Clapperboard, path: '/', match: (p) => p === '/' || p === '/discover' },
   { label: 'Ruh Halim', icon: Brain, path: null, match: (p) => false },
-  { label: 'Listeler', icon: BookOpen, path: '/listeler', match: (p) => p.startsWith('/listeler') },
+  { label: 'Akış', icon: Activity, path: '/feed', match: (p) => p === '/feed' },
   { label: 'Kafan mı Karışık?', icon: Compass, path: '/kafan-mi-karisik', match: (p) => p === '/kafan-mi-karisik' },
   { label: 'Defterim', icon: BookMarked, path: '/defterim', match: (p) => p === '/defterim' },
 ];

@@ -30,7 +30,7 @@ export default function WeeklyChallenge() {
   useEffect(() => {
     if (query.length < 2) { setResults([]); return; }
     const t = setTimeout(() => {
-      searchMovies(query).then((d) => setResults(d?.results?.slice(0, 5) || [])).catch(() => {});
+      searchMovies(query).then((d) => setResults(d?.movies?.slice(0, 5) || [])).catch(() => {});
     }, 300);
     return () => clearTimeout(t);
   }, [query]);
