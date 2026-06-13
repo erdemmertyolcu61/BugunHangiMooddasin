@@ -510,7 +510,7 @@ export default function ProfileSocial({
                           vote_average: rec.vote_average, release_date: rec.release_date,
                         })}
                       >
-                        <div className="w-[50px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative">
+                        <div className="w-[50px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative self-start">
                           {rec.poster_url ? (
                             <img src={proxyImageUrl(rec.poster_url)} alt={rec.title}
                               className="w-full h-full object-cover" loading="lazy" />
@@ -603,7 +603,7 @@ function ShareCard({ share: s, direction, onDetail, onRetract, onReaction, local
         hover:border-white/[0.08] transition-all overflow-hidden"
     >
       {/* Poster thumbnail */}
-      <div className="w-[60px] sm:w-[72px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative cursor-pointer"
+      <div className="w-[60px] sm:w-[72px] shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-white/[0.03] relative cursor-pointer self-start"
         onClick={() => onDetail?.({
           id: s.movie_id, title: s.movie_title, poster_url: s.poster_url,
           vote_average: s.vote_average, release_date: s.release_date,
